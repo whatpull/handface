@@ -10,7 +10,7 @@ React, Vue, Svelte, 바닐라 JS 어디서든 동일하게 동작합니다.
 ## 설치
 
 ```bash
-npm install handface @mediapipe/tasks-vision
+npm install @whatpull/handface @mediapipe/tasks-vision
 ```
 
 > `@mediapipe/tasks-vision`은 peer dependency입니다.
@@ -20,7 +20,7 @@ npm install handface @mediapipe/tasks-vision
 ## 빠른 시작
 
 ```typescript
-import { HandControl } from 'handface';
+import { HandControl } from '@whatpull/handface';
 
 const control = new HandControl();
 
@@ -97,7 +97,7 @@ control.stop();
 
 ```tsx
 import { useEffect, useRef } from 'react';
-import { HandControl } from 'handface';
+import { HandControl } from '@whatpull/handface';
 
 export function useHandControl() {
   const controlRef = useRef<HandControl | null>(null);
@@ -119,7 +119,7 @@ export function useHandControl() {
 ```vue
 <script setup>
 import { onMounted, onUnmounted } from 'vue';
-import { HandControl } from 'handface';
+import { HandControl } from '@whatpull/handface';
 
 const control = new HandControl();
 

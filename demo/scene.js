@@ -32,57 +32,99 @@ document.getElementById('canvas-container').appendChild(renderer.domElement);
 // ─── Scene & Camera ───
 const scene  = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 0.5, 7.5);
+camera.position.set(0, 0.3, 7.0);
 camera.lookAt(0, 0, 0);
-let targetCamZ = 7.5;
-let camZ       = 7.5;
+let targetCamZ = 7.0;
+let camZ       = 7.0;
 
 // ─── Network Group ───
 const network = new THREE.Group();
 scene.add(network);
 
 // ─────────────────────────────────────────
-// 신경망 구조 정의
-// 층: 입력(5) → 은닉1(9) → 은닉2(11) → 은닉3(9) → 출력(5)
+// 신경망 구조 - 동심 구체 (Concentric Spherical Shells)
+// 입력층(코어) → 은닉층 → 출력층(외각) 으로 신호가 방사형으로 전파됨
 // ─────────────────────────────────────────
-const LAYER_SIZES  = [5, 9, 11, 9, 5];
-const LAYER_X_STEP = 1.28;   // 층간 X 간격
-const NODE_R_BASE  = 0.70;   // YZ 분포 반경
+const LAYER_SIZES = [7, 16, 24, 16, 8];               // 71 nodes
+const LAYER_RADII = [0.32, 0.88, 1.42, 1.95, 2.42];   // 각 층 반경
+const K_FORWARD   = 3;
+const K_BACKWARD  = 2;
 
-// 노드 데이터 생성
-const layerData = LAYER_SIZES.map((count, li) => {
-  const lx = (li - (LAYER_SIZES.length - 1) / 2) * LAYER_X_STEP;
-  return Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * Math.PI * 2 + li * 0.44;
-    const r     = NODE_R_BASE * (0.55 + (i % 3) * 0.22 + Math.random() * 0.12);
-    return {
-      pos: new THREE.Vector3(
-        lx + (Math.random() - 0.5) * 0.09,
-        r * Math.sin(angle) + (Math.random() - 0.5) * 0.07,
-        r * Math.cos(angle) + (Math.random() - 0.5) * 0.07,
-      ),
-      activation:       0,
-      targetActivation: 0,
-      layerIdx:         li,
-    };
-  });
-});
+/** Fibonacci sphere — n개의 점을 구체 표면에 균일하게 분포 */
+function fibonacciSphere(n, radius, jitter = 0.07) {
+  if (n === 1) return [new THREE.Vector3(0, 0, 0)];
+  const points = [];
+  const phi = Math.PI * (3 - Math.sqrt(5));  // golden angle
+  for (let i = 0; i < n; i++) {
+    const y     = 1 - (i / (n - 1)) * 2;
+    const r     = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = phi * i;
+    points.push(new THREE.Vector3(
+      Math.cos(theta) * r * radius + (Math.random() - 0.5) * jitter,
+      y * radius                   + (Math.random() - 0.5) * jitter,
+      Math.sin(theta) * r * radius + (Math.random() - 0.5) * jitter,
+    ));
+  }
+  return points;
+}
+
+const layerData = LAYER_SIZES.map((count, li) =>
+  fibonacciSphere(count, LAYER_RADII[li]).map(pos => ({
+    pos,
+    activation:       0,
+    targetActivation: 0,
+    layerIdx:         li,
+  })),
+);
 
 const allNodes = layerData.flat();
 
-// 시냅스 엣지 생성 (인접 층 완전 연결)
-// 총 엣지 수: 5×9 + 9×11 + 11×9 + 9×5 = 288
-const edges = [];
+// ─── K-최근접 시냅스 엣지 (forward + backward, 중복 제거) ───
+const edges    = [];
+const edgeSet  = new Set();
+const nodeIdx  = new Map();
+allNodes.forEach((n, i) => nodeIdx.set(n, i));
+
+function tryAddEdge(src, dst) {
+  const key = nodeIdx.get(src) * 10000 + nodeIdx.get(dst);
+  if (edgeSet.has(key)) return;
+  edgeSet.add(key);
+  edges.push({
+    src, dst,
+    weight:       0.15 + Math.random() * 0.85,
+    targetWeight: 0.15 + Math.random() * 0.85,
+  });
+}
+
+// Forward: 각 source → 다음 층의 K개 최근접 dst
 for (let li = 0; li < LAYER_SIZES.length - 1; li++) {
   for (const src of layerData[li]) {
-    for (const dst of layerData[li + 1]) {
-      edges.push({
-        src, dst,
-        weight:       0.15 + Math.random() * 0.85,
-        targetWeight: 0.15 + Math.random() * 0.85,
-      });
-    }
+    layerData[li + 1]
+      .map(dst => ({ dst, d: src.pos.distanceTo(dst.pos) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, K_FORWARD)
+      .forEach(({ dst }) => tryAddEdge(src, dst));
   }
+}
+// Backward: 각 dst ← 이전 층의 K개 최근접 src (모든 노드 incoming 보장)
+for (let li = 1; li < LAYER_SIZES.length; li++) {
+  for (const dst of layerData[li]) {
+    layerData[li - 1]
+      .map(src => ({ src, d: dst.pos.distanceTo(src.pos) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, K_BACKWARD)
+      .forEach(({ src }) => tryAddEdge(src, dst));
+  }
+}
+
+// 인접 리스트 (forward pass / spark 발사용 — O(1) lookup)
+const incomingEdges = new Map();
+const outgoingEdges = new Map();
+for (const e of edges) {
+  if (!incomingEdges.has(e.dst)) incomingEdges.set(e.dst, []);
+  incomingEdges.get(e.dst).push(e);
+  if (!outgoingEdges.has(e.src)) outgoingEdges.set(e.src, []);
+  outgoingEdges.get(e.src).push(e);
 }
 
 // ─────────────────────────────────────────
@@ -151,6 +193,29 @@ function spawnSpark(edge, tOffset = 0) {
   });
 }
 
+// ─────────────────────────────────────────
+// 중심 코어 글로우 (입력층 활성화에 반응)
+// ─────────────────────────────────────────
+const coreInner = new THREE.Mesh(
+  new THREE.SphereGeometry(0.16, 32, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0xFFEEBB,
+    blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.7, depthWrite: false,
+  }),
+);
+network.add(coreInner);
+
+const coreOuter = new THREE.Mesh(
+  new THREE.SphereGeometry(0.42, 32, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0xFF7733,
+    blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.18, depthWrite: false,
+  }),
+);
+network.add(coreOuter);
+
 // ─── 별 배경 ───
 const STAR_N  = 2200;
 const starPos = new Float32Array(STAR_N * 3);
@@ -190,28 +255,27 @@ function triggerPass() {
 
   for (let li = 0; li < LAYER_SIZES.length; li++) {
     setTimeout(() => {
-      // 은닉층/출력층: 이전 층 가중합 → sigmoid
+      // 은닉층/출력층: 이전 층 가중합 → sigmoid (인접 리스트 사용)
       if (li > 0) {
         layerData[li].forEach(dst => {
-          let sum = 0, cnt = 0;
-          for (const e of edges) {
-            if (e.dst === dst) { sum += e.src.activation * e.weight; cnt++; }
-          }
-          dst.targetActivation = sigmoid((sum / (cnt || 1)) * 4.5 - 1.8);
+          const incoming = incomingEdges.get(dst);
+          if (!incoming) return;
+          let sum = 0;
+          for (const e of incoming) sum += e.src.activation * e.weight;
+          dst.targetActivation = sigmoid((sum / incoming.length) * 4.5 - 1.5);
         });
       }
       // 다음 층으로 스파크 발사
       if (li < LAYER_SIZES.length - 1) {
         layerData[li].forEach(src => {
-          if (src.targetActivation > 0.18) {
-            for (const e of edges) {
-              if (e.src !== src) continue;
-              // 가중치에 비례한 스파크 수
-              const sparks = e.weight * src.targetActivation;
-              spawnSpark(e, 0);
-              if (sparks > 0.5) spawnSpark(e, 0.04 + Math.random() * 0.06);
-              if (sparks > 0.8) spawnSpark(e, 0.09 + Math.random() * 0.06);
-            }
+          if (src.targetActivation < 0.18) return;
+          const out = outgoingEdges.get(src);
+          if (!out) return;
+          for (const e of out) {
+            const intensity = e.weight * src.targetActivation;
+            spawnSpark(e, 0);
+            if (intensity > 0.5) spawnSpark(e, 0.04 + Math.random() * 0.06);
+            if (intensity > 0.8) spawnSpark(e, 0.09 + Math.random() * 0.06);
           }
         });
       }
@@ -270,8 +334,8 @@ control.on('click', () => {
 });
 
 control.on('scroll', (e) => {
-  targetCamZ = Math.max(3.5, Math.min(14, targetCamZ + e.deltaY * 0.055));
-  const zoom = Math.round((1 - (targetCamZ - 3.5) / 10.5) * 100);
+  targetCamZ = Math.max(3.2, Math.min(13, targetCamZ + e.deltaY * 0.055));
+  const zoom = Math.round((1 - (targetCamZ - 3.2) / 9.8) * 100);
   sZoomEl.textContent = `${zoom}%`;
   pushLog('ev-scroll', e.deltaY > 0 ? '✊ 줌아웃' : '🖐️ 줌인');
 });
@@ -316,6 +380,13 @@ function animate() {
     n.activation       += (n.targetActivation - n.activation) * 0.07;
     if (n.activation < 4e-4) n.activation = 0;
   }
+
+  // ── 코어 글로우 (입력층 평균 활성화에 반응) ──
+  let inputAct = 0;
+  for (const n of layerData[0]) inputAct += n.activation;
+  inputAct /= layerData[0].length;
+  coreInner.material.opacity = 0.55 + 0.40 * inputAct + 0.06 * Math.sin(t * 2);
+  coreOuter.material.opacity = 0.14 + 0.30 * inputAct + 0.04 * Math.sin(t * 1.5);
 
   // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
   for (let i = 0; i < edges.length; i++) {

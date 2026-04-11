@@ -294,7 +294,8 @@ export class NeuralLM {
   }
 
   // ─── Sampling: generate text given seed ──────
-  sample(seed = '', maxLength = 60, temperature = 0.85) {
+  sample(seed = '', maxLength = 80, temperature = 0.85, opts = {}) {
+    const minLength = opts.minLength ?? 14;   // force at least N chars before any termination
     const indices = this.encode(seed);
     const out = [];
     const ctx = new Array(this.CTX);
@@ -306,18 +307,42 @@ export class NeuralLM {
     const V = this.vocab.size;
     const tempProbs = new Float32Array(V);
 
+    // Token indices we never want to sample (always banned)
+    const padIdx = 0;                              // PAD_TOKEN
+    const nlIdx  = this.vocab.get('\n') ?? -1;     // newline — purely structural
+
+    // Tokens we ban only in the first `minLength` chars (force minimum output length)
+    const earlyBanIdxs = ['.', '!', '?', ',', '。', '?', '!']
+      .map(c => this.vocab.get(c) ?? -1)
+      .filter(i => i >= 0);
+
     for (let step = 0; step < maxLength; step++) {
       const probs = this.forward(ctx);
 
-      // Apply temperature and renormalize
+      // Apply temperature
       let sum = 0;
       for (let i = 0; i < V; i++) {
         tempProbs[i] = Math.pow(probs[i] + 1e-9, 1 / temperature);
         sum += tempProbs[i];
       }
+
+      // Always ban PAD and newline — these are structural tokens, not output
+      if (padIdx < V) tempProbs[padIdx] = 0;
+      if (nlIdx >= 0 && nlIdx < V) tempProbs[nlIdx] = 0;
+      // Ban end-of-sentence chars before minLength to force a useful response
+      if (step < minLength) {
+        for (const idx of earlyBanIdxs) {
+          if (idx >= 0 && idx < V) tempProbs[idx] = 0;
+        }
+      }
+
+      // Re-normalize after bans
+      sum = 0;
+      for (let i = 0; i < V; i++) sum += tempProbs[i];
+      if (sum < 1e-9) break;  // safety: nothing left to sample
       const inv = 1 / sum;
 
-      // Sample
+      // Multinomial sample
       let r = Math.random();
       let pick = 0;
       for (let i = 0; i < V; i++) {
@@ -326,13 +351,15 @@ export class NeuralLM {
       }
 
       const ch = this.invVocab[pick];
-      if (ch === PAD_TOKEN) break;
+      if (!ch || ch === PAD_TOKEN) break;
       out.push(ch);
+
       // Slide context window
       for (let k = 0; k < this.CTX - 1; k++) ctx[k] = ctx[k + 1];
       ctx[this.CTX - 1] = pick;
 
-      if (out.length > 4 && (ch === '\n' || ch === '.' || ch === '!' || ch === '?')) break;
+      // Allow natural sentence break only after the minimum length
+      if (step >= minLength && (ch === '.' || ch === '!' || ch === '?' || ch === '。')) break;
     }
     return out.join('');
   }

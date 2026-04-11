@@ -89,34 +89,35 @@ export class CharNLMBackend {
       const stepsBefore = this.model.totalSteps;
       let totalLoss = 0, lossCount = 0;
 
+      // NOTE: we deliberately train WITHOUT a '\n' terminator. Including '\n'
+      // makes the model strongly predict newline whenever it sees a typical
+      // message-ending context, which then causes sampling to break early
+      // and produce empty outputs ("...").
+
       // ── Phase 1: focused training on the new message (heavy) ──
-      // Teach the model what the user JUST said.
-      const loss1 = this.model.trainOnText(message + '\n', 12);
+      const loss1 = this.model.trainOnText(message, 12);
       if (loss1 > 0) { totalLoss += loss1; lossCount++; }
 
       // ── Phase 2: replay from full user history (prevents forgetting) ──
-      // Randomly sample older messages and retrain on them. Without this the
-      // model forgets what you taught it 10 turns ago.
-      const poolSize = this.userMessages.length - 1;   // exclude the just-added
+      const poolSize = this.userMessages.length - 1;
       if (poolSize > 0) {
         const replayN = Math.min(15, poolSize);
         for (let i = 0; i < replayN; i++) {
           const idx = Math.floor(Math.random() * poolSize);
-          const loss = this.model.trainOnText(this.userMessages[idx] + '\n', 3);
+          const loss = this.model.trainOnText(this.userMessages[idx], 3);
           if (loss > 0) { totalLoss += loss; lossCount++; }
         }
       }
 
-      // ── Phase 3: joint training on random concatenation ──
-      // Mix 3 random messages together so the model learns to string patterns
-      // across messages, not just memorize isolated ones.
+      // ── Phase 3: joint training on random concatenation (no separator) ──
       if (this.userMessages.length >= 3) {
         const joint = [];
         for (let i = 0; i < 3; i++) {
           const idx = Math.floor(Math.random() * this.userMessages.length);
           joint.push(this.userMessages[idx]);
         }
-        const loss = this.model.trainOnText(joint.join('\n') + '\n', 2);
+        // Use space (not newline) so the model doesn't learn newline at all
+        const loss = this.model.trainOnText(joint.join(' '), 2);
         if (loss > 0) { totalLoss += loss; lossCount++; }
       }
 
@@ -134,12 +135,12 @@ export class CharNLMBackend {
       await new Promise((r) => setTimeout(r, 16));
 
       // ── Sampling with adaptive temperature ──
-      // Untrained model (loss ~4): temp 0.9 (diverse)
-      // Well-trained   (loss ~1): temp 0.55 (confident, reveals learned patterns)
+      // Floor at 0.78 so the model never collapses into argmax (which would
+      // pick the single most-frequent token over and over).
       const loss     = this.model.lossEMA ?? 4;
-      const temp     = Math.max(0.55, Math.min(0.95, 0.45 + loss * 0.12));
+      const temp     = Math.max(0.78, Math.min(0.95, 0.55 + loss * 0.10));
       const seed     = message.length > 0 ? message : ' ';
-      const response = this.model.sample(seed, 60, temp);
+      const response = this.model.sample(seed, 80, temp, { minLength: 14 });
       const cleaned  = response.length > 0 ? response : '...';
 
       this.history.push({ role: 'ai', text: cleaned });

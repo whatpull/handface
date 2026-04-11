@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
 
-// ─────────────────────────────────────────
-// DOM refs
-// ─────────────────────────────────────────
+// ─── DOM refs ───
 const cursorEl  = document.getElementById('cursor');
 const flashEl   = document.getElementById('flash');
 const sStatus   = document.getElementById('s-status');
@@ -24,193 +22,229 @@ function pushLog(cls, text) {
   while (logEl.children.length > 9) logEl.removeChild(logEl.children[1]);
 }
 
-// ─────────────────────────────────────────
-// Renderer
-// ─────────────────────────────────────────
+// ─── Renderer ───
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setClearColor(0x020408);
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-// ─────────────────────────────────────────
-// Scene & Camera
-// ─────────────────────────────────────────
+// ─── Scene & Camera ───
 const scene  = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.z = 6.5;
-let targetCamZ = 6.5;
-let camZ       = 6.5;
+camera.position.set(0, 0.5, 7.5);
+camera.lookAt(0, 0, 0);
+let targetCamZ = 7.5;
+let camZ       = 7.5;
 
-// ─────────────────────────────────────────
-// 수학 헬퍼
-// ─────────────────────────────────────────
-
-/** Box-Muller 정규분포 난수 */
-function gaussRand() {
-  let u = 0, v = 0;
-  while (!u) u = Math.random();
-  while (!v) v = Math.random();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-/**
- * 중심이 조금 더 밀집된 3D 가우시안 포인트 클라우드
- * → 표면이 아니라 볼륨 안에 자유롭게 분포
- */
-function cloudPoint(sigma, maxR) {
-  let p;
-  do {
-    p = new THREE.Vector3(gaussRand() * sigma, gaussRand() * sigma, gaussRand() * sigma);
-  } while (p.length() > maxR);
-  return p;
-}
-
-// ─────────────────────────────────────────
-// 노드 생성 (볼륨 분포)
-// ─────────────────────────────────────────
-const NODE_N = 300;
-const SIGMA  = 0.85;  // 분포 표준편차
-const MAX_R  = 2.2;   // 최대 반경 (부드럽게 잘림)
-
-const nodes = Array.from({ length: NODE_N }, () => cloudPoint(SIGMA, MAX_R));
-
-// ─────────────────────────────────────────
-// K-최근접 이웃 직선 엣지 (구 표면 아님 → 직선)
-// 내부(중심 가까운) 엣지 → 밝은 레이어
-// 외부 엣지 → 어두운 레이어
-// ─────────────────────────────────────────
-function buildEdges(pts, K) {
-  const seen   = new Set();
-  const bright = [];
-  const dim    = [];
-  const n      = pts.length;
-
-  for (let i = 0; i < n; i++) {
-    const sorted = pts
-      .map((p, j) => ({ j, d: i !== j ? pts[i].distanceTo(p) : Infinity }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, K);
-
-    for (const { j } of sorted) {
-      const key = Math.min(i, j) * n + Math.max(i, j);
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const a    = pts[i], b = pts[j];
-      const avgR = (a.length() + b.length()) / 2;
-      // 중심부 엣지 + 무작위 25% → 밝은 레이어
-      const buf  = avgR < 0.65 || Math.random() < 0.25 ? bright : dim;
-      buf.push(a.x, a.y, a.z, b.x, b.y, b.z);
-    }
-  }
-  return { bright: new Float32Array(bright), dim: new Float32Array(dim) };
-}
-
-const { bright: brightV, dim: dimV } = buildEdges(nodes, 5);
-
-// ─────────────────────────────────────────
-// 네트워크 메쉬
-// ─────────────────────────────────────────
+// ─── Network Group ───
 const network = new THREE.Group();
 scene.add(network);
 
-// 어두운 기본 엣지
-const dimGeo = new THREE.BufferGeometry();
-dimGeo.setAttribute('position', new THREE.Float32BufferAttribute(dimV, 3));
-network.add(new THREE.LineSegments(dimGeo, new THREE.LineBasicMaterial({
-  color: 0xBB4400, opacity: 0.20,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-})));
+// ─────────────────────────────────────────
+// 신경망 구조 정의
+// 층: 입력(5) → 은닉1(9) → 은닉2(11) → 은닉3(9) → 출력(5)
+// ─────────────────────────────────────────
+const LAYER_SIZES  = [5, 9, 11, 9, 5];
+const LAYER_X_STEP = 1.28;   // 층간 X 간격
+const NODE_R_BASE  = 0.70;   // YZ 분포 반경
 
-// 밝은 강조 엣지
-const brightGeo = new THREE.BufferGeometry();
-brightGeo.setAttribute('position', new THREE.Float32BufferAttribute(brightV, 3));
-const brightMat = new THREE.LineBasicMaterial({
-  color: 0xFF8800, opacity: 0.58,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+// 노드 데이터 생성
+const layerData = LAYER_SIZES.map((count, li) => {
+  const lx = (li - (LAYER_SIZES.length - 1) / 2) * LAYER_X_STEP;
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2 + li * 0.44;
+    const r     = NODE_R_BASE * (0.55 + (i % 3) * 0.22 + Math.random() * 0.12);
+    return {
+      pos: new THREE.Vector3(
+        lx + (Math.random() - 0.5) * 0.09,
+        r * Math.sin(angle) + (Math.random() - 0.5) * 0.07,
+        r * Math.cos(angle) + (Math.random() - 0.5) * 0.07,
+      ),
+      activation:       0,
+      targetActivation: 0,
+      layerIdx:         li,
+    };
+  });
 });
-network.add(new THREE.LineSegments(brightGeo, brightMat));
 
-// 일반 노드
-const nodeGeo = new THREE.BufferGeometry().setFromPoints(nodes);
-network.add(new THREE.Points(nodeGeo, new THREE.PointsMaterial({
-  color: 0xFFAA44, size: 0.045,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-})));
+const allNodes = layerData.flat();
 
-// 강조 노드 (중심부 + 무작위 18%)
-const accentPts = nodes.filter(p => p.length() < 0.5 || Math.random() < 0.18);
-const accentGeo = new THREE.BufferGeometry().setFromPoints(accentPts);
-network.add(new THREE.Points(accentGeo, new THREE.PointsMaterial({
-  color: 0xFFDD88, size: 0.085,
-  blending: THREE.AdditiveBlending, transparent: true, opacity: 0.9, depthWrite: false,
-})));
-
-// ─────────────────────────────────────────
-// 중심 코어 글로우 (은은하게)
-// ─────────────────────────────────────────
-const mkGlow = (r, col, op) => {
-  const m = new THREE.Mesh(
-    new THREE.SphereGeometry(r, 32, 32),
-    new THREE.MeshBasicMaterial({
-      color: col, blending: THREE.AdditiveBlending, transparent: true, opacity: op, depthWrite: false,
-    }),
-  );
-  scene.add(m);
-  return m;
-};
-const glowOuter  = mkGlow(0.50, 0xCC4400, 0.07);
-const glowMid    = mkGlow(0.22, 0xFF7700, 0.38);
-const glowCenter = mkGlow(0.10, 0xFFFFFF, 0.88);
-
-// ─────────────────────────────────────────
-// 배경 별 (스타필드)
-// ─────────────────────────────────────────
-const STAR_N  = 2200;
-const starPos = new Float32Array(STAR_N * 3);
-for (let i = 0; i < STAR_N; i++) {
-  const r     = 7 + Math.random() * 20;
-  const u     = Math.random(), v = Math.random();
-  const theta = 2 * Math.PI * u;
-  const phi   = Math.acos(2 * v - 1);
-  starPos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-  starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-  starPos[i * 3 + 2] = r * Math.cos(phi);
-}
-const starGeo = new THREE.BufferGeometry();
-starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({
-  color: 0xFFCC99, size: 0.018,
-  blending: THREE.AdditiveBlending, transparent: true, opacity: 0.45, depthWrite: false,
-})));
-
-// ─────────────────────────────────────────
-// 클릭 펄스
-// ─────────────────────────────────────────
-const pulsePool = [];
-function triggerPulse() {
-  for (let k = 0; k < 3; k++) {
-    const geo  = new THREE.TorusGeometry(0.06, 0.014, 8, 64);
-    const mat  = new THREE.MeshBasicMaterial({
-      color: k === 0 ? 0xFFFFFF : 0xFFAA33,
-      blending: THREE.AdditiveBlending, transparent: true, opacity: 1.0, depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = Math.random() * Math.PI;
-    mesh.rotation.z = Math.random() * Math.PI;
-    scene.add(mesh);
-    pulsePool.push({ mesh, scale: 0.15 + k * 0.1, life: 1.0 - k * 0.08, speed: 0.048 + k * 0.015 });
+// 시냅스 엣지 생성 (인접 층 완전 연결)
+// 총 엣지 수: 5×9 + 9×11 + 11×9 + 9×5 = 288
+const edges = [];
+for (let li = 0; li < LAYER_SIZES.length - 1; li++) {
+  for (const src of layerData[li]) {
+    for (const dst of layerData[li + 1]) {
+      edges.push({
+        src, dst,
+        weight:       0.15 + Math.random() * 0.85,
+        targetWeight: 0.15 + Math.random() * 0.85,
+      });
+    }
   }
 }
 
 // ─────────────────────────────────────────
-// Hand / Gaze Control
+// 엣지 지오메트리 (버텍스 컬러 → 매 프레임 가중치 반영)
 // ─────────────────────────────────────────
-const control = new HandControl({
-  handedness:   'right',
-  cursorSource: 'gaze',
+const ePosArr = new Float32Array(edges.length * 6);
+const eColArr = new Float32Array(edges.length * 6);
+edges.forEach((e, i) => {
+  ePosArr[i*6+0] = e.src.pos.x; ePosArr[i*6+1] = e.src.pos.y; ePosArr[i*6+2] = e.src.pos.z;
+  ePosArr[i*6+3] = e.dst.pos.x; ePosArr[i*6+4] = e.dst.pos.y; ePosArr[i*6+5] = e.dst.pos.z;
 });
+const edgeGeo = new THREE.BufferGeometry();
+edgeGeo.setAttribute('position', new THREE.BufferAttribute(ePosArr, 3));
+edgeGeo.setAttribute('color',    new THREE.BufferAttribute(eColArr, 3));
+network.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({
+  vertexColors: true,
+  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+})));
+
+// ─────────────────────────────────────────
+// 노드 지오메트리 (헤일로 + 코어 두 레이어)
+// ─────────────────────────────────────────
+const nPosArr  = new Float32Array(allNodes.length * 3);
+const nHaloArr = new Float32Array(allNodes.length * 3);
+const nCoreArr = new Float32Array(allNodes.length * 3);
+allNodes.forEach((n, i) => {
+  nPosArr[i*3] = n.pos.x; nPosArr[i*3+1] = n.pos.y; nPosArr[i*3+2] = n.pos.z;
+});
+
+function makeNodePoints(colArr, size, sharedPos) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(sharedPos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
+  network.add(new THREE.Points(geo, new THREE.PointsMaterial({
+    vertexColors: true, size,
+    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  })));
+  return geo;
+}
+
+const nodeHaloGeo = makeNodePoints(nHaloArr, 0.26, nPosArr);
+const nodeCoreGeo = makeNodePoints(nCoreArr, 0.09, nPosArr);
+
+// ─────────────────────────────────────────
+// 스파크 파티클 (전류 흐름 표현)
+// ─────────────────────────────────────────
+const MAX_SPARKS = 500;
+const sparkPool  = [];   // { edge, t, speed }
+const spPosArr   = new Float32Array(MAX_SPARKS * 3);
+const spColArr   = new Float32Array(MAX_SPARKS * 3);
+const sparkGeo   = new THREE.BufferGeometry();
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(spPosArr, 3));
+sparkGeo.setAttribute('color',    new THREE.BufferAttribute(spColArr, 3));
+sparkGeo.setDrawRange(0, 0);
+network.add(new THREE.Points(sparkGeo, new THREE.PointsMaterial({
+  vertexColors: true, size: 0.065,
+  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+})));
+
+function spawnSpark(edge, tOffset = 0) {
+  if (sparkPool.length >= MAX_SPARKS) return;
+  sparkPool.push({
+    edge,
+    t:     tOffset,
+    speed: 0.008 + edge.weight * 0.018 + Math.random() * 0.007,
+  });
+}
+
+// ─── 별 배경 ───
+const STAR_N  = 2200;
+const starPos = new Float32Array(STAR_N * 3);
+for (let i = 0; i < STAR_N; i++) {
+  const r     = 8 + Math.random() * 22;
+  const theta = 2 * Math.PI * Math.random();
+  const phi   = Math.acos(2 * Math.random() - 1);
+  starPos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+  starPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+  starPos[i*3+2] = r * Math.cos(phi);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+const starMesh = new THREE.Points(starGeo, new THREE.PointsMaterial({
+  color: 0xFFCC99, size: 0.016,
+  blending: THREE.AdditiveBlending, transparent: true, opacity: 0.32, depthWrite: false,
+}));
+scene.add(starMesh);
+
+// ─────────────────────────────────────────
+// 신경망 시뮬레이션
+// ─────────────────────────────────────────
+const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+
+let lastPassMs  = -3000;
+let lastLearnMs = 0;
+const PASS_INTERVAL_MS  = 2600;
+const LAYER_DELAY_MS    = 300;
+const LEARN_INTERVAL_MS = 500;
+
+/** 신호 전파 (순전파) */
+function triggerPass() {
+  // 입력층: 랜덤 활성화 패턴
+  layerData[0].forEach(n => {
+    n.targetActivation = Math.random() > 0.3 ? 0.5 + Math.random() * 0.5 : 0.04;
+  });
+
+  for (let li = 0; li < LAYER_SIZES.length; li++) {
+    setTimeout(() => {
+      // 은닉층/출력층: 이전 층 가중합 → sigmoid
+      if (li > 0) {
+        layerData[li].forEach(dst => {
+          let sum = 0, cnt = 0;
+          for (const e of edges) {
+            if (e.dst === dst) { sum += e.src.activation * e.weight; cnt++; }
+          }
+          dst.targetActivation = sigmoid((sum / (cnt || 1)) * 4.5 - 1.8);
+        });
+      }
+      // 다음 층으로 스파크 발사
+      if (li < LAYER_SIZES.length - 1) {
+        layerData[li].forEach(src => {
+          if (src.targetActivation > 0.18) {
+            for (const e of edges) {
+              if (e.src !== src) continue;
+              // 가중치에 비례한 스파크 수
+              const sparks = e.weight * src.targetActivation;
+              spawnSpark(e, 0);
+              if (sparks > 0.5) spawnSpark(e, 0.04 + Math.random() * 0.06);
+              if (sparks > 0.8) spawnSpark(e, 0.09 + Math.random() * 0.06);
+            }
+          }
+        });
+      }
+    }, li * LAYER_DELAY_MS);
+  }
+}
+
+/**
+ * 헤브 학습 시뮬레이션
+ * "함께 발화하는 뉴런은 함께 연결된다"
+ * 동시 활성화 → 가중치 강화 / 비활성 → 서서히 약화
+ */
+function simulateLearning() {
+  for (const e of edges) {
+    const co = e.src.activation * e.dst.activation;  // 동시 활성화 정도
+    if (co > 0.25) {
+      // 강화 (LTP: 장기 강화)
+      e.targetWeight = Math.min(1.0, e.targetWeight + co * 0.06);
+      // 강화 시각화: 스파크 발생
+      if (Math.random() < co * 0.15) spawnSpark(e, Math.random() * 0.3);
+    } else if (co < 0.04 && Math.random() < 0.004) {
+      // 약화 (LTD: 장기 억제)
+      e.targetWeight = Math.max(0.05, e.targetWeight - 0.055);
+    }
+    // 부드러운 가중치 수렴
+    e.weight += (e.targetWeight - e.weight) * 0.003;
+  }
+}
+
+// ─────────────────────────────────────────
+// HandControl (시선 추적)
+// ─────────────────────────────────────────
+const control = new HandControl({ handedness: 'right', cursorSource: 'gaze' });
 
 let targetOffX = 0, targetOffY = 0;
 let smoothOffX = 0, smoothOffY = 0;
@@ -221,99 +255,141 @@ control.on('move', (e) => {
   cursorEl.style.left = `${e.screenX}px`;
   cursorEl.style.top  = `${e.screenY}px`;
   sPosEl.textContent  = `${e.screenX} · ${e.screenY}`;
-  targetOffY = (e.x - 0.5) * Math.PI * 2.2;
-  targetOffX = (e.y - 0.5) * Math.PI * 1.0;
+  targetOffY = (e.x - 0.5) * Math.PI * 2.0;
+  targetOffX = (e.y - 0.5) * Math.PI * 0.9;
 });
 
 control.on('click', () => {
   clickCount++;
   sClicksEl.textContent = String(clickCount);
-  triggerPulse();
+  triggerPass();  // 즉시 신호 전파
   cursorEl.classList.add('clicking');
   flashEl.classList.add('on');
   setTimeout(() => { flashEl.classList.remove('on'); cursorEl.classList.remove('clicking'); }, 80);
-  pushLog('ev-click', '🤌 클릭');
+  pushLog('ev-click', '🤌 신호 전파');
 });
 
 control.on('scroll', (e) => {
-  targetCamZ = Math.max(3.0, Math.min(12, targetCamZ + e.deltaY * 0.055));
-  const zoom = Math.round((1 - (targetCamZ - 3.0) / 9.0) * 100);
+  targetCamZ = Math.max(3.5, Math.min(14, targetCamZ + e.deltaY * 0.055));
+  const zoom = Math.round((1 - (targetCamZ - 3.5) / 10.5) * 100);
   sZoomEl.textContent = `${zoom}%`;
   pushLog('ev-scroll', e.deltaY > 0 ? '✊ 줌아웃' : '🖐️ 줌인');
 });
 
 const GCFG = {
-  thumbsup:   { col: 0x44FFCC, label: '👍' },
-  thumbsdown: { col: 0xFF4444, label: '👎' },
-  victory:    { col: 0xFFFF44, label: '✌️' },
-  iloveyou:   { col: 0xFF88CC, label: '🤟' },
+  thumbsup:   { label: '👍 LTP 강화' },
+  thumbsdown: { label: '👎 LTD 억제' },
+  victory:    { label: '✌️ 학습률 증가' },
+  iloveyou:   { label: '🤟 풀 패스' },
 };
 for (const [g, cfg] of Object.entries(GCFG)) {
-  control.on(g, () => {
-    brightMat.color.setHex(cfg.col);
-    setTimeout(() => brightMat.color.setHex(0xFF8800), 900);
-    pushLog('', `${cfg.label} 감지`);
-  });
+  control.on(g, () => pushLog('', cfg.label));
 }
 
+// ─── 유틸리티 ───
+const _v3 = new THREE.Vector3();
+
 // ─────────────────────────────────────────
-// Animation Loop
+// 애니메이션 루프
 // ─────────────────────────────────────────
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
   t += 0.011;
+  const nowMs = performance.now();
 
-  // 시선 기반 회전 + 느린 자동 회전
-  baseRotY   += 0.0022;
+  // ── 자동 순전파 ──
+  if (nowMs - lastPassMs > PASS_INTERVAL_MS) {
+    lastPassMs = nowMs;
+    triggerPass();
+  }
+
+  // ── 헤브 학습 시뮬레이션 ──
+  if (nowMs - lastLearnMs > LEARN_INTERVAL_MS) {
+    lastLearnMs = nowMs;
+    simulateLearning();
+  }
+
+  // ── 노드 활성화 스무딩 + 자연 감쇠 ──
+  for (const n of allNodes) {
+    n.targetActivation *= 0.993;
+    n.activation       += (n.targetActivation - n.activation) * 0.07;
+    if (n.activation < 4e-4) n.activation = 0;
+  }
+
+  // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
+  for (let i = 0; i < edges.length; i++) {
+    const e   = edges[i];
+    const act = Math.max(e.src.activation * 0.8, e.dst.activation * 0.65);
+    const b   = e.weight * (0.035 + 0.965 * act);
+    // 앰버 팔레트 (1.0, 0.40, 0.05)
+    const r = b * 1.00, g = b * 0.40, bl = b * 0.05;
+    eColArr[i*6+0] = r;  eColArr[i*6+1] = g;  eColArr[i*6+2] = bl;
+    eColArr[i*6+3] = r;  eColArr[i*6+4] = g;  eColArr[i*6+5] = bl;
+  }
+  edgeGeo.attributes.color.needsUpdate = true;
+
+  // ── 노드 색상 업데이트 ──
+  for (let i = 0; i < allNodes.length; i++) {
+    const a = allNodes[i].activation;
+    // 헤일로: 부드러운 앰버 글로우
+    nHaloArr[i*3+0] = 0.025 + a * 0.55;
+    nHaloArr[i*3+1] = 0.010 + a * 0.22;
+    nHaloArr[i*3+2] = 0.003 + a * 0.03;
+    // 코어: 활성화 시 밝은 화이트-옐로우
+    nCoreArr[i*3+0] = 0.10 + a * 0.90;
+    nCoreArr[i*3+1] = 0.04 + a * 0.72;
+    nCoreArr[i*3+2] = 0.01 + a * 0.20;
+  }
+  nodeHaloGeo.attributes.color.needsUpdate = true;
+  nodeCoreGeo.attributes.color.needsUpdate = true;
+
+  // ── 스파크 이동 (전류 흐름) ──
+  for (let i = sparkPool.length - 1; i >= 0; i--) {
+    sparkPool[i].t += sparkPool[i].speed;
+    if (sparkPool[i].t >= 1.0) sparkPool.splice(i, 1);
+  }
+  for (let i = 0; i < sparkPool.length; i++) {
+    const sp = sparkPool[i];
+    _v3.lerpVectors(sp.edge.src.pos, sp.edge.dst.pos, sp.t);
+    spPosArr[i*3]   = _v3.x;
+    spPosArr[i*3+1] = _v3.y;
+    spPosArr[i*3+2] = _v3.z;
+    // 진입/진출 페이드 인/아웃 + 가중치 기반 밝기
+    const fade = sp.t < 0.12 ? sp.t / 0.12 : sp.t > 0.80 ? (1 - sp.t) / 0.20 : 1.0;
+    const b    = (0.55 + sp.edge.weight * 0.45) * fade;
+    spColArr[i*3]   = b;
+    spColArr[i*3+1] = b * 0.88;
+    spColArr[i*3+2] = b * 0.42;
+  }
+  sparkGeo.setDrawRange(0, sparkPool.length);
+  sparkGeo.attributes.position.needsUpdate = true;
+  sparkGeo.attributes.color.needsUpdate    = true;
+
+  // ── 회전 (시선 제어 + 자동 회전) ──
+  baseRotY   += 0.0018;
   smoothOffX += (targetOffX - smoothOffX) * 0.030;
   smoothOffY += (targetOffY - smoothOffY) * 0.030;
   network.rotation.x = smoothOffX;
   network.rotation.y = baseRotY + smoothOffY;
 
-  // 전체 클라우드 호흡
-  const breath = 1 + 0.014 * Math.sin(t * 0.8);
-  network.scale.setScalar(breath);
-
-  // 코어 맥동
-  glowMid.material.opacity    = 0.32 + 0.16 * Math.sin(t * 1.5);
-  glowCenter.material.opacity = 0.80 + 0.15 * Math.sin(t * 2.2);
-
-  // 별 배경 아주 느리게 회전
-  scene.children[scene.children.length - 1].rotation.y += 0.00005;
-
-  // 카메라 줌
+  // ── 카메라 줌 ──
   camZ += (targetCamZ - camZ) * 0.055;
   camera.position.z = camZ;
 
-  // 펄스
-  for (let i = pulsePool.length - 1; i >= 0; i--) {
-    const p = pulsePool[i];
-    p.scale += p.speed;
-    p.life  -= 0.035;
-    p.mesh.scale.setScalar(p.scale);
-    p.mesh.material.opacity = Math.max(0, p.life);
-    if (p.life <= 0) {
-      scene.remove(p.mesh);
-      p.mesh.geometry.dispose();
-      p.mesh.material.dispose();
-      pulsePool.splice(i, 1);
-    }
-  }
+  // ── 별 배경 미세 회전 ──
+  starMesh.rotation.y += 0.000035;
 
   renderer.render(scene, camera);
 }
 animate();
 
-// ─────────────────────────────────────────
-// Start Button
-// ─────────────────────────────────────────
+// ─── Start Button ───
 startBtn.addEventListener('click', async () => {
   startBtn.disabled    = true;
   startBtn.textContent = '초기화 중...';
   loadMsg.textContent  = 'MediaPipe 모델 로딩 중 (5~10초)';
   sStatus.textContent  = '초기화중';
-
   try {
     await control.start();
     control.createPanel();
@@ -321,12 +397,8 @@ startBtn.addEventListener('click', async () => {
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
     pushLog('', '시작');
-
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'r' || e.key === 'R') {
-        control.recalibrate();
-        pushLog('', '캘리브레이션 재설정');
-      }
+      if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', '캘리브레이션 재설정'); }
     });
   } catch (err) {
     sStatus.textContent  = '오류';
@@ -337,9 +409,7 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-// ─────────────────────────────────────────
-// Resize
-// ─────────────────────────────────────────
+// ─── Resize ───
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();

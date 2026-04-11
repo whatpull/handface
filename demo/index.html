@@ -286,7 +286,7 @@
   <div id="guide">
     <h3>Control</h3>
     <div class="g-row"><span class="g-icon">👁️</span><span class="g-label">시선 → 커서 / 회전</span></div>
-    <div class="g-row"><span class="g-icon">🤌</span><span class="g-label">엄지+검지 핀치 → 클릭</span></div>
+    <div class="g-row"><span class="g-icon">🤌</span><span class="g-label">엄지+검지 핀치 → 신호 전파</span></div>
     <div class="g-row"><span class="g-icon">✊</span><span class="g-label">주먹 → 줌아웃</span></div>
     <div class="g-row"><span class="g-icon">🖐️</span><span class="g-label">펼친 손 → 줌인</span></div>
   </div>
@@ -295,7 +295,7 @@
     <h3>System Status</h3>
     <div class="s-row"><span class="s-label">STATUS</span><span class="s-val" id="s-status">STANDBY</span></div>
     <div class="s-row"><span class="s-label">CURSOR</span><span class="s-val" id="s-pos">— · —</span></div>
-    <div class="s-row"><span class="s-label">EVENTS</span><span class="s-val" id="s-clicks">0</span></div>
+    <div class="s-row"><span class="s-label">SIGNALS</span><span class="s-val" id="s-clicks">0</span></div>
     <div class="s-row"><span class="s-label">ZOOM</span><span class="s-val" id="s-zoom">50%</span></div>
   </div>
 
@@ -304,15 +304,15 @@
   </div>
 
   <div id="overlay">
-    <div class="ov-eyebrow">handface · three.js demo</div>
+    <div class="ov-eyebrow">handface · neural learning demo</div>
     <div class="ov-title">
       handface
       <span>Neural Mesh</span>
     </div>
-    <p class="ov-desc">시선으로 3D 네트워크를 제어하세요.<br>카메라 권한을 허용하면 시작됩니다.</p>
+    <p class="ov-desc">시선으로 신경망의 신호 전파를 제어하세요.<br>핀치로 순전파를 발동, 헤브 학습이 자동으로 진행됩니다.<br>카메라 권한을 허용하면 시작됩니다.</p>
     <div class="ov-gestures">
-      <div class="ov-g"><span class="ov-g-icon">👁️</span><span class="ov-g-label">시선이동</span></div>
-      <div class="ov-g"><span class="ov-g-icon">🤌</span><span class="ov-g-label">클릭</span></div>
+      <div class="ov-g"><span class="ov-g-icon">👁️</span><span class="ov-g-label">시선 회전</span></div>
+      <div class="ov-g"><span class="ov-g-icon">🤌</span><span class="ov-g-label">신호 전파</span></div>
       <div class="ov-g"><span class="ov-g-icon">✊</span><span class="ov-g-label">줌</span></div>
     </div>
     <button id="start-btn" type="button">시작하기</button>

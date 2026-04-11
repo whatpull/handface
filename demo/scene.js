@@ -239,9 +239,8 @@ function handleClick(x, y) {
 // Hand Control
 // ─────────────────────────────────────────
 const control = new HandControl({
-  handedness: 'right',
-  // cursorMode: 'absolute' (기본값) — 손 위치가 화면에 1:1 매핑
-  // gestureGated: false (기본값) — 어떤 손 모양이든 커서 이동
+  handedness:   'right',
+  cursorSource: 'gaze',  // 홍채(시선)로 커서 이동 / 손은 클릭+스크롤 전용
 });
 
 control.on('move', (e) => {

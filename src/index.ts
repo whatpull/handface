@@ -1,4 +1,5 @@
 export { HandControl } from './HandControl';
+export { GazeDetector } from './GazeDetector';
 export { GestureMapper, formatKeyLabel } from './GestureMapper';
 export { ControlPanel } from './ControlPanel';
 export type {

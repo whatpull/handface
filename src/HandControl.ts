@@ -1,5 +1,6 @@
 import { EventEmitter } from './EventEmitter';
 import { GestureDetector } from './GestureDetector';
+import { GazeDetector } from './GazeDetector';
 import { GestureMapper } from './GestureMapper';
 import { ControlPanel } from './ControlPanel';
 import { lerp } from './utils/geometry';
@@ -36,6 +37,7 @@ function remapZone(v: number, min: number, max: number): number {
 export class HandControl extends EventEmitter<HandControlEventMap> {
   private video: HTMLVideoElement;
   private detector: GestureDetector;
+  private gazeDetector: GazeDetector | null = null;
   private rafId: number | null = null;
   private stream: MediaStream | null = null;
   private panel: ControlPanel | null = null;
@@ -61,6 +63,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   // 옵션
   private readonly flipHorizontal: boolean;
+  private readonly cursorSource: 'hand' | 'gaze';
   private readonly cursorAnchor: 'wrist' | 'palm' | 'index';
   private readonly cursorMode: 'absolute' | 'relative';
   private readonly sensitivity: number;
@@ -74,13 +77,18 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   constructor(options: HandControlOptions = {}) {
     super();
     this.flipHorizontal = options.flipHorizontal ?? true;
+    this.cursorSource   = options.cursorSource   ?? 'hand';
     this.cursorAnchor   = options.cursorAnchor   ?? 'palm';      // 손바닥 중심 (안정적)
     this.cursorMode     = options.cursorMode      ?? 'absolute';  // 절대 위치 (직관적)
     this.sensitivity    = options.sensitivity     ?? 2.5;
-    this.activeZone     = options.activeZone      ?? [0.3, 0.1, 0.95, 0.85];
+    this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
+
+    // gaze 모드: 홍채 이동 범위가 손보다 훨씬 좁으므로 기본 activeZone을 좁게 설정
+    const defaultZone: [number, number, number, number] =
+      this.cursorSource === 'gaze' ? [0.47, 0.37, 0.53, 0.43] : [0.3, 0.1, 0.95, 0.85];
+    this.activeZone = options.activeZone ?? defaultZone;
     // 초기 zone 변수 설정 (캘리브레이션 전 기본값)
     [this.zoneX0, this.zoneY0, this.zoneX1, this.zoneY1] = this.activeZone;
-    this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
 
     const threshold = options.threshold ?? 0.05;
 
@@ -97,11 +105,16 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       threshold,
       toMPHandedness(options.handedness ?? 'right'),
     );
+
+    if (this.cursorSource === 'gaze') {
+      this.gazeDetector = new GazeDetector(options.wasmPath);
+    }
   }
 
   /** 카메라 열고 감지 시작 */
   async start(): Promise<void> {
     await this.detector.init();
+    if (this.gazeDetector) await this.gazeDetector.init();
     this.stream = await navigator.mediaDevices.getUserMedia({ video: true });
     this.video.srcObject = this.stream;
     await new Promise<void>((resolve) => {
@@ -122,6 +135,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
     this.detector.destroy();
+    this.gazeDetector?.destroy();
+    this.gazeDetector = null;
     this.panel?.destroy();
     this.panel = null;
     if (this.ownedVideo) this.video.remove();
@@ -165,33 +180,53 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   private tick(): void {
     const now = performance.now();
-    const result = this.detector.detect(this.video, now);
-    if (!result) return;
 
-    // ── 커서 앵커 선택 ──
-    const anchor =
-      this.cursorAnchor === 'index' ? result.indexTip :
-      this.cursorAnchor === 'palm'  ? result.palmCenter :
-      result.wrist;
+    // ── 제스처 감지 (항상 실행 — 클릭/스크롤 소스) ──
+    const gestureResult = this.detector.detect(this.video, now);
 
-    const rawX = this.flipHorizontal ? 1 - anchor.x : anchor.x;
-    const rawY = anchor.y;
+    // ── 커서 소스 결정 ──
+    let rawX: number;
+    let rawY: number;
+
+    if (this.gazeDetector) {
+      // 시선 추적 모드: 홍채 위치 → 커서
+      const gaze = this.gazeDetector.detect(this.video, now);
+      if (!gaze) {
+        // 얼굴 미감지 시 제스처 이벤트만 처리하고 커서 유지
+        if (gestureResult) this.handleGestureEvents(gestureResult, this.currentPos());
+        return;
+      }
+      rawX = this.flipHorizontal ? 1 - gaze.gazeX : gaze.gazeX;
+      rawY = gaze.gazeY;
+    } else {
+      // 손 추적 모드: 손 위치 → 커서
+      if (!gestureResult) return;
+      const anchor =
+        this.cursorAnchor === 'index' ? gestureResult.indexTip :
+        this.cursorAnchor === 'palm'  ? gestureResult.palmCenter :
+        gestureResult.wrist;
+      rawX = this.flipHorizontal ? 1 - anchor.x : anchor.x;
+      rawY = anchor.y;
+    }
 
     // ─────────────────────────────────────────────────────────────
-    // ④ 커서 이동 조건:
-    //    - 클릭 중(isClicking)이면 커서 고정 → 클릭+이동 동시 방지
-    //    - gestureGated: true 일 때만 pointing 제스처 추가 체크
+    // 커서 이동 조건:
+    //   - 클릭 중이면 커서 고정 (클릭+이동 동시 방지)
+    //   - gaze 모드에서는 gestureGated 무시 (시선은 항상 이동 가능)
+    //   - hand 모드 + gestureGated=true 이면 pointing 제스처만 이동
     // ─────────────────────────────────────────────────────────────
     const canMove =
       !this.isClicking &&
-      (!this.gestureGated || result.gestureName === 'pointing');
+      (this.gazeDetector !== null ||
+        !this.gestureGated ||
+        gestureResult?.gestureName === 'pointing');
 
     if (canMove) {
       let targetX: number;
       let targetY: number;
 
       if (this.cursorMode === 'relative') {
-        // ① 상대 이동 모드
+        // 상대 이동 모드
         if (!this.wasMovingCursor) {
           this.prevRawX = rawX;
           this.prevRawY = rawY;
@@ -201,8 +236,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         targetX = Math.max(0, Math.min(1, this.smoothX + dx));
         targetY = Math.max(0, Math.min(1, this.smoothY + dy));
       } else {
-        // ② 절대 모드 + Active Zone 리매핑
-        // 첫 감지 시 현재 손 위치를 zone 중심으로 자동 캘리브레이션
+        // 절대 모드 + Active Zone 리매핑
+        // 첫 감지 시 현재 위치를 zone 중심으로 자동 캘리브레이션
         if (!this.calibrated) {
           const halfW = (this.activeZone[2] - this.activeZone[0]) / 2;
           const halfH = (this.activeZone[3] - this.activeZone[1]) / 2;
@@ -218,7 +253,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         targetY = remapZone(rawY, this.zoneY0, this.zoneY1);
       }
 
-      // ③ 적응형 스무딩
+      // 적응형 스무딩
       const speed = Math.hypot(rawX - this.prevRawX, rawY - this.prevRawY);
       const t     = Math.min(speed / ADAPTIVE_SPEED_THRESHOLD, 1);
       const alpha = ADAPTIVE_MIN_ALPHA + t * (ADAPTIVE_MAX_ALPHA - ADAPTIVE_MIN_ALPHA);
@@ -231,17 +266,28 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.prevRawY        = rawY;
     this.wasMovingCursor = canMove;
 
-    // ── move 이벤트 ──
-    const screenX = Math.round(this.smoothX * window.innerWidth);
-    const screenY = Math.round(this.smoothY * window.innerHeight);
-    const pos: Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'> = {
-      x: this.smoothX,
-      y: this.smoothY,
-      screenX,
-      screenY,
-    };
+    const pos = this.currentPos();
     this.emit('move', pos);
 
+    // 제스처 결과가 있으면 클릭/스크롤/이벤트 처리
+    if (gestureResult) {
+      this.handleGestureEvents(gestureResult, pos);
+    }
+  }
+
+  private currentPos(): Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'> {
+    return {
+      x: this.smoothX,
+      y: this.smoothY,
+      screenX: Math.round(this.smoothX * window.innerWidth),
+      screenY: Math.round(this.smoothY * window.innerHeight),
+    };
+  }
+
+  private handleGestureEvents(
+    result: import('./GestureDetector').DetectionResult,
+    pos: Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'>,
+  ): void {
     // ── 클릭: 엄지+검지 핀치 (OK 제스처) ──
     if (result.gesture === 'click') {
       if (!this.isClicking) {
@@ -273,7 +319,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       const lastFire = this.lastGestureMs.get(gestureName) ?? 0;
       if (nowMs - lastFire > GESTURE_COOLDOWN_MS) {
         this.lastGestureMs.set(gestureName, nowMs);
-        const gestureEvent: GestureEvent = { gesture: gestureName, ...pos, confidence: result.gestureConfidence };
+        const gestureEvent: GestureEvent = {
+          gesture: gestureName,
+          ...pos,
+          confidence: result.gestureConfidence,
+        };
         this.emit(gestureName, gestureEvent);
         this.mapper.trigger(gestureName);
       }

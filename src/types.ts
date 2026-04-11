@@ -100,6 +100,12 @@ export interface HandControlOptions {
    */
   cursorAnchor?: 'wrist' | 'palm' | 'index';
   /**
+   * 커서 위치 소스 (default 'hand')
+   * - 'hand' : 손 위치로 커서 이동
+   * - 'gaze' : 홍채(시선)로 커서 이동 — 손 제스처는 클릭/스크롤 전용
+   */
+  cursorSource?: 'hand' | 'gaze';
+  /**
    * 커서 이동 방식 (default 'absolute')
    * - 'absolute' : 손 위치 → 화면 좌표 직접 매핑 (권장)
    * - 'relative' : 손의 이동량만큼 커서 이동 (마우스처럼)

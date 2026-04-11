@@ -2,8 +2,15 @@
 
 > MediaPipe 기반 핸드 제스처 → 마우스 이벤트 제어 웹 라이브러리
 
+[![npm version](https://img.shields.io/npm/v/@whatpull/handface?color=cb3837&logo=npm)](https://www.npmjs.com/package/@whatpull/handface)
+[![npm downloads](https://img.shields.io/npm/dm/@whatpull/handface?color=cb3837)](https://www.npmjs.com/package/@whatpull/handface)
+[![license](https://img.shields.io/github/license/whatpull/handface)](https://github.com/whatpull/handface/blob/main/LICENSE)
+[![demo](https://img.shields.io/badge/demo-live-6e40c9?logo=github)](https://whatpull.github.io/handface/)
+
 손동작으로 마우스 클릭, 커서 이동, 스크롤을 제어할 수 있는 **프레임워크 독립(framework agnostic)** npm 라이브러리입니다.  
 React, Vue, Svelte, 바닐라 JS 어디서든 동일하게 동작합니다.
+
+**[라이브 데모 →](https://whatpull.github.io/handface/)**
 
 ---
 

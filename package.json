@@ -1,6 +1,6 @@
 {
   "name": "@whatpull/handface",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Hand gesture to mouse event control library using MediaPipe",
   "type": "module",
   "main": "./dist/handface.umd.cjs",

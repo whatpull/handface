@@ -10,8 +10,8 @@ import type { GestureName } from './types';
 const LM = {
   WRIST:      0,
   THUMB_TIP:  4,
-  INDEX_TIP:  8,
-  MIDDLE_TIP: 12,
+  INDEX_TIP:  8,  // 클릭(엄지+검지 핀치) + 커서 앵커 공용
+  MIDDLE_TIP: 12, // 현재 미사용 (이전 클릭 방식)
   // palm center 계산용 (손목 + 각 손가락 MCP)
   INDEX_MCP:  5,
   MIDDLE_MCP: 9,
@@ -108,10 +108,9 @@ export class GestureDetector {
     lm: NormalizedLandmark[],
     categories: Array<{ categoryName: string; score: number }>,
   ): DetectionResult {
-    const thumbTip  = lm[LM.THUMB_TIP];
-    const indexTip  = lm[LM.INDEX_TIP];
-    const middleTip = lm[LM.MIDDLE_TIP];
-    const wrist     = lm[LM.WRIST];
+    const thumbTip = lm[LM.THUMB_TIP];
+    const indexTip = lm[LM.INDEX_TIP];
+    const wrist    = lm[LM.WRIST];
 
     // 손바닥 중심 (손목 + 4개 MCP 평균)
     const palmCenter = {
@@ -119,8 +118,8 @@ export class GestureDetector {
       y: PALM_INDICES.reduce((s, i) => s + lm[i].y, 0 as number) / PALM_INDICES.length,
     };
 
-    // 엄지 ↔ 중지 핀치 거리 (클릭 감지)
-    const clickPinchDistance = distance(thumbTip, middleTip);
+    // 엄지 ↔ 검지 핀치 거리 (클릭 감지 — OK 제스처)
+    const clickPinchDistance = distance(thumbTip, indexTip);
 
     // GestureRecognizer 최상위 결과
     const topCat = categories[0];

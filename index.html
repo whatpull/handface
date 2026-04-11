@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>handface — 데모</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f13;
+      color: #e8e8f0;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 커서 */
+    #cursor {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border: 2px solid #7c6af7;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      transition: background 0.1s;
+      z-index: 9999;
+    }
+    #cursor.clicking {
+      background: rgba(124, 106, 247, 0.5);
+      transform: translate(-50%, -50%) scale(1.4);
+    }
+
+    /* 헤더 */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(15, 15, 19, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      z-index: 100;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+    header .badge {
+      font-size: 0.7rem;
+      background: #7c6af7;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    /* 상태 패널 */
+    #status-panel {
+      position: fixed;
+      top: 72px; right: 24px;
+      width: 260px;
+      background: rgba(25, 25, 35, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.82rem;
+      z-index: 100;
+    }
+    #status-panel h2 { font-size: 0.75rem; opacity: 0.5; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .stat-label { opacity: 0.6; }
+    .stat-value { font-family: monospace; color: #7c6af7; }
+
+    /* 제스처 가이드 */
+    #gesture-guide {
+      position: fixed;
+      top: 72px; left: 24px;
+      width: 200px;
+      background: rgba(25, 25, 35, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.82rem;
+      z-index: 100;
+    }
+    #gesture-guide h2 { font-size: 0.75rem; opacity: 0.5; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .gesture-item { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+    .gesture-icon { font-size: 1.2rem; line-height: 1; }
+    .gesture-desc { font-size: 0.78rem; opacity: 0.8; line-height: 1.4; }
+
+    /* 클릭 이펙트 클릭 영역 */
+    #canvas-area {
+      position: fixed;
+      inset: 0;
+    }
+    .ripple {
+      position: fixed;
+      width: 40px;
+      height: 40px;
+      border: 2px solid #7c6af7;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      animation: ripple 0.5s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes ripple {
+      to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+
+    /* 스타트 오버레이 */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: rgba(15,15,19,0.95);
+      z-index: 200;
+    }
+    #overlay h2 { font-size: 1.6rem; font-weight: 700; }
+    #overlay p { opacity: 0.6; font-size: 0.95rem; text-align: center; max-width: 320px; line-height: 1.6; }
+    #start-btn {
+      padding: 12px 32px;
+      background: #7c6af7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #start-btn:hover { opacity: 0.85; }
+    #start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* 이벤트 로그 */
+    #event-log {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      width: 260px;
+      max-height: 180px;
+      overflow: hidden;
+      background: rgba(25, 25, 35, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      z-index: 100;
+    }
+    #event-log h2 { font-size: 0.7rem; opacity: 0.5; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-family: sans-serif; }
+    .log-entry { opacity: 0.7; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-entry.click { color: #7c6af7; opacity: 1; }
+    .log-entry.scroll { color: #4ecdc4; opacity: 1; }
+
+    /* 스크롤 영역 (scroll 테스트용) */
+    #scroll-content {
+      position: fixed;
+      bottom: 24px; left: 24px;
+      width: 200px;
+      background: rgba(25, 25, 35, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      z-index: 100;
+    }
+    #scroll-content h2 { font-size: 0.75rem; opacity: 0.5; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+    #scroll-bar-track {
+      height: 120px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      position: relative;
+    }
+    #scroll-bar-thumb {
+      width: 100%;
+      height: 30px;
+      background: #7c6af7;
+      border-radius: 4px;
+      position: absolute;
+      top: 0;
+      transition: top 0.05s;
+    }
+  </style>
+  <script type="module" crossorigin src="/handface/assets/index-ZCwEOfJK.js"></script>
+</head>
+<body>
+  <div id="canvas-area"></div>
+  <div id="cursor"></div>
+
+  <header>
+    <h1>handface</h1>
+    <span class="badge">v0.1.0</span>
+  </header>
+
+  <div id="gesture-guide">
+    <h2>제스처 가이드</h2>
+    <div class="gesture-item">
+      <span class="gesture-icon">☝️</span>
+      <span class="gesture-desc">검지 이동<br>→ 커서 이동</span>
+    </div>
+    <div class="gesture-item">
+      <span class="gesture-icon">🤏</span>
+      <span class="gesture-desc">엄지+검지 핀치<br>→ 클릭</span>
+    </div>
+    <div class="gesture-item">
+      <span class="gesture-icon">✌️</span>
+      <span class="gesture-desc">검지+중지 위아래<br>→ 스크롤</span>
+    </div>
+  </div>
+
+  <div id="status-panel">
+    <h2>상태</h2>
+    <div class="stat-row"><span class="stat-label">상태</span><span class="stat-value" id="s-state">대기중</span></div>
+    <div class="stat-row"><span class="stat-label">위치 X</span><span class="stat-value" id="s-x">—</span></div>
+    <div class="stat-row"><span class="stat-label">위치 Y</span><span class="stat-value" id="s-y">—</span></div>
+    <div class="stat-row"><span class="stat-label">클릭 수</span><span class="stat-value" id="s-clicks">0</span></div>
+    <div class="stat-row"><span class="stat-label">스크롤 Δ</span><span class="stat-value" id="s-scroll">0</span></div>
+  </div>
+
+  <div id="event-log">
+    <h2>이벤트 로그</h2>
+  </div>
+
+  <div id="scroll-content">
+    <h2>스크롤 테스트</h2>
+    <div id="scroll-bar-track">
+      <div id="scroll-bar-thumb"></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <h2>✋ handface 데모</h2>
+    <p>카메라를 허용하면 손동작으로 커서를 제어할 수 있습니다.<br>MediaPipe 모델 로딩에 약 3~5초가 소요됩니다.</p>
+    <button id="start-btn">카메라 시작</button>
+  </div>
+
+</body>
+</html>

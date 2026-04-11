@@ -260,7 +260,7 @@ control.on('scroll', (e) => {
   targetCamZ = Math.max(2.5, Math.min(13, targetCamZ + e.deltaY * 0.0035));
   const pct = Math.round((6 / targetCamZ) * 100);
   sZoomEl.textContent = `${pct}%`;
-  pushLog('scroll', `줌 ${e.deltaY > 0 ? '▲ In' : '▼ Out'}  ${pct}%`);
+  pushLog('scroll', `줌 ${e.deltaY > 0 ? '✊ In' : '🖐 Out'}  ${pct}%`);
 });
 
 // ─────────────────────────────────────────

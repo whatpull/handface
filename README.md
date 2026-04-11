@@ -84,7 +84,7 @@ control.stop();
 |--------|--------|---------|
 | `move` | 검지 손가락 이동 | `{ x, y, screenX, screenY }` |
 | `click` | 엄지+중지 핀치 | `{ x, y, screenX, screenY }` |
-| `scroll` | 검지+중지 수직 이동 | `{ deltaY }` |
+| `scroll` | 주먹(줌 인) / 펼친 손(줌 아웃) | `{ deltaY }` |
 | `rightclick` | (예정) | - |
 | `drag` / `dragstart` / `dragend` | (예정) | - |
 
@@ -94,7 +94,8 @@ control.stop();
 |--------|------|
 | ☝️ 검지만 펴기 | 커서 이동 (`move`) |
 | 🤏 엄지+중지 붙이기 | 클릭 (`click`) |
-| ✌️ 검지+중지 위아래 | 스크롤 (`scroll`) |
+| ✊ 손가락 모두 오무림 | 줌 인 (`scroll` deltaY > 0) |
+| 🖐️ 손가락 모두 펼침 | 줌 아웃 (`scroll` deltaY < 0) |
 
 ---
 

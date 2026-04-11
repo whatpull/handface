@@ -21,13 +21,14 @@ const GESTURE_COOLDOWN_MS      = 900;
 
 /**
  * 사용자 handedness 옵션 → MediaPipe categoryName 변환.
- * 정면 카메라의 raw(비반전) 피드에서:
- *   사용자의 오른손 → MediaPipe 'Left'
- *   사용자의 왼손  → MediaPipe 'Right'
+ * MediaPipe GestureRecognizer는 정면 카메라를 내부적으로 보정하므로
+ * 반환되는 handedness가 실제 손과 일치한다.
+ *   사용자의 오른손 → MediaPipe 'Right'
+ *   사용자의 왼손  → MediaPipe 'Left'
  */
 function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' | null {
-  if (h === 'right') return 'Left';
-  if (h === 'left')  return 'Right';
+  if (h === 'right') return 'Right';
+  if (h === 'left')  return 'Left';
   return null;
 }
 

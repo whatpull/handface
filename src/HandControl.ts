@@ -84,8 +84,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
 
     // gaze 모드: 홍채 이동 범위가 손보다 훨씬 좁으므로 기본 activeZone을 좁게 설정
+    // gaze 모드: 눈소켓 정규화 좌표(0~1 비율) 기준 ±0.15 범위가 편안한 시선 이동
     const defaultZone: [number, number, number, number] =
-      this.cursorSource === 'gaze' ? [0.47, 0.37, 0.53, 0.43] : [0.3, 0.1, 0.95, 0.85];
+      this.cursorSource === 'gaze' ? [0.35, 0.35, 0.65, 0.65] : [0.3, 0.1, 0.95, 0.85];
     this.activeZone = options.activeZone ?? defaultZone;
     // 초기 zone 변수 설정 (캘리브레이션 전 기본값)
     [this.zoneX0, this.zoneY0, this.zoneX1, this.zoneY1] = this.activeZone;

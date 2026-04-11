@@ -73,9 +73,12 @@ export class GestureDetector {
 
     let gesture: GestureType;
 
+    // 클릭 감지가 우선 — 클릭 핀치 거리가 가까우면 two-finger로 오분류하지 않음
+    const clickClearlyReleased = clickPinchDistance > this.clickThreshold * 2.5;
+
     if (clickPinchDistance < this.clickThreshold) {
       gesture = 'click';
-    } else if (indexExtended && middleExtended) {
+    } else if (indexExtended && middleExtended && clickClearlyReleased) {
       gesture = 'two-finger';
     } else if (indexExtended) {
       gesture = 'point';

@@ -130,8 +130,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.isClicking = false;
     }
 
-    // 스크롤: 검지 + 중지 수직 이동
-    if (result.gesture === 'two-finger') {
+    // 스크롤: 검지 + 중지 수직 이동 (클릭 중에는 무시)
+    if (result.gesture === 'two-finger' && !this.isClicking) {
       const currentY = result.indexTip.y;
       if (this.prevTwoFingerY !== 0) {
         const deltaY = (currentY - this.prevTwoFingerY) * 1000;

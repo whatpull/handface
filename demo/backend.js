@@ -16,18 +16,20 @@
 
 import { NeuralLM } from './nlm.js';
 
-const STORAGE_KEY = 'handface-nlm-v1';
+const STORAGE_KEY = 'handface-nlm-v2';   // bumped: model arch changed (CTX 6→8, H1 96→112)
+const REPLAY_CAP  = 300;                 // full user-message history cap
 
 export class CharNLMBackend {
   constructor() {
     this.model = new NeuralLM({
-      maxVocab: 220, contextLen: 6, embedDim: 16,
-      h1: 96, h2: 96, h3: 64, lr: 0.04,
+      maxVocab: 220, contextLen: 8, embedDim: 16,
+      h1: 112, h2: 96, h3: 64, lr: 0.035,
     });
-    this.history    = [];   // { role: 'user'|'ai', text }
-    this.handlers   = new Set();
-    this.busy       = false;
-    this.autoSaveOn = true;
+    this.history      = [];   // { role: 'user'|'ai', text } — full chat log for UI
+    this.userMessages = [];   // replay buffer: ALL user messages, for continual training
+    this.handlers     = new Set();
+    this.busy         = false;
+    this.autoSaveOn   = true;
     this._tryLoad();
   }
 
@@ -80,13 +82,46 @@ export class CharNLMBackend {
     this.busy = true;
     try {
       this.history.push({ role: 'user', text: message });
-      this.emit({ type: 'training-start', message });
+      this.userMessages.push(message);
+      if (this.userMessages.length > REPLAY_CAP) this.userMessages.shift();
 
-      // Train on the user's message + recent history (sliding window)
-      const trainCorpus = this._buildTrainCorpus();
+      this.emit({ type: 'training-start', message });
       const stepsBefore = this.model.totalSteps;
-      const avgLoss     = this.model.trainOnText(trainCorpus, 4);
-      const stepsRun    = this.model.totalSteps - stepsBefore;
+      let totalLoss = 0, lossCount = 0;
+
+      // ── Phase 1: focused training on the new message (heavy) ──
+      // Teach the model what the user JUST said.
+      const loss1 = this.model.trainOnText(message + '\n', 12);
+      if (loss1 > 0) { totalLoss += loss1; lossCount++; }
+
+      // ── Phase 2: replay from full user history (prevents forgetting) ──
+      // Randomly sample older messages and retrain on them. Without this the
+      // model forgets what you taught it 10 turns ago.
+      const poolSize = this.userMessages.length - 1;   // exclude the just-added
+      if (poolSize > 0) {
+        const replayN = Math.min(15, poolSize);
+        for (let i = 0; i < replayN; i++) {
+          const idx = Math.floor(Math.random() * poolSize);
+          const loss = this.model.trainOnText(this.userMessages[idx] + '\n', 3);
+          if (loss > 0) { totalLoss += loss; lossCount++; }
+        }
+      }
+
+      // ── Phase 3: joint training on random concatenation ──
+      // Mix 3 random messages together so the model learns to string patterns
+      // across messages, not just memorize isolated ones.
+      if (this.userMessages.length >= 3) {
+        const joint = [];
+        for (let i = 0; i < 3; i++) {
+          const idx = Math.floor(Math.random() * this.userMessages.length);
+          joint.push(this.userMessages[idx]);
+        }
+        const loss = this.model.trainOnText(joint.join('\n') + '\n', 2);
+        if (loss > 0) { totalLoss += loss; lossCount++; }
+      }
+
+      const stepsRun = this.model.totalSteps - stepsBefore;
+      const avgLoss  = lossCount > 0 ? totalLoss / lossCount : 0;
 
       this.emit({
         type: 'training-end',
@@ -98,9 +133,13 @@ export class CharNLMBackend {
       // Yield to the browser so viz can repaint between training and generation
       await new Promise((r) => setTimeout(r, 16));
 
-      // Generate a response, seeded by the user's message
+      // ── Sampling with adaptive temperature ──
+      // Untrained model (loss ~4): temp 0.9 (diverse)
+      // Well-trained   (loss ~1): temp 0.55 (confident, reveals learned patterns)
+      const loss     = this.model.lossEMA ?? 4;
+      const temp     = Math.max(0.55, Math.min(0.95, 0.45 + loss * 0.12));
       const seed     = message.length > 0 ? message : ' ';
-      const response = this.model.sample(seed, 50, 0.85);
+      const response = this.model.sample(seed, 60, temp);
       const cleaned  = response.length > 0 ? response : '...';
 
       this.history.push({ role: 'ai', text: cleaned });
@@ -114,22 +153,14 @@ export class CharNLMBackend {
     }
   }
 
-  /** Build the text the model trains on this turn. */
-  _buildTrainCorpus() {
-    // Use the last N messages (concatenated with separators) so the model
-    // gets some chat-like sequencing, not just isolated sentences.
-    const N = 8;
-    const recent = this.history.slice(-N);
-    return recent.map(m => m.text).join('\n') + '\n';
-  }
-
   // ─── Reset / persistence ──────────────────────
   reset() {
     this.model = new NeuralLM({
-      maxVocab: 220, contextLen: 6, embedDim: 16,
-      h1: 96, h2: 96, h3: 64, lr: 0.04,
+      maxVocab: 220, contextLen: 8, embedDim: 16,
+      h1: 112, h2: 96, h3: 64, lr: 0.035,
     });
-    this.history.length = 0;
+    this.history.length      = 0;
+    this.userMessages.length = 0;
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     this.emit({ type: 'state', stats: this.stats });
   }
@@ -137,8 +168,9 @@ export class CharNLMBackend {
   _trySave() {
     try {
       const blob = JSON.stringify({
-        model:   this.model.serialize(),
-        history: this.history.slice(-30),
+        model:        this.model.serialize(),
+        history:      this.history.slice(-40),
+        userMessages: this.userMessages,
       });
       localStorage.setItem(STORAGE_KEY, blob);
     } catch {
@@ -151,8 +183,9 @@ export class CharNLMBackend {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data.model)   this.model.loadFrom(data.model);
-      if (data.history) this.history = data.history;
+      if (data.model)        this.model.loadFrom(data.model);
+      if (data.history)      this.history      = data.history;
+      if (data.userMessages) this.userMessages = data.userMessages;
     } catch {
       // Corrupt or missing — start fresh
     }

@@ -41,12 +41,12 @@ function softmaxInPlace(arr, len) {
 export class NeuralLM {
   constructor(opts = {}) {
     this.MAX_VOCAB = opts.maxVocab ?? 220;
-    this.CTX       = opts.contextLen ?? 6;
+    this.CTX       = opts.contextLen ?? 8;    // wider context → smarter predictions
     this.EMB       = opts.embedDim ?? 16;
-    this.H1        = opts.h1 ?? 96;
+    this.H1        = opts.h1 ?? 112;
     this.H2        = opts.h2 ?? 96;
     this.H3        = opts.h3 ?? 64;
-    this.lr        = opts.lr ?? 0.04;
+    this.lr        = opts.lr ?? 0.035;
     this.momentum  = opts.momentum ?? 0.9;
 
     const V = this.MAX_VOCAB;

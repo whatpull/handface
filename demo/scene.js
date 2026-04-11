@@ -299,7 +299,7 @@ async function handleSend() {
   chatInputEl.value = '';
   appendChatMsg('user', text);
   triggerPass(text);
-  pushLog('', `💬 학습 시작 (${text.length}자)`);
+  pushLog('', `💬 training (${text.length} chars)`);
   await backend.send(text);
 }
 
@@ -313,14 +313,14 @@ chatResetEl.addEventListener('click', () => {
   chatMsgsEl.innerHTML = '';
   bootstrapChat();
   syncEdgeWeightsFromModel();
-  pushLog('', '🔄 모델 리셋');
+  pushLog('', '🔄 model reset');
 });
 
 backend.onEvent((ev) => {
   if (ev.type === 'training-end') {
     syncEdgeWeightsFromModel();
     updateChatStats();
-    pushLog('', `🧠 ${ev.stepsRun} step (loss ${ev.avgLoss.toFixed(2)})`);
+    pushLog('', `🧠 ${ev.stepsRun} steps (loss ${ev.avgLoss.toFixed(2)})`);
   } else if (ev.type === 'generate-end') {
     appendChatMsg('ai', ev.text);
     triggerPass(ev.text);
@@ -635,23 +635,22 @@ control.on('click', () => {
   clickCount++;
   sClicksEl.textContent = String(clickCount);
   cursorEl.classList.add('clicking');
-  flashEl.classList.add('on');
-  setTimeout(() => { flashEl.classList.remove('on'); cursorEl.classList.remove('clicking'); }, 80);
-  pushLog('ev-click', '🤌 핀치');
+  setTimeout(() => cursorEl.classList.remove('clicking'), 80);
+  pushLog('ev-click', '🤌 pinch');
 });
 
 control.on('scroll', (e) => {
   targetCamZ = Math.max(3.2, Math.min(13, targetCamZ + e.deltaY * 0.055));
   const zoom = Math.round((1 - (targetCamZ - 3.2) / 9.8) * 100);
   sZoomEl.textContent = `${zoom}%`;
-  pushLog('ev-scroll', e.deltaY > 0 ? '✊ 줌아웃' : '🖐️ 줌인');
+  pushLog('ev-scroll', e.deltaY > 0 ? '✊ zoom out' : '🖐️ zoom in');
 });
 
 const GCFG = {
-  thumbsup:   { label: '👍 LTP 강화' },
-  thumbsdown: { label: '👎 LTD 억제' },
-  victory:    { label: '✌️ 학습률 증가' },
-  iloveyou:   { label: '🤟 풀 패스' },
+  thumbsup:   { label: '👍 thumbs up' },
+  thumbsdown: { label: '👎 thumbs down' },
+  victory:    { label: '✌️ victory' },
+  iloveyou:   { label: '🤟 iloveyou' },
 };
 for (const [g, cfg] of Object.entries(GCFG)) {
   control.on(g, () => pushLog('', cfg.label));
@@ -779,24 +778,24 @@ animate();
 // ─── Start Button ───
 startBtn.addEventListener('click', async () => {
   startBtn.disabled    = true;
-  startBtn.textContent = '초기화 중...';
-  loadMsg.textContent  = 'MediaPipe 모델 로딩 중 (5~10초)';
-  sStatus.textContent  = '초기화중';
+  startBtn.textContent = 'LOADING...';
+  loadMsg.textContent  = 'Loading MediaPipe (5-10s)';
+  sStatus.textContent  = 'INIT';
   try {
     await control.start();
     control.createPanel();
-    sStatus.textContent = '감지중';
+    sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
-    pushLog('', '시작');
+    pushLog('', 'start');
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', '캘리브레이션 재설정'); }
+      if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', 'recalibrated'); }
     });
   } catch (err) {
-    sStatus.textContent  = '오류';
-    loadMsg.textContent  = `오류: ${err.message}`;
+    sStatus.textContent  = 'ERROR';
+    loadMsg.textContent  = `Error: ${err.message}`;
     startBtn.disabled    = false;
-    startBtn.textContent = '다시 시도';
+    startBtn.textContent = 'RETRY';
     console.error(err);
   }
 });

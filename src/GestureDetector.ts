@@ -7,19 +7,19 @@ import { distance } from './utils/geometry';
 
 /** MediaPipe Hand Landmark 인덱스 */
 const LM = {
-  WRIST: 0,
   THUMB_TIP: 4,
   INDEX_MCP: 5,
   INDEX_TIP: 8,
-  MIDDLE_TIP: 12,
   MIDDLE_MCP: 9,
+  MIDDLE_TIP: 12,
 } as const;
 
-export type GestureType = 'pinch' | 'point' | 'two-finger' | 'open' | 'none';
+export type GestureType = 'click' | 'point' | 'two-finger' | 'open' | 'none';
 
 export interface DetectionResult {
   gesture: GestureType;
-  pinchDistance: number;
+  /** 클릭 감지용: 엄지 ↔ 중지 거리 */
+  clickPinchDistance: number;
   indexTip: { x: number; y: number };
   middleTip: { x: number; y: number };
 }
@@ -34,7 +34,7 @@ export class GestureDetector {
 
   constructor(
     private readonly wasmPath: string = DEFAULT_WASM_PATH,
-    private readonly pinchThreshold: number = 0.06,
+    private readonly clickThreshold: number = 0.06,
   ) {}
 
   async init(): Promise<void> {
@@ -59,20 +59,22 @@ export class GestureDetector {
   }
 
   private analyze(lm: NormalizedLandmark[]): DetectionResult {
-    const thumbTip = lm[LM.THUMB_TIP];
-    const indexTip = lm[LM.INDEX_TIP];
+    const thumbTip  = lm[LM.THUMB_TIP];
+    const indexTip  = lm[LM.INDEX_TIP];
+    const indexMcp  = lm[LM.INDEX_MCP];
     const middleTip = lm[LM.MIDDLE_TIP];
-    const indexMcp = lm[LM.INDEX_MCP];
     const middleMcp = lm[LM.MIDDLE_MCP];
 
-    const pinchDistance = distance(thumbTip, indexTip);
-    const indexExtended = indexTip.y < indexMcp.y;
+    // 클릭: 엄지 ↔ 중지 (검지는 커서 추적 전용으로 분리)
+    const clickPinchDistance = distance(thumbTip, middleTip);
+
+    const indexExtended  = indexTip.y < indexMcp.y;
     const middleExtended = middleTip.y < middleMcp.y;
 
     let gesture: GestureType;
 
-    if (pinchDistance < this.pinchThreshold) {
-      gesture = 'pinch';
+    if (clickPinchDistance < this.clickThreshold) {
+      gesture = 'click';
     } else if (indexExtended && middleExtended) {
       gesture = 'two-finger';
     } else if (indexExtended) {
@@ -83,8 +85,8 @@ export class GestureDetector {
 
     return {
       gesture,
-      pinchDistance,
-      indexTip: { x: indexTip.x, y: indexTip.y },
+      clickPinchDistance,
+      indexTip:  { x: indexTip.x,  y: indexTip.y  },
       middleTip: { x: middleTip.x, y: middleTip.y },
     };
   }

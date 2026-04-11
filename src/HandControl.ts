@@ -8,7 +8,7 @@ import type {
   ClickEvent,
 } from './types';
 
-const PINCH_RELEASE_HYSTERESIS = 0.09;
+const CLICK_RELEASE_HYSTERESIS = 0.09;
 const CLICK_COOLDOWN_MS = 600;
 
 export class HandControl extends EventEmitter<HandControlEventMap> {
@@ -18,17 +18,13 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private stream: MediaStream | null = null;
 
   // gesture state
-  private isPinching = false;
+  private isClicking = false;
   private lastClickMs = 0;
   private prevTwoFingerY = 0;
 
-  // smoothed cursor position
+  // smoothed cursor position (검지 끝 추적)
   private smoothX = 0.5;
   private smoothY = 0.5;
-
-  // 핀치 시작 시 고정된 커서 위치 (핀치 중 커서 흔들림 방지)
-  private frozenX = 0.5;
-  private frozenY = 0.5;
 
   private readonly threshold: number;
   private readonly smoothing: number;
@@ -101,15 +97,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const result = this.detector.detect(this.video, now);
     if (!result) return;
 
-    // 위치 계산 (flipHorizontal → 거울 효과)
+    // 커서: 검지 끝 추적 (클릭 제스처와 무관하게 항상 안정적)
     const rawX = this.flipHorizontal ? 1 - result.indexTip.x : result.indexTip.x;
     const rawY = result.indexTip.y;
 
-    // 핀치 중에는 커서 위치 갱신 중단 → 흔들림 방지
-    if (!this.isPinching) {
-      this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
-      this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
-    }
+    this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
+    this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
 
     const screenX = Math.round(this.smoothX * window.innerWidth);
     const screenY = Math.round(this.smoothY * window.innerHeight);
@@ -121,32 +114,23 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       screenY,
     };
 
-    // move 이벤트는 항상 발생
     this.emit('move', pos);
 
-    // 핀치 → click
-    if (result.gesture === 'pinch') {
-      if (!this.isPinching) {
-        // 핀치 시작 순간의 위치를 고정
-        this.frozenX = this.smoothX;
-        this.frozenY = this.smoothY;
-        this.isPinching = true;
+    // 클릭: 엄지 + 중지 핀치 (검지는 커서 추적 전용)
+    if (result.gesture === 'click') {
+      if (!this.isClicking) {
+        this.isClicking = true;
         const nowMs = Date.now();
         if (nowMs - this.lastClickMs > CLICK_COOLDOWN_MS) {
           this.lastClickMs = nowMs;
-          this.emit('click', {
-            x: this.frozenX,
-            y: this.frozenY,
-            screenX: Math.round(this.frozenX * window.innerWidth),
-            screenY: Math.round(this.frozenY * window.innerHeight),
-          } as ClickEvent);
+          this.emit('click', pos as ClickEvent);
         }
       }
-    } else if (result.pinchDistance > PINCH_RELEASE_HYSTERESIS) {
-      this.isPinching = false;
+    } else if (result.clickPinchDistance > CLICK_RELEASE_HYSTERESIS) {
+      this.isClicking = false;
     }
 
-    // 두 손가락 수직 이동 → scroll
+    // 스크롤: 검지 + 중지 수직 이동
     if (result.gesture === 'two-finger') {
       const currentY = result.indexTip.y;
       if (this.prevTwoFingerY !== 0) {

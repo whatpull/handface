@@ -83,7 +83,7 @@ control.stop();
 | 이벤트 | 제스처 | 페이로드 |
 |--------|--------|---------|
 | `move` | 검지 손가락 이동 | `{ x, y, screenX, screenY }` |
-| `click` | 엄지+검지 핀치 | `{ x, y, screenX, screenY }` |
+| `click` | 엄지+중지 핀치 | `{ x, y, screenX, screenY }` |
 | `scroll` | 검지+중지 수직 이동 | `{ deltaY }` |
 | `rightclick` | (예정) | - |
 | `drag` / `dragstart` / `dragend` | (예정) | - |
@@ -93,7 +93,7 @@ control.stop();
 | 제스처 | 동작 |
 |--------|------|
 | ☝️ 검지만 펴기 | 커서 이동 (`move`) |
-| 🤏 엄지+검지 붙이기 | 클릭 (`click`) |
+| 🤏 엄지+중지 붙이기 | 클릭 (`click`) |
 | ✌️ 검지+중지 위아래 | 스크롤 (`scroll`) |
 
 ---

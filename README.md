@@ -169,4 +169,4 @@ npm run typecheck  # TypeScript 타입 체크
 
 ## 라이선스
 
-MIT
+Apache 2.0

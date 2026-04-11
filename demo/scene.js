@@ -1,13 +1,22 @@
 import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
 import { CharNLMBackend } from './backend.js';
+import { ClaudeAPIBackend } from './claude-backend.js';
 
 // ─────────────────────────────────────────
-// Neural backend (small char-level LM that learns continuously from chat)
-// Replace this constructor later with a CloudLLMBackend / WebLLMBackend
-// while leaving everything below unchanged.
+// Neural backend — API key가 있으면 Claude, 없으면 로컬 NLM
 // ─────────────────────────────────────────
-const backend = new CharNLMBackend();
+const APIKEY_STORAGE = 'handface-apikey';
+const MODEL_STORAGE  = 'handface-model';
+
+function createBackend() {
+  const apiKey = localStorage.getItem(APIKEY_STORAGE);
+  const model  = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
+  if (apiKey) return new ClaudeAPIBackend({ apiKey, model });
+  return new CharNLMBackend();
+}
+
+let backend = createBackend();
 
 // ─── DOM refs ───
 const cursorEl  = document.getElementById('cursor');
@@ -275,18 +284,18 @@ for (const e of edges) {
     }
     geo.computeVertexNormals();
 
-    // 와이어프레임 메쉬 (반투명, 매우 얇은 선)
+    // 와이어프레임 메쉬 (시안/블루 — 내부 앰버 네트워크와 대비)
     network.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: 0xFF6600, wireframe: true,
+      color: 0x3399FF, wireframe: true,
       blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.06, depthWrite: false,
+      transparent: true, opacity: 0.055, depthWrite: false,
     })));
 
-    // 솔리드 표면 (극히 얇은 반투명 — 형체감)
+    // 솔리드 표면 (극히 얇은 반투명 블루 — 형체감)
     network.add(new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({
-      color: 0xFF4400,
+      color: 0x2266CC,
       blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.015, depthWrite: false,
+      transparent: true, opacity: 0.018, depthWrite: false,
     })));
   }
 })();
@@ -456,7 +465,8 @@ function appendChatMsg(role, text) {
 function updateChatStats() {
   const s = backend.stats;
   const lossStr = s.lossEMA != null ? s.lossEMA.toFixed(2) : '—';
-  chatStatsEl.textContent = `vocab ${s.vocabSize} · steps ${s.totalSteps} · loss ${lossStr}`;
+  const tokenStr = s.tokenCount ? ` · tokens ${s.tokenCount}` : '';
+  chatStatsEl.textContent = `vocab ${s.vocabSize} · steps ${s.totalSteps} · loss ${lossStr}${tokenStr}`;
   if (s.lossEMA != null) {
     // 학습 진척도: loss가 낮을수록 바가 가득 (5.0 → 0% / 0.5 → 90%)
     const filled = Math.max(0, Math.min(1, 1 - s.lossEMA / 5));
@@ -497,7 +507,7 @@ chatResetEl.addEventListener('click', () => {
   pushLog('', '🔄 model reset');
 });
 
-backend.onEvent((ev) => {
+function backendEventHandler(ev) {
   if (ev.type === 'training-end') {
     syncEdgeWeightsFromModel();
     updateChatStats();
@@ -511,11 +521,97 @@ backend.onEvent((ev) => {
   } else if (ev.type === 'state') {
     updateChatStats();
   }
-});
+}
+backend.onEvent(backendEventHandler);
 
 // 초기 가중치 동기화 + 예측 패널
 syncEdgeWeightsFromModel();
 updatePredictions();
+
+// ─────────────────────────────────────────
+// Settings modal + backend switching
+// ─────────────────────────────────────────
+const settingsBtn    = document.getElementById('settings-btn');
+const settingsModal  = document.getElementById('settings-modal');
+const sApiKeyEl      = document.getElementById('s-apikey');
+const sStatusEl      = document.getElementById('settings-status');
+const sSaveBtn       = document.getElementById('s-save');
+const sTestBtn       = document.getElementById('s-test');
+const sDeleteBtn     = document.getElementById('s-delete');
+const sCloseBtn      = document.getElementById('s-close');
+
+function getSelectedModel() {
+  const checked = document.querySelector('input[name="s-model"]:checked');
+  return checked ? checked.value : 'claude-haiku-4-5-20251001';
+}
+
+function updateModeBadge() {
+  const isCloud = backend instanceof ClaudeAPIBackend;
+  const existingBadge = document.getElementById('mode-badge');
+  if (existingBadge) existingBadge.remove();
+  const badge = document.createElement('span');
+  badge.id = 'mode-badge';
+  badge.className = `mode-badge ${isCloud ? 'cloud' : 'local'}`;
+  badge.textContent = isCloud ? 'CLAUDE' : 'LOCAL';
+  document.getElementById('chat-title').appendChild(badge);
+}
+updateModeBadge();
+
+// Populate saved key (masked)
+const savedKey = localStorage.getItem(APIKEY_STORAGE);
+if (savedKey) sApiKeyEl.value = savedKey;
+const savedModel = localStorage.getItem(MODEL_STORAGE);
+if (savedModel) {
+  const radio = document.querySelector(`input[name="s-model"][value="${savedModel}"]`);
+  if (radio) radio.checked = true;
+}
+
+settingsBtn.addEventListener('click', () => settingsModal.classList.add('open'));
+sCloseBtn.addEventListener('click',   () => settingsModal.classList.remove('open'));
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) settingsModal.classList.remove('open');
+});
+
+sTestBtn.addEventListener('click', async () => {
+  const key = sApiKeyEl.value.trim();
+  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
+  sStatusEl.textContent = 'Testing...';
+  const testBackend = new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
+  const ok = await testBackend.testConnection();
+  sStatusEl.textContent = ok ? '✓ Connection successful!' : '✗ Failed — check your key.';
+});
+
+sSaveBtn.addEventListener('click', () => {
+  const key   = sApiKeyEl.value.trim();
+  const model = getSelectedModel();
+  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
+  localStorage.setItem(APIKEY_STORAGE, key);
+  localStorage.setItem(MODEL_STORAGE, model);
+  // Rebuild backend
+  backend = new ClaudeAPIBackend({ apiKey: key, model });
+  backend.onEvent(backendEventHandler);
+  chatMsgsEl.innerHTML = '';
+  bootstrapChat();
+  syncEdgeWeightsFromModel();
+  updateModeBadge();
+  sStatusEl.textContent = '✓ Saved — now using Claude API.';
+  settingsModal.classList.remove('open');
+  pushLog('', '☁ Claude mode');
+});
+
+sDeleteBtn.addEventListener('click', () => {
+  localStorage.removeItem(APIKEY_STORAGE);
+  localStorage.removeItem(MODEL_STORAGE);
+  sApiKeyEl.value = '';
+  backend = new CharNLMBackend();
+  backend.onEvent(backendEventHandler);
+  chatMsgsEl.innerHTML = '';
+  bootstrapChat();
+  syncEdgeWeightsFromModel();
+  updateModeBadge();
+  sStatusEl.textContent = 'Key deleted — local mode.';
+  pushLog('', '🔧 local mode');
+});
 
 function updateNetInfo() {
   // Input vector (활성화 값)

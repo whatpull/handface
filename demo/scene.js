@@ -42,6 +42,29 @@ const network = new THREE.Group();
 scene.add(network);
 
 // ─────────────────────────────────────────
+// 원형 스프라이트 텍스처 (Points 머티리얼이 사각형이 아닌 원으로 렌더되도록)
+// ─────────────────────────────────────────
+function makeCircleSprite(softness = 0.55) {
+  const s   = 64;
+  const cv  = document.createElement('canvas');
+  cv.width  = cv.height = s;
+  const ctx = cv.getContext('2d');
+  const grad = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+  grad.addColorStop(0.00, 'rgba(255,255,255,1)');
+  grad.addColorStop(softness, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(1.00, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.minFilter  = THREE.LinearFilter;
+  tex.magFilter  = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+const SPRITE_SOFT  = makeCircleSprite(0.50);  // 노드 헤일로용 (부드러운 원)
+const SPRITE_SHARP = makeCircleSprite(0.30);  // 코어/스파크용 (선명한 원)
+
+// ─────────────────────────────────────────
 // 신경망 구조 - 동심 구체 (Concentric Spherical Shells)
 // 입력층(코어) → 은닉층 → 출력층(외각) 으로 신호가 방사형으로 전파됨
 // ─────────────────────────────────────────
@@ -128,6 +151,67 @@ for (const e of edges) {
 }
 
 // ─────────────────────────────────────────
+// HUD 패널: Input Vector + Layer Weights
+// ─────────────────────────────────────────
+const inputGridEl = document.getElementById('input-grid');
+inputGridEl.style.gridTemplateColumns = `repeat(${LAYER_SIZES[0]}, 1fr)`;
+const inputCellFills = [];
+const inputCellVals  = [];
+for (let i = 0; i < LAYER_SIZES[0]; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'input-cell';
+  const fill = document.createElement('div');
+  fill.className = 'input-cell-fill';
+  const val  = document.createElement('div');
+  val.className  = 'input-cell-val';
+  val.textContent = '00';
+  cell.appendChild(fill);
+  cell.appendChild(val);
+  inputGridEl.appendChild(cell);
+  inputCellFills.push(fill);
+  inputCellVals.push(val);
+}
+
+const weightListEl = document.getElementById('weight-list');
+const weightRowEls = [];
+for (let li = 1; li < LAYER_SIZES.length; li++) {
+  const row = document.createElement('div');
+  row.className = 'weight-row';
+  row.innerHTML = `
+    <span class="weight-label">L${li-1}→${li}</span>
+    <div class="weight-bar"><div class="weight-fill"></div></div>
+    <span class="weight-val">—</span>
+  `;
+  weightListEl.appendChild(row);
+  weightRowEls.push({
+    fill:     row.querySelector('.weight-fill'),
+    val:      row.querySelector('.weight-val'),
+    layerIdx: li,
+  });
+}
+
+function updateNetInfo() {
+  // Input vector (활성화 값)
+  for (let i = 0; i < LAYER_SIZES[0]; i++) {
+    const a = layerData[0][i].activation;
+    inputCellFills[i].style.height = `${Math.round(a * 100)}%`;
+    inputCellVals[i].textContent   = String(Math.round(a * 100)).padStart(2, '0');
+  }
+  // Layer weights (각 층의 incoming 평균 가중치)
+  for (const row of weightRowEls) {
+    let sum = 0, cnt = 0;
+    for (const n of layerData[row.layerIdx]) {
+      const inc = incomingEdges.get(n);
+      if (!inc) continue;
+      for (const e of inc) { sum += e.weight; cnt++; }
+    }
+    const avg = cnt > 0 ? sum / cnt : 0;
+    row.fill.style.width = `${Math.round(avg * 100)}%`;
+    row.val.textContent  = avg.toFixed(2);
+  }
+}
+
+// ─────────────────────────────────────────
 // 엣지 지오메트리 (버텍스 컬러 → 매 프레임 가중치 반영)
 // ─────────────────────────────────────────
 const ePosArr = new Float32Array(edges.length * 6);
@@ -154,19 +238,19 @@ allNodes.forEach((n, i) => {
   nPosArr[i*3] = n.pos.x; nPosArr[i*3+1] = n.pos.y; nPosArr[i*3+2] = n.pos.z;
 });
 
-function makeNodePoints(colArr, size, sharedPos) {
+function makeNodePoints(colArr, size, sharedPos, sprite) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(sharedPos, 3));
   geo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
   network.add(new THREE.Points(geo, new THREE.PointsMaterial({
-    vertexColors: true, size,
+    vertexColors: true, size, map: sprite, alphaTest: 0.01,
     blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
   })));
   return geo;
 }
 
-const nodeHaloGeo = makeNodePoints(nHaloArr, 0.26, nPosArr);
-const nodeCoreGeo = makeNodePoints(nCoreArr, 0.09, nPosArr);
+const nodeHaloGeo = makeNodePoints(nHaloArr, 0.30, nPosArr, SPRITE_SOFT);
+const nodeCoreGeo = makeNodePoints(nCoreArr, 0.11, nPosArr, SPRITE_SHARP);
 
 // ─────────────────────────────────────────
 // 스파크 파티클 (전류 흐름 표현)
@@ -180,7 +264,7 @@ sparkGeo.setAttribute('position', new THREE.BufferAttribute(spPosArr, 3));
 sparkGeo.setAttribute('color',    new THREE.BufferAttribute(spColArr, 3));
 sparkGeo.setDrawRange(0, 0);
 network.add(new THREE.Points(sparkGeo, new THREE.PointsMaterial({
-  vertexColors: true, size: 0.065,
+  vertexColors: true, size: 0.075, map: SPRITE_SHARP, alphaTest: 0.01,
   blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
 })));
 
@@ -194,27 +278,65 @@ function spawnSpark(edge, tOffset = 0) {
 }
 
 // ─────────────────────────────────────────
-// 중심 코어 글로우 (입력층 활성화에 반응)
+// 디지털 코어 (와이어프레임 + HUD 링)
 // ─────────────────────────────────────────
-const coreInner = new THREE.Mesh(
-  new THREE.SphereGeometry(0.16, 32, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0xFFEEBB,
-    blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.7, depthWrite: false,
-  }),
-);
-network.add(coreInner);
+const coreGroup = new THREE.Group();
+network.add(coreGroup);
 
-const coreOuter = new THREE.Mesh(
-  new THREE.SphereGeometry(0.42, 32, 32),
+// (1) 가장 안쪽 글로우 — 작고 매우 밝은 화이트
+const coreGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(0.06, 16, 16),
   new THREE.MeshBasicMaterial({
-    color: 0xFF7733,
-    blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.18, depthWrite: false,
+    color: 0xFFFFEE, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.95, depthWrite: false,
   }),
 );
-network.add(coreOuter);
+coreGroup.add(coreGlow);
+
+// (2) 안쪽 와이어프레임 이코사헤드론 (디지털 격자)
+const coreIcoInner = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.16, 1)),
+  new THREE.LineBasicMaterial({
+    color: 0xFFCC55, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.85, depthWrite: false,
+  }),
+);
+coreGroup.add(coreIcoInner);
+
+// (3) 바깥 와이어프레임 옥타헤드론 (역회전)
+const coreIcoOuter = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.27, 0)),
+  new THREE.LineBasicMaterial({
+    color: 0xFF8833, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.65, depthWrite: false,
+  }),
+);
+coreGroup.add(coreIcoOuter);
+
+// (4) 직교하는 3개 HUD 링 (궤도)
+function makeOrbitRing(radius, rotX, rotY, rotZ) {
+  const geo  = new THREE.TorusGeometry(radius, 0.0035, 6, 80);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: 0xFFAA44, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.55, depthWrite: false,
+  }));
+  mesh.rotation.set(rotX, rotY, rotZ);
+  return mesh;
+}
+const ring1 = makeOrbitRing(0.36, 0, 0, 0);
+const ring2 = makeOrbitRing(0.36, Math.PI/2, 0, 0);
+const ring3 = makeOrbitRing(0.36, 0, Math.PI/2, 0);
+coreGroup.add(ring1, ring2, ring3);
+
+// (5) 부드러운 외곽 글로우
+const coreOuterGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(0.42, 24, 24),
+  new THREE.MeshBasicMaterial({
+    color: 0xFF7733, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.16, depthWrite: false,
+  }),
+);
+coreGroup.add(coreOuterGlow);
 
 // ─── 별 배경 ───
 const STAR_N  = 2200;
@@ -230,7 +352,7 @@ for (let i = 0; i < STAR_N; i++) {
 const starGeo = new THREE.BufferGeometry();
 starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
 const starMesh = new THREE.Points(starGeo, new THREE.PointsMaterial({
-  color: 0xFFCC99, size: 0.016,
+  color: 0xFFCC99, size: 0.022, map: SPRITE_SHARP, alphaTest: 0.01,
   blending: THREE.AdditiveBlending, transparent: true, opacity: 0.32, depthWrite: false,
 }));
 scene.add(starMesh);
@@ -381,12 +503,22 @@ function animate() {
     if (n.activation < 4e-4) n.activation = 0;
   }
 
-  // ── 코어 글로우 (입력층 평균 활성화에 반응) ──
+  // ── 디지털 코어 (입력층 평균 활성화에 반응) ──
   let inputAct = 0;
   for (const n of layerData[0]) inputAct += n.activation;
   inputAct /= layerData[0].length;
-  coreInner.material.opacity = 0.55 + 0.40 * inputAct + 0.06 * Math.sin(t * 2);
-  coreOuter.material.opacity = 0.14 + 0.30 * inputAct + 0.04 * Math.sin(t * 1.5);
+  coreGlow.material.opacity        = 0.80 + 0.20 * inputAct + 0.05 * Math.sin(t * 3);
+  coreIcoInner.material.opacity    = 0.65 + 0.30 * inputAct;
+  coreIcoOuter.material.opacity    = 0.45 + 0.30 * inputAct;
+  coreOuterGlow.material.opacity   = 0.12 + 0.32 * inputAct + 0.03 * Math.sin(t * 1.5);
+  // 와이어프레임 자체 회전 (디지털 메커니컬 느낌)
+  coreIcoInner.rotation.y += 0.013;
+  coreIcoInner.rotation.x += 0.006;
+  coreIcoOuter.rotation.y -= 0.009;
+  coreIcoOuter.rotation.z += 0.007;
+  ring1.rotation.z += 0.004;
+  ring2.rotation.z += 0.005;
+  ring3.rotation.x += 0.003;
 
   // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
   for (let i = 0; i < edges.length; i++) {
@@ -450,6 +582,9 @@ function animate() {
 
   // ── 별 배경 미세 회전 ──
   starMesh.rotation.y += 0.000035;
+
+  // ── HUD 패널 업데이트 ──
+  updateNetInfo();
 
   renderer.render(scene, camera);
 }

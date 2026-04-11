@@ -115,6 +115,92 @@
     .g-icon { font-size: 0.95rem; width: 22px; text-align: center; }
     .g-label { font-size: 0.68rem; color: #FFAA44; opacity: 0.72; letter-spacing: 0.02em; }
 
+    /* ── Network Info ── */
+    #net-info {
+      position: fixed;
+      top: 62px; left: 24px;
+      z-index: 10;
+      width: 220px;
+    }
+    #net-info h3 {
+      font-size: 0.52rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #FF7700;
+      opacity: 0.55;
+      margin-bottom: 12px;
+    }
+    .net-section { margin-bottom: 14px; }
+    .net-section:last-child { margin-bottom: 0; }
+    .net-title {
+      font-size: 0.5rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #FF8800;
+      opacity: 0.5;
+      margin-bottom: 6px;
+    }
+    .input-grid {
+      display: grid;
+      gap: 3px;
+    }
+    .input-cell {
+      height: 28px;
+      background: rgba(255, 153, 0, 0.06);
+      border: 1px solid rgba(255, 153, 0, 0.20);
+      position: relative;
+      overflow: hidden;
+    }
+    .input-cell-fill {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(255,100,0,0.55), rgba(255,200,80,0.85));
+      height: 0%;
+    }
+    .input-cell-val {
+      position: absolute;
+      top: 2px; left: 0; right: 0;
+      text-align: center;
+      font-size: 0.5rem;
+      color: #FFCC44;
+      font-family: 'Courier New', monospace;
+      z-index: 2;
+    }
+    .weight-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .weight-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.55rem;
+    }
+    .weight-label {
+      width: 38px;
+      color: #FF8800;
+      opacity: 0.55;
+      letter-spacing: 0.04em;
+      font-family: 'Courier New', monospace;
+    }
+    .weight-bar {
+      flex: 1;
+      height: 5px;
+      background: rgba(255, 153, 0, 0.10);
+    }
+    .weight-fill {
+      height: 100%;
+      background: linear-gradient(to right, rgba(255,100,0,0.7), rgba(255,200,80,0.95));
+      width: 0%;
+    }
+    .weight-val {
+      width: 30px;
+      text-align: right;
+      color: #FFCC44;
+      font-family: 'Courier New', monospace;
+    }
+
     /* ── Stats ── */
     #stats {
       position: fixed;
@@ -289,6 +375,18 @@
     <div class="g-row"><span class="g-icon">🤌</span><span class="g-label">엄지+검지 핀치 → 신호 전파</span></div>
     <div class="g-row"><span class="g-icon">✊</span><span class="g-label">주먹 → 줌아웃</span></div>
     <div class="g-row"><span class="g-icon">🖐️</span><span class="g-label">펼친 손 → 줌인</span></div>
+  </div>
+
+  <div id="net-info">
+    <h3>Neural Network</h3>
+    <div class="net-section">
+      <div class="net-title">Input Vector</div>
+      <div class="input-grid" id="input-grid"></div>
+    </div>
+    <div class="net-section">
+      <div class="net-title">Layer Weights (avg)</div>
+      <div class="weight-list" id="weight-list"></div>
+    </div>
   </div>
 
   <div id="stats">

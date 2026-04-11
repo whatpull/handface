@@ -395,24 +395,7 @@ function spawnSpark(edge, tOffset = 0) {
 const coreGroup = new THREE.Group();
 network.add(coreGroup);
 
-// (1) 외곽 옥타헤드론 — 솔리드 채움 + 밝은 와이어 (듀얼 레이어)
-const coreOctaGeo   = new THREE.OctahedronGeometry(0.34, 0);
-const coreOctaSolid = new THREE.Mesh(coreOctaGeo, new THREE.MeshBasicMaterial({
-  color: 0xFF8833, blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.18, depthWrite: false,
-}));
-const coreOctaWire  = new THREE.LineSegments(
-  new THREE.EdgesGeometry(coreOctaGeo),
-  new THREE.LineBasicMaterial({
-    color: 0xFFAA44, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.95, depthWrite: false,
-  }),
-);
-const coreOctaPivot = new THREE.Group();
-coreOctaPivot.add(coreOctaSolid, coreOctaWire);
-coreGroup.add(coreOctaPivot);
-
-// (2) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
+// (1) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
 const coreIcoGeo   = new THREE.IcosahedronGeometry(0.22, 1);
 const coreIcoSolid = new THREE.Mesh(coreIcoGeo, new THREE.MeshBasicMaterial({
   color: 0xFFAA44, blending: THREE.AdditiveBlending,
@@ -482,7 +465,15 @@ const PASS_INTERVAL_MS = 2800;
 const LAYER_DELAY_MS   = 280;
 const SYNC_INTERVAL_MS = 600;
 
-/** 시드 텍스트로 모델을 forward 시킨 뒤 활성화를 viz 층에 매핑하여 신호 전파를 트리거 */
+/**
+ * 시드 텍스트로 모델을 forward 시킨 뒤 활성화를 viz 층에 매핑하여 신호 전파를 트리거.
+ *
+ * 핵심 포인트:
+ *  1) 활성화 배열을 **스냅샷**으로 복사해서 쓴다. 이후 backend.send() 안에서 동기
+ *     학습/샘플링이 돌아가며 model.lastH* 배열을 덮어쓰더라도, setTimeout 콜백이
+ *     읽는 사본은 영향받지 않는다.
+ *  2) 각 층 내에서 **max로 정규화**해서 절대값이 어떻든 상대적 대비가 항상 보이도록.
+ */
 function triggerPass(seedText = null) {
   const text = seedText
     || (backend.history.length > 0 ? backend.history[backend.history.length - 1].text : 'hi');
@@ -496,15 +487,16 @@ function triggerPass(seedText = null) {
   }
   backend.model.forward(ctx);
 
-  const state   = backend.modelState;
-  const sources = [state.embed, state.h1, state.h2, state.h3, state.probs];
-  const lengths = [
-    backend.model.CTX * backend.model.EMB,  // 96
-    backend.model.H1,                        // 96
-    backend.model.H2,                        // 96
-    backend.model.H3,                        // 64
-    Math.max(1, state.vocabSize),
-  ];
+  // ── 활성화 배열을 즉시 스냅샷 (참조가 아닌 복사본) ──
+  const vocabSize = backend.model.vocab.size;
+  const embedSnap = new Float32Array(backend.model.lastX);
+  const h1Snap    = new Float32Array(backend.model.lastH1);
+  const h2Snap    = new Float32Array(backend.model.lastH2);
+  const h3Snap    = new Float32Array(backend.model.lastH3);
+  const probsSnap = new Float32Array(backend.model.lastProbs.subarray(0, vocabSize));
+
+  const sources = [embedSnap, h1Snap, h2Snap, h3Snap, probsSnap];
+  const lengths = [embedSnap.length, h1Snap.length, h2Snap.length, h3Snap.length, probsSnap.length];
 
   // viz 층마다 지연을 두고 활성화 (파동 효과)
   for (let li = 0; li < LAYER_SIZES.length; li++) {
@@ -512,17 +504,26 @@ function triggerPass(seedText = null) {
       const src = sources[li];
       const len = lengths[li];
       const layerNodes = layerData[li];
+
+      // 층 내 max로 정규화 → 상대적 대비 보장
+      let maxV = 1e-6;
+      for (let k = 0; k < len; k++) {
+        const av = Math.abs(src[k]);
+        if (av > maxV) maxV = av;
+      }
+      const invMax = 1 / maxV;
+
       for (let i = 0; i < layerNodes.length; i++) {
         const j = Math.min(len - 1, Math.floor((i / layerNodes.length) * len));
-        const v = src[j] || 0;
-        // 모델 활성화 (ReLU 출력 또는 확률) → [0, 1]로 squash
-        layerNodes[i].targetActivation = Math.tanh(Math.abs(v) * 0.9);
+        const v = Math.abs(src[j]) * invMax;
+        // 0..1로 정규화된 값 + 최소 noise floor (완전히 꺼져있는 뉴런도 약하게 보임)
+        layerNodes[i].targetActivation = 0.08 + 0.92 * v;
       }
 
       // 다음 층으로 스파크 발사 (inter-layer 만)
       if (li < LAYER_SIZES.length - 1) {
         for (const srcNode of layerNodes) {
-          if (srcNode.targetActivation < 0.18) continue;
+          if (srcNode.targetActivation < 0.2) continue;
           const out = outgoingEdges.get(srcNode);
           if (!out) continue;
           for (const e of out) {
@@ -664,16 +665,12 @@ function animate() {
   let inputAct = 0;
   for (const n of layerData[0]) inputAct += n.activation;
   inputAct /= layerData[0].length;
-  coreBright.material.opacity      = 0.85 + 0.15 * inputAct + 0.06 * Math.sin(t * 3);
-  coreIcoSolid.material.opacity    = 0.20 + 0.22 * inputAct;
-  coreIcoWire.material.opacity     = 0.85 + 0.15 * inputAct;
-  coreOctaSolid.material.opacity   = 0.15 + 0.20 * inputAct;
-  coreOctaWire.material.opacity    = 0.78 + 0.20 * inputAct;
-  // 와이어프레임 자체 회전 (디지털 메커니컬 느낌)
-  coreIcoPivot.rotation.y  += 0.013;
-  coreIcoPivot.rotation.x  += 0.006;
-  coreOctaPivot.rotation.y -= 0.009;
-  coreOctaPivot.rotation.z += 0.007;
+  coreBright.material.opacity   = 0.85 + 0.15 * inputAct + 0.06 * Math.sin(t * 3);
+  coreIcoSolid.material.opacity = 0.20 + 0.22 * inputAct;
+  coreIcoWire.material.opacity  = 0.85 + 0.15 * inputAct;
+  // 와이어프레임 자체 회전
+  coreIcoPivot.rotation.y += 0.013;
+  coreIcoPivot.rotation.x += 0.006;
   ring1.rotation.z += 0.005;
   ring2.rotation.z += 0.006;
   ring3.rotation.x += 0.004;

@@ -1,5 +1,13 @@
 import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
+import { CharNLMBackend } from './backend.js';
+
+// ─────────────────────────────────────────
+// Neural backend (small char-level LM that learns continuously from chat)
+// Replace this constructor later with a CloudLLMBackend / WebLLMBackend
+// while leaving everything below unchanged.
+// ─────────────────────────────────────────
+const backend = new CharNLMBackend();
 
 // ─── DOM refs ───
 const cursorEl  = document.getElementById('cursor');
@@ -94,11 +102,12 @@ function fibonacciSphere(n, radius) {
 }
 
 const layerData = LAYER_SIZES.map((count, li) =>
-  fibonacciSphere(count, LAYER_RADII[li]).map(pos => ({
+  fibonacciSphere(count, LAYER_RADII[li]).map((pos, localIdx) => ({
     pos,
     activation:       0,
     targetActivation: 0,
     layerIdx:         li,
+    layerLocalIdx:    localIdx,
   })),
 );
 
@@ -203,6 +212,91 @@ for (let li = 1; li < LAYER_SIZES.length; li++) {
     layerIdx: li,
   });
 }
+
+// ─────────────────────────────────────────
+// 채팅 UI (continual learning interface)
+// ─────────────────────────────────────────
+const chatMsgsEl     = document.getElementById('chat-msgs');
+const chatInputEl    = document.getElementById('chat-input');
+const chatSendEl     = document.getElementById('chat-send');
+const chatResetEl    = document.getElementById('chat-reset');
+const chatStatsEl    = document.getElementById('chat-stats');
+const chatLossFillEl = document.getElementById('chat-loss-fill');
+
+function appendChatMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = `chat-msg ${role}`;
+  const r = document.createElement('span');
+  r.className = 'chat-msg-role';
+  r.textContent = role;
+  const t = document.createElement('span');
+  t.className = 'chat-msg-text';
+  t.textContent = ' ' + text;
+  el.appendChild(r);
+  el.appendChild(t);
+  chatMsgsEl.appendChild(el);
+  chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+}
+
+function updateChatStats() {
+  const s = backend.stats;
+  const lossStr = s.lossEMA != null ? s.lossEMA.toFixed(2) : '—';
+  chatStatsEl.textContent = `vocab ${s.vocabSize} · steps ${s.totalSteps} · loss ${lossStr}`;
+  if (s.lossEMA != null) {
+    // 학습 진척도: loss가 낮을수록 바가 가득 (5.0 → 0% / 0.5 → 90%)
+    const filled = Math.max(0, Math.min(1, 1 - s.lossEMA / 5));
+    chatLossFillEl.style.width = `${Math.round(filled * 100)}%`;
+  }
+}
+
+function bootstrapChat() {
+  if (backend.history.length === 0) {
+    appendChatMsg('sys', '메시지를 입력하면 모델이 학습합니다. 처음엔 헛소리지만 점점 비슷해집니다.');
+  } else {
+    for (const m of backend.history) appendChatMsg(m.role, m.text);
+  }
+  updateChatStats();
+}
+bootstrapChat();
+
+async function handleSend() {
+  const text = chatInputEl.value.trim();
+  if (!text || backend.busy) return;
+  chatInputEl.value = '';
+  appendChatMsg('user', text);
+  triggerPass(text);
+  pushLog('', `💬 학습 시작 (${text.length}자)`);
+  await backend.send(text);
+}
+
+chatSendEl.addEventListener('click', handleSend);
+chatInputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); handleSend(); }
+});
+chatResetEl.addEventListener('click', () => {
+  if (!confirm('모델 가중치와 어휘를 모두 초기화합니다. 진행할까요?')) return;
+  backend.reset();
+  chatMsgsEl.innerHTML = '';
+  bootstrapChat();
+  syncEdgeWeightsFromModel();
+  pushLog('', '🔄 모델 리셋');
+});
+
+backend.onEvent((ev) => {
+  if (ev.type === 'training-end') {
+    syncEdgeWeightsFromModel();
+    updateChatStats();
+    pushLog('', `🧠 ${ev.stepsRun} step (loss ${ev.avgLoss.toFixed(2)})`);
+  } else if (ev.type === 'generate-end') {
+    appendChatMsg('ai', ev.text);
+    triggerPass(ev.text);
+  } else if (ev.type === 'state') {
+    updateChatStats();
+  }
+});
+
+// 초기 가중치 동기화
+syncEdgeWeightsFromModel();
 
 function updateNetInfo() {
   // Input vector (활성화 값)
@@ -380,77 +474,99 @@ const starMesh = new THREE.Points(starGeo, new THREE.PointsMaterial({
 scene.add(starMesh);
 
 // ─────────────────────────────────────────
-// 신경망 시뮬레이션
+// 신경망 시뮬레이션 (실제 모델 → viz 매핑)
 // ─────────────────────────────────────────
-const sigmoid = (x) => 1 / (1 + Math.exp(-x));
-
 let lastPassMs  = -3000;
-let lastLearnMs = 0;
-const PASS_INTERVAL_MS  = 2600;
-const LAYER_DELAY_MS    = 300;
-const LEARN_INTERVAL_MS = 500;
+let lastSyncMs  = 0;
+const PASS_INTERVAL_MS = 2800;
+const LAYER_DELAY_MS   = 280;
+const SYNC_INTERVAL_MS = 600;
 
-/** 신호 전파 (순전파) */
-function triggerPass() {
-  // 입력층: 랜덤 활성화 패턴
-  layerData[0].forEach(n => {
-    n.targetActivation = Math.random() > 0.3 ? 0.5 + Math.random() * 0.5 : 0.04;
-  });
+/** 시드 텍스트로 모델을 forward 시킨 뒤 활성화를 viz 층에 매핑하여 신호 전파를 트리거 */
+function triggerPass(seedText = null) {
+  const text = seedText
+    || (backend.history.length > 0 ? backend.history[backend.history.length - 1].text : 'hi');
 
+  // 마지막 CTX 글자 → context 인덱스 배열
+  const indices = backend.model.encode(text);
+  const ctx = new Array(backend.model.CTX);
+  for (let k = 0; k < backend.model.CTX; k++) {
+    const pos = indices.length - backend.model.CTX + k;
+    ctx[k] = pos >= 0 ? indices[pos] : 0;
+  }
+  backend.model.forward(ctx);
+
+  const state   = backend.modelState;
+  const sources = [state.embed, state.h1, state.h2, state.h3, state.probs];
+  const lengths = [
+    backend.model.CTX * backend.model.EMB,  // 96
+    backend.model.H1,                        // 96
+    backend.model.H2,                        // 96
+    backend.model.H3,                        // 64
+    Math.max(1, state.vocabSize),
+  ];
+
+  // viz 층마다 지연을 두고 활성화 (파동 효과)
   for (let li = 0; li < LAYER_SIZES.length; li++) {
     setTimeout(() => {
-      // 은닉층/출력층: 이전 층 inter-layer 가중합 → sigmoid
-      if (li > 0) {
-        layerData[li].forEach(dst => {
-          const incoming = incomingEdges.get(dst);
-          if (!incoming) return;
-          let sum = 0, cnt = 0;
-          for (const e of incoming) {
-            if (e.intra) continue;  // intra-layer는 신호 전파에 미사용
-            sum += e.src.activation * e.weight;
-            cnt++;
-          }
-          if (cnt > 0) dst.targetActivation = sigmoid((sum / cnt) * 4.5 - 1.5);
-        });
+      const src = sources[li];
+      const len = lengths[li];
+      const layerNodes = layerData[li];
+      for (let i = 0; i < layerNodes.length; i++) {
+        const j = Math.min(len - 1, Math.floor((i / layerNodes.length) * len));
+        const v = src[j] || 0;
+        // 모델 활성화 (ReLU 출력 또는 확률) → [0, 1]로 squash
+        layerNodes[i].targetActivation = Math.tanh(Math.abs(v) * 0.9);
       }
+
       // 다음 층으로 스파크 발사 (inter-layer 만)
       if (li < LAYER_SIZES.length - 1) {
-        layerData[li].forEach(src => {
-          if (src.targetActivation < 0.18) return;
-          const out = outgoingEdges.get(src);
-          if (!out) return;
+        for (const srcNode of layerNodes) {
+          if (srcNode.targetActivation < 0.18) continue;
+          const out = outgoingEdges.get(srcNode);
+          if (!out) continue;
           for (const e of out) {
             if (e.intra) continue;
-            const intensity = e.weight * src.targetActivation;
+            const intensity = e.weight * srcNode.targetActivation;
             spawnSpark(e, 0);
             if (intensity > 0.5) spawnSpark(e, 0.04 + Math.random() * 0.06);
             if (intensity > 0.8) spawnSpark(e, 0.09 + Math.random() * 0.06);
           }
-        });
+        }
       }
     }, li * LAYER_DELAY_MS);
   }
 }
 
 /**
- * 헤브 학습 시뮬레이션
- * "함께 발화하는 뉴런은 함께 연결된다"
- * 동시 활성화 → 가중치 강화 / 비활성 → 서서히 약화
+ * 모델의 실제 가중치를 viz 엣지에 매핑.
+ * src/dst node 인덱스 → 모델 행렬의 (row, col) 매핑으로 결정적 샘플링.
  */
-function simulateLearning() {
+function syncEdgeWeightsFromModel() {
+  const matrices = [
+    backend.model.W1,  // ctxDim → H1
+    backend.model.W2,  // H1 → H2
+    backend.model.W3,  // H2 → H3
+    backend.model.W4,  // H3 → vocab
+  ];
+
   for (const e of edges) {
-    const co = e.src.activation * e.dst.activation;  // 동시 활성화 정도
-    if (co > 0.25) {
-      // 강화 (LTP: 장기 강화)
-      e.targetWeight = Math.min(1.0, e.targetWeight + co * 0.06);
-      // 강화 시각화: 스파크 발생
-      if (Math.random() < co * 0.15) spawnSpark(e, Math.random() * 0.3);
-    } else if (co < 0.04 && Math.random() < 0.004) {
-      // 약화 (LTD: 장기 억제)
-      e.targetWeight = Math.max(0.05, e.targetWeight - 0.055);
-    }
-    // 부드러운 가중치 수렴
-    e.weight += (e.targetWeight - e.weight) * 0.003;
+    const matIdx  = Math.min(matrices.length - 1, e.src.layerIdx);
+    const mat     = matrices[matIdx];
+    const matRows = mat.length;
+    const matCols = mat[0].length;
+
+    const srcLayer = e.src.layerIdx;
+    const dstLayer = e.intra ? srcLayer : e.dst.layerIdx;
+    const srcLayerSize = LAYER_SIZES[srcLayer];
+    const dstLayerSize = LAYER_SIZES[dstLayer];
+
+    const r = Math.min(matRows - 1, Math.floor((e.src.layerLocalIdx / srcLayerSize) * matRows));
+    const c = Math.min(matCols - 1, Math.floor((e.dst.layerLocalIdx / dstLayerSize) * matCols));
+    const w = Math.abs(mat[r][c] || 0);
+
+    // 모델 가중치 (~0.05–0.5) → viz 가중치 (0.05–1)
+    e.targetWeight = Math.max(0.05, Math.min(1, w * 5));
   }
 }
 
@@ -485,7 +601,7 @@ window.addEventListener('mousemove', (e) => {
 control.on('click', () => {
   clickCount++;
   sClicksEl.textContent = String(clickCount);
-  triggerPass();  // 즉시 신호 전파
+  triggerPass();  // 즉시 신호 전파 (마지막 메시지 시드)
   cursorEl.classList.add('clicking');
   flashEl.classList.add('on');
   setTimeout(() => { flashEl.classList.remove('on'); cursorEl.classList.remove('clicking'); }, 80);
@@ -527,10 +643,14 @@ function animate() {
     triggerPass();
   }
 
-  // ── 헤브 학습 시뮬레이션 ──
-  if (nowMs - lastLearnMs > LEARN_INTERVAL_MS) {
-    lastLearnMs = nowMs;
-    simulateLearning();
+  // ── 모델 가중치 → viz 엣지 동기화 ──
+  if (nowMs - lastSyncMs > SYNC_INTERVAL_MS) {
+    lastSyncMs = nowMs;
+    syncEdgeWeightsFromModel();
+  }
+  // 부드러운 가중치 수렴
+  for (const e of edges) {
+    e.weight += (e.targetWeight - e.weight) * 0.012;
   }
 
   // ── 노드 활성화 스무딩 + 자연 감쇠 ──

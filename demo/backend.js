@@ -94,32 +94,36 @@ export class CharNLMBackend {
       // message-ending context, which then causes sampling to break early
       // and produce empty outputs ("...").
 
-      // ── Phase 1: focused training on the new message (heavy) ──
-      const loss1 = this.model.trainOnText(message, 12);
+      // ── Phase 1: focused training on the new message (heavy — 20 epochs) ──
+      const loss1 = this.model.trainOnText(message, 20);
       if (loss1 > 0) { totalLoss += loss1; lossCount++; }
 
       // ── Phase 2: replay from full user history (prevents forgetting) ──
       const poolSize = this.userMessages.length - 1;
       if (poolSize > 0) {
-        const replayN = Math.min(15, poolSize);
+        const replayN = Math.min(20, poolSize);
         for (let i = 0; i < replayN; i++) {
           const idx = Math.floor(Math.random() * poolSize);
-          const loss = this.model.trainOnText(this.userMessages[idx], 3);
+          const loss = this.model.trainOnText(this.userMessages[idx], 5);
           if (loss > 0) { totalLoss += loss; lossCount++; }
         }
       }
 
-      // ── Phase 3: joint training on random concatenation (no separator) ──
-      if (this.userMessages.length >= 3) {
+      // ── Phase 3: joint training on concatenated messages ──
+      if (this.userMessages.length >= 2) {
         const joint = [];
-        for (let i = 0; i < 3; i++) {
+        const k = Math.min(5, this.userMessages.length);
+        for (let i = 0; i < k; i++) {
           const idx = Math.floor(Math.random() * this.userMessages.length);
           joint.push(this.userMessages[idx]);
         }
-        // Use space (not newline) so the model doesn't learn newline at all
-        const loss = this.model.trainOnText(joint.join(' '), 2);
+        const loss = this.model.trainOnText(joint.join(' '), 4);
         if (loss > 0) { totalLoss += loss; lossCount++; }
       }
+
+      // ── Phase 4: repeat the newest message again (overfit on intent) ──
+      const loss4 = this.model.trainOnText(message, 10);
+      if (loss4 > 0) { totalLoss += loss4; lossCount++; }
 
       const stepsRun = this.model.totalSteps - stepsBefore;
       const avgLoss  = lossCount > 0 ? totalLoss / lossCount : 0;

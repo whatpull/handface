@@ -235,6 +235,63 @@ for (const e of edges) {
 }
 
 // ─────────────────────────────────────────
+// 뇌 외곽 와이어프레임 (참고 이미지처럼 뇌 실루엣이 보이도록)
+// brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
+// ─────────────────────────────────────────
+(function addBrainOutline() {
+  const R = 2.55;   // 가장 바깥 셸보다 약간 큰 반경
+  const SX = 1.32, SY = 0.86, SZ = 0.96;
+  const CLEFT = 0.06 * R;
+
+  // 2개 반구를 각각 와이어프레임 구체로 (세로 균열 표현)
+  for (const sign of [1, -1]) {
+    const geo = new THREE.SphereGeometry(R, 28, 22);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i) * SX;
+      let y = pos.getY(i) * SY;
+      let z = pos.getZ(i) * SZ;
+
+      // 해당 반구만 (좌 또는 우)
+      if (sign > 0 && z < 0) z = 0;
+      if (sign < 0 && z > 0) z = 0;
+
+      // 엽 돌출 (간소화 버전)
+      const len = Math.sqrt(x*x + y*y + z*z) || 1;
+      const nx = x/len, ny = y/len, nz = z/len;
+      let bulge = 1.0;
+      if (nx > 0.35 && ny > -0.3) bulge += 0.12 * (nx - 0.35);
+      if (nx < -0.45 && ny > -0.25) bulge += 0.06 * (Math.abs(nx) - 0.45);
+      if (nx < -0.25 && ny < -0.30) bulge += 0.15 * Math.max(0, Math.abs(nx+0.25)+Math.abs(ny+0.30)-0.15);
+
+      // 표면 주름
+      const theta = Math.atan2(nz, nx);
+      const fold = 0.04 * (Math.sin(ny * 5 + theta * 3) + Math.cos(theta * 4) * 0.5);
+      const fr = bulge * (1 + fold);
+
+      x *= fr; y *= fr; z *= fr;
+      z += sign * CLEFT;
+      pos.setXYZ(i, x, y, z);
+    }
+    geo.computeVertexNormals();
+
+    // 와이어프레임 메쉬 (반투명, 매우 얇은 선)
+    network.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: 0xFF6600, wireframe: true,
+      blending: THREE.AdditiveBlending,
+      transparent: true, opacity: 0.06, depthWrite: false,
+    })));
+
+    // 솔리드 표면 (극히 얇은 반투명 — 형체감)
+    network.add(new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({
+      color: 0xFF4400,
+      blending: THREE.AdditiveBlending,
+      transparent: true, opacity: 0.015, depthWrite: false,
+    })));
+  }
+})();
+
+// ─────────────────────────────────────────
 // HUD 패널: Input Vector + Layer Weights
 // ─────────────────────────────────────────
 const inputGridEl = document.getElementById('input-grid');

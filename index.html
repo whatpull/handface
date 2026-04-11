@@ -99,7 +99,7 @@
     /* ── Gesture Guide ── */
     #guide {
       position: fixed;
-      bottom: 32px; left: 28px;
+      bottom: 220px; left: 28px;
       z-index: 10;
     }
     #guide h3 {
@@ -230,7 +230,7 @@
     /* ── Event Log ── */
     #log {
       position: fixed;
-      bottom: 32px; right: 24px;
+      bottom: 220px; right: 24px;
       z-index: 10;
       width: 215px;
     }
@@ -253,6 +253,123 @@
     }
     .log-item.ev-click  { color: #FFDD44; opacity: 1; }
     .log-item.ev-scroll { color: #FF9900; opacity: 0.9; }
+
+    /* ── Chat Panel ── */
+    #chat {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      width: min(540px, calc(100vw - 48px));
+      z-index: 20;
+      background: rgba(0, 8, 16, 0.78);
+      border: 1px solid rgba(255, 153, 0, 0.30);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      padding: 12px 14px 10px;
+    }
+    #chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    #chat-title {
+      font-size: 0.5rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #FF7700;
+      opacity: 0.7;
+    }
+    #chat-stats {
+      font-size: 0.5rem;
+      letter-spacing: 0.05em;
+      color: #FFCC44;
+      opacity: 0.65;
+      font-family: 'Courier New', monospace;
+    }
+    #chat-msgs {
+      max-height: 140px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      padding-right: 4px;
+      font-family: 'Courier New', monospace;
+    }
+    #chat-msgs::-webkit-scrollbar { width: 4px; }
+    #chat-msgs::-webkit-scrollbar-thumb { background: rgba(255,153,0,0.3); }
+    .chat-msg {
+      font-size: 0.7rem;
+      line-height: 1.5;
+      margin-bottom: 4px;
+      word-wrap: break-word;
+    }
+    .chat-msg-role {
+      display: inline-block;
+      width: 38px;
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.55;
+    }
+    .chat-msg.user .chat-msg-role { color: #FFCC44; }
+    .chat-msg.user .chat-msg-text { color: #FFDD88; }
+    .chat-msg.ai   .chat-msg-role { color: #FF8833; }
+    .chat-msg.ai   .chat-msg-text { color: #FFAA55; opacity: 0.85; }
+    .chat-msg.sys  .chat-msg-role { color: #888; }
+    .chat-msg.sys  .chat-msg-text { color: #999; font-style: italic; }
+    #chat-input-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    #chat-input {
+      flex: 1;
+      background: rgba(255, 153, 0, 0.05);
+      border: 1px solid rgba(255, 153, 0, 0.30);
+      color: #FFCC44;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      padding: 7px 10px;
+      outline: none;
+      letter-spacing: 0.02em;
+    }
+    #chat-input:focus {
+      border-color: rgba(255, 153, 0, 0.65);
+      background: rgba(255, 153, 0, 0.08);
+    }
+    #chat-input::placeholder {
+      color: rgba(255, 153, 0, 0.4);
+    }
+    .chat-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 153, 0, 0.45);
+      color: #FF9900;
+      font-family: 'Courier New', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chat-btn:hover:not(:disabled) {
+      background: rgba(255, 153, 0, 0.12);
+      border-color: #FF9900;
+    }
+    .chat-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #chat-loss-bar {
+      height: 2px;
+      background: rgba(255, 153, 0, 0.10);
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    #chat-loss-fill {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 0%;
+      background: linear-gradient(to right, rgba(255,100,0,0.6), rgba(255,200,80,0.95));
+      transition: width 0.3s;
+    }
 
     /* ── Flash ── */
     #flash {
@@ -352,7 +469,7 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-Bz9hKYHh.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-3urSSfdo.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -400,6 +517,20 @@
 
   <div id="log">
     <h3>Event Log</h3>
+  </div>
+
+  <div id="chat">
+    <div id="chat-header">
+      <span id="chat-title">Continual Learning Chat</span>
+      <span id="chat-stats">vocab 1 · steps 0 · loss —</span>
+    </div>
+    <div id="chat-msgs"></div>
+    <div id="chat-input-row">
+      <input id="chat-input" type="text" placeholder="메시지를 입력하세요. 모델은 입력으로 학습합니다." maxlength="120" />
+      <button id="chat-send" class="chat-btn" type="button">SEND</button>
+      <button id="chat-reset" class="chat-btn" type="button" title="모델 가중치와 어휘를 초기화">RESET</button>
+    </div>
+    <div id="chat-loss-bar"><div id="chat-loss-fill"></div></div>
   </div>
 
   <div id="overlay">

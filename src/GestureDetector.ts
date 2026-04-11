@@ -6,12 +6,20 @@ import {
 import { distance } from './utils/geometry';
 import type { GestureName } from './types';
 
-/** 클릭 핀치 감지에만 사용하는 랜드마크 인덱스 */
+/** 클릭 핀치 + 커서 앵커에 사용하는 랜드마크 인덱스 */
 const LM = {
+  WRIST:      0,
   THUMB_TIP:  4,
   INDEX_TIP:  8,
   MIDDLE_TIP: 12,
+  // palm center 계산용 (손목 + 각 손가락 MCP)
+  INDEX_MCP:  5,
+  MIDDLE_MCP: 9,
+  RING_MCP:   13,
+  PINKY_MCP:  17,
 } as const;
+
+const PALM_INDICES = [LM.WRIST, LM.INDEX_MCP, LM.MIDDLE_MCP, LM.RING_MCP, LM.PINKY_MCP] as const;
 
 /** MediaPipe categoryName → 내부 GestureName 매핑 */
 const MP_GESTURE_MAP: Record<string, GestureName> = {
@@ -34,7 +42,12 @@ export interface DetectionResult {
   gestureConfidence: number;
   /** 클릭 감지용 엄지 ↔ 중지 거리 */
   clickPinchDistance: number;
+  /** 검지 끝 위치 (cursorAnchor: 'index' 용) */
   indexTip: { x: number; y: number };
+  /** 손목 위치 (cursorAnchor: 'wrist' 용) */
+  wrist: { x: number; y: number };
+  /** 손바닥 중심 위치 (cursorAnchor: 'palm' 용) */
+  palmCenter: { x: number; y: number };
 }
 
 const DEFAULT_WASM_PATH =
@@ -45,9 +58,17 @@ const MODEL_URL =
 export class GestureDetector {
   private recognizer: GestureRecognizer | null = null;
 
+  /**
+   * @param handednessFilter
+   *   MediaPipe 카테고리 이름 기준. 정면 카메라의 raw (비반전) 피드를 사용할 때:
+   *   - 사용자의 오른손 → MediaPipe 'Left'
+   *   - 사용자의 왼손  → MediaPipe 'Right'
+   *   null = 필터 없음 (감지된 첫 번째 손 사용)
+   */
   constructor(
     private readonly wasmPath: string = DEFAULT_WASM_PATH,
     private readonly clickThreshold: number = 0.06,
+    private readonly handednessFilter: 'Left' | 'Right' | null = null,
   ) {}
 
   async init(): Promise<void> {
@@ -57,7 +78,8 @@ export class GestureDetector {
         modelAssetPath: MODEL_URL,
         delegate: 'GPU',
       },
-      numHands: 1,
+      // 핸드니스 필터링을 위해 2개 감지 후 선택
+      numHands: this.handednessFilter ? 2 : 1,
       runningMode: 'VIDEO',
     });
   }
@@ -68,8 +90,18 @@ export class GestureDetector {
     const result = this.recognizer.recognizeForVideo(video, timestampMs);
     if (!result.landmarks || result.landmarks.length === 0) return null;
 
-    const categories = result.gestures[0] ?? [];
-    return this.analyze(result.landmarks[0], categories);
+    // 핸드니스 필터: 원하는 손 인덱스 찾기
+    let handIdx = 0;
+    if (this.handednessFilter) {
+      const idx = result.handedness.findIndex(
+        (cats) => cats[0]?.categoryName === this.handednessFilter,
+      );
+      if (idx === -1) return null; // 원하는 손이 감지되지 않음
+      handIdx = idx;
+    }
+
+    const categories = result.gestures[handIdx] ?? [];
+    return this.analyze(result.landmarks[handIdx], categories);
   }
 
   private analyze(
@@ -79,6 +111,13 @@ export class GestureDetector {
     const thumbTip  = lm[LM.THUMB_TIP];
     const indexTip  = lm[LM.INDEX_TIP];
     const middleTip = lm[LM.MIDDLE_TIP];
+    const wrist     = lm[LM.WRIST];
+
+    // 손바닥 중심 (손목 + 4개 MCP 평균)
+    const palmCenter = {
+      x: PALM_INDICES.reduce((s, i) => s + lm[i].x, 0 as number) / PALM_INDICES.length,
+      y: PALM_INDICES.reduce((s, i) => s + lm[i].y, 0 as number) / PALM_INDICES.length,
+    };
 
     // 엄지 ↔ 중지 핀치 거리 (클릭 감지)
     const clickPinchDistance = distance(thumbTip, middleTip);
@@ -98,7 +137,9 @@ export class GestureDetector {
       gestureName,
       gestureConfidence,
       clickPinchDistance,
-      indexTip: { x: indexTip.x, y: indexTip.y },
+      indexTip:  { x: indexTip.x,  y: indexTip.y },
+      wrist:     { x: wrist.x,     y: wrist.y },
+      palmCenter,
     };
   }
 

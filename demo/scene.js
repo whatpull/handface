@@ -169,7 +169,7 @@ function spawnRipple() {
 // ─────────────────────────────────────────
 let targetRotX = 0, targetRotY = 0;
 let smoothRotX = 0, smoothRotY = 0;
-let targetCamZ  = 6, camZ = 6;
+let targetCamZ  = 6, camZ = 6;   // 스크롤 위치에 따라 자동 업데이트
 let pulseScale  = 1, targetPulse = 1;
 let clickCount  = 0;
 let time        = 0;
@@ -179,8 +179,8 @@ const cursorEl  = document.getElementById('cursor');
 const flashEl   = document.getElementById('flash');
 const sStatus   = document.getElementById('s-status');
 const sPosEl    = document.getElementById('s-pos');
-const sClicksEl = document.getElementById('s-clicks');
-const sZoomEl   = document.getElementById('s-zoom');
+const sClicksEl  = document.getElementById('s-clicks');
+const sScrollEl  = document.getElementById('s-scroll');
 const logEl     = document.getElementById('log');
 
 function pushLog(type, text) {
@@ -238,7 +238,7 @@ function handleClick(x, y) {
 // ─────────────────────────────────────────
 // Hand Control
 // ─────────────────────────────────────────
-const control = new HandControl({ smoothing: 0.65 });
+const control = new HandControl({ smoothing: 0.65, handedness: 'right', cursorAnchor: 'wrist' });
 
 control.on('move', (e) => {
   cursorEl.style.left = `${e.screenX}px`;
@@ -257,10 +257,17 @@ control.on('move', (e) => {
 control.on('click', (e) => handleClick(e.x, e.y));
 
 control.on('scroll', (e) => {
-  targetCamZ = Math.max(2.5, Math.min(13, targetCamZ + e.deltaY * 0.0035));
-  const pct = Math.round((6 / targetCamZ) * 100);
-  sZoomEl.textContent = `${pct}%`;
-  pushLog('scroll', `줌 ${e.deltaY > 0 ? '✊ In' : '🖐 Out'}  ${pct}%`);
+  // 실제 페이지 스크롤 — 카메라 줌은 window scroll 이벤트로 분리
+  window.scrollBy({ top: e.deltaY * 9, behavior: 'auto' });
+  pushLog('scroll', e.deltaY > 0 ? '✊ 스크롤 다운' : '🖐 스크롤 업');
+});
+
+// 스크롤 위치 → 카메라 줌 (스크롤 내릴수록 크리스탈에 가까워짐)
+window.addEventListener('scroll', () => {
+  const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  const ratio = window.scrollY / maxScroll;        // 0(상단) → 1(하단)
+  targetCamZ = 8 - ratio * 5.5;                    // 8(멀리) → 2.5(근접)
+  sScrollEl.textContent = `${Math.round(ratio * 100)}%`;
 });
 
 // 제스처 이벤트 — 크리스탈 색상 변화 + 로그

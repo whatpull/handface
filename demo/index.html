@@ -11,10 +11,12 @@
       background: #07070f;
       color: #ddddf5;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      min-height: 300vh; /* 스크롤 제스처 데모용 */
     }
+    /* 스크롤바 숨기기 (캔버스 위에 겹침 방지) */
+    ::-webkit-scrollbar { width: 0; }
 
     #canvas-container {
       position: fixed;
@@ -233,8 +235,8 @@
     <h3>Gestures</h3>
     <div class="g-row"><span class="g-icon">☝️</span><span class="g-label">검지 이동 → 크리스탈 회전</span></div>
     <div class="g-row"><span class="g-icon">🤏</span><span class="g-label">엄지+중지 핀치 → 클릭</span></div>
-    <div class="g-row"><span class="g-icon">✊</span><span class="g-label">손가락 오무림 → 줌 인</span></div>
-    <div class="g-row"><span class="g-icon">🖐️</span><span class="g-label">손가락 펼침 → 줌 아웃</span></div>
+    <div class="g-row"><span class="g-icon">✊</span><span class="g-label">손가락 오무림 → 스크롤 다운</span></div>
+    <div class="g-row"><span class="g-icon">🖐️</span><span class="g-label">손가락 펼침 → 스크롤 업</span></div>
   </div>
 
   <div id="stats">
@@ -242,7 +244,7 @@
     <div class="s-row"><span class="s-label">상태</span><span class="s-val" id="s-status">대기중</span></div>
     <div class="s-row"><span class="s-label">커서</span><span class="s-val" id="s-pos">— , —</span></div>
     <div class="s-row"><span class="s-label">클릭</span><span class="s-val" id="s-clicks">0</span></div>
-    <div class="s-row"><span class="s-label">줌</span><span class="s-val" id="s-zoom">100%</span></div>
+    <div class="s-row"><span class="s-label">스크롤</span><span class="s-val" id="s-scroll">0%</span></div>
   </div>
 
   <div id="log">
@@ -256,8 +258,8 @@
     <div class="ov-gestures">
       <div class="ov-g"><span class="ov-g-icon">☝️</span><span class="ov-g-label">회전</span></div>
       <div class="ov-g"><span class="ov-g-icon">🤏</span><span class="ov-g-label">클릭</span></div>
-      <div class="ov-g"><span class="ov-g-icon">✊</span><span class="ov-g-label">줌 인</span></div>
-      <div class="ov-g"><span class="ov-g-icon">🖐️</span><span class="ov-g-label">줌 아웃</span></div>
+      <div class="ov-g"><span class="ov-g-icon">✊</span><span class="ov-g-label">스크롤↓</span></div>
+      <div class="ov-g"><span class="ov-g-icon">🖐️</span><span class="ov-g-label">스크롤↑</span></div>
     </div>
     <button id="start-btn" type="button">시작하기</button>
     <div id="load-msg"></div>

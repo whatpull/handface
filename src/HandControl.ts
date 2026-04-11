@@ -15,9 +15,21 @@ import type {
 const CLICK_RELEASE_HYSTERESIS = 0.09;
 const CLICK_COOLDOWN_MS        = 600;
 /** 주먹/펼침 상태일 때 프레임당 scroll deltaY 크기 */
-const ZOOM_DELTA               = 12;
+const SCROLL_DELTA             = 12;
 /** 동일 제스처 이벤트 최소 발화 간격 (ms) */
 const GESTURE_COOLDOWN_MS      = 900;
+
+/**
+ * 사용자 handedness 옵션 → MediaPipe categoryName 변환.
+ * 정면 카메라의 raw(비반전) 피드에서:
+ *   사용자의 오른손 → MediaPipe 'Left'
+ *   사용자의 왼손  → MediaPipe 'Right'
+ */
+function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' | null {
+  if (h === 'right') return 'Left';
+  if (h === 'left')  return 'Right';
+  return null;
+}
 
 export class HandControl extends EventEmitter<HandControlEventMap> {
   private video: HTMLVideoElement;
@@ -32,13 +44,13 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   /** GestureName → 마지막 발화 타임스탬프 */
   private lastGestureMs = new Map<GestureName, number>();
 
-  // 스무딩된 커서 위치 (검지 끝 추적)
+  // 스무딩된 커서 위치
   private smoothX = 0.5;
   private smoothY = 0.5;
 
-  private readonly threshold: number;
   private readonly smoothing: number;
   private readonly flipHorizontal: boolean;
+  private readonly cursorAnchor: 'wrist' | 'palm' | 'index';
   private readonly ownedVideo: boolean;
 
   /** 단축키 바인딩 엔진 — 직접 접근 가능 */
@@ -46,9 +58,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   constructor(options: HandControlOptions = {}) {
     super();
-    this.threshold      = options.threshold      ?? 0.05;
     this.smoothing      = options.smoothing       ?? 0.6;
     this.flipHorizontal = options.flipHorizontal  ?? true;
+    this.cursorAnchor   = options.cursorAnchor    ?? 'wrist';
+
+    const threshold     = options.threshold       ?? 0.05;
 
     if (options.video) {
       this.video      = options.video;
@@ -58,7 +72,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.ownedVideo = true;
     }
 
-    this.detector = new GestureDetector(options.wasmPath, this.threshold);
+    this.detector = new GestureDetector(
+      options.wasmPath,
+      threshold,
+      toMPHandedness(options.handedness ?? 'right'),
+    );
   }
 
   /** 카메라 열고 감지 시작 */
@@ -121,9 +139,14 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const result = this.detector.detect(this.video, now);
     if (!result) return;
 
-    // ── 커서: 검지 끝 스무딩 (제스처와 독립) ──
-    const rawX = this.flipHorizontal ? 1 - result.indexTip.x : result.indexTip.x;
-    const rawY = result.indexTip.y;
+    // ── 커서 앵커 선택 ──
+    const anchor =
+      this.cursorAnchor === 'index' ? result.indexTip :
+      this.cursorAnchor === 'palm'  ? result.palmCenter :
+      result.wrist;
+
+    const rawX = this.flipHorizontal ? 1 - anchor.x : anchor.x;
+    const rawY = anchor.y;
 
     this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
     this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
@@ -154,12 +177,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.isClicking = false;
     }
 
-    // ── 줌: 주먹 → 줌 인 / 펼친 손 → 줌 아웃 (클릭 중 무시) ──
+    // ── 스크롤: 주먹 → 다운 / 펼친 손 → 업 (클릭 중 무시) ──
     if (!this.isClicking) {
       if (result.gestureName === 'fist') {
-        this.emit('scroll', { deltaY: ZOOM_DELTA });
+        this.emit('scroll', { deltaY: SCROLL_DELTA });
       } else if (result.gestureName === 'openpalm') {
-        this.emit('scroll', { deltaY: -ZOOM_DELTA });
+        this.emit('scroll', { deltaY: -SCROLL_DELTA });
       }
     }
 

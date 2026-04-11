@@ -278,65 +278,80 @@ function spawnSpark(edge, tOffset = 0) {
 }
 
 // ─────────────────────────────────────────
-// 디지털 코어 (와이어프레임 + HUD 링)
+// 디지털 코어 — 다층 솔리드+와이어 + HUD 궤도 링
+// 입력층(반경 0.32)을 감싸는 큰 3D 구조로 명확히 보이도록 구성
 // ─────────────────────────────────────────
 const coreGroup = new THREE.Group();
 network.add(coreGroup);
 
-// (1) 가장 안쪽 글로우 — 작고 매우 밝은 화이트
-const coreGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(0.06, 16, 16),
-  new THREE.MeshBasicMaterial({
-    color: 0xFFFFEE, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.95, depthWrite: false,
-  }),
-);
-coreGroup.add(coreGlow);
-
-// (2) 안쪽 와이어프레임 이코사헤드론 (디지털 격자)
-const coreIcoInner = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.16, 1)),
-  new THREE.LineBasicMaterial({
-    color: 0xFFCC55, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.85, depthWrite: false,
-  }),
-);
-coreGroup.add(coreIcoInner);
-
-// (3) 바깥 와이어프레임 옥타헤드론 (역회전)
-const coreIcoOuter = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.27, 0)),
-  new THREE.LineBasicMaterial({
-    color: 0xFF8833, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.65, depthWrite: false,
-  }),
-);
-coreGroup.add(coreIcoOuter);
-
-// (4) 직교하는 3개 HUD 링 (궤도)
-function makeOrbitRing(radius, rotX, rotY, rotZ) {
-  const geo  = new THREE.TorusGeometry(radius, 0.0035, 6, 80);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color: 0xFFAA44, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.55, depthWrite: false,
-  }));
-  mesh.rotation.set(rotX, rotY, rotZ);
-  return mesh;
-}
-const ring1 = makeOrbitRing(0.36, 0, 0, 0);
-const ring2 = makeOrbitRing(0.36, Math.PI/2, 0, 0);
-const ring3 = makeOrbitRing(0.36, 0, Math.PI/2, 0);
-coreGroup.add(ring1, ring2, ring3);
-
-// (5) 부드러운 외곽 글로우
+// (1) 가장 외곽의 부드러운 헤일로 글로우
 const coreOuterGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(0.42, 24, 24),
+  new THREE.SphereGeometry(0.48, 24, 24),
   new THREE.MeshBasicMaterial({
-    color: 0xFF7733, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.16, depthWrite: false,
+    color: 0xFF6622, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.22, depthWrite: false,
   }),
 );
 coreGroup.add(coreOuterGlow);
+
+// (2) 외곽 옥타헤드론 — 솔리드 채움 + 밝은 와이어 (듀얼 레이어)
+const coreOctaGeo   = new THREE.OctahedronGeometry(0.34, 0);
+const coreOctaSolid = new THREE.Mesh(coreOctaGeo, new THREE.MeshBasicMaterial({
+  color: 0xFF8833, blending: THREE.AdditiveBlending,
+  transparent: true, opacity: 0.18, depthWrite: false,
+}));
+const coreOctaWire  = new THREE.LineSegments(
+  new THREE.EdgesGeometry(coreOctaGeo),
+  new THREE.LineBasicMaterial({
+    color: 0xFFAA44, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.95, depthWrite: false,
+  }),
+);
+const coreOctaPivot = new THREE.Group();
+coreOctaPivot.add(coreOctaSolid, coreOctaWire);
+coreGroup.add(coreOctaPivot);
+
+// (3) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
+const coreIcoGeo   = new THREE.IcosahedronGeometry(0.22, 1);
+const coreIcoSolid = new THREE.Mesh(coreIcoGeo, new THREE.MeshBasicMaterial({
+  color: 0xFFAA44, blending: THREE.AdditiveBlending,
+  transparent: true, opacity: 0.25, depthWrite: false,
+}));
+const coreIcoWire  = new THREE.LineSegments(
+  new THREE.EdgesGeometry(coreIcoGeo),
+  new THREE.LineBasicMaterial({
+    color: 0xFFCC55, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 1.0, depthWrite: false,
+  }),
+);
+const coreIcoPivot = new THREE.Group();
+coreIcoPivot.add(coreIcoSolid, coreIcoWire);
+coreGroup.add(coreIcoPivot);
+
+// (4) 안쪽 솔리드 코어 — 화이트-옐로우 발광 구체
+const coreBright = new THREE.Mesh(
+  new THREE.SphereGeometry(0.10, 20, 20),
+  new THREE.MeshBasicMaterial({
+    color: 0xFFFFCC, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 1.0, depthWrite: false,
+  }),
+);
+coreGroup.add(coreBright);
+
+// (5) 직교하는 3개 HUD 궤도 링 (입력층 안쪽)
+function makeOrbitRing(radius, rx, ry, rz, color) {
+  const geo  = new THREE.TorusGeometry(radius, 0.0075, 8, 96);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.75, depthWrite: false,
+  }));
+  mesh.rotation.set(rx, ry, rz);
+  return mesh;
+}
+const ring1 = makeOrbitRing(0.29, 0,         0, 0, 0xFFBB44);
+const ring2 = makeOrbitRing(0.29, Math.PI/2, 0, 0, 0xFFAA33);
+const ring3 = makeOrbitRing(0.29, 0, Math.PI/2, 0, 0xFFCC55);
+coreGroup.add(ring1, ring2, ring3);
 
 // ─── 별 배경 ───
 const STAR_N  = 2200;
@@ -432,8 +447,10 @@ function simulateLearning() {
 // ─────────────────────────────────────────
 const control = new HandControl({ handedness: 'right', cursorSource: 'gaze' });
 
-let targetOffX = 0, targetOffY = 0;
-let smoothOffX = 0, smoothOffY = 0;
+// 커서 오프셋 (-0.5 ~ +0.5) — 회전 속도의 입력
+let cursorOffX = 0, cursorOffY = 0;
+// 누적 회전 (커서 위치 기반 속도로 적분됨)
+let cursorRotX = 0, cursorRotY = 0;
 let baseRotY   = 0;
 let clickCount = 0;
 
@@ -441,8 +458,16 @@ control.on('move', (e) => {
   cursorEl.style.left = `${e.screenX}px`;
   cursorEl.style.top  = `${e.screenY}px`;
   sPosEl.textContent  = `${e.screenX} · ${e.screenY}`;
-  targetOffY = (e.x - 0.5) * Math.PI * 2.0;
-  targetOffX = (e.y - 0.5) * Math.PI * 0.9;
+  cursorOffX = e.x - 0.5;
+  cursorOffY = e.y - 0.5;
+});
+
+// 마우스 폴백 (HandControl 시작 전에도 회전 가능)
+window.addEventListener('mousemove', (e) => {
+  cursorOffX = (e.clientX / window.innerWidth)  - 0.5;
+  cursorOffY = (e.clientY / window.innerHeight) - 0.5;
+  cursorEl.style.left = `${e.clientX}px`;
+  cursorEl.style.top  = `${e.clientY}px`;
 });
 
 control.on('click', () => {
@@ -507,18 +532,20 @@ function animate() {
   let inputAct = 0;
   for (const n of layerData[0]) inputAct += n.activation;
   inputAct /= layerData[0].length;
-  coreGlow.material.opacity        = 0.80 + 0.20 * inputAct + 0.05 * Math.sin(t * 3);
-  coreIcoInner.material.opacity    = 0.65 + 0.30 * inputAct;
-  coreIcoOuter.material.opacity    = 0.45 + 0.30 * inputAct;
-  coreOuterGlow.material.opacity   = 0.12 + 0.32 * inputAct + 0.03 * Math.sin(t * 1.5);
+  coreBright.material.opacity      = 0.85 + 0.15 * inputAct + 0.06 * Math.sin(t * 3);
+  coreIcoSolid.material.opacity    = 0.20 + 0.22 * inputAct;
+  coreIcoWire.material.opacity     = 0.85 + 0.15 * inputAct;
+  coreOctaSolid.material.opacity   = 0.15 + 0.20 * inputAct;
+  coreOctaWire.material.opacity    = 0.78 + 0.20 * inputAct;
+  coreOuterGlow.material.opacity   = 0.18 + 0.30 * inputAct + 0.04 * Math.sin(t * 1.5);
   // 와이어프레임 자체 회전 (디지털 메커니컬 느낌)
-  coreIcoInner.rotation.y += 0.013;
-  coreIcoInner.rotation.x += 0.006;
-  coreIcoOuter.rotation.y -= 0.009;
-  coreIcoOuter.rotation.z += 0.007;
-  ring1.rotation.z += 0.004;
-  ring2.rotation.z += 0.005;
-  ring3.rotation.x += 0.003;
+  coreIcoPivot.rotation.y  += 0.013;
+  coreIcoPivot.rotation.x  += 0.006;
+  coreOctaPivot.rotation.y -= 0.009;
+  coreOctaPivot.rotation.z += 0.007;
+  ring1.rotation.z += 0.005;
+  ring2.rotation.z += 0.006;
+  ring3.rotation.x += 0.004;
 
   // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
   for (let i = 0; i < edges.length; i++) {
@@ -569,12 +596,18 @@ function animate() {
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
 
-  // ── 회전 (시선 제어 + 자동 회전) ──
-  baseRotY   += 0.0018;
-  smoothOffX += (targetOffX - smoothOffX) * 0.030;
-  smoothOffY += (targetOffY - smoothOffY) * 0.030;
-  network.rotation.x = smoothOffX;
-  network.rotation.y = baseRotY + smoothOffY;
+  // ── 회전 (자동 회전 + 커서 오프셋 → 회전 속도) ──
+  baseRotY += 0.0015;
+  // 데드존: 커서가 화면 중앙 근처면 정지
+  const DZ = 0.06;
+  const dx = Math.sign(cursorOffX) * Math.max(0, Math.abs(cursorOffX) - DZ);
+  const dy = Math.sign(cursorOffY) * Math.max(0, Math.abs(cursorOffY) - DZ);
+  cursorRotY += dx * 0.016;
+  cursorRotX += dy * 0.011;
+  // X축 회전은 너무 많이 기울지 않도록 클램프
+  cursorRotX = Math.max(-1.0, Math.min(1.0, cursorRotX));
+  network.rotation.x = cursorRotX;
+  network.rotation.y = baseRotY + cursorRotY;
 
   // ── 카메라 줌 ──
   camZ += (targetCamZ - camZ) * 0.055;

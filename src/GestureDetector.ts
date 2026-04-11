@@ -1,28 +1,38 @@
 import {
-  HandLandmarker,
+  GestureRecognizer,
   FilesetResolver,
   type NormalizedLandmark,
 } from '@mediapipe/tasks-vision';
 import { distance } from './utils/geometry';
+import type { GestureName } from './types';
 
-/** MediaPipe Hand Landmark 인덱스 */
+/** 클릭 핀치 감지에만 사용하는 랜드마크 인덱스 */
 const LM = {
   THUMB_TIP:  4,
-  INDEX_MCP:  5,
   INDEX_TIP:  8,
-  MIDDLE_MCP: 9,
   MIDDLE_TIP: 12,
-  RING_MCP:   13,
-  RING_TIP:   16,
-  PINKY_MCP:  17,
-  PINKY_TIP:  20,
 } as const;
 
-export type GestureType = 'click' | 'fist' | 'open-palm' | 'point' | 'open';
+/** MediaPipe categoryName → 내부 GestureName 매핑 */
+const MP_GESTURE_MAP: Record<string, GestureName> = {
+  Pointing_Up:  'pointing',
+  Closed_Fist:  'fist',
+  Open_Palm:    'openpalm',
+  Thumb_Up:     'thumbsup',
+  Thumb_Down:   'thumbsdown',
+  Victory:      'victory',
+  ILoveYou:     'iloveyou',
+};
+
+export type DetectedGesture = GestureName | 'click' | 'none';
 
 export interface DetectionResult {
-  gesture: GestureType;
-  /** 클릭 감지용: 엄지 ↔ 중지 거리 */
+  /** 최우선 결정된 제스처 (click 핀치 > GestureRecognizer 결과) */
+  gesture: DetectedGesture;
+  /** GestureRecognizer 원본 결과 (null = None 또는 미감지) */
+  gestureName: GestureName | null;
+  gestureConfidence: number;
+  /** 클릭 감지용 엄지 ↔ 중지 거리 */
   clickPinchDistance: number;
   indexTip: { x: number; y: number };
 }
@@ -30,10 +40,10 @@ export interface DetectionResult {
 const DEFAULT_WASM_PATH =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
 const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+  'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 
 export class GestureDetector {
-  private landmarker: HandLandmarker | null = null;
+  private recognizer: GestureRecognizer | null = null;
 
   constructor(
     private readonly wasmPath: string = DEFAULT_WASM_PATH,
@@ -42,7 +52,7 @@ export class GestureDetector {
 
   async init(): Promise<void> {
     const vision = await FilesetResolver.forVisionTasks(this.wasmPath);
-    this.landmarker = await HandLandmarker.createFromOptions(vision, {
+    this.recognizer = await GestureRecognizer.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: MODEL_URL,
         delegate: 'GPU',
@@ -53,65 +63,47 @@ export class GestureDetector {
   }
 
   detect(video: HTMLVideoElement, timestampMs: number): DetectionResult | null {
-    if (!this.landmarker) return null;
+    if (!this.recognizer) return null;
 
-    const { landmarks } = this.landmarker.detectForVideo(video, timestampMs);
-    if (!landmarks || landmarks.length === 0) return null;
+    const result = this.recognizer.recognizeForVideo(video, timestampMs);
+    if (!result.landmarks || result.landmarks.length === 0) return null;
 
-    return this.analyze(landmarks[0]);
+    const categories = result.gestures[0] ?? [];
+    return this.analyze(result.landmarks[0], categories);
   }
 
-  private analyze(lm: NormalizedLandmark[]): DetectionResult {
+  private analyze(
+    lm: NormalizedLandmark[],
+    categories: Array<{ categoryName: string; score: number }>,
+  ): DetectionResult {
     const thumbTip  = lm[LM.THUMB_TIP];
     const indexTip  = lm[LM.INDEX_TIP];
-    const indexMcp  = lm[LM.INDEX_MCP];
     const middleTip = lm[LM.MIDDLE_TIP];
-    const middleMcp = lm[LM.MIDDLE_MCP];
-    const ringTip   = lm[LM.RING_TIP];
-    const ringMcp   = lm[LM.RING_MCP];
-    const pinkyTip  = lm[LM.PINKY_TIP];
-    const pinkyMcp  = lm[LM.PINKY_MCP];
 
-    // 클릭: 엄지 ↔ 중지 거리
+    // 엄지 ↔ 중지 핀치 거리 (클릭 감지)
     const clickPinchDistance = distance(thumbTip, middleTip);
-    const clickClearlyReleased = clickPinchDistance > this.clickThreshold * 2.5;
 
-    // 각 손가락 펴짐 여부 (tip.y < mcp.y → 위로 뻗음)
-    const indexExt  = indexTip.y  < indexMcp.y;
-    const middleExt = middleTip.y < middleMcp.y;
-    const ringExt   = ringTip.y   < ringMcp.y;
-    const pinkyExt  = pinkyTip.y  < pinkyMcp.y;
+    // GestureRecognizer 최상위 결과
+    const topCat = categories[0];
+    const gestureName: GestureName | null =
+      topCat ? (MP_GESTURE_MAP[topCat.categoryName] ?? null) : null;
+    const gestureConfidence = topCat?.score ?? 0;
 
-    const allFolded   = !indexExt && !middleExt && !ringExt && !pinkyExt;
-    const allExtended =  indexExt &&  middleExt &&  ringExt &&  pinkyExt;
-
-    let gesture: GestureType;
-
-    if (clickPinchDistance < this.clickThreshold) {
-      // 클릭이 최우선
-      gesture = 'click';
-    } else if (allFolded) {
-      // 주먹: 모든 손가락 오무림 → 줌 인
-      gesture = 'fist';
-    } else if (allExtended && clickClearlyReleased) {
-      // 펼친 손: 모든 손가락 펼침 → 줌 아웃
-      gesture = 'open-palm';
-    } else if (indexExt) {
-      // 검지만 펼침 → 커서 이동
-      gesture = 'point';
-    } else {
-      gesture = 'open';
-    }
+    // 클릭이 최우선
+    const gesture: DetectedGesture =
+      clickPinchDistance < this.clickThreshold ? 'click' : (gestureName ?? 'none');
 
     return {
       gesture,
+      gestureName,
+      gestureConfidence,
       clickPinchDistance,
       indexTip: { x: indexTip.x, y: indexTip.y },
     };
   }
 
   destroy(): void {
-    this.landmarker?.close();
-    this.landmarker = null;
+    this.recognizer?.close();
+    this.recognizer = null;
   }
 }

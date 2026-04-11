@@ -1,30 +1,38 @@
 import { EventEmitter } from './EventEmitter';
 import { GestureDetector } from './GestureDetector';
+import { GestureMapper } from './GestureMapper';
+import { ControlPanel } from './ControlPanel';
 import { lerp } from './utils/geometry';
 import type {
   HandControlEventMap,
   HandControlOptions,
   MoveEvent,
   ClickEvent,
+  GestureEvent,
+  GestureName,
 } from './types';
 
 const CLICK_RELEASE_HYSTERESIS = 0.09;
-const CLICK_COOLDOWN_MS = 600;
-
+const CLICK_COOLDOWN_MS        = 600;
 /** 주먹/펼침 상태일 때 프레임당 scroll deltaY 크기 */
-const ZOOM_DELTA = 12;
+const ZOOM_DELTA               = 12;
+/** 동일 제스처 이벤트 최소 발화 간격 (ms) */
+const GESTURE_COOLDOWN_MS      = 900;
 
 export class HandControl extends EventEmitter<HandControlEventMap> {
   private video: HTMLVideoElement;
   private detector: GestureDetector;
   private rafId: number | null = null;
   private stream: MediaStream | null = null;
+  private panel: ControlPanel | null = null;
 
-  // gesture state
+  // 제스처 상태
   private isClicking = false;
   private lastClickMs = 0;
+  /** GestureName → 마지막 발화 타임스탬프 */
+  private lastGestureMs = new Map<GestureName, number>();
 
-  // smoothed cursor position (검지 끝 추적)
+  // 스무딩된 커서 위치 (검지 끝 추적)
   private smoothX = 0.5;
   private smoothY = 0.5;
 
@@ -33,6 +41,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private readonly flipHorizontal: boolean;
   private readonly ownedVideo: boolean;
 
+  /** 단축키 바인딩 엔진 — 직접 접근 가능 */
+  readonly mapper = new GestureMapper();
+
   constructor(options: HandControlOptions = {}) {
     super();
     this.threshold      = options.threshold      ?? 0.05;
@@ -40,10 +51,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.flipHorizontal = options.flipHorizontal  ?? true;
 
     if (options.video) {
-      this.video     = options.video;
+      this.video      = options.video;
       this.ownedVideo = false;
     } else {
-      this.video     = this.createHiddenVideo();
+      this.video      = this.createHiddenVideo();
       this.ownedVideo = true;
     }
 
@@ -73,8 +84,21 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
     this.detector.destroy();
+    this.panel?.destroy();
+    this.panel = null;
     if (this.ownedVideo) this.video.remove();
     this.removeAllListeners();
+  }
+
+  /**
+   * 플로팅 설정 패널을 생성하고 document.body 에 주입합니다.
+   * 이미 생성된 경우 기존 인스턴스를 반환합니다.
+   */
+  createPanel(): ControlPanel {
+    if (!this.panel) {
+      this.panel = new ControlPanel(this.mapper);
+    }
+    return this.panel;
   }
 
   private createHiddenVideo(): HTMLVideoElement {
@@ -97,7 +121,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const result = this.detector.detect(this.video, now);
     if (!result) return;
 
-    // 커서: 검지 끝 추적 (클릭 제스처와 완전히 독립)
+    // ── 커서: 검지 끝 스무딩 (제스처와 독립) ──
     const rawX = this.flipHorizontal ? 1 - result.indexTip.x : result.indexTip.x;
     const rawY = result.indexTip.y;
 
@@ -116,7 +140,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
     this.emit('move', pos);
 
-    // 클릭: 엄지 + 중지 핀치
+    // ── 클릭: 엄지+중지 핀치 ──
     if (result.gesture === 'click') {
       if (!this.isClicking) {
         this.isClicking = true;
@@ -130,13 +154,35 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.isClicking = false;
     }
 
-    // 줌: 주먹 → 줌 인 / 펼친 손 → 줌 아웃 (클릭 중에는 무시)
+    // ── 줌: 주먹 → 줌 인 / 펼친 손 → 줌 아웃 (클릭 중 무시) ──
     if (!this.isClicking) {
-      if (result.gesture === 'fist') {
+      if (result.gestureName === 'fist') {
         this.emit('scroll', { deltaY: ZOOM_DELTA });
-      } else if (result.gesture === 'open-palm') {
+      } else if (result.gestureName === 'openpalm') {
         this.emit('scroll', { deltaY: -ZOOM_DELTA });
       }
+    }
+
+    // ── 제스처 이벤트 (개발자 API) + 단축키 트리거 (일반 사용자) ──
+    const gestureName = result.gestureName;
+    if (gestureName) {
+      this.panel?.setDetected(gestureName, result.gestureConfidence);
+
+      const nowMs = Date.now();
+      const lastFire = this.lastGestureMs.get(gestureName) ?? 0;
+      if (nowMs - lastFire > GESTURE_COOLDOWN_MS) {
+        this.lastGestureMs.set(gestureName, nowMs);
+
+        const gestureEvent: GestureEvent = {
+          gesture: gestureName,
+          ...pos,
+          confidence: result.gestureConfidence,
+        };
+        this.emit(gestureName, gestureEvent);
+        this.mapper.trigger(gestureName);
+      }
+    } else {
+      this.panel?.setDetected(null, 0);
     }
   }
 }

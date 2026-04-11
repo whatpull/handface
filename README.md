@@ -154,6 +154,19 @@ npm run typecheck  # TypeScript 타입 체크
 
 ## 개발 로그
 
+### v0.2.0 — 2026-04-11
+
+**제스처 설정 패널 + 개발자 제스처 이벤트 API**
+
+- `GestureRecognizer` 기반으로 교체 (MediaPipe 7가지 내장 제스처: 👍👎✌️🤟✊🖐️☝️)
+- `HandControl.createPanel()` — 우측 하단 플로팅 ✋ 버튼 + 설정 패널 주입
+- 일반 사용자: 패널에서 제스처 → 단축키 바인딩 (localStorage 영구 저장)
+- 개발자 API: `control.on('thumbsup' | 'victory' | 'iloveyou' | ...)` 제스처 이벤트 구독
+- `GestureMapper` 클래스 — `bind()` / `unbind()` / `trigger()` 직접 제어
+- 데모 업데이트: 커스텀 제스처로 크리스탈 색상 변화 연동
+
+---
+
 ### v0.1.0 — 2026-04-11
 
 **초기 구현**

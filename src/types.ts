@@ -28,7 +28,38 @@ export interface DragEvent {
   screenY: number;
 }
 
+/** MediaPipe GestureRecognizer 제스처 이름 */
+export type GestureName =
+  | 'pointing'
+  | 'fist'
+  | 'openpalm'
+  | 'thumbsup'
+  | 'thumbsdown'
+  | 'victory'
+  | 'iloveyou';
+
+export interface GestureEvent {
+  gesture: GestureName;
+  x: number;
+  y: number;
+  screenX: number;
+  screenY: number;
+  confidence: number;
+}
+
+export interface GestureKeyBinding {
+  gesture: GestureName;
+  key: string;
+  modifiers?: {
+    ctrl?: boolean;
+    alt?: boolean;
+    shift?: boolean;
+    meta?: boolean;
+  };
+}
+
 export type HandControlEventMap = {
+  // Mouse emulation
   click: ClickEvent;
   rightclick: ClickEvent;
   move: MoveEvent;
@@ -36,6 +67,14 @@ export type HandControlEventMap = {
   drag: DragEvent;
   dragstart: ClickEvent;
   dragend: ClickEvent;
+  // Gesture events (개발자 API)
+  pointing:   GestureEvent;
+  fist:       GestureEvent;
+  openpalm:   GestureEvent;
+  thumbsup:   GestureEvent;
+  thumbsdown: GestureEvent;
+  victory:    GestureEvent;
+  iloveyou:   GestureEvent;
 };
 
 export interface HandControlOptions {
@@ -50,3 +89,17 @@ export interface HandControlOptions {
   /** MediaPipe wasm 파일 경로 (CDN 기본값 제공) */
   wasmPath?: string;
 }
+
+/** 제스처 표시 메타데이터 */
+export const GESTURE_META: Record<
+  GestureName,
+  { icon: string; label: string; labelKo: string; builtin: boolean; builtinAction?: string }
+> = {
+  pointing:   { icon: '☝️',  label: 'Pointing Up',  labelKo: '검지 가리키기',   builtin: true,  builtinAction: '커서 이동' },
+  fist:       { icon: '✊',  label: 'Closed Fist',   labelKo: '주먹',            builtin: true,  builtinAction: '줌 인' },
+  openpalm:   { icon: '🖐️',  label: 'Open Palm',    labelKo: '펼친 손',         builtin: true,  builtinAction: '줌 아웃' },
+  thumbsup:   { icon: '👍',  label: 'Thumbs Up',    labelKo: '엄지 위',         builtin: false },
+  thumbsdown: { icon: '👎',  label: 'Thumbs Down',  labelKo: '엄지 아래',       builtin: false },
+  victory:    { icon: '✌️',  label: 'Victory',      labelKo: '브이',            builtin: false },
+  iloveyou:   { icon: '🤟',  label: 'I Love You',   labelKo: '아이 러브 유',    builtin: false },
+};

@@ -263,6 +263,30 @@ control.on('scroll', (e) => {
   pushLog('scroll', `줌 ${e.deltaY > 0 ? '✊ In' : '🖐 Out'}  ${pct}%`);
 });
 
+// 제스처 이벤트 — 크리스탈 색상 변화 + 로그
+const GESTURE_COLORS = {
+  thumbsup:   { color: 0x66ff99, emissive: 0x1a4422 },
+  thumbsdown: { color: 0xff6655, emissive: 0x441111 },
+  victory:    { color: 0xffdd44, emissive: 0x443311 },
+  iloveyou:   { color: 0xff88cc, emissive: 0x442233 },
+};
+const GESTURE_LABELS = {
+  thumbsup: '👍 엄지 위', thumbsdown: '👎 엄지 아래',
+  victory: '✌️ 브이', iloveyou: '🤟 아이 러브 유',
+};
+
+for (const [g, col] of Object.entries(GESTURE_COLORS)) {
+  control.on(g, () => {
+    crystalMat.color.setHex(col.color);
+    crystalMat.emissive.setHex(col.emissive);
+    setTimeout(() => {
+      crystalMat.color.setHex(0x5533dd);
+      crystalMat.emissive.setHex(0x180848);
+    }, 600);
+    pushLog('', GESTURE_LABELS[g]);
+  });
+}
+
 // ─────────────────────────────────────────
 // Animation Loop
 // ─────────────────────────────────────────
@@ -337,6 +361,7 @@ startBtn.addEventListener('click', async () => {
 
   try {
     await control.start();
+    control.createPanel(); // 플로팅 설정 버튼 주입
     sStatus.textContent = '감지중';
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);

@@ -284,17 +284,7 @@ function spawnSpark(edge, tOffset = 0) {
 const coreGroup = new THREE.Group();
 network.add(coreGroup);
 
-// (1) 가장 외곽의 부드러운 헤일로 글로우
-const coreOuterGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(0.48, 24, 24),
-  new THREE.MeshBasicMaterial({
-    color: 0xFF6622, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.22, depthWrite: false,
-  }),
-);
-coreGroup.add(coreOuterGlow);
-
-// (2) 외곽 옥타헤드론 — 솔리드 채움 + 밝은 와이어 (듀얼 레이어)
+// (1) 외곽 옥타헤드론 — 솔리드 채움 + 밝은 와이어 (듀얼 레이어)
 const coreOctaGeo   = new THREE.OctahedronGeometry(0.34, 0);
 const coreOctaSolid = new THREE.Mesh(coreOctaGeo, new THREE.MeshBasicMaterial({
   color: 0xFF8833, blending: THREE.AdditiveBlending,
@@ -311,7 +301,7 @@ const coreOctaPivot = new THREE.Group();
 coreOctaPivot.add(coreOctaSolid, coreOctaWire);
 coreGroup.add(coreOctaPivot);
 
-// (3) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
+// (2) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
 const coreIcoGeo   = new THREE.IcosahedronGeometry(0.22, 1);
 const coreIcoSolid = new THREE.Mesh(coreIcoGeo, new THREE.MeshBasicMaterial({
   color: 0xFFAA44, blending: THREE.AdditiveBlending,
@@ -328,7 +318,7 @@ const coreIcoPivot = new THREE.Group();
 coreIcoPivot.add(coreIcoSolid, coreIcoWire);
 coreGroup.add(coreIcoPivot);
 
-// (4) 안쪽 솔리드 코어 — 화이트-옐로우 발광 구체
+// (3) 안쪽 솔리드 코어 — 화이트-옐로우 발광 구체
 const coreBright = new THREE.Mesh(
   new THREE.SphereGeometry(0.10, 20, 20),
   new THREE.MeshBasicMaterial({
@@ -338,7 +328,7 @@ const coreBright = new THREE.Mesh(
 );
 coreGroup.add(coreBright);
 
-// (5) 직교하는 3개 HUD 궤도 링 (입력층 안쪽)
+// (4) 직교하는 3개 HUD 궤도 링 (입력층 안쪽)
 function makeOrbitRing(radius, rx, ry, rz, color) {
   const geo  = new THREE.TorusGeometry(radius, 0.0075, 8, 96);
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
@@ -537,7 +527,6 @@ function animate() {
   coreIcoWire.material.opacity     = 0.85 + 0.15 * inputAct;
   coreOctaSolid.material.opacity   = 0.15 + 0.20 * inputAct;
   coreOctaWire.material.opacity    = 0.78 + 0.20 * inputAct;
-  coreOuterGlow.material.opacity   = 0.18 + 0.30 * inputAct + 0.04 * Math.sin(t * 1.5);
   // 와이어프레임 자체 회전 (디지털 메커니컬 느낌)
   coreIcoPivot.rotation.y  += 0.013;
   coreIcoPivot.rotation.x  += 0.006;

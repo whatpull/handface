@@ -82,27 +82,61 @@ const K_FORWARD   = 5;   // 다음 층으로 연결 수
 const K_BACKWARD  = 3;   // 이전 층으로 보장 연결 수
 const K_INTRA     = 4;   // 같은 층 내 연결 수 (퍼지 볼 효과)
 
-/** Fibonacci sphere — n개의 점을 구체 표면에 균일하게 분포 (반경 비례 jitter) */
-function fibonacciSphere(n, radius) {
+/**
+ * Brain-like ellipsoidal shell:
+ *   · 가로(X) 좁음, 상하(Y) 압축, 전후(Z) 길게 → 뇌의 비율 근사
+ *   · 중심 세로 균열(longitudinal fissure)로 두 반구를 분리
+ *   · 다중 주파수 사인 파동으로 표면 주름(gyri/sulci) 추가
+ */
+function brainShape(n, radius) {
   if (n === 1) return [new THREE.Vector3(0, 0, 0)];
-  const jitter = radius * 0.16;
+  const jitter = radius * 0.14;
   const points = [];
   const phi = Math.PI * (3 - Math.sqrt(5));  // golden angle
+
+  // 뇌 프로포션
+  const SX = 0.95;   // 좌우 (반구 폭)
+  const SY = 0.78;   // 상하 (높이, 압축)
+  const SZ = 1.22;   // 전후 (길이, 연장)
+  const CLEFT = 0.07 * radius;  // 대뇌 세로 균열 간격
+
   for (let i = 0; i < n; i++) {
-    const y     = 1 - (i / (n - 1)) * 2;
-    const r     = Math.sqrt(Math.max(0, 1 - y * y));
+    const y0    = 1 - (i / (n - 1)) * 2;
+    const r0    = Math.sqrt(Math.max(0, 1 - y0 * y0));
     const theta = phi * i;
-    points.push(new THREE.Vector3(
-      Math.cos(theta) * r * radius + (Math.random() - 0.5) * jitter,
-      y * radius                   + (Math.random() - 0.5) * jitter,
-      Math.sin(theta) * r * radius + (Math.random() - 0.5) * jitter,
-    ));
+
+    let x = Math.cos(theta) * r0;
+    let y = y0;
+    let z = Math.sin(theta) * r0;
+
+    // 표면 주름 (gyri/sulci) — 반경 방향 다중 주파수 파동
+    const fold = 0.085 * (
+      Math.sin(y * 5 + theta * 2) * 0.6 +
+      Math.cos(theta * 5 + y * 3) * 0.5
+    );
+    const fr = 1 + fold;
+    x *= fr; y *= fr; z *= fr;
+
+    // 타원체 스케일
+    x *= radius * SX;
+    y *= radius * SY;
+    z *= radius * SZ;
+
+    // 세로 균열: 중심선에서 반구를 바깥쪽으로 밀어냄 (좌우 분리)
+    x += (x >= 0 ? CLEFT : -CLEFT);
+
+    // 유기적 jitter
+    x += (Math.random() - 0.5) * jitter;
+    y += (Math.random() - 0.5) * jitter;
+    z += (Math.random() - 0.5) * jitter;
+
+    points.push(new THREE.Vector3(x, y, z));
   }
   return points;
 }
 
 const layerData = LAYER_SIZES.map((count, li) =>
-  fibonacciSphere(count, LAYER_RADII[li]).map((pos, localIdx) => ({
+  brainShape(count, LAYER_RADII[li]).map((pos, localIdx) => ({
     pos,
     activation:       0,
     targetActivation: 0,
@@ -459,9 +493,7 @@ scene.add(starMesh);
 // ─────────────────────────────────────────
 // 신경망 시뮬레이션 (실제 모델 → viz 매핑)
 // ─────────────────────────────────────────
-let lastPassMs  = -3000;
 let lastSyncMs  = 0;
-const PASS_INTERVAL_MS = 2800;
 const LAYER_DELAY_MS   = 280;
 const SYNC_INTERVAL_MS = 600;
 
@@ -602,11 +634,10 @@ window.addEventListener('mousemove', (e) => {
 control.on('click', () => {
   clickCount++;
   sClicksEl.textContent = String(clickCount);
-  triggerPass();  // 즉시 신호 전파 (마지막 메시지 시드)
   cursorEl.classList.add('clicking');
   flashEl.classList.add('on');
   setTimeout(() => { flashEl.classList.remove('on'); cursorEl.classList.remove('clicking'); }, 80);
-  pushLog('ev-click', '🤌 신호 전파');
+  pushLog('ev-click', '🤌 핀치');
 });
 
 control.on('scroll', (e) => {
@@ -637,12 +668,6 @@ function animate() {
   requestAnimationFrame(animate);
   t += 0.011;
   const nowMs = performance.now();
-
-  // ── 자동 순전파 ──
-  if (nowMs - lastPassMs > PASS_INTERVAL_MS) {
-    lastPassMs = nowMs;
-    triggerPass();
-  }
 
   // ── 모델 가중치 → viz 엣지 동기화 ──
   if (nowMs - lastSyncMs > SYNC_INTERVAL_MS) {

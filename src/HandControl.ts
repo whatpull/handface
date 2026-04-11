@@ -26,6 +26,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private smoothX = 0.5;
   private smoothY = 0.5;
 
+  // 핀치 시작 시 고정된 커서 위치 (핀치 중 커서 흔들림 방지)
+  private frozenX = 0.5;
+  private frozenY = 0.5;
+
   private readonly threshold: number;
   private readonly smoothing: number;
   private readonly flipHorizontal: boolean;
@@ -101,8 +105,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const rawX = this.flipHorizontal ? 1 - result.indexTip.x : result.indexTip.x;
     const rawY = result.indexTip.y;
 
-    this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
-    this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
+    // 핀치 중에는 커서 위치 갱신 중단 → 흔들림 방지
+    if (!this.isPinching) {
+      this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
+      this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
+    }
 
     const screenX = Math.round(this.smoothX * window.innerWidth);
     const screenY = Math.round(this.smoothY * window.innerHeight);
@@ -120,11 +127,19 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // 핀치 → click
     if (result.gesture === 'pinch') {
       if (!this.isPinching) {
+        // 핀치 시작 순간의 위치를 고정
+        this.frozenX = this.smoothX;
+        this.frozenY = this.smoothY;
         this.isPinching = true;
         const nowMs = Date.now();
         if (nowMs - this.lastClickMs > CLICK_COOLDOWN_MS) {
           this.lastClickMs = nowMs;
-          this.emit('click', pos as ClickEvent);
+          this.emit('click', {
+            x: this.frozenX,
+            y: this.frozenY,
+            screenX: Math.round(this.frozenX * window.innerWidth),
+            screenY: Math.round(this.frozenY * window.innerHeight),
+          } as ClickEvent);
         }
       }
     } else if (result.pinchDistance > PINCH_RELEASE_HYSTERESIS) {

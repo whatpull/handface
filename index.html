@@ -200,6 +200,55 @@
       color: #FFCC44;
       font-family: 'Courier New', monospace;
     }
+    /* Top-K next-char predictions */
+    .pred-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .pred-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.55rem;
+    }
+    .pred-char {
+      width: 20px;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      color: #FFCC44;
+      background: rgba(255, 153, 0, 0.07);
+      border: 1px solid rgba(255, 153, 0, 0.18);
+      padding: 1px 0;
+      font-size: 0.6rem;
+    }
+    .pred-bar {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 153, 0, 0.10);
+    }
+    .pred-fill {
+      height: 100%;
+      background: linear-gradient(to right, rgba(255,100,0,0.7), rgba(255,200,80,0.95));
+      width: 0%;
+    }
+    .pred-pct {
+      width: 30px;
+      text-align: right;
+      color: #FFCC44;
+      font-family: 'Courier New', monospace;
+      font-size: 0.5rem;
+    }
+    /* Loss sparkline canvas in chat header */
+    #chat-stats-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    #loss-spark {
+      vertical-align: middle;
+      margin-right: 8px;
+    }
 
     /* ── Stats ── */
     #stats {
@@ -469,7 +518,7 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-z5hvRzwa.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BygwNIrv.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -504,6 +553,10 @@
       <div class="net-title">Layer Weights (avg)</div>
       <div class="weight-list" id="weight-list"></div>
     </div>
+    <div class="net-section">
+      <div class="net-title">Next Char Predictions</div>
+      <div class="pred-list" id="pred-list"></div>
+    </div>
   </div>
 
   <div id="stats">
@@ -521,7 +574,10 @@
   <div id="chat">
     <div id="chat-header">
       <span id="chat-title">Continual Learning Chat</span>
-      <span id="chat-stats">vocab 1 · steps 0 · loss —</span>
+      <span id="chat-stats-wrap">
+        <canvas id="loss-spark" width="80" height="14"></canvas>
+        <span id="chat-stats">vocab 1 · steps 0 · loss —</span>
+      </span>
     </div>
     <div id="chat-msgs"></div>
     <div id="chat-input-row">

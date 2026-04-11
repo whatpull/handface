@@ -377,6 +377,14 @@ startBtn.addEventListener('click', async () => {
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
     pushLog('', '핸드 트래킹 시작');
+
+    // R 키: 커서 캘리브레이션 초기화 (다음 감지 위치 → 화면 중앙)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        control.recalibrate();
+        pushLog('', '캘리브레이션 초기화');
+      }
+    });
   } catch (err) {
     sStatus.textContent  = '오류';
     loadMsg.textContent  = `오류: ${err.message}`;

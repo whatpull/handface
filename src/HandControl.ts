@@ -52,6 +52,13 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private prevRawY = 0.5;
   private wasMovingCursor = false;
 
+  // 캘리브레이션 상태 (절대 모드용)
+  private calibrated = false;
+  private zoneX0 = 0;
+  private zoneX1 = 1;
+  private zoneY0 = 0;
+  private zoneY1 = 1;
+
   // 옵션
   private readonly flipHorizontal: boolean;
   private readonly cursorAnchor: 'wrist' | 'palm' | 'index';
@@ -71,6 +78,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.cursorMode     = options.cursorMode      ?? 'absolute';  // 절대 위치 (직관적)
     this.sensitivity    = options.sensitivity     ?? 2.5;
     this.activeZone     = options.activeZone      ?? [0.3, 0.1, 0.95, 0.85];
+    // 초기 zone 변수 설정 (캘리브레이션 전 기본값)
+    [this.zoneX0, this.zoneY0, this.zoneX1, this.zoneY1] = this.activeZone;
     this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
 
     const threshold = options.threshold ?? 0.05;
@@ -117,6 +126,15 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.panel = null;
     if (this.ownedVideo) this.video.remove();
     this.removeAllListeners();
+  }
+
+  /**
+   * 캘리브레이션을 초기화합니다.
+   * 다음 손 감지 시 그 위치가 화면 중앙으로 재설정됩니다.
+   * cursorMode: 'absolute' 일 때만 동작합니다.
+   */
+  recalibrate(): void {
+    this.calibrated = false;
   }
 
   /**
@@ -184,9 +202,20 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         targetY = Math.max(0, Math.min(1, this.smoothY + dy));
       } else {
         // ② 절대 모드 + Active Zone 리매핑
-        const [x0, y0, x1, y1] = this.activeZone;
-        targetX = remapZone(rawX, x0, x1);
-        targetY = remapZone(rawY, y0, y1);
+        // 첫 감지 시 현재 손 위치를 zone 중심으로 자동 캘리브레이션
+        if (!this.calibrated) {
+          const halfW = (this.activeZone[2] - this.activeZone[0]) / 2;
+          const halfH = (this.activeZone[3] - this.activeZone[1]) / 2;
+          this.zoneX0 = rawX - halfW;
+          this.zoneX1 = rawX + halfW;
+          this.zoneY0 = rawY - halfH;
+          this.zoneY1 = rawY + halfH;
+          this.smoothX = 0.5;
+          this.smoothY = 0.5;
+          this.calibrated = true;
+        }
+        targetX = remapZone(rawX, this.zoneX0, this.zoneX1);
+        targetY = remapZone(rawY, this.zoneY0, this.zoneY1);
       }
 
       // ③ 적응형 스무딩

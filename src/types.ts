@@ -100,9 +100,9 @@ export interface HandControlOptions {
    */
   cursorAnchor?: 'wrist' | 'palm' | 'index';
   /**
-   * 커서 이동 방식 (default 'relative')
-   * - 'relative' : 손의 이동량만큼 커서 이동 (마우스처럼, 권장)
-   * - 'absolute' : 손 위치 → 화면 좌표 직접 매핑
+   * 커서 이동 방식 (default 'absolute')
+   * - 'absolute' : 손 위치 → 화면 좌표 직접 매핑 (권장)
+   * - 'relative' : 손의 이동량만큼 커서 이동 (마우스처럼)
    */
   cursorMode?: 'absolute' | 'relative';
   /**
@@ -111,12 +111,12 @@ export interface HandControlOptions {
    */
   sensitivity?: number;
   /**
-   * 절대 모드 유효 감지 영역 [x0, y0, x1, y1] 0~1 비율 (default [0.2, 0.15, 0.8, 0.85])
-   * 이 영역 안의 손 위치가 화면 전체에 매핑됨
+   * 절대 모드 유효 감지 영역 [x0, y0, x1, y1] 0~1 비율 (default [0.3, 0.1, 0.95, 0.85])
+   * 오른손 기준: 자연스러운 오른쪽 위치가 화면 전체에 매핑되도록 우측 편향
    */
   activeZone?: [number, number, number, number];
   /**
-   * 제스처 게이팅: pointing 제스처일 때만 커서 이동 (default true)
+   * 제스처 게이팅: pointing 제스처일 때만 커서 이동 (default false)
    * true면 검지를 펼쳤을 때만 커서가 움직이고, 다른 제스처 시 커서 고정
    */
   gestureGated?: boolean;

@@ -70,7 +70,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.cursorAnchor   = options.cursorAnchor   ?? 'palm';      // 손바닥 중심 (안정적)
     this.cursorMode     = options.cursorMode      ?? 'absolute';  // 절대 위치 (직관적)
     this.sensitivity    = options.sensitivity     ?? 2.5;
-    this.activeZone     = options.activeZone      ?? [0.2, 0.15, 0.8, 0.85];
+    this.activeZone     = options.activeZone      ?? [0.3, 0.1, 0.95, 0.85];
     this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
 
     const threshold = options.threshold ?? 0.05;

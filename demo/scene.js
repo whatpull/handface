@@ -238,7 +238,13 @@ function handleClick(x, y) {
 // ─────────────────────────────────────────
 // Hand Control
 // ─────────────────────────────────────────
-const control = new HandControl({ smoothing: 0.65, handedness: 'right', cursorAnchor: 'wrist' });
+const control = new HandControl({
+  handedness:   'right',
+  cursorAnchor: 'wrist',
+  cursorMode:   'relative', // 손의 이동량만큼 커서 이동 (마우스 방식)
+  sensitivity:  2.8,
+  gestureGated: true,       // 검지 펼쳤을 때만 커서 이동
+});
 
 control.on('move', (e) => {
   cursorEl.style.left = `${e.screenX}px`;

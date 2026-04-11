@@ -14,22 +14,24 @@ import type {
 
 const CLICK_RELEASE_HYSTERESIS = 0.09;
 const CLICK_COOLDOWN_MS        = 600;
-/** 주먹/펼침 상태일 때 프레임당 scroll deltaY 크기 */
 const SCROLL_DELTA             = 12;
-/** 동일 제스처 이벤트 최소 발화 간격 (ms) */
 const GESTURE_COOLDOWN_MS      = 900;
 
-/**
- * 사용자 handedness 옵션 → MediaPipe categoryName 변환.
- * MediaPipe GestureRecognizer는 정면 카메라를 내부적으로 보정하므로
- * 반환되는 handedness가 실제 손과 일치한다.
- *   사용자의 오른손 → MediaPipe 'Right'
- *   사용자의 왼손  → MediaPipe 'Left'
- */
+// ① 적응형 스무딩 파라미터
+// 손이 정지했을 때 떨림을 억제하고, 빠르게 움직일 때 즉각 반응
+const ADAPTIVE_SPEED_THRESHOLD = 0.022; // 이 속도 이상이면 최대 반응
+const ADAPTIVE_MIN_ALPHA       = 0.06;  // 정지 시 (떨림 억제)
+const ADAPTIVE_MAX_ALPHA       = 0.78;  // 빠른 이동 시 (즉각 반응)
+
 function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' | null {
   if (h === 'right') return 'Right';
   if (h === 'left')  return 'Left';
   return null;
+}
+
+/** ② 절대 모드용: active zone → 0~1 리매핑 (clamp 포함) */
+function remapZone(v: number, min: number, max: number): number {
+  return Math.max(0, Math.min(1, (v - min) / (max - min)));
 }
 
 export class HandControl extends EventEmitter<HandControlEventMap> {
@@ -42,16 +44,22 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   // 제스처 상태
   private isClicking = false;
   private lastClickMs = 0;
-  /** GestureName → 마지막 발화 타임스탬프 */
   private lastGestureMs = new Map<GestureName, number>();
 
-  // 스무딩된 커서 위치
+  // 커서 상태
   private smoothX = 0.5;
   private smoothY = 0.5;
+  private prevRawX = 0.5;       // 적응형 스무딩 / 상대 모드 델타 계산용
+  private prevRawY = 0.5;
+  private wasMovingCursor = false; // ④ 게이팅: 이전 프레임 커서 이동 여부
 
-  private readonly smoothing: number;
+  // 옵션
   private readonly flipHorizontal: boolean;
   private readonly cursorAnchor: 'wrist' | 'palm' | 'index';
+  private readonly cursorMode: 'absolute' | 'relative';
+  private readonly sensitivity: number;
+  private readonly activeZone: [number, number, number, number];
+  private readonly gestureGated: boolean;
   private readonly ownedVideo: boolean;
 
   /** 단축키 바인딩 엔진 — 직접 접근 가능 */
@@ -59,11 +67,14 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   constructor(options: HandControlOptions = {}) {
     super();
-    this.smoothing      = options.smoothing       ?? 0.6;
-    this.flipHorizontal = options.flipHorizontal  ?? true;
-    this.cursorAnchor   = options.cursorAnchor    ?? 'wrist';
+    this.flipHorizontal = options.flipHorizontal ?? true;
+    this.cursorAnchor   = options.cursorAnchor   ?? 'wrist';
+    this.cursorMode     = options.cursorMode      ?? 'relative';
+    this.sensitivity    = options.sensitivity     ?? 2.5;
+    this.activeZone     = options.activeZone      ?? [0.2, 0.15, 0.8, 0.85];
+    this.gestureGated   = options.gestureGated    ?? true;
 
-    const threshold     = options.threshold       ?? 0.05;
+    const threshold = options.threshold ?? 0.05;
 
     if (options.video) {
       this.video      = options.video;
@@ -149,9 +160,59 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const rawX = this.flipHorizontal ? 1 - anchor.x : anchor.x;
     const rawY = anchor.y;
 
-    this.smoothX = lerp(this.smoothX, rawX, 1 - this.smoothing);
-    this.smoothY = lerp(this.smoothY, rawY, 1 - this.smoothing);
+    // ─────────────────────────────────────────────────────────
+    // ④ 제스처 게이팅: pointing 제스처일 때만 커서 업데이트
+    //    다른 제스처(fist/openpalm 등) 시 커서 고정
+    // ─────────────────────────────────────────────────────────
+    const canMove = !this.gestureGated || result.gestureName === 'pointing';
 
+    if (canMove) {
+      let targetX: number;
+      let targetY: number;
+
+      if (this.cursorMode === 'relative') {
+        // ─────────────────────────────────────────────────────
+        // ① 상대 이동 모드: 손의 이동량(delta) × 감도 만큼 커서 이동
+        //    검지를 내렸다 올려도 커서는 제자리 (마우스 lift & place)
+        // ─────────────────────────────────────────────────────
+        if (!this.wasMovingCursor) {
+          // 게이팅 재활성화 첫 프레임: prevRaw 리셋으로 점프 방지
+          this.prevRawX = rawX;
+          this.prevRawY = rawY;
+        }
+        const dx = (rawX - this.prevRawX) * this.sensitivity;
+        const dy = (rawY - this.prevRawY) * this.sensitivity;
+        targetX = Math.max(0, Math.min(1, this.smoothX + dx));
+        targetY = Math.max(0, Math.min(1, this.smoothY + dy));
+      } else {
+        // ─────────────────────────────────────────────────────
+        // ② 절대 모드 + Active Zone 리매핑
+        //    카메라 중앙 영역만 사용해 화면 전체에 매핑
+        // ─────────────────────────────────────────────────────
+        const [x0, y0, x1, y1] = this.activeZone;
+        targetX = remapZone(rawX, x0, x1);
+        targetY = remapZone(rawY, y0, y1);
+      }
+
+      // ─────────────────────────────────────────────────────
+      // ③ 적응형 스무딩: 이동 속도에 따라 alpha 동적 조절
+      //    - 정지(떨림) → 낮은 alpha → 강한 스무딩 (안정)
+      //    - 빠른 이동  → 높은 alpha → 낮은 스무딩 (민감)
+      // ─────────────────────────────────────────────────────
+      const speed = Math.hypot(rawX - this.prevRawX, rawY - this.prevRawY);
+      const t     = Math.min(speed / ADAPTIVE_SPEED_THRESHOLD, 1);
+      const alpha = ADAPTIVE_MIN_ALPHA + t * (ADAPTIVE_MAX_ALPHA - ADAPTIVE_MIN_ALPHA);
+
+      this.smoothX = lerp(this.smoothX, targetX, alpha);
+      this.smoothY = lerp(this.smoothY, targetY, alpha);
+    }
+
+    // 다음 프레임 계산을 위해 raw 위치 저장 (canMove 여부와 무관)
+    this.prevRawX        = rawX;
+    this.prevRawY        = rawY;
+    this.wasMovingCursor = canMove;
+
+    // ── move 이벤트 발생 ──
     const screenX = Math.round(this.smoothX * window.innerWidth);
     const screenY = Math.round(this.smoothY * window.innerHeight);
 
@@ -161,7 +222,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       screenX,
       screenY,
     };
-
     this.emit('move', pos);
 
     // ── 클릭: 엄지+중지 핀치 ──
@@ -187,7 +247,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       }
     }
 
-    // ── 제스처 이벤트 (개발자 API) + 단축키 트리거 (일반 사용자) ──
+    // ── 제스처 이벤트 (개발자 API) + 단축키 트리거 ──
     const gestureName = result.gestureName;
     if (gestureName) {
       this.panel?.setDetected(gestureName, result.gestureConfidence);
@@ -196,12 +256,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       const lastFire = this.lastGestureMs.get(gestureName) ?? 0;
       if (nowMs - lastFire > GESTURE_COOLDOWN_MS) {
         this.lastGestureMs.set(gestureName, nowMs);
-
-        const gestureEvent: GestureEvent = {
-          gesture: gestureName,
-          ...pos,
-          confidence: result.gestureConfidence,
-        };
+        const gestureEvent: GestureEvent = { gesture: gestureName, ...pos, confidence: result.gestureConfidence };
         this.emit(gestureName, gestureEvent);
         this.mapper.trigger(gestureName);
       }

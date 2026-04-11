@@ -90,16 +90,36 @@ export interface HandControlOptions {
   wasmPath?: string;
   /**
    * 감지할 손 방향 (default 'right')
-   * 정면 카메라 raw 피드 기준. 기기/환경에 따라 'left'로 전환 필요할 수 있음.
    */
   handedness?: 'right' | 'left' | 'any';
   /**
    * 커서 추적 기준점 (default 'wrist')
-   * - 'wrist'  : 손목 (손 전체 위치 기반)
-   * - 'palm'   : 손바닥 중심
-   * - 'index'  : 검지 끝 (기존 동작)
+   * - 'wrist' : 손목 — 손 전체 위치 기반
+   * - 'palm'  : 손바닥 중심
+   * - 'index' : 검지 끝 (기존 동작)
    */
   cursorAnchor?: 'wrist' | 'palm' | 'index';
+  /**
+   * 커서 이동 방식 (default 'relative')
+   * - 'relative' : 손의 이동량만큼 커서 이동 (마우스처럼, 권장)
+   * - 'absolute' : 손 위치 → 화면 좌표 직접 매핑
+   */
+  cursorMode?: 'absolute' | 'relative';
+  /**
+   * 상대 모드 커서 감도 (default 2.5)
+   * 값이 클수록 작은 손 움직임으로 넓은 범위를 이동
+   */
+  sensitivity?: number;
+  /**
+   * 절대 모드 유효 감지 영역 [x0, y0, x1, y1] 0~1 비율 (default [0.2, 0.15, 0.8, 0.85])
+   * 이 영역 안의 손 위치가 화면 전체에 매핑됨
+   */
+  activeZone?: [number, number, number, number];
+  /**
+   * 제스처 게이팅: pointing 제스처일 때만 커서 이동 (default true)
+   * true면 검지를 펼쳤을 때만 커서가 움직이고, 다른 제스처 시 커서 고정
+   */
+  gestureGated?: boolean;
 }
 
 /** 제스처 표시 메타데이터 */

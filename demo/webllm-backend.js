@@ -134,10 +134,12 @@ export class WebLLMBackend {
       this.history.push({ role: 'user', text: message });
       this.memory.add(message);
 
-      // Shadow NLM: train for viz
+      // Shadow NLM: train for viz (yield to let CSS animations keep running)
       this.emit({ type: 'training-start', message });
       const stepsBefore = this.shadow.totalSteps;
-      this.shadow.trainOnText(message, 8);
+      await new Promise(r => setTimeout(r, 0));   // yield before CPU work
+      this.shadow.trainOnText(message, 6);
+      await new Promise(r => setTimeout(r, 0));   // yield after CPU work
       this.emit({
         type: 'training-end',
         avgLoss: this.shadow.lossEMA ?? 4,

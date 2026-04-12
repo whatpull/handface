@@ -596,8 +596,10 @@ sTestBtn.addEventListener('click', async () => {
   const testBe = prov === 'gemini'
     ? new GeminiBackend({ apiKey: key })
     : new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
-  const ok = await testBe.testConnection();
-  sStatusEl.textContent = ok ? '✓ Connection successful!' : '✗ Failed — check your key.';
+  const result = await testBe.testConnection();
+  sStatusEl.textContent = result.ok
+    ? '✓ Connection successful!'
+    : `✗ ${result.error || 'Failed — check your key.'}`;
 });
 
 function applyBackend(be, label) {

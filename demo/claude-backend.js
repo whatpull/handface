@@ -178,9 +178,11 @@ export class ClaudeAPIBackend {
           messages: [{ role: 'user', content: 'hi' }],
         }),
       });
-      return res.ok;
-    } catch {
-      return false;
+      if (res.ok) return { ok: true };
+      const body = await res.text();
+      return { ok: false, error: `${res.status}: ${body.slice(0, 150)}` };
+    } catch (err) {
+      return { ok: false, error: err.message };
     }
   }
 

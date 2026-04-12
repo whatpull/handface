@@ -8,7 +8,7 @@
 
 import { NeuralLM } from './nlm.js';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash-lite';
 const MAX_TOKENS   = 200;
 
 const SYSTEM_PROMPT =
@@ -164,8 +164,12 @@ export class GeminiBackend {
           generationConfig: { maxOutputTokens: 5 },
         }),
       });
-      return res.ok;
-    } catch { return false; }
+      if (res.ok) return { ok: true };
+      const body = await res.text();
+      return { ok: false, error: `${res.status}: ${body.slice(0, 150)}` };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   }
 
   reset() {

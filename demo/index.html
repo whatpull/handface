@@ -561,6 +561,30 @@
       border: 1px solid rgba(80, 180, 255, 0.35);
     }
 
+    /* ── Thinking overlay (CSS-only, no GPU) ── */
+    #thinking {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      pointer-events: none;
+    }
+    #thinking.on { display: flex; }
+    #thinking span {
+      color: #FFAA44;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      animation: think-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes think-pulse {
+      0%, 100% { opacity: 0.25; }
+      50% { opacity: 1; }
+    }
+
     /* ── Flash ── */
     #flash {
       position: fixed;
@@ -663,6 +687,7 @@
 <body>
   <div id="canvas-container"></div>
   <div id="cursor"></div>
+  <div id="thinking"><span>thinking</span></div>
   <div id="flash"></div>
 
   <div class="hud-corner tl"></div>

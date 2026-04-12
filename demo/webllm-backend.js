@@ -11,7 +11,7 @@
 import { NeuralLM } from './nlm.js';
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
 
-const MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+const MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC';
 const STORAGE_KEY = 'handface-webllm-v1';
 
 const SYSTEM_PROMPT =

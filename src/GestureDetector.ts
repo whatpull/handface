@@ -48,6 +48,8 @@ export interface DetectionResult {
   wrist: { x: number; y: number };
   /** 손바닥 중심 위치 (cursorAnchor: 'palm' 용) */
   palmCenter: { x: number; y: number };
+  /** 양손 박수 감지 (두 손바닥이 가까워지는 순간 true) */
+  clap: boolean;
 }
 
 const DEFAULT_WASM_PATH =
@@ -55,16 +57,14 @@ const DEFAULT_WASM_PATH =
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 
+const CLAP_DISTANCE = 0.10;   // 양 손바닥 간 거리 임계값 (정규화 좌표)
+const CLAP_COOLDOWN = 600;    // 박수 사이 최소 간격 (ms)
+
 export class GestureDetector {
   private recognizer: GestureRecognizer | null = null;
+  private wasHandsClose = false;
+  private lastClapMs    = 0;
 
-  /**
-   * @param handednessFilter
-   *   MediaPipe 카테고리 이름 기준. 정면 카메라의 raw (비반전) 피드를 사용할 때:
-   *   - 사용자의 오른손 → MediaPipe 'Left'
-   *   - 사용자의 왼손  → MediaPipe 'Right'
-   *   null = 필터 없음 (감지된 첫 번째 손 사용)
-   */
   constructor(
     private readonly wasmPath: string = DEFAULT_WASM_PATH,
     private readonly clickThreshold: number = 0.06,
@@ -90,18 +90,46 @@ export class GestureDetector {
     const result = this.recognizer.recognizeForVideo(video, timestampMs);
     if (!result.landmarks || result.landmarks.length === 0) return null;
 
+    // ── 양손 박수 감지 ──
+    let clap = false;
+    if (result.landmarks.length >= 2) {
+      const p1 = result.landmarks[0][LM.MIDDLE_MCP];
+      const p2 = result.landmarks[1][LM.MIDDLE_MCP];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      const isClose = dist < CLAP_DISTANCE;
+
+      if (isClose && !this.wasHandsClose) {
+        const now = performance.now();
+        if (now - this.lastClapMs > CLAP_COOLDOWN) {
+          this.lastClapMs = now;
+          clap = true;
+        }
+      }
+      this.wasHandsClose = isClose;
+    } else {
+      this.wasHandsClose = false;
+    }
+
     // 핸드니스 필터: 원하는 손 인덱스 찾기
     let handIdx = 0;
     if (this.handednessFilter) {
       const idx = result.handedness.findIndex(
         (cats) => cats[0]?.categoryName === this.handednessFilter,
       );
-      if (idx === -1) return null; // 원하는 손이 감지되지 않음
+      if (idx === -1) {
+        // 원하는 손이 없어도 박수 결과는 반환
+        if (clap) return { gesture: 'none', gestureName: null, gestureConfidence: 0,
+          clickPinchDistance: 1, indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
+          palmCenter: {x:0.5,y:0.5}, clap };
+        return null;
+      }
       handIdx = idx;
     }
 
     const categories = result.gestures[handIdx] ?? [];
-    return this.analyze(result.landmarks[handIdx], categories);
+    const det = this.analyze(result.landmarks[handIdx], categories);
+    det.clap = clap;
+    return det;
   }
 
   private analyze(
@@ -139,6 +167,7 @@ export class GestureDetector {
       indexTip:  { x: indexTip.x,  y: indexTip.y },
       wrist:     { x: wrist.x,     y: wrist.y },
       palmCenter,
+      clap: false,
     };
   }
 

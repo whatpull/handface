@@ -1215,9 +1215,24 @@ startBtn.addEventListener('click', async () => {
       await backend._ensureModel();
     }
 
-    // Phase 3: Voice (clap detection + STT + TTS)
+    // Phase 3: Voice (STT + TTS — clap detection is via MediaPipe)
     loadMsg.textContent = 'Setting up voice...';
     try { await voice.init(); } catch {}
+
+    // 박수 → 음성 인식 토글 (MediaPipe 양손 감지)
+    let clapCount = 0;
+    let clapTimer = null;
+    control.on('clap', () => {
+      clapCount++;
+      pushLog('', `👏 clap ${clapCount}`);
+      clearTimeout(clapTimer);
+      clapTimer = setTimeout(() => {
+        if (clapCount === 1 && !voice.listening)      voice.startListening();
+        else if (clapCount >= 2 && voice.listening)    voice.stopAndSend();
+        else if (clapCount >= 2 && !voice.listening)   voice.startListening();
+        clapCount = 0;
+      }, 700);
+    });
 
     sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');

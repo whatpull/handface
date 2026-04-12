@@ -75,6 +75,7 @@ export type HandControlEventMap = {
   thumbsdown: GestureEvent;
   victory:    GestureEvent;
   iloveyou:   GestureEvent;
+  clap:       GestureEvent;
 };
 
 export interface HandControlOptions {

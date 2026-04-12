@@ -331,5 +331,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     } else {
       this.panel?.setDetected(null, 0);
     }
+
+    // ── 박수: 양손 손바닥이 가까워지는 순간 ──
+    if (result.clap) {
+      this.emit('clap', { gesture: 'pointing' as GestureName, ...pos, confidence: 1 });
+    }
   }
 }

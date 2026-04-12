@@ -2,17 +2,22 @@ import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
 import { CharNLMBackend } from './backend.js';
 import { ClaudeAPIBackend } from './claude-backend.js';
+import { GeminiBackend } from './gemini-backend.js';
 
 // ─────────────────────────────────────────
-// Neural backend — API key가 있으면 Claude, 없으면 로컬 NLM
+// Neural backend — provider에 따라 Gemini / Claude / Local 선택
 // ─────────────────────────────────────────
-const APIKEY_STORAGE = 'handface-apikey';
-const MODEL_STORAGE  = 'handface-model';
+const PROVIDER_STORAGE = 'handface-provider';   // 'gemini' | 'claude' | 'local'
+const APIKEY_STORAGE   = 'handface-apikey';
+const MODEL_STORAGE    = 'handface-model';
 
 function createBackend() {
-  const apiKey = localStorage.getItem(APIKEY_STORAGE);
-  const model  = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
-  if (apiKey) return new ClaudeAPIBackend({ apiKey, model });
+  const provider = localStorage.getItem(PROVIDER_STORAGE) || 'local';
+  const apiKey   = localStorage.getItem(APIKEY_STORAGE);
+  const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
+
+  if (provider === 'gemini' && apiKey) return new GeminiBackend({ apiKey });
+  if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
   return new CharNLMBackend();
 }
 
@@ -540,30 +545,40 @@ const sTestBtn       = document.getElementById('s-test');
 const sDeleteBtn     = document.getElementById('s-delete');
 const sCloseBtn      = document.getElementById('s-close');
 
+function getSelectedProvider() {
+  const c = document.querySelector('input[name="s-provider"]:checked');
+  return c ? c.value : 'local';
+}
 function getSelectedModel() {
-  const checked = document.querySelector('input[name="s-model"]:checked');
-  return checked ? checked.value : 'claude-haiku-4-5-20251001';
+  const c = document.querySelector('input[name="s-model"]:checked');
+  return c ? c.value : 'claude-haiku-4-5-20251001';
 }
 
 function updateModeBadge() {
-  const isCloud = backend instanceof ClaudeAPIBackend;
-  const existingBadge = document.getElementById('mode-badge');
-  if (existingBadge) existingBadge.remove();
+  const existing = document.getElementById('mode-badge');
+  if (existing) existing.remove();
   const badge = document.createElement('span');
   badge.id = 'mode-badge';
-  badge.className = `mode-badge ${isCloud ? 'cloud' : 'local'}`;
-  badge.textContent = isCloud ? 'CLAUDE' : 'LOCAL';
+  const isGemini = backend instanceof GeminiBackend;
+  const isClaude = backend instanceof ClaudeAPIBackend;
+  badge.className = `mode-badge ${(isGemini || isClaude) ? 'cloud' : 'local'}`;
+  badge.textContent = isGemini ? 'GEMINI' : isClaude ? 'CLAUDE' : 'LOCAL';
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();
 
-// Populate saved key (masked)
-const savedKey = localStorage.getItem(APIKEY_STORAGE);
+// Populate saved settings
+const savedKey      = localStorage.getItem(APIKEY_STORAGE);
+const savedProvider = localStorage.getItem(PROVIDER_STORAGE);
+const savedModel    = localStorage.getItem(MODEL_STORAGE);
 if (savedKey) sApiKeyEl.value = savedKey;
-const savedModel = localStorage.getItem(MODEL_STORAGE);
+if (savedProvider) {
+  const r = document.querySelector(`input[name="s-provider"][value="${savedProvider}"]`);
+  if (r) r.checked = true;
+}
 if (savedModel) {
-  const radio = document.querySelector(`input[name="s-model"][value="${savedModel}"]`);
-  if (radio) radio.checked = true;
+  const r = document.querySelector(`input[name="s-model"][value="${savedModel}"]`);
+  if (r) r.checked = true;
 }
 
 settingsBtn.addEventListener('click', () => settingsModal.classList.add('open'));
@@ -574,43 +589,61 @@ settingsModal.addEventListener('click', (e) => {
 
 sTestBtn.addEventListener('click', async () => {
   const key = sApiKeyEl.value.trim();
+  const prov = getSelectedProvider();
+  if (prov === 'local') { sStatusEl.textContent = 'Local mode — no API key needed.'; return; }
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
   sStatusEl.textContent = 'Testing...';
-  const testBackend = new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
-  const ok = await testBackend.testConnection();
+  const testBe = prov === 'gemini'
+    ? new GeminiBackend({ apiKey: key })
+    : new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
+  const ok = await testBe.testConnection();
   sStatusEl.textContent = ok ? '✓ Connection successful!' : '✗ Failed — check your key.';
 });
 
-sSaveBtn.addEventListener('click', () => {
-  const key   = sApiKeyEl.value.trim();
-  const model = getSelectedModel();
-  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
-  localStorage.setItem(APIKEY_STORAGE, key);
-  localStorage.setItem(MODEL_STORAGE, model);
-  // Rebuild backend
-  backend = new ClaudeAPIBackend({ apiKey: key, model });
+function applyBackend(be, label) {
+  backend = be;
   backend.onEvent(backendEventHandler);
   chatMsgsEl.innerHTML = '';
   bootstrapChat();
   syncEdgeWeightsFromModel();
   updateModeBadge();
-  sStatusEl.textContent = '✓ Saved — now using Claude API.';
+  updateChatStats();
   settingsModal.classList.remove('open');
-  pushLog('', '☁ Claude mode');
+  pushLog('', label);
+}
+
+sSaveBtn.addEventListener('click', () => {
+  const prov  = getSelectedProvider();
+  const key   = sApiKeyEl.value.trim();
+  const model = getSelectedModel();
+
+  if (prov === 'local') {
+    localStorage.setItem(PROVIDER_STORAGE, 'local');
+    localStorage.removeItem(APIKEY_STORAGE);
+    applyBackend(new CharNLMBackend(), '🔧 local mode');
+    sStatusEl.textContent = '✓ Local NLM mode.';
+    return;
+  }
+  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
+  localStorage.setItem(PROVIDER_STORAGE, prov);
+  localStorage.setItem(APIKEY_STORAGE, key);
+  if (prov === 'claude') localStorage.setItem(MODEL_STORAGE, model);
+
+  const be = prov === 'gemini'
+    ? new GeminiBackend({ apiKey: key })
+    : new ClaudeAPIBackend({ apiKey: key, model });
+
+  applyBackend(be, prov === 'gemini' ? '☁ Gemini mode' : '☁ Claude mode');
+  sStatusEl.textContent = `✓ Now using ${prov === 'gemini' ? 'Gemini Flash' : 'Claude'}.`;
 });
 
 sDeleteBtn.addEventListener('click', () => {
   localStorage.removeItem(APIKEY_STORAGE);
+  localStorage.removeItem(PROVIDER_STORAGE);
   localStorage.removeItem(MODEL_STORAGE);
   sApiKeyEl.value = '';
-  backend = new CharNLMBackend();
-  backend.onEvent(backendEventHandler);
-  chatMsgsEl.innerHTML = '';
-  bootstrapChat();
-  syncEdgeWeightsFromModel();
-  updateModeBadge();
+  applyBackend(new CharNLMBackend(), '🔧 local mode');
   sStatusEl.textContent = 'Key deleted — local mode.';
-  pushLog('', '🔧 local mode');
 });
 
 function updateNetInfo() {
@@ -704,52 +737,30 @@ function spawnSpark(edge, tOffset = 0) {
 }
 
 // ─────────────────────────────────────────
-// 디지털 코어 — 뇌 중심에 위치한 "thalamus" 역할
+// 코어 글로우 — 와이어프레임 없이 부드러운 발광 구체 2겹
 // ─────────────────────────────────────────
 const coreGroup = new THREE.Group();
 network.add(coreGroup);
 
-// (1) 중간 이코사헤드론 — 솔리드 채움 + 밝은 와이어
-const coreIcoGeo   = new THREE.IcosahedronGeometry(0.22, 1);
-const coreIcoSolid = new THREE.Mesh(coreIcoGeo, new THREE.MeshBasicMaterial({
-  color: 0xFFAA44, blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.25, depthWrite: false,
-}));
-const coreIcoWire  = new THREE.LineSegments(
-  new THREE.EdgesGeometry(coreIcoGeo),
-  new THREE.LineBasicMaterial({
-    color: 0xFFCC55, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 1.0, depthWrite: false,
-  }),
-);
-const coreIcoPivot = new THREE.Group();
-coreIcoPivot.add(coreIcoSolid, coreIcoWire);
-coreGroup.add(coreIcoPivot);
-
-// (3) 안쪽 솔리드 코어 — 화이트-옐로우 발광 구체
+// 안쪽 밝은 글로우 (작은 화이트-옐로우)
 const coreBright = new THREE.Mesh(
-  new THREE.SphereGeometry(0.10, 20, 20),
+  new THREE.SphereGeometry(0.08, 20, 20),
   new THREE.MeshBasicMaterial({
-    color: 0xFFFFCC, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 1.0, depthWrite: false,
+    color: 0xFFEECC, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.70, depthWrite: false,
   }),
 );
 coreGroup.add(coreBright);
 
-// (4) 직교하는 3개 HUD 궤도 링 (입력층 안쪽)
-function makeOrbitRing(radius, rx, ry, rz, color) {
-  const geo  = new THREE.TorusGeometry(radius, 0.0075, 8, 96);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color, blending: THREE.AdditiveBlending,
-    transparent: true, opacity: 0.75, depthWrite: false,
-  }));
-  mesh.rotation.set(rx, ry, rz);
-  return mesh;
-}
-const ring1 = makeOrbitRing(0.29, 0,         0, 0, 0xFFBB44);
-const ring2 = makeOrbitRing(0.29, Math.PI/2, 0, 0, 0xFFAA33);
-const ring3 = makeOrbitRing(0.29, 0, Math.PI/2, 0, 0xFFCC55);
-coreGroup.add(ring1, ring2, ring3);
+// 바깥쪽 부드러운 헤일로 (은은한 앰버)
+const coreHalo = new THREE.Mesh(
+  new THREE.SphereGeometry(0.28, 20, 20),
+  new THREE.MeshBasicMaterial({
+    color: 0xFF8833, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.10, depthWrite: false,
+  }),
+);
+coreGroup.add(coreHalo);
 
 // ─── 별 배경 ───
 const STAR_N  = 2200;
@@ -969,15 +980,8 @@ function animate() {
   let inputAct = 0;
   for (const n of layerData[0]) inputAct += n.activation;
   inputAct /= layerData[0].length;
-  coreBright.material.opacity   = 0.85 + 0.15 * inputAct + 0.06 * Math.sin(t * 3);
-  coreIcoSolid.material.opacity = 0.20 + 0.22 * inputAct;
-  coreIcoWire.material.opacity  = 0.85 + 0.15 * inputAct;
-  // 와이어프레임 자체 회전
-  coreIcoPivot.rotation.y += 0.013;
-  coreIcoPivot.rotation.x += 0.006;
-  ring1.rotation.z += 0.005;
-  ring2.rotation.z += 0.006;
-  ring3.rotation.x += 0.004;
+  coreBright.material.opacity = 0.55 + 0.30 * inputAct + 0.06 * Math.sin(t * 2.5);
+  coreHalo.material.opacity   = 0.08 + 0.18 * inputAct + 0.03 * Math.sin(t * 1.5);
 
   // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
   for (let i = 0; i < edges.length; i++) {

@@ -12,9 +12,9 @@ import { NeuralLM } from './nlm.js';
 // Try models in order — first that loads wins. Instruction models are
 // preferred, but we fall back to base models if they're unavailable.
 const MODEL_CANDIDATES = [
-  'onnx-community/SmolLM-135M-Instruct',
-  'onnx-community/SmolLM2-135M-Instruct',
-  'Xenova/distilgpt2',
+  'Xenova/distilgpt2',                      // 82M, confirmed public, ~330MB
+  'onnx-community/SmolLM-135M-Instruct',    // 135M, may need auth
+  'onnx-community/SmolLM2-135M-Instruct',   // 135M v2, may need auth
 ];
 const STORAGE_KEY = 'handface-hf-v1';
 
@@ -125,8 +125,6 @@ export class HuggingFaceBackend {
       try {
         this.emit({ type: 'loading', message: `Loading ${modelId}...` });
         this.generator = await pipeline('text-generation', modelId, {
-          dtype: 'q4f16',
-          device: 'wasm',
           progress_callback: (p) => {
             if (p.status === 'progress' && p.progress != null) {
               this.emit({ type: 'loading-progress', progress: Math.round(p.progress), file: p.file });

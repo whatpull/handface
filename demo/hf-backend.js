@@ -9,13 +9,6 @@
 
 import { NeuralLM } from './nlm.js';
 
-// Try models in order — first that loads wins. Instruction models are
-// preferred, but we fall back to base models if they're unavailable.
-const MODEL_CANDIDATES = [
-  'Xenova/distilgpt2',                      // 82M, confirmed public, ~330MB
-  'onnx-community/SmolLM-135M-Instruct',    // 135M, may need auth
-  'onnx-community/SmolLM2-135M-Instruct',   // 135M v2, may need auth
-];
 const STORAGE_KEY = 'handface-hf-v1';
 
 // ─────────────────────────────────────────
@@ -64,7 +57,7 @@ class RAGMemory {
 // ─────────────────────────────────────────
 export class HuggingFaceBackend {
   constructor() {
-    this.generator = null;
+    this.worker    = null;
     this.loaded    = false;
     this.memory    = new RAGMemory();
     this.shadow    = new NeuralLM({
@@ -75,6 +68,7 @@ export class HuggingFaceBackend {
     this.handlers    = new Set();
     this.busy        = false;
     this.loadedModel = '';
+    this._pendingResolve = null;
     this._loadHistory();
   }
 
@@ -114,32 +108,45 @@ export class HuggingFaceBackend {
             avg(this.shadow.W3), avg(this.shadow.W4)];
   }
 
-  // ─── Model Loading (lazy, fallback chain) ──────
+  // ─── Worker-based model loading (off main thread) ──────
+  _initWorker() {
+    if (this.worker) return;
+    this.worker = new Worker(new URL('./hf-worker.js', import.meta.url), { type: 'module' });
+    this.worker.onmessage = (e) => this._onWorkerMessage(e.data);
+  }
+
+  _onWorkerMessage(msg) {
+    if (msg.type === 'load-progress') {
+      this.emit({ type: 'loading-progress', progress: msg.progress, file: msg.file });
+    } else if (msg.type === 'load-done') {
+      this.loadedModel = msg.modelId;
+      this.loaded = true;
+      this.emit({ type: 'loading-done' });
+      if (this._pendingResolve) { this._pendingResolve(); this._pendingResolve = null; }
+    } else if (msg.type === 'load-error') {
+      if (this._pendingResolve) { this._pendingResolve(new Error(msg.error)); this._pendingResolve = null; }
+    } else if (msg.type === 'generate-done') {
+      if (this._pendingResolve) { this._pendingResolve(msg.text); this._pendingResolve = null; }
+    } else if (msg.type === 'generate-error') {
+      if (this._pendingResolve) { this._pendingResolve(new Error(msg.error)); this._pendingResolve = null; }
+    }
+  }
+
   async _ensureModel() {
     if (this.loaded) return;
+    this._initWorker();
+    this.emit({ type: 'loading', message: 'Loading model in background...' });
+    return new Promise((resolve, reject) => {
+      this._pendingResolve = (err) => err instanceof Error ? reject(err) : resolve();
+      this.worker.postMessage({ type: 'load' });
+    });
+  }
 
-    const { pipeline, env } = await import('@huggingface/transformers');
-    env.allowLocalModels = false;
-
-    for (const modelId of MODEL_CANDIDATES) {
-      try {
-        this.emit({ type: 'loading', message: `Loading ${modelId}...` });
-        this.generator = await pipeline('text-generation', modelId, {
-          progress_callback: (p) => {
-            if (p.status === 'progress' && p.progress != null) {
-              this.emit({ type: 'loading-progress', progress: Math.round(p.progress), file: p.file });
-            }
-          },
-        });
-        this.loadedModel = modelId;
-        this.loaded = true;
-        this.emit({ type: 'loading-done' });
-        return;
-      } catch (err) {
-        this.emit({ type: 'loading', message: `${modelId} unavailable, trying next...` });
-      }
-    }
-    throw new Error('No model could be loaded. Check your network connection.');
+  async _generateInWorker(prompt) {
+    return new Promise((resolve, reject) => {
+      this._pendingResolve = (result) => result instanceof Error ? reject(result) : resolve(result);
+      this.worker.postMessage({ type: 'generate', prompt });
+    });
   }
 
   // ─── Main entry ───────────────────────────────
@@ -167,32 +174,9 @@ export class HuggingFaceBackend {
       // RAG: retrieve relevant memories
       const memories = this.memory.search(message, 5);
 
-      // Build a text-completion prompt (works with both instruct and base models)
+      // Build prompt + generate in Web Worker (main thread stays free for 3D)
       const prompt = this._buildPrompt(memories);
-
-      // Yield to browser so animation doesn't freeze during load
-      await new Promise(r => setTimeout(r, 50));
-
-      // Generate (short output to minimize main-thread freeze)
-      const output = await this.generator(prompt, {
-        max_new_tokens: 40,
-        temperature: 0.8,
-        do_sample: true,
-        return_full_text: false,
-        repetition_penalty: 1.3,
-        no_repeat_ngram_size: 3,
-      });
-
-      let response = '...';
-      const gen = output?.[0]?.generated_text;
-      if (typeof gen === 'string') {
-        // Clean: take first meaningful line, strip trailing artifacts
-        response = gen.split('\n')[0].replace(/^(AI|Assistant|assistant):?\s*/i, '').trim();
-      } else if (Array.isArray(gen)) {
-        const last = gen[gen.length - 1];
-        response = (last?.content || last?.text || '').trim();
-      }
-      if (!response || response.length < 2) response = '(thinking...)';
+      const response = await this._generateInWorker(prompt) || '(thinking...)';
 
       // Store response in memory too
       this.memory.add(response);
@@ -232,7 +216,7 @@ export class HuggingFaceBackend {
   async testConnection() {
     try {
       await this._ensureModel();
-      return { ok: true };
+      return { ok: this.loaded };
     } catch (err) {
       return { ok: false, error: err.message };
     }

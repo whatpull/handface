@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
-import { CharNLMBackend } from './backend.js';
 import { ClaudeAPIBackend } from './claude-backend.js';
-import { GeminiBackend } from './gemini-backend.js';
 import { HuggingFaceBackend } from './hf-backend.js';
 
 // ─────────────────────────────────────────
@@ -17,10 +15,8 @@ function createBackend() {
   const apiKey   = localStorage.getItem(APIKEY_STORAGE);
   const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
 
-  if (provider === 'huggingface') return new HuggingFaceBackend();
-  if (provider === 'gemini' && apiKey) return new GeminiBackend({ apiKey });
   if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
-  return new CharNLMBackend();
+  return new HuggingFaceBackend();
 }
 
 let backend = createBackend();
@@ -484,7 +480,7 @@ function updateChatStats() {
 
 function bootstrapChat() {
   if (backend.history.length === 0) {
-    appendChatMsg('sys', '메시지를 입력하면 모델이 학습합니다. 처음엔 헛소리지만 점점 비슷해집니다.');
+    appendChatMsg('sys', 'Type a message in English. The brain learns from your input.');
   } else {
     for (const m of backend.history) appendChatMsg(m.role, m.text);
   }
@@ -492,9 +488,17 @@ function bootstrapChat() {
 }
 bootstrapChat();
 
+function isEnglishOnly(text) {
+  return /^[\x20-\x7E]+$/.test(text);
+}
+
 async function handleSend() {
   const text = chatInputEl.value.trim();
   if (!text || backend.busy) return;
+  if (!isEnglishOnly(text)) {
+    appendChatMsg('sys', 'English only. Please type in English.');
+    return;
+  }
   chatInputEl.value = '';
   appendChatMsg('user', text);
   triggerPass(text);
@@ -507,7 +511,7 @@ chatInputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); handleSend(); }
 });
 chatResetEl.addEventListener('click', () => {
-  if (!confirm('모델 가중치와 어휘를 모두 초기화합니다. 진행할까요?')) return;
+  if (!confirm('Reset model weights and memory?')) return;
   backend.reset();
   chatMsgsEl.innerHTML = '';
   bootstrapChat();
@@ -571,12 +575,9 @@ function updateModeBadge() {
   if (existing) existing.remove();
   const badge = document.createElement('span');
   badge.id = 'mode-badge';
-  const isHF     = backend instanceof HuggingFaceBackend;
-  const isGemini = backend instanceof GeminiBackend;
   const isClaude = backend instanceof ClaudeAPIBackend;
-  const isCloud  = isGemini || isClaude;
-  badge.className = `mode-badge ${isHF ? 'cloud' : isCloud ? 'cloud' : 'local'}`;
-  badge.textContent = isHF ? 'SmolLM2' : isGemini ? 'GEMINI' : isClaude ? 'CLAUDE' : 'LOCAL';
+  badge.className = `mode-badge ${isClaude ? 'cloud' : 'cloud'}`;
+  badge.textContent = isClaude ? 'CLAUDE' : 'SmolLM2';
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();
@@ -602,14 +603,12 @@ settingsModal.addEventListener('click', (e) => {
 });
 
 sTestBtn.addEventListener('click', async () => {
-  const key = sApiKeyEl.value.trim();
   const prov = getSelectedProvider();
-  if (prov === 'local') { sStatusEl.textContent = 'Local mode — no API key needed.'; return; }
+  if (prov === 'huggingface') { sStatusEl.textContent = 'SmolLM2 — no key needed. Just send a message.'; return; }
+  const key = sApiKeyEl.value.trim();
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
   sStatusEl.textContent = 'Testing...';
-  const testBe = prov === 'gemini'
-    ? new GeminiBackend({ apiKey: key })
-    : new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
+  const testBe = new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
   const result = await testBe.testConnection();
   sStatusEl.textContent = result.ok
     ? '✓ Connection successful!'
@@ -637,36 +636,24 @@ sSaveBtn.addEventListener('click', () => {
     localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
     localStorage.removeItem(APIKEY_STORAGE);
     applyBackend(new HuggingFaceBackend(), '🧠 SmolLM2 mode');
-    sStatusEl.textContent = '✓ SmolLM2 — model loads on first chat (~80MB).';
-    return;
-  }
-  if (prov === 'local') {
-    localStorage.setItem(PROVIDER_STORAGE, 'local');
-    localStorage.removeItem(APIKEY_STORAGE);
-    applyBackend(new CharNLMBackend(), '🔧 local mode');
-    sStatusEl.textContent = '✓ Local NLM mode.';
+    sStatusEl.textContent = '✓ SmolLM2 — model loads on first chat.';
     return;
   }
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
-  localStorage.setItem(PROVIDER_STORAGE, prov);
+  localStorage.setItem(PROVIDER_STORAGE, 'claude');
   localStorage.setItem(APIKEY_STORAGE, key);
-  if (prov === 'claude') localStorage.setItem(MODEL_STORAGE, model);
-
-  const be = prov === 'gemini'
-    ? new GeminiBackend({ apiKey: key })
-    : new ClaudeAPIBackend({ apiKey: key, model });
-
-  applyBackend(be, prov === 'gemini' ? '☁ Gemini mode' : '☁ Claude mode');
-  sStatusEl.textContent = `✓ Now using ${prov === 'gemini' ? 'Gemini Flash' : 'Claude'}.`;
+  localStorage.setItem(MODEL_STORAGE, model);
+  applyBackend(new ClaudeAPIBackend({ apiKey: key, model }), '☁ Claude mode');
+  sStatusEl.textContent = '✓ Now using Claude.';
 });
 
 sDeleteBtn.addEventListener('click', () => {
   localStorage.removeItem(APIKEY_STORAGE);
-  localStorage.removeItem(PROVIDER_STORAGE);
+  localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
   localStorage.removeItem(MODEL_STORAGE);
   sApiKeyEl.value = '';
-  applyBackend(new CharNLMBackend(), '🔧 local mode');
-  sStatusEl.textContent = 'Key deleted — local mode.';
+  applyBackend(new HuggingFaceBackend(), '🧠 SmolLM2 mode');
+  sStatusEl.textContent = 'Key deleted — SmolLM2 mode.';
 });
 
 function updateNetInfo() {

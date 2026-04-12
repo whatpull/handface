@@ -955,10 +955,10 @@ const _v3 = new THREE.Vector3();
 // ─────────────────────────────────────────
 // GPU 양보: 추론 중 렌더링 부하를 낮춰 WebGPU(LLM)와 WebGL(3D) 경쟁 방지
 // ─────────────────────────────────────────
-let gpuBusy       = false;   // backend.busy와 동기화
+let gpuBusy       = false;
 let lastFrameTime = 0;
 const NORMAL_FPS_MS    = 1000 / 60;   // 60 fps
-const THROTTLED_FPS_MS = 1000 / 24;   // 24 fps (추론 중)
+const THROTTLED_FPS_MS = 500;         // 2 fps (추론 중 — GPU 97% 양보)
 
 // ─────────────────────────────────────────
 // 애니메이션 루프
@@ -966,17 +966,26 @@ const THROTTLED_FPS_MS = 1000 / 24;   // 24 fps (추론 중)
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
-
-  // 추론 중이면 FPS 제한 (GPU 시간을 LLM에 양보)
   const nowMs = performance.now();
   gpuBusy = backend.busy;
-  const minInterval = gpuBusy ? THROTTLED_FPS_MS : NORMAL_FPS_MS;
-  if (nowMs - lastFrameTime < minInterval) return;
-  lastFrameTime = nowMs;
 
-  // 추론 중 pixelRatio를 낮춰 GPU 렌더링 부하 감소
-  const targetPR = gpuBusy ? 1 : Math.min(window.devicePixelRatio, 2);
-  if (renderer.getPixelRatio() !== targetPR) renderer.setPixelRatio(targetPR);
+  if (gpuBusy) {
+    // ── 추론 중: 최소 렌더링 (2fps, 업데이트 전부 생략) ──
+    if (nowMs - lastFrameTime < THROTTLED_FPS_MS) return;
+    lastFrameTime = nowMs;
+    if (renderer.getPixelRatio() !== 1) renderer.setPixelRatio(1);
+    // 느린 자동 회전만 유지, 나머지 전부 스킵
+    baseRotY += 0.0008;
+    network.rotation.y = baseRotY + cursorRotY;
+    renderer.render(scene, camera);
+    return;
+  }
+
+  // ── 평시: 60fps 풀 렌더링 ──
+  if (nowMs - lastFrameTime < NORMAL_FPS_MS) return;
+  lastFrameTime = nowMs;
+  const nativePR = Math.min(window.devicePixelRatio, 2);
+  if (renderer.getPixelRatio() !== nativePR) renderer.setPixelRatio(nativePR);
 
   t += 0.011;
 

@@ -911,7 +911,7 @@ function addWall(pw, ph, pos, rot, gw, gh, gOp) {
   plane.position.set(...pos);
   if (rot) plane.rotation.set(...rot);
   scene.add(plane);
-  const grid = roomGrid(gw, gh, 0xFF7700, gOp);
+  const grid = roomGrid(gw, gh, 0x22DD66, gOp);
   grid.position.set(...pos);
   if (rot) grid.rotation.set(...rot);
   scene.add(grid);

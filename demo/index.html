@@ -405,6 +405,26 @@
       border-color: #FF9900;
     }
     .chat-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    /* ── Voice status ── */
+    #voice-status {
+      font-size: 0.52rem;
+      color: #FF8800;
+      opacity: 0.6;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      min-height: 1.1em;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    #voice-status.listening { color: #44FF88; opacity: 1; }
+    #voice-status.speaking  { color: #55BBFF; opacity: 1; }
+    .chat-btn.mic { font-size: 0.85rem; padding: 5px 8px; }
+    .chat-btn.mic.active {
+      background: rgba(68, 255, 136, 0.15);
+      border-color: #44FF88;
+      color: #44FF88;
+    }
+
     #chat-loss-bar {
       height: 2px;
       background: rgba(255, 153, 0, 0.10);
@@ -863,10 +883,12 @@
       </span>
     </div>
     <div id="chat-msgs"></div>
+    <div id="voice-status"></div>
     <div id="chat-input-row">
       <input id="chat-input" type="text" placeholder="메시지를 입력하세요 (한국어/English)" maxlength="120" />
+      <button id="chat-mic" class="chat-btn mic" type="button" title="👏 clap once to start, twice to stop">🎤</button>
       <button id="chat-send" class="chat-btn" type="button">SEND</button>
-      <button id="chat-reset" class="chat-btn" type="button" title="모델 가중치와 어휘를 초기화">RESET</button>
+      <button id="chat-reset" class="chat-btn" type="button" title="Reset model">RESET</button>
     </div>
     <div id="chat-loss-bar"><div id="chat-loss-fill"></div></div>
   </div>

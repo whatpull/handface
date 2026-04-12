@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { WebLLMBackend } from './webllm-backend.js';
+import { VoiceController } from './voice.js';
 
 // ─────────────────────────────────────────
 // Neural backend — provider에 따라 Gemini / Claude / Local 선택
@@ -571,6 +572,8 @@ function backendEventHandler(ev) {
     wasStreaming = false;
     triggerPass(ev.text);
     updatePredictions();
+    // TTS: AI 응답을 음성으로 읽어줌
+    if (voice.available) voice.speak(ev.text);
 
   } else if (ev.type === 'state') {
     updateChatStats();
@@ -590,6 +593,62 @@ backend.onEvent(backendEventHandler);
 // 초기 가중치 동기화 + 예측 패널
 syncEdgeWeightsFromModel();
 updatePredictions();
+
+// ─────────────────────────────────────────
+// Voice: 박수 감지 + 음성 인식(STT) + 음성 합성(TTS)
+// ─────────────────────────────────────────
+const voice       = new VoiceController();
+const voiceStatus = document.getElementById('voice-status');
+const micBtn      = document.getElementById('chat-mic');
+
+voice.onEvent((ev) => {
+  if (ev.type === 'clap') {
+    pushLog('', `👏 clap ${ev.count}`);
+  }
+  if (ev.type === 'listening-start') {
+    voiceStatus.textContent = '🎤 Listening... (clap twice to send)';
+    voiceStatus.className   = 'listening';
+    micBtn.classList.add('active');
+    pushLog('', '🎤 listening');
+  }
+  if (ev.type === 'listening-stop') {
+    voiceStatus.textContent = '';
+    voiceStatus.className   = '';
+    micBtn.classList.remove('active');
+    // 인식된 텍스트가 있으면 자동 전송
+    if (ev.text && ev.text.trim().length > 0) {
+      chatInputEl.value = ev.text.trim();
+      handleSend();
+    }
+    pushLog('', '🎤 sent');
+  }
+  if (ev.type === 'transcript') {
+    // 실시간으로 인식 중인 텍스트를 입력란에 표시
+    chatInputEl.value = ev.text;
+  }
+  if (ev.type === 'speaking-start') {
+    voiceStatus.textContent = '🔊 Speaking...';
+    voiceStatus.className   = 'speaking';
+  }
+  if (ev.type === 'speaking-end') {
+    voiceStatus.textContent = '';
+    voiceStatus.className   = '';
+  }
+  if (ev.type === 'error') {
+    voiceStatus.textContent = `⚠ ${ev.error}`;
+    setTimeout(() => { voiceStatus.textContent = ''; }, 3000);
+  }
+});
+
+// 마이크 버튼: 수동 토글 (박수 대신 클릭으로도 사용 가능)
+micBtn.addEventListener('click', () => {
+  if (!voice.available) {
+    voiceStatus.textContent = '⚠ Voice not available. Allow microphone.';
+    return;
+  }
+  if (voice.listening) voice.stopAndSend();
+  else                 voice.startListening();
+});
 
 // ─────────────────────────────────────────
 // Settings modal + backend switching
@@ -1155,6 +1214,10 @@ startBtn.addEventListener('click', async () => {
       loadMsg.textContent = 'Loading AI model...';
       await backend._ensureModel();
     }
+
+    // Phase 3: Voice (clap detection + STT + TTS)
+    loadMsg.textContent = 'Setting up voice...';
+    try { await voice.init(); } catch {}
 
     sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');

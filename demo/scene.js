@@ -881,32 +881,55 @@ const coreHalo = new THREE.Mesh(
 coreGroup.add(coreHalo);
 
 // ─────────────────────────────────────────
-// 3D 공간 그리드 (바닥 + 천장 + 좌우 + 뒤 — 공간 안에 있는 느낌)
+// 3D 공간 — 불투명 벽 + 그리드 (모니터 안쪽으로 들어간 방)
+// 틈 없이 5면(바닥·천장·좌·우·뒤)이 연결되고, 앞면은 열림(카메라 시점)
 // ─────────────────────────────────────────
-function addGrid(pos, rot, size, divs, col1, col2, opacity) {
-  const g = new THREE.GridHelper(size, divs, col1, col2);
-  g.position.set(pos[0], pos[1], pos[2]);
-  if (rot) g.rotation.set(rot[0], rot[1], rot[2]);
-  const mats = Array.isArray(g.material) ? g.material : [g.material];
-  mats.forEach(m => { m.transparent = true; m.opacity = opacity; m.depthWrite = false; });
-  scene.add(g);
+const RM = { xH: 12, yF: -4, yC: 8, zB: -14, zF: 10, step: 2 };
+const RM_W = RM.xH * 2, RM_H = RM.yC - RM.yF, RM_D = RM.zF - RM.zB;
+const RM_CY = (RM.yF + RM.yC) / 2, RM_CZ = (RM.zB + RM.zF) / 2;
+
+// 벽 재질: 불투명 어두운 면 (뒤가 비치지 않음)
+const wallMat = new THREE.MeshBasicMaterial({
+  color: 0x040810, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+});
+
+// 그리드 라인 생성기 (XY 평면에 그린 뒤 회전으로 배치)
+function roomGrid(w, h, color, opacity) {
+  const p = [], hw = w / 2, hh = h / 2, s = RM.step;
+  for (let x = -hw; x <= hw + 0.01; x += s) p.push(x, -hh, 0, x, hh, 0);
+  for (let y = -hh; y <= hh + 0.01; y += s) p.push(-hw, y, 0, hw, y, 0);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    color, transparent: true, opacity, depthWrite: false,
+  }));
 }
 
-const C1 = 0xFF7700, C2 = 0x553300;
+// 벽 + 그리드 한 쌍 추가
+function addWall(pw, ph, pos, rot, gw, gh, gOp) {
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), wallMat);
+  plane.position.set(...pos);
+  if (rot) plane.rotation.set(...rot);
+  scene.add(plane);
+  const grid = roomGrid(gw, gh, 0xFF7700, gOp);
+  grid.position.set(...pos);
+  if (rot) grid.rotation.set(...rot);
+  scene.add(grid);
+}
 
-// 바닥 (잘 보이게)
-addGrid([0, -5, 0],       null,               60, 30, C1, C2, 0.28);
-// 천장
-addGrid([0, 8, 0],        null,               60, 30, C1, 0x442200, 0.15);
-// 왼쪽 벽
-addGrid([-14, 1.5, 0],   [0, 0, Math.PI/2],  26, 13, C1, C2, 0.20);
-// 오른쪽 벽
-addGrid([14, 1.5, 0],    [0, 0, Math.PI/2],   26, 13, C1, C2, 0.20);
-// 뒤쪽 벽
-addGrid([0, 1.5, -14],   [Math.PI/2, 0, 0],   26, 13, C1, C2, 0.18);
+// 바닥 (XZ)
+addWall(RM_W, RM_D, [0, RM.yF, RM_CZ], [-Math.PI/2, 0, 0], RM_W, RM_D, 0.28);
+// 천장 (XZ)
+addWall(RM_W, RM_D, [0, RM.yC, RM_CZ], [Math.PI/2, 0, 0],  RM_W, RM_D, 0.14);
+// 왼쪽 벽 (ZY)
+addWall(RM_D, RM_H, [-RM.xH, RM_CY, RM_CZ], [0, Math.PI/2, 0],  RM_D, RM_H, 0.22);
+// 오른쪽 벽 (ZY)
+addWall(RM_D, RM_H, [RM.xH, RM_CY, RM_CZ],  [0, -Math.PI/2, 0], RM_D, RM_H, 0.22);
+// 뒤쪽 벽 (XY)
+addWall(RM_W, RM_H, [0, RM_CY, RM.zB],       [0, 0, 0],          RM_W, RM_H, 0.18);
 
-// 안개 (먼 곳 페이드)
-scene.fog = new THREE.FogExp2(0x020408, 0.022);
+// 안개 (먼 곳 페이드 → 깊이감)
+scene.fog = new THREE.FogExp2(0x020408, 0.020);
 
 // ─── 별 배경 ───
 const STAR_N  = 2200;

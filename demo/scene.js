@@ -3,6 +3,7 @@ import { HandControl } from '../src/index.ts';
 import { CharNLMBackend } from './backend.js';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { GeminiBackend } from './gemini-backend.js';
+import { HuggingFaceBackend } from './hf-backend.js';
 
 // ─────────────────────────────────────────
 // Neural backend — provider에 따라 Gemini / Claude / Local 선택
@@ -12,10 +13,11 @@ const APIKEY_STORAGE   = 'handface-apikey';
 const MODEL_STORAGE    = 'handface-model';
 
 function createBackend() {
-  const provider = localStorage.getItem(PROVIDER_STORAGE) || 'local';
+  const provider = localStorage.getItem(PROVIDER_STORAGE) || 'huggingface';
   const apiKey   = localStorage.getItem(APIKEY_STORAGE);
   const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
 
+  if (provider === 'huggingface') return new HuggingFaceBackend();
   if (provider === 'gemini' && apiKey) return new GeminiBackend({ apiKey });
   if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
   return new CharNLMBackend();
@@ -471,7 +473,8 @@ function updateChatStats() {
   const s = backend.stats;
   const lossStr = s.lossEMA != null ? s.lossEMA.toFixed(2) : '—';
   const tokenStr = s.tokenCount ? ` · tokens ${s.tokenCount}` : '';
-  chatStatsEl.textContent = `vocab ${s.vocabSize} · steps ${s.totalSteps} · loss ${lossStr}${tokenStr}`;
+  const memStr   = s.memories != null ? ` · mem ${s.memories}` : '';
+  chatStatsEl.textContent = `steps ${s.totalSteps} · loss ${lossStr}${memStr}${tokenStr}`;
   if (s.lossEMA != null) {
     // 학습 진척도: loss가 낮을수록 바가 가득 (5.0 → 0% / 0.5 → 90%)
     const filled = Math.max(0, Math.min(1, 1 - s.lossEMA / 5));
@@ -525,6 +528,15 @@ function backendEventHandler(ev) {
     updatePredictions();
   } else if (ev.type === 'state') {
     updateChatStats();
+  } else if (ev.type === 'loading') {
+    appendChatMsg('sys', ev.message);
+  } else if (ev.type === 'loading-progress') {
+    const last = chatMsgsEl.lastElementChild;
+    if (last?.classList.contains('sys')) {
+      last.querySelector('.chat-msg-text').textContent = ` Loading model... ${ev.progress}%`;
+    }
+  } else if (ev.type === 'loading-done') {
+    appendChatMsg('sys', 'Model loaded. Ready to chat!');
   }
 }
 backend.onEvent(backendEventHandler);
@@ -559,10 +571,12 @@ function updateModeBadge() {
   if (existing) existing.remove();
   const badge = document.createElement('span');
   badge.id = 'mode-badge';
+  const isHF     = backend instanceof HuggingFaceBackend;
   const isGemini = backend instanceof GeminiBackend;
   const isClaude = backend instanceof ClaudeAPIBackend;
-  badge.className = `mode-badge ${(isGemini || isClaude) ? 'cloud' : 'local'}`;
-  badge.textContent = isGemini ? 'GEMINI' : isClaude ? 'CLAUDE' : 'LOCAL';
+  const isCloud  = isGemini || isClaude;
+  badge.className = `mode-badge ${isHF ? 'cloud' : isCloud ? 'cloud' : 'local'}`;
+  badge.textContent = isHF ? 'SmolLM2' : isGemini ? 'GEMINI' : isClaude ? 'CLAUDE' : 'LOCAL';
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();
@@ -619,6 +633,13 @@ sSaveBtn.addEventListener('click', () => {
   const key   = sApiKeyEl.value.trim();
   const model = getSelectedModel();
 
+  if (prov === 'huggingface') {
+    localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
+    localStorage.removeItem(APIKEY_STORAGE);
+    applyBackend(new HuggingFaceBackend(), '🧠 SmolLM2 mode');
+    sStatusEl.textContent = '✓ SmolLM2 — model loads on first chat (~80MB).';
+    return;
+  }
   if (prov === 'local') {
     localStorage.setItem(PROVIDER_STORAGE, 'local');
     localStorage.removeItem(APIKEY_STORAGE);

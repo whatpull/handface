@@ -719,13 +719,14 @@
       <div class="settings-row">
         <label>Provider</label>
         <div class="settings-radios">
-          <label><input type="radio" name="s-provider" value="gemini" checked /> Gemini Flash (free)</label>
-          <label><input type="radio" name="s-provider" value="claude" /> Claude (paid)</label>
-          <label><input type="radio" name="s-provider" value="local" /> Local NLM (offline)</label>
+          <label><input type="radio" name="s-provider" value="huggingface" checked /> SmolLM2 (free, no key, ~80MB)</label>
+          <label><input type="radio" name="s-provider" value="gemini" /> Gemini Flash (free, API key)</label>
+          <label><input type="radio" name="s-provider" value="claude" /> Claude (paid, API key)</label>
+          <label><input type="radio" name="s-provider" value="local" /> Local NLM (offline, no download)</label>
         </div>
       </div>
-      <div class="settings-row">
-        <label>API Key</label>
+      <div class="settings-row" id="s-apikey-row">
+        <label>API Key (Gemini/Claude only)</label>
         <input id="s-apikey" type="password" placeholder="AIza... or sk-ant-..." autocomplete="off" />
       </div>
       <div class="settings-row" id="s-model-row">

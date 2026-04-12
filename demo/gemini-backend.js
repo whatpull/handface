@@ -35,6 +35,8 @@ export class GeminiBackend {
   onEvent(fn) { this.handlers.add(fn); return () => this.handlers.delete(fn); }
   emit(ev)    { for (const fn of this.handlers) fn(ev); }
 
+  get model() { return this.shadow; }
+
   get stats() {
     return {
       vocabSize:  this.shadow.vocab.size,

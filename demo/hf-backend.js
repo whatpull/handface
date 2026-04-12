@@ -170,12 +170,17 @@ export class HuggingFaceBackend {
       // Build a text-completion prompt (works with both instruct and base models)
       const prompt = this._buildPrompt(memories);
 
-      // Generate
+      // Yield to browser so animation doesn't freeze during load
+      await new Promise(r => setTimeout(r, 50));
+
+      // Generate (short output to minimize main-thread freeze)
       const output = await this.generator(prompt, {
-        max_new_tokens: 120,
-        temperature: 0.7,
+        max_new_tokens: 40,
+        temperature: 0.8,
         do_sample: true,
         return_full_text: false,
+        repetition_penalty: 1.3,
+        no_repeat_ngram_size: 3,
       });
 
       let response = '...';

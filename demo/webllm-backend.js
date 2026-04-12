@@ -151,7 +151,12 @@ export class WebLLMBackend {
         })),
       ];
 
-      // Generate with streaming — async GPU, main thread stays free
+      // Yield 200ms so the thinking animation can tick several frames
+      // before WebLLM's synchronous prefill blocks the main thread.
+      // (WebLLM internally does tokenization + buffer setup + GPU scheduling
+      //  synchronously before the first await, which is unavoidable.)
+      await new Promise(r => setTimeout(r, 200));
+
       const stream = await this.engine.chat.completions.create({
         messages: chatMessages,
         max_tokens: 200,

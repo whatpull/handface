@@ -40,8 +40,8 @@ export interface DetectionResult {
   /** GestureRecognizer 원본 결과 (null = None 또는 미감지) */
   gestureName: GestureName | null;
   gestureConfidence: number;
-  /** 클릭 감지용 엄지 ↔ 중지 거리 */
-  clickPinchDistance: number;
+  /** 엄지 확장 거리 (엄지 끝 ↔ 검지 MCP). 값이 클수록 엄지가 펴진 상태 */
+  thumbExtension: number;
   /** 검지 끝 위치 (cursorAnchor: 'index' 용) */
   indexTip: { x: number; y: number };
   /** 손목 위치 (cursorAnchor: 'wrist' 용) */
@@ -67,7 +67,7 @@ export class GestureDetector {
 
   constructor(
     private readonly wasmPath: string = DEFAULT_WASM_PATH,
-    private readonly clickThreshold: number = 0.06,
+    private readonly clickThreshold: number = 0.14,
     private readonly handednessFilter: 'Left' | 'Right' | null = null,
   ) {}
 
@@ -119,7 +119,7 @@ export class GestureDetector {
       if (idx === -1) {
         // 원하는 손이 없어도 박수 결과는 반환
         if (clap) return { gesture: 'none', gestureName: null, gestureConfidence: 0,
-          clickPinchDistance: 1, indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
+          thumbExtension: 0, indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
           palmCenter: {x:0.5,y:0.5}, clap };
         return null;
       }
@@ -146,8 +146,8 @@ export class GestureDetector {
       y: PALM_INDICES.reduce((s, i) => s + lm[i].y, 0 as number) / PALM_INDICES.length,
     };
 
-    // 엄지 ↔ 검지 핀치 거리 (클릭 감지 — OK 제스처)
-    const clickPinchDistance = distance(thumbTip, indexTip);
+    // 엄지 확장 거리 (검지 가리키기 중 엄지를 펴면 클릭)
+    const thumbExtension = distance(thumbTip, lm[LM.INDEX_MCP]);
 
     // GestureRecognizer 최상위 결과
     const topCat = categories[0];
@@ -155,15 +155,17 @@ export class GestureDetector {
       topCat ? (MP_GESTURE_MAP[topCat.categoryName] ?? null) : null;
     const gestureConfidence = topCat?.score ?? 0;
 
-    // 클릭이 최우선
+    // 클릭: 검지 가리키기(pointing) 상태에서 엄지를 펴면 클릭
     const gesture: DetectedGesture =
-      clickPinchDistance < this.clickThreshold ? 'click' : (gestureName ?? 'none');
+      (gestureName === 'pointing' && thumbExtension > this.clickThreshold)
+        ? 'click'
+        : (gestureName ?? 'none');
 
     return {
       gesture,
       gestureName,
       gestureConfidence,
-      clickPinchDistance,
+      thumbExtension,
       indexTip:  { x: indexTip.x,  y: indexTip.y },
       wrist:     { x: wrist.x,     y: wrist.y },
       palmCenter,

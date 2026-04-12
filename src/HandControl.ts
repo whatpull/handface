@@ -13,7 +13,7 @@ import type {
   GestureName,
 } from './types';
 
-const CLICK_RELEASE_HYSTERESIS = 0.10;
+const CLICK_RELEASE_HYSTERESIS = 0.11;  // 엄지가 이 거리 이하로 오므려지면 클릭 해제
 const CLICK_COOLDOWN_MS        = 1000; // 반복 클릭 방지 (600 → 1000ms)
 const SCROLL_DELTA             = 12;
 const GESTURE_COOLDOWN_MS      = 900;
@@ -91,7 +91,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // 초기 zone 변수 설정 (캘리브레이션 전 기본값)
     [this.zoneX0, this.zoneY0, this.zoneX1, this.zoneY1] = this.activeZone;
 
-    const threshold = options.threshold ?? 0.05;
+    const threshold = options.threshold ?? 0.14;
 
     if (options.video) {
       this.video      = options.video;
@@ -289,7 +289,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     result: import('./GestureDetector').DetectionResult,
     pos: Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'>,
   ): void {
-    // ── 클릭: 엄지+검지 핀치 (OK 제스처) ──
+    // ── 클릭: 검지 가리키기 + 엄지 펴기 ──
     if (result.gesture === 'click') {
       if (!this.isClicking) {
         this.isClicking = true;
@@ -299,7 +299,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
           this.emit('click', pos as ClickEvent);
         }
       }
-    } else if (result.clickPinchDistance > CLICK_RELEASE_HYSTERESIS) {
+    } else if (result.thumbExtension < CLICK_RELEASE_HYSTERESIS) {
+      // 엄지가 다시 오므려지면 클릭 해제
       this.isClicking = false;
     }
 

@@ -1073,11 +1073,19 @@ animate();
 startBtn.addEventListener('click', async () => {
   startBtn.disabled    = true;
   startBtn.textContent = 'LOADING...';
-  loadMsg.textContent  = 'Loading MediaPipe (5-10s)';
   sStatus.textContent  = 'INIT';
   try {
+    // Phase 1: MediaPipe
+    loadMsg.textContent = 'Loading MediaPipe (5-10s)...';
     await control.start();
     control.createPanel();
+
+    // Phase 2: AI model (HuggingFace or other — preload so chat is instant)
+    if (backend._ensureModel) {
+      loadMsg.textContent = 'Loading AI model...';
+      await backend._ensureModel();
+    }
+
     sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);

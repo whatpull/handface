@@ -561,7 +561,7 @@
       border: 1px solid rgba(80, 180, 255, 0.35);
     }
 
-    /* ── Thinking overlay (full-screen 2D, no GPU) ── */
+    /* ── Thinking overlay (full-screen 2D, GPU-free) ── */
     #thinking {
       position: fixed;
       inset: 0;
@@ -570,57 +570,84 @@
       align-items: center;
       justify-content: center;
       z-index: 18;
-      background: rgba(2, 4, 8, 0.94);
+      background: radial-gradient(ellipse at center, rgba(20,12,4,0.92) 0%, rgba(2,4,8,0.97) 70%);
       pointer-events: none;
-      transition: opacity 0.3s;
     }
     #thinking.on { display: flex; }
-    .think-rings {
+
+    .think-center {
       position: relative;
-      width: 200px; height: 200px;
-      margin-bottom: 32px;
+      width: 220px; height: 220px;
+      margin-bottom: 36px;
     }
+    /* Glowing orb */
+    .think-orb {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 14px; height: 14px;
+      margin: -7px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #FFDD66 0%, #FF8800 50%, transparent 100%);
+      will-change: transform, opacity;
+      animation: orb-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes orb-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50%      { transform: scale(2.2); opacity: 1; }
+    }
+    /* Rotating dashed spinner */
+    .think-spinner {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 56px; height: 56px;
+      margin: -28px;
+      border: 1.5px dashed rgba(255, 153, 0, 0.35);
+      border-radius: 50%;
+      will-change: transform;
+      animation: spin 4s linear infinite;
+    }
+    .think-spinner2 {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 90px; height: 90px;
+      margin: -45px;
+      border: 1px solid rgba(255, 153, 0, 0.15);
+      border-top-color: rgba(255, 170, 68, 0.5);
+      border-radius: 50%;
+      will-change: transform;
+      animation: spin 3s linear infinite reverse;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Expanding rings */
     .think-ring {
       position: absolute;
       top: 50%; left: 50%;
-      width: 240px; height: 240px;
-      margin-left: -120px; margin-top: -120px;
+      width: 220px; height: 220px;
+      margin: -110px;
       border: 1px solid rgba(255, 153, 0, 0.4);
       border-radius: 50%;
       will-change: transform, opacity;
-      animation: ring-expand 2.4s ease-out infinite;
+      animation: ring-expand 3s ease-out infinite;
     }
-    .think-ring:nth-child(2) { animation-delay: 0.8s; }
-    .think-ring:nth-child(3) { animation-delay: 1.6s; }
+    .think-ring:nth-child(4) { animation-delay: 0s; }
+    .think-ring:nth-child(5) { animation-delay: 1s; }
+    .think-ring:nth-child(6) { animation-delay: 2s; }
     @keyframes ring-expand {
-      0%   { transform: scale(0.08); opacity: 0.9; }
-      100% { transform: scale(1);    opacity: 0; }
+      0%   { transform: scale(0.12); opacity: 0.8; }
+      100% { transform: scale(1.3);  opacity: 0; }
     }
-    .think-dot {
-      width: 8px; height: 8px;
-      background: #FFAA44;
-      border-radius: 50%;
-      position: absolute;
-      top: 50%; left: 50%;
-      margin-left: -4px; margin-top: -4px;
-      will-change: opacity;
-      animation: dot-glow 1.2s ease-in-out infinite;
-    }
-    @keyframes dot-glow {
-      0%, 100% { opacity: 0.35; }
-      50%      { opacity: 1; }
-    }
-    .think-text {
+    /* Label */
+    .think-label {
       color: #FFAA44;
       font-family: 'Courier New', monospace;
-      font-size: 0.72rem;
-      letter-spacing: 0.35em;
+      font-size: 0.68rem;
+      letter-spacing: 0.45em;
       text-transform: uppercase;
     }
-    .think-dots {
-      display: inline;
-    }
     .think-dots span {
+      will-change: opacity;
       animation: dots-blink 1.4s infinite;
       opacity: 0;
     }
@@ -730,19 +757,21 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-B9G4Nyho.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DX-gv94g.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
   <div id="cursor"></div>
   <div id="thinking">
-    <div class="think-rings">
+    <div class="think-center">
+      <div class="think-orb"></div>
+      <div class="think-spinner"></div>
+      <div class="think-spinner2"></div>
       <div class="think-ring"></div>
       <div class="think-ring"></div>
       <div class="think-ring"></div>
-      <div class="think-dot"></div>
     </div>
-    <span class="think-text">thinking<span class="think-dots"><span>.</span><span>.</span><span>.</span></span></span>
+    <div class="think-label">PROCESSING<span class="think-dots"><span>.</span><span>.</span><span>.</span></span></div>
   </div>
   <div id="flash"></div>
 

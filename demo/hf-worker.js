@@ -16,9 +16,9 @@
  */
 
 const MODEL_CANDIDATES = [
-  'Xenova/distilgpt2',
-  'onnx-community/SmolLM-135M-Instruct',
-  'onnx-community/SmolLM2-135M-Instruct',
+  'onnx-community/Qwen2.5-0.5B-Instruct',   // Korean + multilingual, best quality
+  'Xenova/Qwen2.5-0.5B-Instruct',            // alternate location
+  'Xenova/distilgpt2',                         // fallback, English only
 ];
 
 let generator = null;

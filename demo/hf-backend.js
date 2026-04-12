@@ -198,13 +198,11 @@ export class HuggingFaceBackend {
   }
 
   _buildPrompt(memories) {
-    // Text-completion format that works with any model (instruct or base)
-    let prompt = 'You are a helpful brain AI. Respond concisely in the user\'s language.\n';
+    let prompt = 'You are a helpful brain AI. Respond concisely in the same language the user uses.\n';
     if (memories.length > 0) {
       prompt += 'You remember: ' + memories.map(m => m.text).join('; ') + '\n';
     }
     prompt += '\n';
-    // Add recent conversation
     const recent = this.history.slice(-6);
     for (const m of recent) {
       prompt += (m.role === 'user' ? 'User' : 'AI') + ': ' + m.text + '\n';

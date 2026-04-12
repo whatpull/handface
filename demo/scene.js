@@ -488,17 +488,9 @@ function bootstrapChat() {
 }
 bootstrapChat();
 
-function isEnglishOnly(text) {
-  return /^[\x20-\x7E]+$/.test(text);
-}
-
 async function handleSend() {
   const text = chatInputEl.value.trim();
   if (!text || backend.busy) return;
-  if (!isEnglishOnly(text)) {
-    appendChatMsg('sys', 'English only. Please type in English.');
-    return;
-  }
   chatInputEl.value = '';
   appendChatMsg('user', text);
   triggerPass(text);
@@ -577,7 +569,7 @@ function updateModeBadge() {
   badge.id = 'mode-badge';
   const isClaude = backend instanceof ClaudeAPIBackend;
   badge.className = `mode-badge ${isClaude ? 'cloud' : 'cloud'}`;
-  badge.textContent = isClaude ? 'CLAUDE' : 'SmolLM2';
+  badge.textContent = isClaude ? 'CLAUDE' : 'Qwen2.5';
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();

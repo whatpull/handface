@@ -1177,22 +1177,23 @@ function animate() {
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
 
-  // ── 회전 (자동 회전 + 커서 오프셋 → 회전 속도) ──
+  // ── 카메라 공전 (네트워크 고정, 카메라가 뇌 주위를 돈다) ──
   baseRotY += 0.0015;
-  // 데드존: 커서가 화면 중앙 근처면 정지
   const DZ = 0.06;
   const dx = Math.sign(cursorOffX) * Math.max(0, Math.abs(cursorOffX) - DZ);
   const dy = Math.sign(cursorOffY) * Math.max(0, Math.abs(cursorOffY) - DZ);
   cursorRotY += dx * 0.016;
   cursorRotX += dy * 0.011;
-  // X축 회전은 너무 많이 기울지 않도록 클램프
-  cursorRotX = Math.max(-1.0, Math.min(1.0, cursorRotX));
-  network.rotation.x = cursorRotX;
-  network.rotation.y = baseRotY + cursorRotY;
+  cursorRotX = Math.max(-0.8, Math.min(0.8, cursorRotX));
 
-  // ── 카메라 줌 ──
+  const azimuth   = baseRotY + cursorRotY;     // 수평 공전 각도
+  const elevation = cursorRotX;                  // 수직 각도
   camZ += (targetCamZ - camZ) * 0.055;
-  camera.position.z = camZ;
+
+  camera.position.x = camZ * Math.sin(azimuth) * Math.cos(elevation);
+  camera.position.y = camZ * Math.sin(elevation) + 0.2;
+  camera.position.z = camZ * Math.cos(azimuth) * Math.cos(elevation);
+  camera.lookAt(0, 0, 0);
 
   // ── 별 배경 미세 회전 ──
   starMesh.rotation.y += 0.000035;

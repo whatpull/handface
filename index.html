@@ -561,28 +561,75 @@
       border: 1px solid rgba(80, 180, 255, 0.35);
     }
 
-    /* ── Thinking overlay (CSS-only, no GPU) ── */
+    /* ── Thinking overlay (full-screen 2D, no GPU) ── */
     #thinking {
       position: fixed;
       inset: 0;
       display: none;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 15;
+      z-index: 18;
+      background: rgba(2, 4, 8, 0.94);
       pointer-events: none;
+      transition: opacity 0.3s;
     }
     #thinking.on { display: flex; }
-    #thinking span {
+    .think-rings {
+      position: relative;
+      width: 200px; height: 200px;
+      margin-bottom: 32px;
+    }
+    .think-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 240px; height: 240px;
+      margin-left: -120px; margin-top: -120px;
+      border: 1px solid rgba(255, 153, 0, 0.4);
+      border-radius: 50%;
+      will-change: transform, opacity;
+      animation: ring-expand 2.4s ease-out infinite;
+    }
+    .think-ring:nth-child(2) { animation-delay: 0.8s; }
+    .think-ring:nth-child(3) { animation-delay: 1.6s; }
+    @keyframes ring-expand {
+      0%   { transform: scale(0.08); opacity: 0.9; }
+      100% { transform: scale(1);    opacity: 0; }
+    }
+    .think-dot {
+      width: 8px; height: 8px;
+      background: #FFAA44;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%; left: 50%;
+      margin-left: -4px; margin-top: -4px;
+      will-change: opacity;
+      animation: dot-glow 1.2s ease-in-out infinite;
+    }
+    @keyframes dot-glow {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 1; }
+    }
+    .think-text {
       color: #FFAA44;
       font-family: 'Courier New', monospace;
-      font-size: 0.85rem;
-      letter-spacing: 0.2em;
+      font-size: 0.72rem;
+      letter-spacing: 0.35em;
       text-transform: uppercase;
-      animation: think-pulse 1.2s ease-in-out infinite;
     }
-    @keyframes think-pulse {
-      0%, 100% { opacity: 0.25; }
-      50% { opacity: 1; }
+    .think-dots {
+      display: inline;
+    }
+    .think-dots span {
+      animation: dots-blink 1.4s infinite;
+      opacity: 0;
+    }
+    .think-dots span:nth-child(1) { animation-delay: 0s; }
+    .think-dots span:nth-child(2) { animation-delay: 0.3s; }
+    .think-dots span:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes dots-blink {
+      0%, 60%, 100% { opacity: 0; }
+      30% { opacity: 1; }
     }
 
     /* ── Flash ── */
@@ -683,12 +730,20 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BGBTdisA.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DUVscvkP.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
   <div id="cursor"></div>
-  <div id="thinking"><span>thinking</span></div>
+  <div id="thinking">
+    <div class="think-rings">
+      <div class="think-ring"></div>
+      <div class="think-ring"></div>
+      <div class="think-ring"></div>
+      <div class="think-dot"></div>
+    </div>
+    <span class="think-text">thinking<span class="think-dots"><span>.</span><span>.</span><span>.</span></span></span>
+  </div>
   <div id="flash"></div>
 
   <div class="hud-corner tl"></div>

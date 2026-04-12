@@ -9,7 +9,13 @@
 
 import { NeuralLM } from './nlm.js';
 
-const MODEL_ID = 'onnx-community/SmolLM2-135M-Instruct';
+// Try models in order — first that loads wins. Instruction models are
+// preferred, but we fall back to base models if they're unavailable.
+const MODEL_CANDIDATES = [
+  'onnx-community/SmolLM-135M-Instruct',
+  'onnx-community/SmolLM2-135M-Instruct',
+  'Xenova/distilgpt2',
+];
 const STORAGE_KEY = 'handface-hf-v1';
 
 // ─────────────────────────────────────────
@@ -65,9 +71,10 @@ export class HuggingFaceBackend {
       maxVocab: 220, contextLen: 8, embedDim: 16,
       h1: 112, h2: 96, h3: 64, lr: 0.025, clipGrad: 1.0,
     });
-    this.history   = [];
-    this.handlers  = new Set();
-    this.busy      = false;
+    this.history     = [];
+    this.handlers    = new Set();
+    this.busy        = false;
+    this.loadedModel = '';
     this._loadHistory();
   }
 
@@ -83,7 +90,7 @@ export class HuggingFaceBackend {
       lossEMA:    this.shadow.lossEMA,
       messages:   this.history.length,
       memories:   this.memory.size,
-      model:      'SmolLM2-135M',
+      model:      this.loadedModel || 'loading...',
     };
   }
 
@@ -107,25 +114,34 @@ export class HuggingFaceBackend {
             avg(this.shadow.W3), avg(this.shadow.W4)];
   }
 
-  // ─── Model Loading (lazy, with progress) ──────
+  // ─── Model Loading (lazy, fallback chain) ──────
   async _ensureModel() {
     if (this.loaded) return;
-    this.emit({ type: 'loading', message: 'Loading SmolLM2-135M (~80MB, first time only)...' });
 
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = false;
 
-    this.generator = await pipeline('text-generation', MODEL_ID, {
-      dtype: 'q4f16',
-      device: 'wasm',
-      progress_callback: (p) => {
-        if (p.status === 'progress' && p.progress != null) {
-          this.emit({ type: 'loading-progress', progress: Math.round(p.progress), file: p.file });
-        }
-      },
-    });
-    this.loaded = true;
-    this.emit({ type: 'loading-done' });
+    for (const modelId of MODEL_CANDIDATES) {
+      try {
+        this.emit({ type: 'loading', message: `Loading ${modelId}...` });
+        this.generator = await pipeline('text-generation', modelId, {
+          dtype: 'q4f16',
+          device: 'wasm',
+          progress_callback: (p) => {
+            if (p.status === 'progress' && p.progress != null) {
+              this.emit({ type: 'loading-progress', progress: Math.round(p.progress), file: p.file });
+            }
+          },
+        });
+        this.loadedModel = modelId;
+        this.loaded = true;
+        this.emit({ type: 'loading-done' });
+        return;
+      } catch (err) {
+        this.emit({ type: 'loading', message: `${modelId} unavailable, trying next...` });
+      }
+    }
+    throw new Error('No model could be loaded. Check your network connection.');
   }
 
   // ─── Main entry ───────────────────────────────
@@ -153,19 +169,12 @@ export class HuggingFaceBackend {
       // RAG: retrieve relevant memories
       const memories = this.memory.search(message, 5);
 
-      // Build chat messages with memory context
-      const systemPrompt = this._buildSystem(memories);
-      const chatMessages = [
-        { role: 'system', content: systemPrompt },
-        ...this.history.slice(-8).map(m => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.text,
-        })),
-      ];
+      // Build a text-completion prompt (works with both instruct and base models)
+      const prompt = this._buildPrompt(memories);
 
-      // Generate with SmolLM2
-      const output = await this.generator(chatMessages, {
-        max_new_tokens: 150,
+      // Generate
+      const output = await this.generator(prompt, {
+        max_new_tokens: 120,
         temperature: 0.7,
         do_sample: true,
         return_full_text: false,
@@ -174,12 +183,13 @@ export class HuggingFaceBackend {
       let response = '...';
       const gen = output?.[0]?.generated_text;
       if (typeof gen === 'string') {
-        response = gen.trim();
+        // Clean: take first meaningful line, strip trailing artifacts
+        response = gen.split('\n')[0].replace(/^(AI|Assistant|assistant):?\s*/i, '').trim();
       } else if (Array.isArray(gen)) {
         const last = gen[gen.length - 1];
         response = (last?.content || last?.text || '').trim();
       }
-      if (!response) response = '...';
+      if (!response || response.length < 2) response = '(thinking...)';
 
       // Store response in memory too
       this.memory.add(response);
@@ -200,16 +210,20 @@ export class HuggingFaceBackend {
     }
   }
 
-  _buildSystem(memories) {
-    let s = 'You are a brain AI that learns from the user. ' +
-      'Respond concisely in the user\'s language. Keep responses under 3 sentences. ' +
-      'Be helpful and friendly.';
+  _buildPrompt(memories) {
+    // Text-completion format that works with any model (instruct or base)
+    let prompt = 'You are a helpful brain AI. Respond concisely in the user\'s language.\n';
     if (memories.length > 0) {
-      s += '\n\nYou remember these things:\n';
-      for (const m of memories) s += `- "${m.text}"\n`;
-      s += 'Use these memories to give personalized responses.';
+      prompt += 'You remember: ' + memories.map(m => m.text).join('; ') + '\n';
     }
-    return s;
+    prompt += '\n';
+    // Add recent conversation
+    const recent = this.history.slice(-6);
+    for (const m of recent) {
+      prompt += (m.role === 'user' ? 'User' : 'AI') + ': ' + m.text + '\n';
+    }
+    prompt += 'AI:';
+    return prompt;
   }
 
   async testConnection() {

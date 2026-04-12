@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
-import { HuggingFaceBackend } from './hf-backend.js';
+import { WebLLMBackend } from './webllm-backend.js';
 
 // ─────────────────────────────────────────
 // Neural backend — provider에 따라 Gemini / Claude / Local 선택
@@ -16,7 +16,7 @@ function createBackend() {
   const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
 
   if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
-  return new HuggingFaceBackend();
+  return new WebLLMBackend();
 }
 
 let backend = createBackend();
@@ -569,7 +569,7 @@ function updateModeBadge() {
   badge.id = 'mode-badge';
   const isClaude = backend instanceof ClaudeAPIBackend;
   badge.className = `mode-badge ${isClaude ? 'cloud' : 'cloud'}`;
-  badge.textContent = isClaude ? 'CLAUDE' : 'Qwen2.5';
+  badge.textContent = isClaude ? 'CLAUDE' : 'Qwen2.5-1.5B';
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();
@@ -627,8 +627,8 @@ sSaveBtn.addEventListener('click', () => {
   if (prov === 'huggingface') {
     localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
     localStorage.removeItem(APIKEY_STORAGE);
-    applyBackend(new HuggingFaceBackend(), '🧠 SmolLM2 mode');
-    sStatusEl.textContent = '✓ SmolLM2 — model loads on first chat.';
+    applyBackend(new WebLLMBackend(), '🧠 Qwen2.5-1.5B mode');
+    sStatusEl.textContent = '✓ Qwen2.5-1.5B — model loads on START.';
     return;
   }
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
@@ -644,8 +644,8 @@ sDeleteBtn.addEventListener('click', () => {
   localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
   localStorage.removeItem(MODEL_STORAGE);
   sApiKeyEl.value = '';
-  applyBackend(new HuggingFaceBackend(), '🧠 SmolLM2 mode');
-  sStatusEl.textContent = 'Key deleted — SmolLM2 mode.';
+  applyBackend(new WebLLMBackend(), '🧠 Qwen2.5-1.5B mode');
+  sStatusEl.textContent = 'Key deleted — Qwen2.5-1.5B mode.';
 });
 
 function updateNetInfo() {

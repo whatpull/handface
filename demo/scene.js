@@ -53,7 +53,7 @@ document.getElementById('canvas-container').appendChild(renderer.domElement);
 // ─── Scene & Camera ───
 const scene  = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 0.2, 7.5);
+camera.position.set(0, 1.0, 7.5);
 camera.lookAt(0, 0, 0);
 let targetCamZ = 7.5;
 let camZ       = 7.5;
@@ -881,26 +881,32 @@ const coreHalo = new THREE.Mesh(
 coreGroup.add(coreHalo);
 
 // ─────────────────────────────────────────
-// 3D 공간 그리드 (바닥 + 천장 — 공간감)
+// 3D 공간 그리드 (바닥 + 천장 + 좌우 + 뒤 — 공간 안에 있는 느낌)
 // ─────────────────────────────────────────
-function makeGrid(y, color1, color2, opacity) {
-  const grid = new THREE.GridHelper(80, 40, color1, color2);
-  grid.position.y = y;
-  if (Array.isArray(grid.material)) {
-    grid.material.forEach(m => { m.transparent = true; m.opacity = opacity; m.depthWrite = false; });
-  } else {
-    grid.material.transparent = true;
-    grid.material.opacity = opacity;
-    grid.material.depthWrite = false;
-  }
-  return grid;
+function addGrid(pos, rot, size, divs, col1, col2, opacity) {
+  const g = new THREE.GridHelper(size, divs, col1, col2);
+  g.position.set(pos[0], pos[1], pos[2]);
+  if (rot) g.rotation.set(rot[0], rot[1], rot[2]);
+  const mats = Array.isArray(g.material) ? g.material : [g.material];
+  mats.forEach(m => { m.transparent = true; m.opacity = opacity; m.depthWrite = false; });
+  scene.add(g);
 }
 
-scene.add(makeGrid(-5,  0x664400, 0x331800, 0.12));   // 바닥
-scene.add(makeGrid(7,   0x443300, 0x221100, 0.06));   // 천장 (더 희미)
+const C1 = 0xFF7700, C2 = 0x553300;
 
-// 은은한 안개 (먼 곳이 어둡게 사라짐 → 깊이감)
-scene.fog = new THREE.FogExp2(0x020408, 0.025);
+// 바닥 (잘 보이게)
+addGrid([0, -5, 0],       null,               60, 30, C1, C2, 0.28);
+// 천장
+addGrid([0, 8, 0],        null,               60, 30, C1, 0x442200, 0.15);
+// 왼쪽 벽
+addGrid([-14, 1.5, 0],   [0, 0, Math.PI/2],  26, 13, C1, C2, 0.20);
+// 오른쪽 벽
+addGrid([14, 1.5, 0],    [0, 0, Math.PI/2],   26, 13, C1, C2, 0.20);
+// 뒤쪽 벽
+addGrid([0, 1.5, -14],   [Math.PI/2, 0, 0],   26, 13, C1, C2, 0.18);
+
+// 안개 (먼 곳 페이드)
+scene.fog = new THREE.FogExp2(0x020408, 0.022);
 
 // ─── 별 배경 ───
 const STAR_N  = 2200;
@@ -1199,23 +1205,19 @@ function animate() {
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
 
-  // ── 카메라 공전 (네트워크 고정, 카메라가 뇌 주위를 돈다) ──
+  // ── 카메라 고정, 뇌만 회전 (공간 그리드는 고정) ──
   baseRotY += 0.0015;
   const DZ = 0.06;
   const dx = Math.sign(cursorOffX) * Math.max(0, Math.abs(cursorOffX) - DZ);
   const dy = Math.sign(cursorOffY) * Math.max(0, Math.abs(cursorOffY) - DZ);
   cursorRotY += dx * 0.016;
   cursorRotX += dy * 0.011;
-  cursorRotX = Math.max(-0.8, Math.min(0.8, cursorRotX));
+  cursorRotX = Math.max(-1.0, Math.min(1.0, cursorRotX));
+  network.rotation.x = cursorRotX;
+  network.rotation.y = baseRotY + cursorRotY;
 
-  const azimuth   = baseRotY + cursorRotY;     // 수평 공전 각도
-  const elevation = cursorRotX;                  // 수직 각도
   camZ += (targetCamZ - camZ) * 0.055;
-
-  camera.position.x = camZ * Math.sin(azimuth) * Math.cos(elevation);
-  camera.position.y = camZ * Math.sin(elevation) + 0.2;
-  camera.position.z = camZ * Math.cos(azimuth) * Math.cos(elevation);
-  camera.lookAt(0, 0, 0);
+  camera.position.z = camZ;
 
   // ── 별 배경 미세 회전 ──
   starMesh.rotation.y += 0.000035;

@@ -1077,15 +1077,58 @@ let thinkingShown  = false;
 let lastFrameTime  = 0;
 const thinkingEl   = document.getElementById('thinking');
 
-// thinking 제어는 오직 handleSend + backendEventHandler에서만 수행.
-// animate 루프는 thinkingShown 플래그만 확인하고 렌더링을 건너뜀.
+// Thinking animation — 100% JS-driven (setTimeout), no CSS animation,
+// no GPU compositor dependency. Works even when WebGPU starves the GPU.
+let thinkingAnimTimer = null;
+let thinkingPhase     = 0;
+
+const thinkRings   = thinkingEl.querySelectorAll('.think-ring');
+const thinkOrb     = thinkingEl.querySelector('.think-orb');
+const thinkSpin1   = thinkingEl.querySelector('.think-spinner');
+const thinkSpin2   = thinkingEl.querySelector('.think-spinner2');
+const thinkDots    = thinkingEl.querySelectorAll('.think-dots span');
+
+function tickThinking() {
+  thinkingPhase += 0.025;
+
+  // Expanding rings (3 rings, staggered by 0.33)
+  thinkRings.forEach((ring, i) => {
+    const t = (thinkingPhase * 0.4 + i * 0.33) % 1;
+    ring.style.transform = `scale(${0.10 + t * 1.2})`;
+    ring.style.opacity   = String(Math.max(0, 0.85 - t));
+  });
+
+  // Pulsing orb
+  if (thinkOrb) {
+    const s = 1 + 1.2 * (0.5 + 0.5 * Math.sin(thinkingPhase * 3));
+    thinkOrb.style.transform = `scale(${s})`;
+    thinkOrb.style.opacity   = String(0.45 + 0.55 * Math.sin(thinkingPhase * 3));
+  }
+
+  // Rotating spinners
+  if (thinkSpin1) thinkSpin1.style.transform = `rotate(${thinkingPhase * 45}deg)`;
+  if (thinkSpin2) thinkSpin2.style.transform = `rotate(${-thinkingPhase * 35}deg)`;
+
+  // Dots blink
+  thinkDots.forEach((dot, i) => {
+    dot.style.opacity = String(Math.sin(thinkingPhase * 4 + i * 1.2) > 0.3 ? 1 : 0.15);
+  });
+
+  thinkingAnimTimer = setTimeout(tickThinking, 40);  // ~25fps via setTimeout (not rAF)
+}
+
 function showThinking() {
   thinkingEl.classList.add('on');
   thinkingShown = true;
+  thinkingPhase = 0;
+  clearTimeout(thinkingAnimTimer);
+  tickThinking();
 }
+
 function hideThinking() {
   thinkingEl.classList.remove('on');
   thinkingShown = false;
+  clearTimeout(thinkingAnimTimer);
 }
 
 // ─────────────────────────────────────────

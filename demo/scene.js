@@ -880,6 +880,28 @@ const coreHalo = new THREE.Mesh(
 );
 coreGroup.add(coreHalo);
 
+// ─────────────────────────────────────────
+// 3D 공간 그리드 (바닥 + 천장 — 공간감)
+// ─────────────────────────────────────────
+function makeGrid(y, color1, color2, opacity) {
+  const grid = new THREE.GridHelper(80, 40, color1, color2);
+  grid.position.y = y;
+  if (Array.isArray(grid.material)) {
+    grid.material.forEach(m => { m.transparent = true; m.opacity = opacity; m.depthWrite = false; });
+  } else {
+    grid.material.transparent = true;
+    grid.material.opacity = opacity;
+    grid.material.depthWrite = false;
+  }
+  return grid;
+}
+
+scene.add(makeGrid(-5,  0x664400, 0x331800, 0.12));   // 바닥
+scene.add(makeGrid(7,   0x443300, 0x221100, 0.06));   // 천장 (더 희미)
+
+// 은은한 안개 (먼 곳이 어둡게 사라짐 → 깊이감)
+scene.fog = new THREE.FogExp2(0x020408, 0.025);
+
 // ─── 별 배경 ───
 const STAR_N  = 2200;
 const starPos = new Float32Array(STAR_N * 3);

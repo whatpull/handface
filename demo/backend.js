@@ -16,14 +16,14 @@
 
 import { NeuralLM } from './nlm.js';
 
-const STORAGE_KEY = 'handface-nlm-v2';   // bumped: model arch changed (CTX 6→8, H1 96→112)
+const STORAGE_KEY = 'handface-nlm-v3';   // v3: gradient clipping + lr/momentum tuning
 const REPLAY_CAP  = 300;                 // full user-message history cap
 
 export class CharNLMBackend {
   constructor() {
     this.model = new NeuralLM({
       maxVocab: 220, contextLen: 8, embedDim: 16,
-      h1: 112, h2: 96, h3: 64, lr: 0.035,
+      h1: 112, h2: 96, h3: 64, lr: 0.025, clipGrad: 1.0,
     });
     this.history      = [];   // { role: 'user'|'ai', text } — full chat log for UI
     this.userMessages = [];   // replay buffer: ALL user messages, for continual training
@@ -94,8 +94,8 @@ export class CharNLMBackend {
       // message-ending context, which then causes sampling to break early
       // and produce empty outputs ("...").
 
-      // ── Phase 1: focused training on the new message (heavy — 20 epochs) ──
-      const loss1 = this.model.trainOnText(message, 20);
+      // ── Phase 1: focused training on the new message ──
+      const loss1 = this.model.trainOnText(message, 10);
       if (loss1 > 0) { totalLoss += loss1; lossCount++; }
 
       // ── Phase 2: replay from full user history (prevents forgetting) ──
@@ -121,8 +121,8 @@ export class CharNLMBackend {
         if (loss > 0) { totalLoss += loss; lossCount++; }
       }
 
-      // ── Phase 4: repeat the newest message again (overfit on intent) ──
-      const loss4 = this.model.trainOnText(message, 10);
+      // ── Phase 4: repeat the newest message again ──
+      const loss4 = this.model.trainOnText(message, 5);
       if (loss4 > 0) { totalLoss += loss4; lossCount++; }
 
       const stepsRun = this.model.totalSteps - stepsBefore;
@@ -162,7 +162,7 @@ export class CharNLMBackend {
   reset() {
     this.model = new NeuralLM({
       maxVocab: 220, contextLen: 8, embedDim: 16,
-      h1: 112, h2: 96, h3: 64, lr: 0.035,
+      h1: 112, h2: 96, h3: 64, lr: 0.025, clipGrad: 1.0,
     });
     this.history.length      = 0;
     this.userMessages.length = 0;

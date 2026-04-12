@@ -46,8 +46,9 @@ export class NeuralLM {
     this.H1        = opts.h1 ?? 112;
     this.H2        = opts.h2 ?? 96;
     this.H3        = opts.h3 ?? 64;
-    this.lr        = opts.lr ?? 0.035;
-    this.momentum  = opts.momentum ?? 0.9;
+    this.lr        = opts.lr ?? 0.025;
+    this.momentum  = opts.momentum ?? 0.85;
+    this.clipGrad  = opts.clipGrad ?? 1.0;
 
     const V = this.MAX_VOCAB;
     const ctxDim = this.CTX * this.EMB;
@@ -151,7 +152,8 @@ export class NeuralLM {
   // ─── Backward + SGD update ───────────────────
   backward(context, target) {
     const probs = this.forward(context);
-    const { CTX, EMB, H1, H2, H3, lr, momentum } = this;
+    const { CTX, EMB, H1, H2, H3, lr, momentum, clipGrad } = this;
+    const clip = (g) => Math.max(-clipGrad, Math.min(clipGrad, g));
     const V = this.vocab.size;
     const x = this.lastX, h1 = this.lastH1, h2 = this.lastH2, h3 = this.lastH3;
 
@@ -167,13 +169,13 @@ export class NeuralLM {
       const hi = h3[i];
       const W4i = this.W4[i], vW4i = this.vW4[i];
       for (let j = 0; j < V; j++) {
-        const g = hi * dLogits[j];
+        const g = clip(hi * dLogits[j]);
         vW4i[j] = momentum * vW4i[j] - lr * g;
         W4i[j] += vW4i[j];
       }
     }
     for (let j = 0; j < V; j++) {
-      this.vb4[j] = momentum * this.vb4[j] - lr * dLogits[j];
+      this.vb4[j] = momentum * this.vb4[j] - lr * clip(dLogits[j]);
       this.b4[j] += this.vb4[j];
     }
 
@@ -192,13 +194,13 @@ export class NeuralLM {
       const hi = h2[i];
       const W3i = this.W3[i], vW3i = this.vW3[i];
       for (let j = 0; j < H3; j++) {
-        const g = hi * dh3[j];
+        const g = clip(hi * dh3[j]);
         vW3i[j] = momentum * vW3i[j] - lr * g;
         W3i[j] += vW3i[j];
       }
     }
     for (let j = 0; j < H3; j++) {
-      this.vb3[j] = momentum * this.vb3[j] - lr * dh3[j];
+      this.vb3[j] = momentum * this.vb3[j] - lr * clip(dh3[j]);
       this.b3[j] += this.vb3[j];
     }
 
@@ -217,13 +219,13 @@ export class NeuralLM {
       const hi = h1[i];
       const W2i = this.W2[i], vW2i = this.vW2[i];
       for (let j = 0; j < H2; j++) {
-        const g = hi * dh2[j];
+        const g = clip(hi * dh2[j]);
         vW2i[j] = momentum * vW2i[j] - lr * g;
         W2i[j] += vW2i[j];
       }
     }
     for (let j = 0; j < H2; j++) {
-      this.vb2[j] = momentum * this.vb2[j] - lr * dh2[j];
+      this.vb2[j] = momentum * this.vb2[j] - lr * clip(dh2[j]);
       this.b2[j] += this.vb2[j];
     }
 
@@ -246,14 +248,14 @@ export class NeuralLM {
       const xi = x[i];
       for (let j = 0; j < H1; j++) {
         s += W1i[j] * dh1[j];
-        const g = xi * dh1[j];
+        const g = clip(xi * dh1[j]);
         vW1i[j] = momentum * vW1i[j] - lr * g;
         W1i[j] += vW1i[j];
       }
       dx[i] = s;
     }
     for (let j = 0; j < H1; j++) {
-      this.vb1[j] = momentum * this.vb1[j] - lr * dh1[j];
+      this.vb1[j] = momentum * this.vb1[j] - lr * clip(dh1[j]);
       this.b1[j] += this.vb1[j];
     }
 
@@ -263,7 +265,7 @@ export class NeuralLM {
       const emb = this.embed[idx], vemb = this.vEmbed[idx];
       const off = i * EMB;
       for (let d = 0; d < EMB; d++) {
-        const g = dx[off + d];
+        const g = clip(dx[off + d]);
         vemb[d] = momentum * vemb[d] - lr * g;
         emb[d] += vemb[d];
       }
@@ -271,6 +273,14 @@ export class NeuralLM {
 
     this.totalSteps++;
     this.lossEMA = this.lossEMA === null ? loss : this.lossEMA * 0.98 + loss * 0.02;
+    // NaN guard — if loss exploded, reset momentum to stop the cascade
+    if (!Number.isFinite(loss)) {
+      for (const row of this.vW1) row.fill(0);
+      for (const row of this.vW2) row.fill(0);
+      for (const row of this.vW3) row.fill(0);
+      for (const row of this.vW4) row.fill(0);
+      this.vb1.fill(0); this.vb2.fill(0); this.vb3.fill(0); this.vb4.fill(0);
+    }
     return loss;
   }
 
@@ -360,6 +370,16 @@ export class NeuralLM {
 
       // Allow natural sentence break only after the minimum length
       if (step >= minLength && (ch === '.' || ch === '!' || ch === '?' || ch === '。')) break;
+    }
+
+    // Fallback: if nothing was generated (degenerate model state),
+    // pick random chars from vocab so the user sees something.
+    if (out.length === 0 && V > 1) {
+      for (let i = 0; i < 10; i++) {
+        const idx = 1 + Math.floor(Math.random() * (V - 1));
+        const ch = this.invVocab[idx];
+        if (ch && ch !== '\x00' && ch !== '\n') out.push(ch);
+      }
     }
     return out.join('');
   }

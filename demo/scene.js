@@ -500,15 +500,21 @@ async function handleSend() {
   const text = chatInputEl.value.trim();
   if (!text || backend.busy) return;
   chatInputEl.value = '';
+  chatSendEl.disabled = true;
   appendChatMsg('user', text);
 
-  // 즉시 thinking 표시 + 렌더링 중지 (SEND 누르는 순간부터)
+  // 1) thinking 표시 + 렌더링 즉시 중지
   thinkingEl.classList.add('on');
   thinkingShown = true;
+
+  // 2) 브라우저가 thinking 오버레이를 실제로 그릴 시간 확보 (double rAF)
+  //    이 없으면 동기 작업이 paint를 차단해 사용자에게 보이지 않음
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   pushLog('', `💬 training (${text.length} chars)`);
   await backend.send(text);
   triggerPass(text);
+  chatSendEl.disabled = false;
 }
 
 chatSendEl.addEventListener('click', handleSend);

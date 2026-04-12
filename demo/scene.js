@@ -95,11 +95,19 @@ const SPRITE_SHARP = makeCircleSprite(0.30);  // 코어/스파크용 (선명한 
 // 각 층은 동심 뇌 모양 셸이고, 엽 돌출 + 균열 + 표면 주름으로 형태가 잡힙니다.
 // 카메라는 +Z 쪽에서 봐서 좌우 반구가 깊이 방향, 길이가 가로 방향에 보임.
 // ─────────────────────────────────────────
-const LAYER_SIZES = [12, 42, 80, 56, 22];                // 212 nodes
-const LAYER_RADII = [0.35, 0.85, 1.40, 1.92, 2.45];      // base radii
-const K_FORWARD   = 5;
+// Transformer-like structure:
+//   L0 Token Embedding     (outer — data enters from outside)
+//   L1 Early Blocks 1-4
+//   L2 Mid-Early Blocks 5-9
+//   L3 Mid Blocks 10-18    (deepest processing, most nodes)
+//   L4 Mid-Late Blocks 19-23
+//   L5 Late Blocks 24-28
+//   L6 Output Projection   (core — decision emerges)
+const LAYER_SIZES = [14, 24, 36, 48, 36, 24, 14];        // 196 nodes, symmetric
+const LAYER_RADII = [2.45, 2.10, 1.75, 1.40, 1.05, 0.70, 0.35];
+const K_FORWARD   = 4;
 const K_BACKWARD  = 3;
-const K_INTRA     = 4;
+const K_INTRA     = 3;
 
 /**
  * 옆모습 뇌 모양 셸 — Fibonacci sphere에 엽 돌출 / 표면 주름 / 균열을 적용.
@@ -516,6 +524,25 @@ chatResetEl.addEventListener('click', () => {
   pushLog('', '🔄 model reset');
 });
 
+// ── Streaming chat message (real-time token display) ──
+let streamingMsgEl = null;
+let wasStreaming    = false;
+
+function startStreamingMsg() {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ai';
+  const r = document.createElement('span');
+  r.className = 'chat-msg-role';
+  r.textContent = 'ai';
+  const t = document.createElement('span');
+  t.className = 'chat-msg-text';
+  t.textContent = ' ';
+  el.appendChild(r);
+  el.appendChild(t);
+  chatMsgsEl.appendChild(el);
+  streamingMsgEl = t;
+}
+
 function backendEventHandler(ev) {
   if (ev.type === 'training-end') {
     syncEdgeWeightsFromModel();
@@ -523,10 +550,28 @@ function backendEventHandler(ev) {
     pushLossSample(ev.avgLoss);
     updatePredictions();
     pushLog('', `🧠 ${ev.stepsRun} steps (loss ${ev.avgLoss.toFixed(2)})`);
+
+  } else if (ev.type === 'generate-token') {
+    // 첫 토큰: thinking 숨기고 렌더링 재개
+    if (thinkingShown) {
+      thinkingEl.classList.remove('on');
+      thinkingShown = false;
+    }
+    // 스트리밍 채팅 메시지 업데이트
+    if (!streamingMsgEl) startStreamingMsg();
+    streamingMsgEl.textContent = ' ' + ev.partial;
+    chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+    wasStreaming = true;
+    // 각 토큰마다 뇌 신호 파동 (실제 LLM 추론과 동기화)
+    triggerPass(ev.token);
+
   } else if (ev.type === 'generate-end') {
-    appendChatMsg('ai', ev.text);
+    if (!wasStreaming) appendChatMsg('ai', ev.text);
+    streamingMsgEl = null;
+    wasStreaming = false;
     triggerPass(ev.text);
     updatePredictions();
+
   } else if (ev.type === 'state') {
     updateChatStats();
   } else if (ev.type === 'loading') {
@@ -534,7 +579,7 @@ function backendEventHandler(ev) {
   } else if (ev.type === 'loading-progress') {
     const last = chatMsgsEl.lastElementChild;
     if (last?.classList.contains('sys')) {
-      last.querySelector('.chat-msg-text').textContent = ` Loading model... ${ev.progress}%`;
+      last.querySelector('.chat-msg-text').textContent = ` Loading... ${ev.progress}%`;
     }
   } else if (ev.type === 'loading-done') {
     appendChatMsg('sys', 'Model loaded. Ready to chat!');
@@ -825,8 +870,9 @@ function triggerPass(seedText = null) {
   const h3Snap    = new Float32Array(backend.model.lastH3);
   const probsSnap = new Float32Array(backend.model.lastProbs.subarray(0, vocabSize));
 
-  const sources = [embedSnap, h1Snap, h2Snap, h3Snap, probsSnap];
-  const lengths = [embedSnap.length, h1Snap.length, h2Snap.length, h3Snap.length, probsSnap.length];
+  // 5 model states → 7 viz layers (duplicate mid layers to fill transformer depth)
+  const sources = [embedSnap, h1Snap, h1Snap, h2Snap, h2Snap, h3Snap, probsSnap];
+  const lengths = [embedSnap.length, h1Snap.length, h1Snap.length, h2Snap.length, h2Snap.length, h3Snap.length, probsSnap.length];
 
   // viz 층마다 지연을 두고 활성화 (파동 효과)
   for (let li = 0; li < LAYER_SIZES.length; li++) {
@@ -882,7 +928,8 @@ function syncEdgeWeightsFromModel() {
   ];
 
   for (const e of edges) {
-    const matIdx  = Math.min(matrices.length - 1, e.src.layerIdx);
+    // 6 inter-layer connections → 4 model matrices
+    const matIdx  = Math.min(matrices.length - 1, Math.floor(e.src.layerIdx * matrices.length / (LAYER_SIZES.length - 1)));
     const mat     = matrices[matIdx];
     const matRows = mat.length;
     const matCols = mat[0].length;

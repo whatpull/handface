@@ -158,17 +158,26 @@ export class WebLLMBackend {
         })),
       ];
 
-      // Generate (WebGPU — non-blocking, fast)
-      const reply = await this.engine.chat.completions.create({
+      // Generate with streaming (each token triggers a viz wave)
+      const stream = await this.engine.chat.completions.create({
         messages: chatMessages,
         max_tokens: 200,
         temperature: 0.7,
+        stream: true,
       });
 
-      const response = reply.choices?.[0]?.message?.content?.trim() || '...';
-      if (reply.usage) {
-        this.tokenCount += (reply.usage.prompt_tokens || 0) + (reply.usage.completion_tokens || 0);
+      let response = '';
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content || '';
+        if (delta) {
+          response += delta;
+          this.emit({ type: 'generate-token', token: delta, partial: response });
+        }
+        if (chunk.usage) {
+          this.tokenCount += (chunk.usage.prompt_tokens || 0) + (chunk.usage.completion_tokens || 0);
+        }
       }
+      if (!response) response = '...';
 
       this.memory.add(response);
       this.shadow.trainOnText(response, 4);

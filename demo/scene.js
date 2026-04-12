@@ -602,28 +602,27 @@ const voiceStatus = document.getElementById('voice-status');
 const micBtn      = document.getElementById('chat-mic');
 
 voice.onEvent((ev) => {
-  if (ev.type === 'clap') {
-    pushLog('', `👏 clap ${ev.count}`);
+  if (ev.type === 'wake-ready') {
+    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
+    voiceStatus.className   = '';
   }
   if (ev.type === 'listening-start') {
-    voiceStatus.textContent = '🎤 Listening... (clap twice to send)';
+    voiceStatus.textContent = '🎤 Listening... say "보내" to send';
     voiceStatus.className   = 'listening';
     micBtn.classList.add('active');
-    pushLog('', '🎤 listening');
+    pushLog('', '🎤 voice active');
   }
   if (ev.type === 'listening-stop') {
-    voiceStatus.textContent = '';
+    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
     voiceStatus.className   = '';
     micBtn.classList.remove('active');
-    // 인식된 텍스트가 있으면 자동 전송
     if (ev.text && ev.text.trim().length > 0) {
       chatInputEl.value = ev.text.trim();
       handleSend();
     }
-    pushLog('', '🎤 sent');
+    pushLog('', '📤 voice sent');
   }
   if (ev.type === 'transcript') {
-    // 실시간으로 인식 중인 텍스트를 입력란에 표시
     chatInputEl.value = ev.text;
   }
   if (ev.type === 'speaking-start') {
@@ -631,12 +630,12 @@ voice.onEvent((ev) => {
     voiceStatus.className   = 'speaking';
   }
   if (ev.type === 'speaking-end') {
-    voiceStatus.textContent = '';
+    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
     voiceStatus.className   = '';
   }
   if (ev.type === 'error') {
     voiceStatus.textContent = `⚠ ${ev.error}`;
-    setTimeout(() => { voiceStatus.textContent = ''; }, 3000);
+    setTimeout(() => { voiceStatus.textContent = '🔈 Say "시작" to begin'; }, 3000);
   }
 });
 
@@ -1215,24 +1214,9 @@ startBtn.addEventListener('click', async () => {
       await backend._ensureModel();
     }
 
-    // Phase 3: Voice (STT + TTS — clap detection is via MediaPipe)
+    // Phase 3: Voice (wake-word STT + TTS)
     loadMsg.textContent = 'Setting up voice...';
     try { await voice.init(); } catch {}
-
-    // 박수 → 음성 인식 토글 (MediaPipe 양손 감지)
-    let clapCount = 0;
-    let clapTimer = null;
-    control.on('clap', () => {
-      clapCount++;
-      pushLog('', `👏 clap ${clapCount}`);
-      clearTimeout(clapTimer);
-      clapTimer = setTimeout(() => {
-        if (clapCount === 1 && !voice.listening)      voice.startListening();
-        else if (clapCount >= 2 && voice.listening)    voice.stopAndSend();
-        else if (clapCount >= 2 && !voice.listening)   voice.startListening();
-        clapCount = 0;
-      }, 700);
-    });
 
     sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');

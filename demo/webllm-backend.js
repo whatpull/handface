@@ -134,20 +134,11 @@ export class WebLLMBackend {
       this.history.push({ role: 'user', text: message });
       this.memory.add(message);
 
-      // Shadow NLM: train for viz (yield to let CSS animations keep running)
-      this.emit({ type: 'training-start', message });
-      const stepsBefore = this.shadow.totalSteps;
-      await new Promise(r => setTimeout(r, 0));   // yield before CPU work
-      this.shadow.trainOnText(message, 6);
-      await new Promise(r => setTimeout(r, 0));   // yield after CPU work
-      this.emit({
-        type: 'training-end',
-        avgLoss: this.shadow.lossEMA ?? 4,
-        stepsRun: this.shadow.totalSteps - stepsBefore,
-        totalSteps: this.shadow.totalSteps,
-      });
+      // NOTE: shadow NLM training is deferred to AFTER streaming.
+      // Between showThinking() and first token, the main thread must be
+      // completely free so the JS-driven thinking animation can tick.
 
-      // RAG: retrieve memories
+      // RAG: retrieve memories (fast, runs on main thread)
       const memories = this.memory.search(message, 5);
 
       // Build messages for Qwen2.5
@@ -160,7 +151,7 @@ export class WebLLMBackend {
         })),
       ];
 
-      // Generate with streaming (each token triggers a viz wave)
+      // Generate with streaming — async GPU, main thread stays free
       const stream = await this.engine.chat.completions.create({
         messages: chatMessages,
         max_tokens: 200,
@@ -181,8 +172,18 @@ export class WebLLMBackend {
       }
       if (!response) response = '...';
 
+      // Shadow NLM training AFTER streaming (thinking overlay already hidden)
       this.memory.add(response);
+      this.emit({ type: 'training-start', message });
+      const stepsBefore = this.shadow.totalSteps;
+      this.shadow.trainOnText(message, 6);
       this.shadow.trainOnText(response, 4);
+      this.emit({
+        type: 'training-end',
+        avgLoss: this.shadow.lossEMA ?? 4,
+        stepsRun: this.shadow.totalSteps - stepsBefore,
+        totalSteps: this.shadow.totalSteps,
+      });
 
       this.history.push({ role: 'ai', text: response });
       this.emit({ type: 'generate-end', text: response });

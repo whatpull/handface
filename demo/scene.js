@@ -503,12 +503,9 @@ async function handleSend() {
   chatSendEl.disabled = true;
   appendChatMsg('user', text);
 
-  // 1) thinking 표시 + 렌더링 즉시 중지
-  thinkingEl.classList.add('on');
-  thinkingShown = true;
-
-  // 2) 브라우저가 thinking 오버레이를 실제로 그릴 시간 확보 (double rAF)
-  //    이 없으면 동기 작업이 paint를 차단해 사용자에게 보이지 않음
+  // thinking 즉시 표시 + 렌더링 중지
+  showThinking();
+  // 브라우저가 thinking을 실제 화면에 그릴 시간 확보
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   pushLog('', `💬 training (${text.length} chars)`);
@@ -559,10 +556,7 @@ function backendEventHandler(ev) {
 
   } else if (ev.type === 'generate-token') {
     // 첫 토큰: thinking 숨기고 렌더링 재개
-    if (thinkingShown) {
-      thinkingEl.classList.remove('on');
-      thinkingShown = false;
-    }
+    if (thinkingShown) hideThinking();
     // 스트리밍 채팅 메시지 업데이트
     if (!streamingMsgEl) startStreamingMsg();
     streamingMsgEl.textContent = ' ' + ev.partial;
@@ -1013,10 +1007,20 @@ const _v3 = new THREE.Vector3();
 // ─────────────────────────────────────────
 // GPU 양보: 추론 중 렌더링 부하를 낮춰 WebGPU(LLM)와 WebGL(3D) 경쟁 방지
 // ─────────────────────────────────────────
-let gpuBusy        = false;
 let thinkingShown  = false;
 let lastFrameTime  = 0;
 const thinkingEl   = document.getElementById('thinking');
+
+// thinking 제어는 오직 handleSend + backendEventHandler에서만 수행.
+// animate 루프는 thinkingShown 플래그만 확인하고 렌더링을 건너뜀.
+function showThinking() {
+  thinkingEl.classList.add('on');
+  thinkingShown = true;
+}
+function hideThinking() {
+  thinkingEl.classList.remove('on');
+  thinkingShown = false;
+}
 
 // ─────────────────────────────────────────
 // 애니메이션 루프
@@ -1024,23 +1028,11 @@ const thinkingEl   = document.getElementById('thinking');
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
-  gpuBusy = backend.busy;
 
-  // ── 추론 중: 렌더링 완전 정지, GPU 100% LLM에 양보 ──
-  if (gpuBusy) {
-    if (!thinkingShown) {
-      thinkingEl.classList.add('on');
-      thinkingShown = true;
-    }
-    return;   // render() 호출 0 — GPU 완전 해방
-  }
-  if (thinkingShown) {
-    thinkingEl.classList.remove('on');
-    thinkingShown = false;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  }
+  // thinking 중이면 렌더링 완전 정지 (GPU 100% LLM에)
+  if (thinkingShown) return;
 
-  // ── 평시: 60fps 풀 렌더링 ──
+  // 60fps
   const nowMs = performance.now();
   if (nowMs - lastFrameTime < 1000 / 60) return;
   lastFrameTime = nowMs;

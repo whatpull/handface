@@ -493,9 +493,14 @@ async function handleSend() {
   if (!text || backend.busy) return;
   chatInputEl.value = '';
   appendChatMsg('user', text);
-  triggerPass(text);
+
+  // 즉시 thinking 표시 + 렌더링 중지 (SEND 누르는 순간부터)
+  thinkingEl.classList.add('on');
+  thinkingShown = true;
+
   pushLog('', `💬 training (${text.length} chars)`);
   await backend.send(text);
+  triggerPass(text);
 }
 
 chatSendEl.addEventListener('click', handleSend);

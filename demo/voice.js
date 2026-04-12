@@ -1,31 +1,30 @@
 /**
- * VoiceController — wake-word activated STT + TTS.
+ * VoiceController — always-on STT + streaming TTS.
  *
- * 항상 듣고 있다가:
- *   "시작" / "start"   → 녹음 시작 (active mode)
- *   "보내" / "send"    → 녹음 중지 + 메시지 전송 (idle mode)
- *
- * 브라우저 SpeechRecognition API, 추가 비용 없음.
+ * · 항상 음성 인식 ON (웨이크워드 불필요)
+ * · 말을 멈추면 5초 후 자동 전송
+ * · AI가 말하는 동안만 인식 일시 정지
+ * · TTS는 문장 단위로 바로바로 읽기 (스트리밍)
  */
 
-const WAKE_WORDS = ['시작', 'start', '시작해'];
-const SEND_WORDS = ['보내', 'send', '전송', '보내줘', '보내기'];
-const AUTO_SEND_TIMEOUT = 30000;   // 30초 동안 보내 안 하면 자동 전송
+const SILENCE_TIMEOUT   = 5000;   // 5초 침묵 → 자동 전송
+const MIN_SPEECH_CHARS  = 3;      // 최소 3자 이상이어야 전송 대상
 
 export class VoiceController {
   constructor() {
-    this.mode          = 'idle';   // 'idle' | 'active'
-    this.recognition   = null;
-    this.handlers      = new Set();
-    this.accumulated   = '';
-    this.available     = false;
-    this.autoTimer     = null;
+    this.recognition      = null;
+    this.handlers         = new Set();
+    this.accumulated      = '';
+    this.available        = false;
+    this.silenceTimer     = null;
+    this.paused           = false;   // TTS 중 일시 정지
+    this.hasActiveInput   = false;   // 현재 음성 입력 진행 중
   }
 
   onEvent(fn) { this.handlers.add(fn); return () => this.handlers.delete(fn); }
   emit(ev)    { for (const fn of this.handlers) fn(ev); }
 
-  get listening() { return this.mode === 'active'; }
+  get listening() { return this.hasActiveInput; }
 
   async init() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -48,104 +47,74 @@ export class VoiceController {
     };
 
     this.recognition.onend = () => {
-      // 항상 재시작 (웨이크워드 대기 유지)
-      setTimeout(() => {
-        try { this.recognition.start(); } catch {}
-      }, 300);
+      if (!this.paused) {
+        setTimeout(() => { try { this.recognition.start(); } catch {} }, 200);
+      }
     };
 
     this.available = true;
-    // 즉시 시작 — 항상 듣기 모드
     try { this.recognition.start(); } catch {}
-    this.emit({ type: 'wake-ready' });
+    this.emit({ type: 'ready' });
   }
 
   _onResult(e) {
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const transcript = e.results[i][0].transcript.trim();
-      const isFinal    = e.results[i].isFinal;
-      const lower      = transcript.toLowerCase();
+      const raw     = e.results[i][0].transcript;
+      const isFinal = e.results[i].isFinal;
 
-      if (this.mode === 'idle') {
-        // ── 웨이크워드 감지 ──
-        if (WAKE_WORDS.some(w => lower.includes(w))) {
-          this.mode = 'active';
-          this.accumulated = '';
-          clearTimeout(this.autoTimer);
-          this.autoTimer = setTimeout(() => this._autoSend(), AUTO_SEND_TIMEOUT);
+      // 불필요한 선행 구두점 제거 (음성 인식이 가끔 "." 먼저 생성)
+      const cleaned = raw.replace(/^[\s.,;:!?。，；：！？]+/, '').trim();
+      if (!cleaned) continue;
+
+      if (isFinal) {
+        if (cleaned) this.accumulated += (this.accumulated ? ' ' : '') + cleaned;
+      }
+
+      // 화면에 실시간 표시
+      const display = isFinal
+        ? this.accumulated
+        : (this.accumulated + (this.accumulated ? ' ' : '') + cleaned);
+
+      if (display.trim()) {
+        if (!this.hasActiveInput) {
+          this.hasActiveInput = true;
           this.emit({ type: 'listening-start' });
         }
-      } else {
-        // ── 활성 모드: 텍스트 수집 + 보내기 감지 ──
-        const hasSend = SEND_WORDS.some(w => lower.includes(w));
+        this.emit({ type: 'transcript', text: display.trim() });
+      }
 
-        if (hasSend) {
-          // "보내" 키워드를 텍스트에서 제거
-          let msg = transcript;
-          for (const w of SEND_WORDS) {
-            msg = msg.replace(new RegExp(w, 'gi'), '');
-          }
-          // 웨이크워드도 제거
-          for (const w of WAKE_WORDS) {
-            msg = msg.replace(new RegExp(w, 'gi'), '');
-          }
-          if (msg.trim()) this.accumulated += ' ' + msg.trim();
-          this._doSend();
-        } else if (isFinal) {
-          // 확정된 결과 누적 (웨이크워드 제거)
-          let msg = transcript;
-          for (const w of WAKE_WORDS) {
-            msg = msg.replace(new RegExp(w, 'gi'), '');
-          }
-          if (msg.trim()) this.accumulated += ' ' + msg.trim();
-          this.emit({ type: 'transcript', text: this.accumulated.trim() });
-        } else {
-          // 임시 결과: 현재까지 + interim 표시
-          let msg = transcript;
-          for (const w of [...WAKE_WORDS, ...SEND_WORDS]) {
-            msg = msg.replace(new RegExp(w, 'gi'), '');
-          }
-          this.emit({ type: 'transcript', text: (this.accumulated + ' ' + msg).trim() });
-        }
+      // 침묵 타이머 리셋 (새 음성이 들어올 때마다)
+      clearTimeout(this.silenceTimer);
+      if (this.accumulated.trim().length >= MIN_SPEECH_CHARS) {
+        this.silenceTimer = setTimeout(() => this._autoSend(), SILENCE_TIMEOUT);
       }
     }
   }
 
-  _doSend() {
-    clearTimeout(this.autoTimer);
+  _autoSend() {
+    if (!this.hasActiveInput) return;
     const text = this.accumulated.trim();
-    this.mode = 'idle';
-    this.accumulated = '';
+    this.accumulated   = '';
+    this.hasActiveInput = false;
+    clearTimeout(this.silenceTimer);
     this.emit({ type: 'listening-stop', text });
   }
 
-  _autoSend() {
-    if (this.mode === 'active') this._doSend();
+  // 수동 전송 (🎤 버튼)
+  manualSend() {
+    if (this.hasActiveInput && this.accumulated.trim().length > 0) {
+      this._autoSend();
+    }
   }
 
-  // 수동 토글 (🎤 버튼용)
-  startListening() {
-    if (this.mode === 'active') return;
-    this.mode = 'active';
-    this.accumulated = '';
-    clearTimeout(this.autoTimer);
-    this.autoTimer = setTimeout(() => this._autoSend(), AUTO_SEND_TIMEOUT);
-    this.emit({ type: 'listening-start' });
-  }
-
-  stopAndSend() {
-    if (this.mode !== 'active') return;
-    this._doSend();
-  }
-
-  // TTS
-  speak(text) {
-    if (!text || text.length < 2 || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+  // ── TTS (문장 단위 스트리밍) ──────────────────
+  speakChunk(text) {
+    if (!text || text.length < 1 || !window.speechSynthesis) return;
+    this._pause();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang  = navigator.language || 'en-US';
-    utterance.rate  = 1.0;
+    utterance.rate  = 1.05;
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices() || [];
@@ -155,8 +124,31 @@ export class VoiceController {
     if (voice) utterance.voice = voice;
 
     utterance.onstart = () => this.emit({ type: 'speaking-start' });
-    utterance.onend   = () => this.emit({ type: 'speaking-end' });
+    utterance.onend   = () => {
+      // 큐에 더 남아있으면 계속 speaking, 없으면 resume
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        this._resume();
+        this.emit({ type: 'speaking-end' });
+      }
+    };
 
-    window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);  // 큐에 추가 (cancel 안 함)
+  }
+
+  stopSpeaking() {
+    window.speechSynthesis?.cancel();
+    this._resume();
+  }
+
+  _pause() {
+    if (this.paused) return;
+    this.paused = true;
+    try { this.recognition?.stop(); } catch {}
+  }
+
+  _resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    setTimeout(() => { try { this.recognition?.start(); } catch {} }, 300);
   }
 }

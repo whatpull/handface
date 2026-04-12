@@ -528,9 +528,10 @@ chatResetEl.addEventListener('click', () => {
   pushLog('', '🔄 model reset');
 });
 
-// ── Streaming chat message (real-time token display) ──
+// ── Streaming chat message + TTS ──
 let streamingMsgEl = null;
 let wasStreaming    = false;
+let ttsBuffer       = '';
 
 function startStreamingMsg() {
   const el = document.createElement('div');
@@ -566,14 +567,24 @@ function backendEventHandler(ev) {
     // 각 토큰마다 뇌 신호 파동 (실제 LLM 추론과 동기화)
     triggerPass(ev.token);
 
+    // 스트리밍 TTS: 문장 끝이 오면 바로 읽기
+    ttsBuffer += ev.token;
+    if (/[.!?。\n]\s*$/.test(ttsBuffer) && ttsBuffer.trim().length > 3) {
+      if (voice.available) voice.speakChunk(ttsBuffer.trim());
+      ttsBuffer = '';
+    }
+
   } else if (ev.type === 'generate-end') {
     if (!wasStreaming) appendChatMsg('ai', ev.text);
     streamingMsgEl = null;
     wasStreaming = false;
     triggerPass(ev.text);
     updatePredictions();
-    // TTS: AI 응답을 음성으로 읽어줌
-    if (voice.available) voice.speak(ev.text);
+    // 남은 TTS 버퍼 읽기
+    if (voice.available && ttsBuffer.trim().length > 0) {
+      voice.speakChunk(ttsBuffer.trim());
+    }
+    ttsBuffer = '';
 
   } else if (ev.type === 'state') {
     updateChatStats();
@@ -602,51 +613,48 @@ const voiceStatus = document.getElementById('voice-status');
 const micBtn      = document.getElementById('chat-mic');
 
 voice.onEvent((ev) => {
-  if (ev.type === 'wake-ready') {
-    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
+  if (ev.type === 'ready') {
+    voiceStatus.textContent = '🔈 Always listening — just talk';
     voiceStatus.className   = '';
   }
   if (ev.type === 'listening-start') {
-    voiceStatus.textContent = '🎤 Listening... say "보내" to send';
+    voiceStatus.textContent = '🎤 Listening... (auto-send after 5s silence)';
     voiceStatus.className   = 'listening';
     micBtn.classList.add('active');
-    pushLog('', '🎤 voice active');
   }
   if (ev.type === 'listening-stop') {
-    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
+    voiceStatus.textContent = '🔈 Always listening — just talk';
     voiceStatus.className   = '';
     micBtn.classList.remove('active');
     if (ev.text && ev.text.trim().length > 0) {
       chatInputEl.value = ev.text.trim();
       handleSend();
     }
-    pushLog('', '📤 voice sent');
   }
   if (ev.type === 'transcript') {
     chatInputEl.value = ev.text;
   }
   if (ev.type === 'speaking-start') {
-    voiceStatus.textContent = '🔊 Speaking...';
+    voiceStatus.textContent = '🔊 AI speaking... (mic paused)';
     voiceStatus.className   = 'speaking';
   }
   if (ev.type === 'speaking-end') {
-    voiceStatus.textContent = '🔈 Say "시작" to begin voice input';
+    voiceStatus.textContent = '🔈 Always listening — just talk';
     voiceStatus.className   = '';
   }
   if (ev.type === 'error') {
     voiceStatus.textContent = `⚠ ${ev.error}`;
-    setTimeout(() => { voiceStatus.textContent = '🔈 Say "시작" to begin'; }, 3000);
+    setTimeout(() => { voiceStatus.textContent = '🔈 Always listening'; }, 3000);
   }
 });
 
-// 마이크 버튼: 수동 토글 (박수 대신 클릭으로도 사용 가능)
+// 마이크 버튼: 수동 즉시 전송
 micBtn.addEventListener('click', () => {
   if (!voice.available) {
     voiceStatus.textContent = '⚠ Voice not available. Allow microphone.';
     return;
   }
-  if (voice.listening) voice.stopAndSend();
-  else                 voice.startListening();
+  voice.manualSend();
 });
 
 // ─────────────────────────────────────────

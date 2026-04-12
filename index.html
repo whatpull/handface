@@ -583,7 +583,7 @@
       border: 1px solid rgba(80, 180, 255, 0.35);
     }
 
-    /* ── Thinking overlay (full-screen 2D, GPU-free) ── */
+    /* ── Thinking overlay (static design — nothing to freeze) ── */
     #thinking {
       position: fixed;
       inset: 0;
@@ -591,61 +591,25 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 24px;
       z-index: 18;
-      background: radial-gradient(ellipse at center, rgba(20,12,4,0.92) 0%, rgba(2,4,8,0.97) 70%);
+      background: radial-gradient(ellipse at center, rgba(20,12,4,0.88) 0%, rgba(2,4,8,0.96) 65%);
       pointer-events: none;
     }
     #thinking.on { display: flex; }
-
-    .think-center {
-      position: relative;
-      width: 220px; height: 220px;
-      margin-bottom: 36px;
-    }
-    /* Glowing orb */
-    /* All thinking animations driven by JS setTimeout (no CSS animation,
-       no GPU compositor dependency — works even when WebGPU is busy) */
-    .think-orb {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 14px; height: 14px;
-      margin: -7px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #FFDD66 0%, #FF8800 50%, transparent 100%);
-    }
-    .think-spinner {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 56px; height: 56px;
-      margin: -28px;
-      border: 1.5px dashed rgba(255, 153, 0, 0.35);
-      border-radius: 50%;
-    }
-    .think-spinner2 {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 90px; height: 90px;
-      margin: -45px;
-      border: 1px solid rgba(255, 153, 0, 0.15);
-      border-top-color: rgba(255, 170, 68, 0.5);
-      border-radius: 50%;
-    }
-    .think-ring {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 220px; height: 220px;
-      margin: -110px;
-      border: 1px solid rgba(255, 153, 0, 0.4);
-      border-radius: 50%;
+    .think-icon {
+      font-size: 2.8rem;
+      color: #FFAA44;
+      text-shadow: 0 0 40px rgba(255,153,0,0.5), 0 0 80px rgba(255,100,0,0.25);
     }
     .think-label {
       color: #FFAA44;
       font-family: 'Courier New', monospace;
-      font-size: 0.68rem;
-      letter-spacing: 0.45em;
+      font-size: 0.72rem;
+      letter-spacing: 0.5em;
       text-transform: uppercase;
+      opacity: 0.85;
     }
-    .think-dots span { opacity: 0; }
 
     /* ── Flash ── */
     #flash {
@@ -745,21 +709,14 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BgQSmhcA.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-_O-Zyl9B.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
   <div id="cursor"></div>
   <div id="thinking">
-    <div class="think-center">
-      <div class="think-orb"></div>
-      <div class="think-spinner"></div>
-      <div class="think-spinner2"></div>
-      <div class="think-ring"></div>
-      <div class="think-ring"></div>
-      <div class="think-ring"></div>
-    </div>
-    <div class="think-label">PROCESSING<span class="think-dots"><span>.</span><span>.</span><span>.</span></span></div>
+    <div class="think-icon">⟡</div>
+    <div class="think-label">PROCESSING</div>
   </div>
   <div id="flash"></div>
 

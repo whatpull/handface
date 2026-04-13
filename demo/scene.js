@@ -791,11 +791,20 @@ function updateNetInfo() {
 // ─────────────────────────────────────────
 // 엣지 지오메트리 (버텍스 컬러 → 매 프레임 가중치 반영)
 // ─────────────────────────────────────────
+console.log(`[handface] nodes: ${allNodes.length}, edges: ${edges.length}`);
+
+// 초기 가중치를 강제 설정 (syncEdgeWeightsFromModel 전에도 보이도록)
+for (const e of edges) e.weight = e.targetWeight = 0.3 + Math.random() * 0.5;
+
 const ePosArr = new Float32Array(edges.length * 6);
 const eColArr = new Float32Array(edges.length * 6);
 edges.forEach((e, i) => {
   ePosArr[i*6+0] = e.src.pos.x; ePosArr[i*6+1] = e.src.pos.y; ePosArr[i*6+2] = e.src.pos.z;
   ePosArr[i*6+3] = e.dst.pos.x; ePosArr[i*6+4] = e.dst.pos.y; ePosArr[i*6+5] = e.dst.pos.z;
+  // 초기 색상도 설정 (검은색이 아닌 앰버)
+  const b = e.weight * 0.12;
+  eColArr[i*6+0] = b; eColArr[i*6+1] = b * 0.4; eColArr[i*6+2] = b * 0.05;
+  eColArr[i*6+3] = b; eColArr[i*6+4] = b * 0.4; eColArr[i*6+5] = b * 0.05;
 });
 const edgeGeo = new THREE.BufferGeometry();
 edgeGeo.setAttribute('position', new THREE.BufferAttribute(ePosArr, 3));
@@ -813,6 +822,9 @@ const nHaloArr = new Float32Array(allNodes.length * 3);
 const nCoreArr = new Float32Array(allNodes.length * 3);
 allNodes.forEach((n, i) => {
   nPosArr[i*3] = n.pos.x; nPosArr[i*3+1] = n.pos.y; nPosArr[i*3+2] = n.pos.z;
+  // 초기 노드 색상 (첫 프레임부터 보이도록)
+  nHaloArr[i*3+0] = 0.08; nHaloArr[i*3+1] = 0.03; nHaloArr[i*3+2] = 0.01;
+  nCoreArr[i*3+0] = 0.20; nCoreArr[i*3+1] = 0.08; nCoreArr[i*3+2] = 0.02;
 });
 
 function makeNodePoints(colArr, size, sharedPos, sprite) {

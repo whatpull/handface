@@ -74,9 +74,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private isHovering   = false;
   private lastMovePos  = { x: 0, y: 0 };
 
-  // ── 스크롤 상태 ──
-  private prevScrollY = 0.5;
-  private scrollGraceMs = 0;       // victory 깜빡임 대응 grace period
+  // (scroll은 이제 idle에서 thumbsup/down으로 직접 처리)
 
   // ── 커서 상태 ──
   private smoothX = 0.5;

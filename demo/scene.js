@@ -1353,6 +1353,7 @@ startBtn.addEventListener('click', async () => {
     if (control.mediaStream && camPreview) {
       camPreview.srcObject = control.mediaStream;
     }
+    camToggle.textContent = '📷 HIDE';
     camToggle?.addEventListener('click', () => {
       const on = camPreview.style.display !== 'block';
       camPreview.style.display = on ? 'block' : 'none';

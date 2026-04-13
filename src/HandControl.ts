@@ -355,7 +355,13 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
           const dy = pos.screenY - this.mouseDownPos.y;
           if (Math.hypot(dx, dy) > DRAG_MIN_DIST_PX) {
             this.pointerState = 'dragging';
-            this.emit('dragstart', this.mouseDownPos as ClickEvent);
+            // dragstart도 실제 손 위치 사용 (drag 이벤트와 동일 좌표계)
+            this.emit('dragstart', {
+              x: this.rawHandX,
+              y: this.rawHandY,
+              screenX: Math.round(this.rawHandX * window.innerWidth),
+              screenY: Math.round(this.rawHandY * window.innerHeight),
+            } as ClickEvent);
           }
         }
         break;

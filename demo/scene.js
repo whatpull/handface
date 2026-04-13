@@ -1126,8 +1126,11 @@ control.on('dragstart', (e) => {
   pushLog('', '↔ dragstart');
 });
 control.on('drag', (e) => {
-  dragRotY += (e.screenX - prevDragX) * 0.006;
-  dragRotX += (e.screenY - prevDragY) * 0.004;
+  // delta 클램프 (손 위치 점프 시 회전 폭발 방지)
+  const dx = Math.max(-30, Math.min(30, e.screenX - prevDragX));
+  const dy = Math.max(-30, Math.min(30, e.screenY - prevDragY));
+  dragRotY += dx * 0.005;
+  dragRotX += dy * 0.003;
   dragRotX  = Math.max(-1.2, Math.min(1.2, dragRotX));
   prevDragX = e.screenX;
   prevDragY = e.screenY;

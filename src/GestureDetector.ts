@@ -101,7 +101,7 @@ export class GestureDetector {
       const p2 = result.landmarks[1][LM.MIDDLE_MCP];
       twoHandDist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-      const isClose = dist < CLAP_DISTANCE;
+      const isClose = twoHandDist < CLAP_DISTANCE;
       if (isClose && !this.wasHandsClose) {
         const now = performance.now();
         if (now - this.lastClapMs > CLAP_COOLDOWN) {

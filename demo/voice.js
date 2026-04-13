@@ -41,14 +41,21 @@ export class VoiceController {
     this.recognition.onresult = (e) => this._onResult(e);
 
     this.recognition.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        // 권한 영구 거부 → 자동 재시작 중지
+        this.available = false;
+        this.emit({ type: 'denied' });
+        return;
+      }
       if (e.error !== 'no-speech' && e.error !== 'aborted') {
         this.emit({ type: 'error', error: e.error });
       }
     };
 
     this.recognition.onend = () => {
-      if (!this.paused) {
-        setTimeout(() => { try { this.recognition.start(); } catch {} }, 200);
+      // 권한 거부됐으면 재시작 안 함
+      if (!this.paused && this.available) {
+        setTimeout(() => { try { this.recognition.start(); } catch {} }, 300);
       }
     };
 

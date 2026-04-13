@@ -642,9 +642,15 @@ voice.onEvent((ev) => {
     voiceStatus.textContent = '🔈 Always listening — just talk';
     voiceStatus.className   = '';
   }
+  if (ev.type === 'denied') {
+    voiceStatus.textContent = '🔇 Mic not allowed';
+    voiceStatus.className   = '';
+  }
   if (ev.type === 'error') {
     voiceStatus.textContent = `⚠ ${ev.error}`;
-    setTimeout(() => { voiceStatus.textContent = '🔈 Always listening'; }, 3000);
+    if (voice.available) {
+      setTimeout(() => { voiceStatus.textContent = '🔈 Always listening'; }, 3000);
+    }
   }
 });
 

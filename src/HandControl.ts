@@ -194,6 +194,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // ── 제스처 감지 (항상 실행) ──
     const gestureResult = this.detector.detect(this.video, now);
 
+    // ── landmarks 즉시 업데이트 (early return 이전 — 프리즈 방지) ──
+    this._lastLandmarks = gestureResult?.landmarks ?? null;
+
     // ── 커서 소스 결정 ──
     let rawX: number;
     let rawY: number;
@@ -215,9 +218,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       rawX = this.flipHorizontal ? 1 - anchor.x : anchor.x;
       rawY = anchor.y;
     }
-
-    // ── landmarks + 원시 손 위치 추적 ──
-    this._lastLandmarks = gestureResult?.landmarks ?? null;
     if (gestureResult) {
       const handAnchor =
         this.cursorAnchor === 'index' ? gestureResult.indexTip :

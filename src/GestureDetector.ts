@@ -97,16 +97,29 @@ export class GestureDetector {
     let clap = false;
     let twoHandDist: number | null = null;
     if (result.landmarks.length >= 2) {
-      // 양손 줌: 두 손 모두 Open_Palm일 때만 거리 측정
       const g0 = result.gestures[0]?.[0]?.categoryName;
       const g1 = result.gestures[1]?.[0]?.categoryName;
       const bothOpen = g0 === 'Open_Palm' && g1 === 'Open_Palm';
 
-      const p1 = result.landmarks[0][LM.MIDDLE_MCP];
-      const p2 = result.landmarks[1][LM.MIDDLE_MCP];
+      const lm0 = result.landmarks[0], lm1 = result.landmarks[1];
+      const p1 = lm0[LM.MIDDLE_MCP], p2 = lm1[LM.MIDDLE_MCP];
       const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-      if (bothOpen) twoHandDist = dist;
+      // 양손이 서로 마주보는지 확인:
+      // 왼쪽 손의 엄지가 오른쪽(다른 손 방향), 오른쪽 손의 엄지가 왼쪽(다른 손 방향)
+      let facingEachOther = false;
+      if (bothOpen) {
+        const palm0x = lm0[LM.MIDDLE_MCP].x, palm1x = lm1[LM.MIDDLE_MCP].x;
+        const thumb0x = lm0[LM.THUMB_TIP].x, thumb1x = lm1[LM.THUMB_TIP].x;
+        // 왼쪽에 있는 손: 엄지가 오른쪽(안쪽), 오른쪽 손: 엄지가 왼쪽(안쪽)
+        if (palm0x < palm1x) {
+          facingEachOther = thumb0x > palm0x + 0.015 && thumb1x < palm1x - 0.015;
+        } else {
+          facingEachOther = thumb1x > palm1x + 0.015 && thumb0x < palm0x - 0.015;
+        }
+      }
+
+      if (facingEachOther) twoHandDist = dist;
 
       const isClose = dist < CLAP_DISTANCE;
       if (isClose && !this.wasHandsClose) {
@@ -161,9 +174,17 @@ export class GestureDetector {
       y: PALM_INDICES.reduce((s, i) => s + lm[i].y, 0 as number) / PALM_INDICES.length,
     };
 
-    // 원시 거리 — 이벤트 결정은 HandControl 상태 머신에서
-    const thumbIndexDist  = distance(thumbTip, indexTip);
-    const thumbMiddleDist = distance(thumbTip, middleTip);
+    // 3D 거리 (Z 포함 — 카메라 각도에 의한 2D 겹침 오판 방지)
+    const thumbIndexDist  = Math.sqrt(
+      (thumbTip.x - indexTip.x) ** 2 +
+      (thumbTip.y - indexTip.y) ** 2 +
+      ((thumbTip.z ?? 0) - (indexTip.z ?? 0)) ** 2,
+    );
+    const thumbMiddleDist = Math.sqrt(
+      (thumbTip.x - middleTip.x) ** 2 +
+      (thumbTip.y - middleTip.y) ** 2 +
+      ((thumbTip.z ?? 0) - (middleTip.z ?? 0)) ** 2,
+    );
 
     const topCat = categories[0];
     const gestureName: GestureName | null =

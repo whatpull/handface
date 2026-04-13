@@ -268,17 +268,23 @@ for (const e of edges) {
 // brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
 // ─────────────────────────────────────────
 // ─── 뇌 외곽: 로컬 OBJ 모델 로드 ───
-const brainWireMat = new THREE.MeshBasicMaterial({
-  color: 0x3399FF, wireframe: true,
+// 뇌 외곽선: LineBasicMaterial (LineSegments + EdgesGeometry 용)
+const brainEdgeMat = new THREE.LineBasicMaterial({
+  color: 0x3399FF,
   blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.12, depthWrite: false,
+  transparent: true, opacity: 0.35, depthWrite: false,
 });
+// 뇌 표면: 반투명 실루엣 — 부드러운 양감
 const brainSolidMat = new THREE.MeshBasicMaterial({
   color: 0x2266CC,
   blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.035, depthWrite: false,
+  transparent: true, opacity: 0.08, depthWrite: false,
   side: THREE.DoubleSide,
 });
+
+// 뇌 외곽선 임계 각도 (deg) — 곡률이 이 각도 이상 꺾이는 경계만 선으로 그림
+// 낮으면 와이어프레임에 가까워 뾰족, 높으면 실루엣만 남아 빈약
+const BRAIN_EDGE_ANGLE = 18;
 
 (function loadBrainOBJ() {
   const loader = new OBJLoader();
@@ -289,13 +295,16 @@ const brainSolidMat = new THREE.MeshBasicMaterial({
 
     obj.traverse((node) => {
       if (node.isMesh) {
+        // 버텍스 노말 재계산 → 스무드 쉐이딩 (차후 라이팅 대비)
+        node.geometry.computeVertexNormals();
         node.material = brainSolidMat;
-        // 와이어프레임 복사본 추가
-        const wire = new THREE.Mesh(node.geometry, brainWireMat);
-        wire.scale.copy(node.scale);
-        wire.position.copy(node.position);
-        wire.rotation.copy(node.rotation);
-        obj.add(wire);
+        // 곡률 경계선만 선으로 그림 (삼각형 전체 와이어프레임 대체)
+        const edges = new THREE.EdgesGeometry(node.geometry, BRAIN_EDGE_ANGLE);
+        const edgeLines = new THREE.LineSegments(edges, brainEdgeMat);
+        edgeLines.scale.copy(node.scale);
+        edgeLines.position.copy(node.position);
+        edgeLines.rotation.copy(node.rotation);
+        obj.add(edgeLines);
       }
     });
 

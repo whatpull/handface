@@ -981,34 +981,34 @@ const tipMat = new THREE.MeshStandardMaterial({
   color: 0xFFDDCC, roughness: 0.4, metalness: 0.0, emissive: 0x331100, emissiveIntensity: 0.2,
 });
 
-// 공유 지오메트리
-const capsuleGeo  = new THREE.CapsuleGeometry(1, 1, 4, 8);
-const sphereGeo   = new THREE.SphereGeometry(1, 10, 10);
+// 공유 지오메트리 (Cylinder — 캡슐보다 스케일이 정확)
+const cylGeo    = new THREE.CylinderGeometry(1, 1, 1, 8);
+const sphereGeo = new THREE.SphereGeometry(1, 8, 8);
 
-// 뼈 두께 (인덱스별)
+// 뼈 두께 (얇게 — 실제 손가락 비례)
 const BONE_R = [
-  0.032,  // 0: wrist→thumb_cmc
-  0.028, 0.025, 0.022,  // thumb
-  0.032, 0.026, 0.022, 0.018,  // index
-  0.032, 0.026, 0.022, 0.018,  // middle
-  0.032, 0.024, 0.020, 0.016,  // ring
-  0.032, 0.024, 0.020, 0.016,  // pinky
-  0.028, 0.028, 0.028,         // palm cross
+  0.010,
+  0.009, 0.008, 0.007,
+  0.010, 0.008, 0.007, 0.006,
+  0.010, 0.008, 0.007, 0.006,
+  0.009, 0.007, 0.006, 0.005,
+  0.009, 0.007, 0.006, 0.005,
+  0.008, 0.008, 0.008,
 ];
 const JOINT_R = [
-  0.038,  // wrist
-  0.030, 0.026, 0.024, 0.022,  // thumb
-  0.030, 0.026, 0.022, 0.018,  // index
-  0.030, 0.026, 0.022, 0.018,  // middle
-  0.028, 0.024, 0.020, 0.016,  // ring
-  0.028, 0.024, 0.020, 0.016,  // pinky
+  0.014,
+  0.011, 0.010, 0.009, 0.008,
+  0.012, 0.010, 0.009, 0.007,
+  0.012, 0.010, 0.009, 0.007,
+  0.011, 0.009, 0.008, 0.006,
+  0.011, 0.009, 0.008, 0.006,
 ];
 
-// 뼈 메쉬 (HAND_CONNS 각각)
+// 뼈 메쉬 (Cylinder)
 const _up = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
-const boneMeshes = HAND_CONNS.map((_, i) => {
-  const m = new THREE.Mesh(capsuleGeo, skinMat);
+const boneMeshes = HAND_CONNS.map(() => {
+  const m = new THREE.Mesh(cylGeo, skinMat);
   handGroup.add(m);
   return m;
 });
@@ -1021,6 +1021,16 @@ const jointMeshes = Array.from({length: 21}, (_, i) => {
   handGroup.add(m);
   return m;
 });
+
+// 손바닥 면 (관절 0,5,9,13,17 연결 메쉬)
+const PALM_TRIS = [0,5,9, 0,9,13, 0,13,17, 5,9,6, 9,13,10, 13,17,14];
+const palmPositions = new Float32Array(PALM_TRIS.length * 3);
+const palmGeo = new THREE.BufferGeometry();
+palmGeo.setAttribute('position', new THREE.BufferAttribute(palmPositions, 3));
+palmGeo.computeVertexNormals();
+handGroup.add(new THREE.Mesh(palmGeo, new THREE.MeshStandardMaterial({
+  color: 0xFFCCAA, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+})));
 
 // 스무딩 버퍼 (떨림 제거)
 const HAND_SMOOTH = 0.35;
@@ -1084,8 +1094,18 @@ function updateHandSkeleton(landmarks) {
     boneMeshes[i].position.copy(mid);
     _dir.subVectors(pb, pa).normalize();
     boneMeshes[i].quaternion.setFromUnitVectors(_up, _dir);
-    boneMeshes[i].scale.set(r, len / 2, r);
+    boneMeshes[i].scale.set(r, len, r);
   }
+
+  // 손바닥 면 업데이트
+  for (let i = 0; i < PALM_TRIS.length; i++) {
+    const li = PALM_TRIS[i];
+    palmPositions[i*3]   = jPos[li].x;
+    palmPositions[i*3+1] = jPos[li].y;
+    palmPositions[i*3+2] = jPos[li].z;
+  }
+  palmGeo.attributes.position.needsUpdate = true;
+  palmGeo.computeVertexNormals();
 }
 
 // ─── 별 배경 ───

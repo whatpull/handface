@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { WebLLMBackend } from './webllm-backend.js';
@@ -1032,6 +1033,57 @@ handGroup.add(new THREE.Mesh(palmGeo, new THREE.MeshStandardMaterial({
   color: 0xFFCCAA, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
 })));
 
+// ─── GLB 손 모델 로드 (CDN) ─────────────────────
+const HAND_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles/generic-hand/right.glb';
+
+// XRHand bone name → MediaPipe landmark index
+const XR_TO_MP = {
+  'wrist': 0,
+  'thumb-metacarpal': 1, 'thumb-phalanx-proximal': 2,
+  'thumb-phalanx-distal': 3, 'thumb-tip': 4,
+  'index-finger-metacarpal': 5, 'index-finger-phalanx-proximal': 5,
+  'index-finger-phalanx-intermediate': 6, 'index-finger-phalanx-distal': 7, 'index-finger-tip': 8,
+  'middle-finger-metacarpal': 9, 'middle-finger-phalanx-proximal': 9,
+  'middle-finger-phalanx-intermediate': 10, 'middle-finger-phalanx-distal': 11, 'middle-finger-tip': 12,
+  'ring-finger-metacarpal': 13, 'ring-finger-phalanx-proximal': 13,
+  'ring-finger-phalanx-intermediate': 14, 'ring-finger-phalanx-distal': 15, 'ring-finger-tip': 16,
+  'pinky-finger-metacarpal': 17, 'pinky-finger-phalanx-proximal': 17,
+  'pinky-finger-phalanx-intermediate': 18, 'pinky-finger-phalanx-distal': 19, 'pinky-finger-tip': 20,
+};
+
+let glbHand  = null;
+let glbBones = {};
+let glbReady = false;
+
+new GLTFLoader().load(HAND_MODEL_URL, (gltf) => {
+  glbHand = gltf.scene;
+  glbHand.visible = false;
+  handGroup.add(glbHand);
+
+  // 메쉬 재질 → 피부색 반투명
+  glbHand.traverse((node) => {
+    if (node.isMesh) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0xFFCCAA, roughness: 0.6, metalness: 0.0,
+        transparent: true, opacity: 0.92,
+      });
+    }
+    if (node.isBone && XR_TO_MP[node.name] !== undefined) {
+      glbBones[node.name] = node;
+    }
+  });
+
+  // 모델 로드 성공 → procedural 숨김
+  glbReady = Object.keys(glbBones).length > 5;
+  if (glbReady) {
+    boneMeshes.forEach(m => m.visible = false);
+    jointMeshes.forEach(m => m.visible = false);
+    console.log('[handface] GLB hand loaded, bones:', Object.keys(glbBones).length);
+  }
+}, undefined, (err) => {
+  console.warn('[handface] GLB hand failed, using procedural:', err.message);
+});
+
 // 스무딩 버퍼 (떨림 제거)
 const HAND_SMOOTH = 0.35;
 const sLM = Array.from({length: 21}, () => ({x: 0.5, y: 0.5, z: 0}));
@@ -1097,7 +1149,7 @@ function updateHandSkeleton(landmarks) {
     boneMeshes[i].scale.set(r, len, r);
   }
 
-  // 손바닥 면 업데이트
+  // 손바닥 면 업데이트 (procedural)
   for (let i = 0; i < PALM_TRIS.length; i++) {
     const li = PALM_TRIS[i];
     palmPositions[i*3]   = jPos[li].x;
@@ -1106,6 +1158,24 @@ function updateHandSkeleton(landmarks) {
   }
   palmGeo.attributes.position.needsUpdate = true;
   palmGeo.computeVertexNormals();
+
+  // ── GLB 모델 업데이트 (로드됐으면) ──
+  if (glbReady && glbHand) {
+    glbHand.visible = true;
+    const _wp = new THREE.Vector3();
+
+    for (const [boneName, bone] of Object.entries(glbBones)) {
+      const mpIdx = XR_TO_MP[boneName];
+      if (mpIdx === undefined || !jPos[mpIdx]) continue;
+
+      _wp.copy(jPos[mpIdx]);
+      if (bone.parent) {
+        bone.parent.updateWorldMatrix(true, false);
+        bone.parent.worldToLocal(_wp);
+      }
+      bone.position.copy(_wp);
+    }
+  }
 }
 
 // ─── 별 배경 ───

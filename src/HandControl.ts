@@ -63,6 +63,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   // ── 드래그 시 실제 손 위치 추적 (커서 고정과 무관) ──
   private rawHandX = 0.5;
   private rawHandY = 0.5;
+  private _lastLandmarks: Array<{x:number; y:number; z:number}> | null = null;
+
+  /** 현재 프레임의 21개 손 랜드마크 (3D 스켈레톤 표시용) */
+  get handLandmarks() { return this._lastLandmarks; }
 
   // ── hover 감지 ──
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -212,7 +216,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       rawY = anchor.y;
     }
 
-    // ── 항상 원시 손 위치 추적 (드래그 이벤트용 — 커서 고정과 무관) ──
+    // ── landmarks + 원시 손 위치 추적 ──
+    this._lastLandmarks = gestureResult?.landmarks ?? null;
     if (gestureResult) {
       const handAnchor =
         this.cursorAnchor === 'index' ? gestureResult.indexTip :

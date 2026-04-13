@@ -943,6 +943,86 @@ addWall(RM_W, RM_H, [0, RM_CY, RM.zB],       [0, 0, 0],          RM_W, RM_H, 0.1
 // 안개 (먼 곳 페이드 → 깊이감)
 scene.fog = new THREE.FogExp2(0x020408, 0.020);
 
+// ─────────────────────────────────────────
+// 3D 손 스켈레톤 (MediaPipe 21 관절 실시간 표시)
+// ─────────────────────────────────────────
+const HAND_CONNS = [
+  [0,1],[1,2],[2,3],[3,4],           // thumb
+  [0,5],[5,6],[6,7],[7,8],           // index
+  [0,9],[9,10],[10,11],[11,12],      // middle
+  [0,13],[13,14],[14,15],[15,16],    // ring
+  [0,17],[17,18],[18,19],[19,20],    // pinky
+  [5,9],[9,13],[13,17],              // palm
+];
+
+const handGroup = new THREE.Group();
+scene.add(handGroup);
+
+// 관절 (작은 원형 포인트)
+const handJointPos = new Float32Array(21 * 3);
+const handJointGeo = new THREE.BufferGeometry();
+handJointGeo.setAttribute('position', new THREE.BufferAttribute(handJointPos, 3));
+handGroup.add(new THREE.Points(handJointGeo, new THREE.PointsMaterial({
+  color: 0x44FFAA, size: 0.12, map: SPRITE_SHARP, alphaTest: 0.01,
+  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+})));
+
+// 뼈대 (라인)
+const handBonePos = new Float32Array(HAND_CONNS.length * 6);
+const handBoneGeo = new THREE.BufferGeometry();
+handBoneGeo.setAttribute('position', new THREE.BufferAttribute(handBonePos, 3));
+handGroup.add(new THREE.LineSegments(handBoneGeo, new THREE.LineBasicMaterial({
+  color: 0x44FFAA, transparent: true, opacity: 0.7,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+})));
+
+// 손가락 끝 하이라이트 (더 밝은 점)
+const FINGERTIPS = [4, 8, 12, 16, 20];
+const tipPos = new Float32Array(FINGERTIPS.length * 3);
+const tipGeo = new THREE.BufferGeometry();
+tipGeo.setAttribute('position', new THREE.BufferAttribute(tipPos, 3));
+handGroup.add(new THREE.Points(tipGeo, new THREE.PointsMaterial({
+  color: 0xFFFFAA, size: 0.18, map: SPRITE_SOFT, alphaTest: 0.01,
+  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+})));
+
+handGroup.visible = false;
+
+function updateHandSkeleton(landmarks) {
+  if (!landmarks || landmarks.length < 21) {
+    handGroup.visible = false;
+    return;
+  }
+  handGroup.visible = true;
+
+  const SX = 7, SY = 5.5, SZ = 3, ZB = 4.5;
+
+  // 관절 위치 업데이트
+  for (let i = 0; i < 21; i++) {
+    const lm = landmarks[i];
+    const x = (0.5 - lm.x) * SX;      // 좌우 반전 (거울)
+    const y = -(lm.y - 0.5) * SY + 0.5;
+    const z = ZB - lm.z * SZ;
+    handJointPos[i*3] = x; handJointPos[i*3+1] = y; handJointPos[i*3+2] = z;
+  }
+  handJointGeo.attributes.position.needsUpdate = true;
+
+  // 뼈대 업데이트
+  for (let i = 0; i < HAND_CONNS.length; i++) {
+    const [a, b] = HAND_CONNS[i];
+    handBonePos[i*6+0] = handJointPos[a*3];   handBonePos[i*6+1] = handJointPos[a*3+1]; handBonePos[i*6+2] = handJointPos[a*3+2];
+    handBonePos[i*6+3] = handJointPos[b*3];   handBonePos[i*6+4] = handJointPos[b*3+1]; handBonePos[i*6+5] = handJointPos[b*3+2];
+  }
+  handBoneGeo.attributes.position.needsUpdate = true;
+
+  // 손가락 끝 하이라이트
+  for (let i = 0; i < FINGERTIPS.length; i++) {
+    const fi = FINGERTIPS[i];
+    tipPos[i*3] = handJointPos[fi*3]; tipPos[i*3+1] = handJointPos[fi*3+1]; tipPos[i*3+2] = handJointPos[fi*3+2];
+  }
+  tipGeo.attributes.position.needsUpdate = true;
+}
+
 // ─── 별 배경 ───
 const STAR_N  = 2200;
 const starPos = new Float32Array(STAR_N * 3);
@@ -1277,6 +1357,9 @@ function animate() {
   sparkGeo.setDrawRange(0, sparkPool.length);
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
+
+  // ── 3D 손 스켈레톤 업데이트 ──
+  updateHandSkeleton(control.handLandmarks);
 
   // ── 뇌 회전: 자동 + 핀치 드래그 (스무딩 보간) ──
   baseRotY += 0.0015;

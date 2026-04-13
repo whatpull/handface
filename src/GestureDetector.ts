@@ -49,6 +49,8 @@ export interface DetectionResult {
   palmCenter: { x: number; y: number };
   /** 양손 박수 감지 */
   clap: boolean;
+  /** 전체 21개 손 랜드마크 (3D 스켈레톤 표시용) */
+  landmarks: Array<{ x: number; y: number; z: number }> | null;
 }
 
 const DEFAULT_WASM_PATH =
@@ -116,7 +118,7 @@ export class GestureDetector {
           gestureName: null, gestureConfidence: 0,
           thumbIndexDist: 1, thumbMiddleDist: 1,
           indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
-          palmCenter: {x:0.5,y:0.5}, clap,
+          palmCenter: {x:0.5,y:0.5}, clap, landmarks: null,
         };
         return null;
       }
@@ -126,6 +128,7 @@ export class GestureDetector {
     const categories = result.gestures[handIdx] ?? [];
     const det = this.analyze(result.landmarks[handIdx], categories);
     det.clap = clap;
+    det.landmarks = result.landmarks[handIdx].map(lm => ({ x: lm.x, y: lm.y, z: lm.z }));
     return det;
   }
 
@@ -161,6 +164,7 @@ export class GestureDetector {
       wrist:       { x: wrist.x,     y: wrist.y },
       palmCenter,
       clap: false,
+      landmarks: null,
     };
   }
 

@@ -1144,9 +1144,11 @@ control.on('contextmenu', () => {
   pushLog('', '🖖 contextmenu');
 });
 // 3D 뇌 회전: drag 이벤트로 제어
+let isDraggingBrain = false;
 control.on('dragstart', (e) => {
   prevDragX = e.screenX;
   prevDragY = e.screenY;
+  isDraggingBrain = true;
   pushLog('', '↔ dragstart');
 });
 control.on('drag', (e) => {
@@ -1159,6 +1161,7 @@ control.on('drag', (e) => {
   prevDragY = e.screenY;
 });
 control.on('dragend', () => {
+  isDraggingBrain = false;
   pushLog('', '↔ dragend');
 });
 // 마우스 드래그 폴백 (HandControl 시작 전)
@@ -1252,7 +1255,10 @@ function animate() {
   coreBright.material.opacity = 0.55 + 0.30 * inputAct + 0.06 * Math.sin(t * 2.5);
   coreHalo.material.opacity   = 0.08 + 0.18 * inputAct + 0.03 * Math.sin(t * 1.5);
 
-  // ── 엣지 색상 업데이트 (가중치 × 활성화 = 밝기) ──
+  // ── 엣지/노드/스파크 업데이트 (드래그 중 건너뛰어 부하 감소) ──
+  if (!isDraggingBrain) {
+
+  // 엣지 색상 (가중치 × 활성화 = 밝기)
   for (let i = 0; i < edges.length; i++) {
     const e   = edges[i];
     const act = Math.max(e.src.activation * 0.8, e.dst.activation * 0.65);
@@ -1300,6 +1306,8 @@ function animate() {
   sparkGeo.setDrawRange(0, sparkPool.length);
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
+
+  } // end if (!isDraggingBrain) — 드래그 중 무거운 업데이트 건너뜀
 
   // ── 뇌 회전: 자동 + 핀치 드래그 (스무딩 보간) ──
   baseRotY += 0.0015;

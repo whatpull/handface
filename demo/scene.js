@@ -992,6 +992,26 @@ handGroup.add(new THREE.Points(tipGeo, new THREE.PointsMaterial({
   blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
 })));
 
+// 손 피부 메쉬 (반투명 — 뇌 실루엣처럼)
+const HAND_TRIS = [
+  0,5,9, 0,9,13, 0,13,17,
+  5,6,9, 6,9,10, 9,10,13, 10,13,14, 13,14,17, 14,17,18,
+  0,1,2, 0,2,5, 2,3,4,
+  6,7,10, 7,10,11, 10,11,14, 11,14,15, 14,15,18, 15,18,19,
+];
+const skinPositions = new Float32Array(HAND_TRIS.length * 3);
+const skinGeo = new THREE.BufferGeometry();
+skinGeo.setAttribute('position', new THREE.BufferAttribute(skinPositions, 3));
+handGroup.add(new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({
+  color: 0x33DDAA, transparent: true, opacity: 0.08,
+  side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
+})));
+
+// 스무딩 버퍼 (떨림 제거)
+const HAND_SMOOTH = 0.35;
+const sLM = Array.from({length: 21}, () => ({x: 0.5, y: 0.5, z: 0}));
+let handInited = false;
+
 handGroup.visible = false;
 
 const HAND_Z_BASE = 4.5;
@@ -999,25 +1019,37 @@ const HAND_Z_BASE = 4.5;
 function updateHandSkeleton(landmarks) {
   if (!landmarks || landmarks.length < 21) {
     handGroup.visible = false;
+    handInited = false;
     return;
   }
   handGroup.visible = true;
 
-  // 카메라 frustum 기반 동적 스케일 (화면과 1:1 매칭)
+  // 스무딩 적용 (첫 프레임은 즉시 세팅)
+  for (let i = 0; i < 21; i++) {
+    if (!handInited) {
+      sLM[i].x = landmarks[i].x; sLM[i].y = landmarks[i].y; sLM[i].z = landmarks[i].z;
+    } else {
+      sLM[i].x += (landmarks[i].x - sLM[i].x) * HAND_SMOOTH;
+      sLM[i].y += (landmarks[i].y - sLM[i].y) * HAND_SMOOTH;
+      sLM[i].z += (landmarks[i].z - sLM[i].z) * HAND_SMOOTH;
+    }
+  }
+  handInited = true;
+
+  // 카메라 frustum 기반 동적 스케일
   const dist  = camera.position.z - HAND_Z_BASE;
   const halfH = dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const halfW = halfH * camera.aspect;
 
   for (let i = 0; i < 21; i++) {
-    const lm = landmarks[i];
-    const x = (0.5 - lm.x) * halfW * 2;
-    const y = -(lm.y - 0.5) * halfH * 2 + camera.position.y;
-    const z = HAND_Z_BASE - lm.z * 2;
+    const x = (0.5 - sLM[i].x) * halfW * 2;
+    const y = -(sLM[i].y - 0.5) * halfH * 2 + camera.position.y;
+    const z = HAND_Z_BASE - sLM[i].z * 2;
     handJointPos[i*3] = x; handJointPos[i*3+1] = y; handJointPos[i*3+2] = z;
   }
   handJointGeo.attributes.position.needsUpdate = true;
 
-  // 뼈대 업데이트
+  // 뼈대
   for (let i = 0; i < HAND_CONNS.length; i++) {
     const [a, b] = HAND_CONNS[i];
     handBonePos[i*6+0] = handJointPos[a*3];   handBonePos[i*6+1] = handJointPos[a*3+1]; handBonePos[i*6+2] = handJointPos[a*3+2];
@@ -1031,6 +1063,15 @@ function updateHandSkeleton(landmarks) {
     tipPos[i*3] = handJointPos[fi*3]; tipPos[i*3+1] = handJointPos[fi*3+1]; tipPos[i*3+2] = handJointPos[fi*3+2];
   }
   tipGeo.attributes.position.needsUpdate = true;
+
+  // 피부 메쉬
+  for (let i = 0; i < HAND_TRIS.length; i++) {
+    const li = HAND_TRIS[i];
+    skinPositions[i*3]   = handJointPos[li*3];
+    skinPositions[i*3+1] = handJointPos[li*3+1];
+    skinPositions[i*3+2] = handJointPos[li*3+2];
+  }
+  skinGeo.attributes.position.needsUpdate = true;
 }
 
 // ─── 별 배경 ───

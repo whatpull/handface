@@ -111,65 +111,81 @@ const K_BACKWARD  = 3;
 const K_INTRA     = 3;
 
 /**
- * 옆모습 뇌 모양 셸 — Fibonacci sphere에 엽 돌출 / 표면 주름 / 균열을 적용.
- * 결과: 측면에서 보면 길쭉한 뇌 실루엣, 회전하면 균열과 양반구가 드러남.
+ * 해부학적 뇌 셸 — 참고 이미지처럼 주름/엽/균열이 뚜렷한 실제 뇌 형태.
+ * 다중 주파수 주름 + 강한 엽 돌출 + 넓은 세로 균열 + 소뇌/뇌간 힌트.
  */
 function brainShape(n, radius) {
   if (n === 1) return [new THREE.Vector3(0, 0, 0)];
   const points = [];
-  const phi = Math.PI * (3 - Math.sqrt(5));   // golden angle
+  const phi = Math.PI * (3 - Math.sqrt(5));
 
-  // 옆에서 본 뇌 비율
-  const SX = 1.32;   // 전후 길이 (가장 긴 축)
-  const SY = 0.86;   // 상하 높이 (압축)
-  const SZ = 0.96;   // 좌우 폭 (반구)
-  const CLEFT = 0.06 * radius;
+  const SX = 1.35;    // 전후 길이
+  const SY = 0.82;    // 상하 높이 (더 납작)
+  const SZ = 1.0;     // 좌우 폭
+  const CLEFT = 0.12 * radius;  // 넓은 세로 균열
 
   for (let i = 0; i < n; i++) {
     const y0 = 1 - (i / (n - 1)) * 2;
     const r0 = Math.sqrt(Math.max(0, 1 - y0 * y0));
     const theta = phi * i;
 
-    // 단위 구체상의 정규화 방향
-    const nx = Math.cos(theta) * r0;   // -1..1, 전후 (front=+1)
-    const ny = y0;                      // -1..1, 상하 (top=+1)
-    const nz = Math.sin(theta) * r0;   // -1..1, 좌우
+    const nx = Math.cos(theta) * r0;
+    const ny = y0;
+    const nz = Math.sin(theta) * r0;
 
-    // ── 엽(lobe) 돌출 ──
+    // ── 엽(lobe) 돌출 — 강하게 ──
     let bulge = 1.0;
 
-    // 전두엽 (frontal lobe): 앞쪽 + 위쪽 — 둥글게 부풀어 오름
-    if (nx > 0.35 && ny > -0.3) {
-      const f = Math.max(0, nx - 0.35);
-      bulge += 0.14 * f * (1.1 - Math.abs(ny + 0.05));
+    // 전두엽 (frontal): 앞쪽+위쪽 — 둥글게 크게
+    if (nx > 0.25 && ny > -0.35) {
+      bulge += 0.22 * Math.max(0, nx - 0.25) * (1.2 - Math.abs(ny));
     }
-    // 후두엽 (occipital): 뒤쪽 + 위쪽
-    if (nx < -0.45 && ny > -0.25) {
-      bulge += 0.08 * (Math.abs(nx) - 0.45);
+    // 두정엽 (parietal): 상단 중앙 — 높이 볼록
+    if (ny > 0.4) {
+      bulge += 0.12 * (ny - 0.4);
     }
-    // 측두엽 (temporal lobes): 양 옆 + 아래쪽
-    if (Math.abs(nz) > 0.45 && ny < 0.0) {
-      bulge += 0.10 * (Math.abs(nz) - 0.45);
+    // 후두엽 (occipital): 뒤쪽 — 볼록
+    if (nx < -0.4 && ny > -0.3) {
+      bulge += 0.15 * (Math.abs(nx) - 0.4);
     }
-    // 소뇌 (cerebellum): 뒤쪽 + 아래쪽 — 별도의 작은 부풀음
-    if (nx < -0.25 && ny < -0.30) {
-      const d = Math.max(0, Math.abs(nx + 0.25) + Math.abs(ny + 0.30) - 0.15);
-      bulge += 0.18 * d;
+    // 측두엽 (temporal): 양 옆+아래 — 옆으로 튀어나옴
+    if (Math.abs(nz) > 0.35 && ny < 0.1) {
+      bulge += 0.18 * (Math.abs(nz) - 0.35) * (0.5 - ny);
+    }
+    // 소뇌 (cerebellum): 뒤쪽+아래 — 작지만 뚜렷한 돌출
+    if (nx < -0.2 && ny < -0.35) {
+      const d = Math.max(0, Math.abs(nx + 0.2) + Math.abs(ny + 0.35) - 0.1);
+      bulge += 0.30 * d;
+    }
+    // 뇌간 힌트 (brain stem): 아래 중앙 — 살짝 아래로
+    if (ny < -0.6 && Math.abs(nx) < 0.3 && Math.abs(nz) < 0.3) {
+      bulge += 0.15;
     }
 
-    // ── 표면 주름 (gyri / sulci) — 다중 주파수 사인파 ──
-    const fold = 0.07 * (
-      Math.sin(ny * 6 + theta * 3) * 0.55 +
-      Math.cos(theta * 5 + ny * 4) * 0.45
-    );
-    const fr = bulge * (1 + fold);
+    // ── 표면 주름 (gyri/sulci) — 다중 옥타브 (세밀한 주름) ──
+    const fold =
+      0.06 * Math.sin(ny * 8 + theta * 4) +
+      0.05 * Math.cos(theta * 7 + ny * 5) +
+      0.03 * Math.sin(ny * 14 + theta * 9) +
+      0.02 * Math.cos(theta * 13 + ny * 8);
 
-    // 타원체 스케일 + 엽 + 주름 적용
+    // 중심 열구 (central sulcus): 위에서 보면 가로 방향 홈
+    const centralSulcus = (Math.abs(nx) < 0.15 && ny > 0.0)
+      ? -0.06 * (1 - Math.abs(nx) / 0.15) * Math.max(0, ny)
+      : 0;
+
+    // 실비우스 열구 (lateral sulcus): 측두엽과 두정엽 사이 홈
+    const lateralSulcus = (Math.abs(nz) > 0.3 && ny > -0.2 && ny < 0.2)
+      ? -0.04 * Math.max(0, Math.abs(nz) - 0.3)
+      : 0;
+
+    const fr = bulge * (1 + fold + centralSulcus + lateralSulcus);
+
     let x = nx * radius * SX * fr;
     let y = ny * radius * SY * fr;
     let z = nz * radius * SZ * fr;
 
-    // 양반구 사이 세로 균열 (Z 축, 깊이 방향)
+    // 양반구 세로 균열 (넓게)
     z += (z >= 0 ? CLEFT : -CLEFT);
 
     // 유기적 jitter
@@ -260,36 +276,42 @@ for (const e of edges) {
 // brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
 // ─────────────────────────────────────────
 (function addBrainOutline() {
-  const R = 2.55;   // 가장 바깥 셸보다 약간 큰 반경
-  const SX = 1.32, SY = 0.86, SZ = 0.96;
-  const CLEFT = 0.06 * R;
+  const R = 2.55;
+  const SX = 1.35, SY = 0.82, SZ = 1.0;
+  const CLEFT = 0.12 * R;
 
-  // 2개 반구를 각각 와이어프레임 구체로 (세로 균열 표현)
   for (const sign of [1, -1]) {
-    const geo = new THREE.SphereGeometry(R, 28, 22);
+    const geo = new THREE.SphereGeometry(R, 36, 28);  // 더 높은 해상도
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i) * SX;
       let y = pos.getY(i) * SY;
       let z = pos.getZ(i) * SZ;
 
-      // 해당 반구만 (좌 또는 우)
       if (sign > 0 && z < 0) z = 0;
       if (sign < 0 && z > 0) z = 0;
 
-      // 엽 돌출 (간소화 버전)
       const len = Math.sqrt(x*x + y*y + z*z) || 1;
       const nx = x/len, ny = y/len, nz = z/len;
-      let bulge = 1.0;
-      if (nx > 0.35 && ny > -0.3) bulge += 0.12 * (nx - 0.35);
-      if (nx < -0.45 && ny > -0.25) bulge += 0.06 * (Math.abs(nx) - 0.45);
-      if (nx < -0.25 && ny < -0.30) bulge += 0.15 * Math.max(0, Math.abs(nx+0.25)+Math.abs(ny+0.30)-0.15);
-
-      // 표면 주름
       const theta = Math.atan2(nz, nx);
-      const fold = 0.04 * (Math.sin(ny * 5 + theta * 3) + Math.cos(theta * 4) * 0.5);
-      const fr = bulge * (1 + fold);
 
+      // 엽 돌출 (brainShape와 동일 — 강화 버전)
+      let bulge = 1.0;
+      if (nx > 0.25 && ny > -0.35) bulge += 0.20 * Math.max(0, nx-0.25) * (1.2-Math.abs(ny));
+      if (ny > 0.4) bulge += 0.10 * (ny - 0.4);
+      if (nx < -0.4 && ny > -0.3) bulge += 0.12 * (Math.abs(nx) - 0.4);
+      if (Math.abs(nz) > 0.35 && ny < 0.1) bulge += 0.16 * (Math.abs(nz)-0.35) * (0.5-ny);
+      if (nx < -0.2 && ny < -0.35) bulge += 0.25 * Math.max(0, Math.abs(nx+0.2)+Math.abs(ny+0.35)-0.1);
+
+      // 주름 (다중 옥타브)
+      const fold = 0.05*Math.sin(ny*8+theta*4) + 0.04*Math.cos(theta*7+ny*5)
+                 + 0.025*Math.sin(ny*14+theta*9) + 0.015*Math.cos(theta*13+ny*8);
+
+      // 열구 (central + lateral)
+      const cs = (Math.abs(nx)<0.15 && ny>0) ? -0.05*(1-Math.abs(nx)/0.15)*ny : 0;
+      const ls = (Math.abs(nz)>0.3 && ny>-0.2 && ny<0.2) ? -0.035*Math.max(0,Math.abs(nz)-0.3) : 0;
+
+      const fr = bulge * (1 + fold + cs + ls);
       x *= fr; y *= fr; z *= fr;
       z += sign * CLEFT;
       pos.setXYZ(i, x, y, z);

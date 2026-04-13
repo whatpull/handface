@@ -268,23 +268,47 @@ for (const e of edges) {
 // brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
 // ─────────────────────────────────────────
 // ─── 뇌 외곽: 로컬 OBJ 모델 로드 ───
-// 뇌 외곽선: LineBasicMaterial (LineSegments + EdgesGeometry 용)
-const brainEdgeMat = new THREE.LineBasicMaterial({
-  color: 0x3399FF,
+// 뇌 표면: Fresnel 림 쉐이더 — 외곽은 밝고 중앙은 투명한 홀로그래픽 글로우
+// 튜닝: rimPower 낮추면 글로우가 전체로 퍼짐, 높이면 얇은 외곽선에 가까워짐
+const brainRimMat = new THREE.ShaderMaterial({
+  uniforms: {
+    rimColor:     { value: new THREE.Color(0x66BBFF) },
+    rimIntensity: { value: 1.6 },
+    rimPower:     { value: 2.2 },
+    coreColor:    { value: new THREE.Color(0x1A4488) },
+    coreAlpha:    { value: 0.06 },
+  },
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    void main() {
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vNormal  = normalize(normalMatrix * normal);
+      vViewDir = normalize(-mvPos.xyz);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    uniform vec3  rimColor;
+    uniform float rimIntensity;
+    uniform float rimPower;
+    uniform vec3  coreColor;
+    uniform float coreAlpha;
+    void main() {
+      // abs() → DoubleSide 에서 앞/뒤 모두 자연스럽게 글로우
+      float f   = 1.0 - abs(dot(vViewDir, vNormal));
+      float rim = pow(f, rimPower) * rimIntensity;
+      vec3  col = rimColor * rim + coreColor * coreAlpha;
+      gl_FragColor = vec4(col, rim + coreAlpha);
+    }
+  `,
+  transparent: true,
   blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.35, depthWrite: false,
-});
-// 뇌 표면: 반투명 실루엣 — 부드러운 양감
-const brainSolidMat = new THREE.MeshBasicMaterial({
-  color: 0x2266CC,
-  blending: THREE.AdditiveBlending,
-  transparent: true, opacity: 0.08, depthWrite: false,
+  depthWrite: false,
   side: THREE.DoubleSide,
 });
-
-// 뇌 외곽선 임계 각도 (deg) — 곡률이 이 각도 이상 꺾이는 경계만 선으로 그림
-// 낮으면 와이어프레임에 가까워 뾰족, 높으면 실루엣만 남아 빈약
-const BRAIN_EDGE_ANGLE = 22;
 
 (function loadBrainOBJ() {
   const loader = new OBJLoader();
@@ -295,16 +319,9 @@ const BRAIN_EDGE_ANGLE = 22;
 
     obj.traverse((node) => {
       if (node.isMesh) {
-        // 버텍스 노말 재계산 → 스무드 쉐이딩 (차후 라이팅 대비)
+        // 버텍스 노말 재계산 → 스무드 쉐이딩 (Fresnel 효과에 필수)
         node.geometry.computeVertexNormals();
-        node.material = brainSolidMat;
-        // 곡률 경계선만 선으로 그림 (삼각형 전체 와이어프레임 대체)
-        const edges = new THREE.EdgesGeometry(node.geometry, BRAIN_EDGE_ANGLE);
-        const edgeLines = new THREE.LineSegments(edges, brainEdgeMat);
-        edgeLines.scale.copy(node.scale);
-        edgeLines.position.copy(node.position);
-        edgeLines.rotation.copy(node.rotation);
-        obj.add(edgeLines);
+        node.material = brainRimMat;
       }
     });
 

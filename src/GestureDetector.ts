@@ -97,10 +97,16 @@ export class GestureDetector {
     let clap = false;
     let twoHandDist: number | null = null;
     if (result.landmarks.length >= 2) {
+      // 양손 줌: 두 손 모두 Open_Palm일 때만 거리 측정
+      const g0 = result.gestures[0]?.[0]?.categoryName;
+      const g1 = result.gestures[1]?.[0]?.categoryName;
+      const bothOpen = g0 === 'Open_Palm' && g1 === 'Open_Palm';
+
       const p1 = result.landmarks[0][LM.MIDDLE_MCP];
       const p2 = result.landmarks[1][LM.MIDDLE_MCP];
       const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-      twoHandDist = dist;
+
+      if (bothOpen) twoHandDist = dist;
 
       const isClose = dist < CLAP_DISTANCE;
       if (isClose && !this.wasHandsClose) {

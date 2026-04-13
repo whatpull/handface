@@ -15,8 +15,8 @@ import type {
 } from './types';
 
 // ─── 상태 머신 상수 ───────────────────────────────
-const PINCH_IN_THRESHOLD  = 0.06;   // 핀치 시작 (손가락 닿음)
-const PINCH_OUT_THRESHOLD = 0.15;   // 핀치 해제 (넓게 — 손 회전 시에도 확실히 풀림)
+const PINCH_IN_THRESHOLD  = 0.045;  // 핀치 시작 (손가락이 거의 닿아야)
+const PINCH_OUT_THRESHOLD = 0.12;   // 핀치 해제
 const CLICK_MAX_HOLD_MS   = 300;    // 이 시간 이내 핀치→해제 = click
 const DBLCLICK_WINDOW_MS  = 500;    // click 간격 이내면 dblclick
 const DRAG_MIN_DIST_PX    = 8;      // 이 픽셀 이상 이동하면 drag
@@ -313,9 +313,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // ── 핀치 Transition 감지 ──
     const isPinching = result.thumbIndexDist < PINCH_IN_THRESHOLD;
     const pinchReleased = !isPinching && result.thumbIndexDist > PINCH_OUT_THRESHOLD;
+    // 핀치 시작 가드: 주먹/손바닥/엄지 제스처에서는 핀치 시작 안 함
+    const BLOCK_PINCH = ['fist', 'openpalm', 'thumbsup', 'thumbsdown', 'iloveyou'];
+    const canStartPinch = !BLOCK_PINCH.includes(result.gestureName ?? '');
     // 제스처 기반 강제 해제: pointing/openpalm이면 확실히 핀치 아님
     const gestureForceRelease = (result.gestureName === 'pointing' || result.gestureName === 'openpalm');
-    const pinchIn  = isPinching && !this.wasPinching;
+    const pinchIn  = isPinching && !this.wasPinching && canStartPinch;
     const pinchOut = (pinchReleased || gestureForceRelease) && this.wasPinching;
     this.wasPinching = isPinching || (this.wasPinching && !pinchReleased && !gestureForceRelease);
 

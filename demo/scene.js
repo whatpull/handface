@@ -1178,7 +1178,7 @@ control.on('scroll', (e) => {
   targetCamZ = Math.max(4.0, Math.min(15, targetCamZ + e.deltaY * 0.055));
   const zoom = Math.round((1 - (targetCamZ - 4.0) / 11.0) * 100);
   sZoomEl.textContent = `${zoom}%`;
-  pushLog('ev-scroll', e.deltaY > 0 ? '✌️ scroll down' : '✌️ scroll up');
+  pushLog('ev-scroll', e.deltaY > 0 ? '🤲 zoom out' : '🤲 zoom in');
 });
 
 const GCFG = {

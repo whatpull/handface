@@ -1350,6 +1350,18 @@ startBtn.addEventListener('click', async () => {
     loadMsg.textContent = 'Setting up voice...';
     try { await voice.init(); } catch {}
 
+    // 카메라 미리보기
+    const camPreview = document.getElementById('cam-preview');
+    const camToggle  = document.getElementById('cam-toggle');
+    if (control.mediaStream && camPreview) {
+      camPreview.srcObject = control.mediaStream;
+    }
+    camToggle?.addEventListener('click', () => {
+      const on = camPreview.style.display !== 'block';
+      camPreview.style.display = on ? 'block' : 'none';
+      camToggle.textContent = on ? '📷 HIDE' : '📷 CAM';
+    });
+
     sStatus.textContent = 'ACTIVE';
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);

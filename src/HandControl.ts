@@ -102,6 +102,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   readonly mapper = new GestureMapper();
 
+  /** 카메라 스트림 (미리보기 표시용) */
+  get mediaStream(): MediaStream | null { return this.stream; }
+
   constructor(options: HandControlOptions = {}) {
     super();
     this.flipHorizontal = options.flipHorizontal ?? true;

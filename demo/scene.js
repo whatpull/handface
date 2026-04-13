@@ -970,19 +970,30 @@ scene.add(handLight);
 const handGroup = new THREE.Group();
 scene.add(handGroup);
 
-// 재질 (피부색)
-const skinMat = new THREE.MeshStandardMaterial({
-  color: 0xFFCCAA, roughness: 0.65, metalness: 0.0,
+// 재질 (뼈 색상)
+const boneMat = new THREE.MeshStandardMaterial({
+  color: 0xF0E0CC, roughness: 0.55, metalness: 0.05,
 });
 const jointMat = new THREE.MeshStandardMaterial({
-  color: 0xFFBB99, roughness: 0.5, metalness: 0.0,
+  color: 0xE8D4BE, roughness: 0.45, metalness: 0.05,
 });
 const tipMat = new THREE.MeshStandardMaterial({
-  color: 0xFFDDCC, roughness: 0.4, metalness: 0.0, emissive: 0x331100, emissiveIntensity: 0.2,
+  color: 0xFFF0E0, roughness: 0.4, metalness: 0.0, emissive: 0x332200, emissiveIntensity: 0.15,
 });
 
-// 공유 지오메트리 (Cylinder — 캡슐보다 스케일이 정확)
-const cylGeo    = new THREE.CylinderGeometry(1, 1, 1, 8);
+// 뼈 모양 지오메트리 (양쪽 끝 볼록, 가운데 얇음 — 실제 뼈 형태)
+const boneProfile = [
+  new THREE.Vector2(0.00, -0.50),
+  new THREE.Vector2(0.75, -0.45),
+  new THREE.Vector2(1.00, -0.35),
+  new THREE.Vector2(0.65, -0.20),
+  new THREE.Vector2(0.40,  0.00),
+  new THREE.Vector2(0.65,  0.20),
+  new THREE.Vector2(1.00,  0.35),
+  new THREE.Vector2(0.75,  0.45),
+  new THREE.Vector2(0.00,  0.50),
+];
+const boneGeo   = new THREE.LatheGeometry(boneProfile, 8);
 const sphereGeo = new THREE.SphereGeometry(1, 8, 8);
 
 // 뼈 두께 (얇게 — 실제 손가락 비례)
@@ -1004,11 +1015,11 @@ const JOINT_R = [
   0.011, 0.009, 0.008, 0.006,
 ];
 
-// 뼈 메쉬 (Cylinder)
+// 뼈 메쉬 (LatheGeometry — 실제 뼈 형태)
 const _up = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
 const boneMeshes = HAND_CONNS.map(() => {
-  const m = new THREE.Mesh(cylGeo, skinMat);
+  const m = new THREE.Mesh(boneGeo, boneMat);
   handGroup.add(m);
   return m;
 });
@@ -1039,7 +1050,8 @@ const palmPositions = new Float32Array(SKIN_TRIS.length * 3);
 const palmGeo = new THREE.BufferGeometry();
 palmGeo.setAttribute('position', new THREE.BufferAttribute(palmPositions, 3));
 handGroup.add(new THREE.Mesh(palmGeo, new THREE.MeshStandardMaterial({
-  color: 0xFFCCAA, roughness: 0.65, metalness: 0.0, side: THREE.DoubleSide,
+  color: 0xF0E0CC, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide,
+  transparent: true, opacity: 0.5,
 })));
 
 // 스무딩 버퍼 (떨림 제거)

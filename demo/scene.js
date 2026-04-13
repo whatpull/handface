@@ -273,10 +273,10 @@ for (const e of edges) {
 const brainRimMat = new THREE.ShaderMaterial({
   uniforms: {
     rimColor:     { value: new THREE.Color(0x66BBFF) },
-    rimIntensity: { value: 1.6 },
-    rimPower:     { value: 2.2 },
+    rimIntensity: { value: 1.0 },
+    rimPower:     { value: 2.8 },
     coreColor:    { value: new THREE.Color(0x1A4488) },
-    coreAlpha:    { value: 0.06 },
+    coreAlpha:    { value: 0.02 },
   },
   vertexShader: `
     varying vec3 vNormal;

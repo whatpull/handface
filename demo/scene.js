@@ -796,15 +796,47 @@ console.log(`[handface] nodes: ${allNodes.length}, edges: ${edges.length}`);
 // 초기 가중치를 강제 설정 (syncEdgeWeightsFromModel 전에도 보이도록)
 for (const e of edges) e.weight = e.targetWeight = 0.3 + Math.random() * 0.5;
 
-const ePosArr = new Float32Array(edges.length * 6);
-const eColArr = new Float32Array(edges.length * 6);
+// ─── 곡선 엣지: 각 엣지에 QuadraticBezier 곡선 생성 (자연스러운 뉴런 돌기 느낌) ───
+const CURVE_SEGMENTS  = 10;
+const VERTS_PER_EDGE  = CURVE_SEGMENTS * 2; // LineSegments (세그먼트당 정점 2개)
+const _curveDir  = new THREE.Vector3();
+const _curveAxis = new THREE.Vector3();
+const _curveN    = new THREE.Vector3();
+const _refUp     = new THREE.Vector3(0, 1, 0);
 edges.forEach((e, i) => {
-  ePosArr[i*6+0] = e.src.pos.x; ePosArr[i*6+1] = e.src.pos.y; ePosArr[i*6+2] = e.src.pos.z;
-  ePosArr[i*6+3] = e.dst.pos.x; ePosArr[i*6+4] = e.dst.pos.y; ePosArr[i*6+5] = e.dst.pos.z;
-  // 초기 색상도 설정 (검은색이 아닌 앰버)
+  _curveDir.subVectors(e.dst.pos, e.src.pos);
+  const len = _curveDir.length();
+  // 엣지 인덱스 기반 결정적 시드 (0~1)
+  const seed = ((i * 9301 + 49297) % 233280) / 233280;
+  // src→dst 축에 수직인 방향 얻기
+  _curveAxis.copy(_curveDir).normalize();
+  _curveN.crossVectors(_curveDir, _refUp);
+  if (_curveN.lengthSq() < 1e-6) _curveN.set(1, 0, 0);
+  _curveN.normalize();
+  // 수직방향을 축 중심으로 회전 → 엣지별 다른 곡선 면
+  _curveN.applyAxisAngle(_curveAxis, seed * Math.PI * 2);
+  // 곡률 강도: 엣지 길이의 10~18% + intra-layer는 더 휘게
+  const strength = len * (0.10 + seed * 0.08) * (e.intra ? 1.4 : 1.0);
+  const mid = new THREE.Vector3()
+    .addVectors(e.src.pos, e.dst.pos).multiplyScalar(0.5)
+    .addScaledVector(_curveN, strength);
+  e.curve = new THREE.QuadraticBezierCurve3(e.src.pos.clone(), mid, e.dst.pos.clone());
+  e.curvePoints = e.curve.getPoints(CURVE_SEGMENTS); // CURVE_SEGMENTS+1 points
+});
+
+const ePosArr = new Float32Array(edges.length * VERTS_PER_EDGE * 3);
+const eColArr = new Float32Array(edges.length * VERTS_PER_EDGE * 3);
+edges.forEach((e, i) => {
+  const base = i * VERTS_PER_EDGE * 3;
   const b = e.weight * 0.12;
-  eColArr[i*6+0] = b; eColArr[i*6+1] = b * 0.4; eColArr[i*6+2] = b * 0.05;
-  eColArr[i*6+3] = b; eColArr[i*6+4] = b * 0.4; eColArr[i*6+5] = b * 0.05;
+  for (let s = 0; s < CURVE_SEGMENTS; s++) {
+    const a = e.curvePoints[s], c = e.curvePoints[s + 1];
+    const off = base + s * 6;
+    ePosArr[off+0] = a.x; ePosArr[off+1] = a.y; ePosArr[off+2] = a.z;
+    ePosArr[off+3] = c.x; ePosArr[off+4] = c.y; ePosArr[off+5] = c.z;
+    eColArr[off+0] = b; eColArr[off+1] = b * 0.4; eColArr[off+2] = b * 0.05;
+    eColArr[off+3] = b; eColArr[off+4] = b * 0.4; eColArr[off+5] = b * 0.05;
+  }
 });
 const edgeGeo = new THREE.BufferGeometry();
 edgeGeo.setAttribute('position', new THREE.BufferAttribute(ePosArr, 3));
@@ -1247,15 +1279,20 @@ function animate() {
   // ── 엣지/노드/스파크 업데이트 (드래그 중 건너뛰어 부하 감소) ──
   if (!isDraggingBrain) {
 
-  // 엣지 색상 (가중치 × 활성화 = 밝기)
+  // 엣지 색상 (가중치 × 활성화 = 밝기) — 곡선 정점 전체에 동일 색
   for (let i = 0; i < edges.length; i++) {
     const e   = edges[i];
     const act = Math.max(e.src.activation * 0.8, e.dst.activation * 0.65);
     const b   = e.weight * (0.12 + 0.88 * act);
     // 앰버 팔레트 (1.0, 0.40, 0.05)
     const r = b * 1.00, g = b * 0.40, bl = b * 0.05;
-    eColArr[i*6+0] = r;  eColArr[i*6+1] = g;  eColArr[i*6+2] = bl;
-    eColArr[i*6+3] = r;  eColArr[i*6+4] = g;  eColArr[i*6+5] = bl;
+    const base = i * VERTS_PER_EDGE * 3;
+    for (let v = 0; v < VERTS_PER_EDGE; v++) {
+      const off = base + v * 3;
+      eColArr[off]   = r;
+      eColArr[off+1] = g;
+      eColArr[off+2] = bl;
+    }
   }
   edgeGeo.attributes.color.needsUpdate = true;
 
@@ -1281,7 +1318,7 @@ function animate() {
   }
   for (let i = 0; i < sparkPool.length; i++) {
     const sp = sparkPool[i];
-    _v3.lerpVectors(sp.edge.src.pos, sp.edge.dst.pos, sp.t);
+    sp.edge.curve.getPoint(sp.t, _v3);
     spPosArr[i*3]   = _v3.x;
     spPosArr[i*3+1] = _v3.y;
     spPosArr[i*3+2] = _v3.z;

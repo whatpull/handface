@@ -80,7 +80,10 @@ export class GestureDetector {
         modelAssetPath: MODEL_URL,
         delegate: 'GPU',
       },
-      numHands: this.handednessFilter ? 2 : 1,
+      numHands: 2,   // 항상 양손 감지 (줌 제스처용)
+      minHandDetectionConfidence: 0.35,   // 기본 0.5 → 더 민감하게
+      minHandPresenceConfidence: 0.35,
+      minTrackingConfidence: 0.35,
       runningMode: 'VIDEO',
     });
   }

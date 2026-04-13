@@ -1097,16 +1097,20 @@ let prevDragX      = 0, prevDragY      = 0;
 let baseRotY   = 0;
 let clickCount = 0;
 
+// 커서 스무딩 (검지 끝 떨림 제거)
+let sCurX = 0, sCurY = 0, curInited = false;
+const CUR_SMOOTH = 0.25;  // 낮을수록 부드러움
+
 control.on('move', (e) => {
-  // 커서를 실제 손 위치(검지 끝)와 일치시키기 위해 rawHand 좌표 사용
   const lm = control.handLandmarks;
   if (lm && lm[8]) {
-    // 검지 끝(landmark 8)의 웹캠 좌표 → 스크린 좌표 (거울 반전)
-    const sx = (1 - lm[8].x) * window.innerWidth;
-    const sy = lm[8].y * window.innerHeight;
-    cursorEl.style.left = `${sx}px`;
-    cursorEl.style.top  = `${sy}px`;
-    sPosEl.textContent  = `${Math.round(sx)} · ${Math.round(sy)}`;
+    const rawX = (1 - lm[8].x) * window.innerWidth;
+    const rawY = lm[8].y * window.innerHeight;
+    if (!curInited) { sCurX = rawX; sCurY = rawY; curInited = true; }
+    else { sCurX += (rawX - sCurX) * CUR_SMOOTH; sCurY += (rawY - sCurY) * CUR_SMOOTH; }
+    cursorEl.style.left = `${sCurX}px`;
+    cursorEl.style.top  = `${sCurY}px`;
+    sPosEl.textContent  = `${Math.round(sCurX)} · ${Math.round(sCurY)}`;
   } else {
     cursorEl.style.left = `${e.screenX}px`;
     cursorEl.style.top  = `${e.screenY}px`;

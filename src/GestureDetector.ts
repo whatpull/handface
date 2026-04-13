@@ -96,29 +96,25 @@ export class GestureDetector {
     let clap = false;
     let twoHandDist: number | null = null;
     if (result.landmarks.length >= 2) {
-      const g0 = result.gestures[0]?.[0]?.categoryName;
-      const g1 = result.gestures[1]?.[0]?.categoryName;
-      const bothOpen = g0 === 'Open_Palm' && g1 === 'Open_Palm';
-
       const lm0 = result.landmarks[0], lm1 = result.landmarks[1];
+
+      // 양손이 서로 마주보는지: 카메라에 손날(edge)이 보임
+      // → 손바닥 가로폭(index MCP ↔ pinky MCP)이 세로(wrist ↔ middle MCP)보다 좁으면 edge-on
+      const palmW0 = Math.abs(lm0[LM.INDEX_MCP].x - lm0[LM.PINKY_MCP].x);
+      const palmH0 = Math.abs(lm0[LM.WRIST].y - lm0[LM.MIDDLE_MCP].y) || 0.01;
+      const palmW1 = Math.abs(lm1[LM.INDEX_MCP].x - lm1[LM.PINKY_MCP].x);
+      const palmH1 = Math.abs(lm1[LM.WRIST].y - lm1[LM.MIDDLE_MCP].y) || 0.01;
+
+      const edgeOn0 = palmW0 < palmH0 * 0.55;
+      const edgeOn1 = palmW1 < palmH1 * 0.55;
+
       const p1 = lm0[LM.MIDDLE_MCP], p2 = lm1[LM.MIDDLE_MCP];
       const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-      // 양손이 서로 마주보는지 확인:
-      // 왼쪽 손의 엄지가 오른쪽(다른 손 방향), 오른쪽 손의 엄지가 왼쪽(다른 손 방향)
-      let facingEachOther = false;
-      if (bothOpen) {
-        const palm0x = lm0[LM.MIDDLE_MCP].x, palm1x = lm1[LM.MIDDLE_MCP].x;
-        const thumb0x = lm0[LM.THUMB_TIP].x, thumb1x = lm1[LM.THUMB_TIP].x;
-        // 왼쪽에 있는 손: 엄지가 오른쪽(안쪽), 오른쪽 손: 엄지가 왼쪽(안쪽)
-        if (palm0x < palm1x) {
-          facingEachOther = thumb0x > palm0x + 0.015 && thumb1x < palm1x - 0.015;
-        } else {
-          facingEachOther = thumb1x > palm1x + 0.015 && thumb0x < palm0x - 0.015;
-        }
+      // 양손 다 edge-on이고 수평으로 분리 → 서로 마주보는 상태 → 줌
+      if (edgeOn0 && edgeOn1 && Math.abs(p1.y - p2.y) < 0.25) {
+        twoHandDist = dist;
       }
-
-      if (facingEachOther) twoHandDist = dist;
 
       const isClose = dist < CLAP_DISTANCE;
       if (isClose && !this.wasHandsClose) {

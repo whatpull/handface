@@ -3,7 +3,6 @@ import {
   FilesetResolver,
   type NormalizedLandmark,
 } from '@mediapipe/tasks-vision';
-import { distance } from './utils/geometry';
 import type { GestureName } from './types';
 
 const LM = {

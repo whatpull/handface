@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import brainObjUrl from './brain.obj?url';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { WebLLMBackend } from './webllm-backend.js';
@@ -266,12 +267,7 @@ for (const e of edges) {
 // 뇌 외곽 와이어프레임 (참고 이미지처럼 뇌 실루엣이 보이도록)
 // brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
 // ─────────────────────────────────────────
-// ─── 뇌 외곽: GLB 모델 로드 (실패 시 procedural fallback) ───
-const BRAIN_URLS = [
-  'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LittlestTokyo.glb', // placeholder
-  'https://www.get3dmodels.com/download/Brain.glb',
-];
-
+// ─── 뇌 외곽: 로컬 OBJ 모델 로드 ───
 const brainWireMat = new THREE.MeshBasicMaterial({
   color: 0x3399FF, wireframe: true,
   blending: THREE.AdditiveBlending,
@@ -284,77 +280,30 @@ const brainSolidMat = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 
-// Procedural fallback (이전 방식 간소화)
-function addProceduralBrainOutline() {
-  const R = 2.55, SX = 1.30, SY = 0.78, SZ = 1.02, CL = 0.14 * R;
-  for (const s of [1, -1]) {
-    const geo = new THREE.SphereGeometry(R, 32, 24);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      let x = pos.getX(i)*SX, y = pos.getY(i)*SY, z = pos.getZ(i)*SZ;
-      if (s > 0 && z < 0) z = 0;
-      if (s < 0 && z > 0) z = 0;
-      const l = Math.sqrt(x*x+y*y+z*z)||1;
-      const fold = 0.08 * brainNoise(x/l*6, y/l*6, z/l*6);
-      x *= (1+fold); y *= (1+fold); z *= (1+fold);
-      z += s * CL;
-      pos.setXYZ(i, x, y, z);
-    }
-    geo.computeVertexNormals();
-    network.add(new THREE.Mesh(geo, brainWireMat.clone()));
-    network.add(new THREE.Mesh(geo.clone(), brainSolidMat.clone()));
-  }
-}
+(function loadBrainOBJ() {
+  const loader = new OBJLoader();
+  loader.load(brainObjUrl, (obj) => {
+    // OBJ는 단위구 크기(R=1) → 네트워크 크기(~5)로 스케일
+    const scale = 2.55;
+    obj.scale.setScalar(scale);
 
-// GLB 로드 시도
-(async function loadBrainModel() {
-  const loader = new GLTFLoader();
+    obj.traverse((node) => {
+      if (node.isMesh) {
+        node.material = brainSolidMat;
+        // 와이어프레임 복사본 추가
+        const wire = new THREE.Mesh(node.geometry, brainWireMat);
+        wire.scale.copy(node.scale);
+        wire.position.copy(node.position);
+        wire.rotation.copy(node.rotation);
+        obj.add(wire);
+      }
+    });
 
-  for (const url of BRAIN_URLS) {
-    try {
-      const gltf = await new Promise((resolve, reject) => {
-        loader.load(url, resolve, undefined, reject);
-      });
-
-      const model = gltf.scene;
-
-      // 바운딩 박스로 크기 계산 → 뇌 노드와 매칭되도록 스케일
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const targetSize = 5.2;  // 노드 네트워크가 ~5 단위 크기
-      const scale = targetSize / maxDim;
-
-      model.scale.setScalar(scale);
-      model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
-
-      // 모든 메쉬를 와이어프레임 + 반투명 솔리드로 교체
-      model.traverse((node) => {
-        if (node.isMesh) {
-          // 와이어프레임 복사본
-          const wire = new THREE.Mesh(node.geometry, brainWireMat);
-          wire.position.copy(node.position);
-          wire.rotation.copy(node.rotation);
-          wire.scale.copy(node.scale);
-          model.add(wire);
-
-          // 원본 → 반투명 솔리드
-          node.material = brainSolidMat;
-        }
-      });
-
-      network.add(model);
-      console.log('[handface] Brain GLB loaded from:', url);
-      return;  // 성공 → 종료
-    } catch {
-      console.warn('[handface] Brain GLB failed:', url);
-    }
-  }
-
-  // 모든 URL 실패 → procedural fallback
-  console.log('[handface] Using procedural brain outline');
-  addProceduralBrainOutline();
+    network.add(obj);
+    console.log('[handface] Brain OBJ loaded');
+  }, undefined, (err) => {
+    console.warn('[handface] Brain OBJ failed:', err.message);
+  });
 })();
 
 // ─────────────────────────────────────────

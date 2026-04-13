@@ -961,51 +961,66 @@ const HAND_CONNS = [
   [5,9],[9,13],[13,17],              // palm
 ];
 
+// ─── 3D 손 모델 조명 ──────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const handLight = new THREE.DirectionalLight(0xFFEEDD, 0.8);
+handLight.position.set(3, 5, 7);
+scene.add(handLight);
+
 const handGroup = new THREE.Group();
 scene.add(handGroup);
 
-// 관절 (작은 원형 포인트)
-const handJointPos = new Float32Array(21 * 3);
-const handJointGeo = new THREE.BufferGeometry();
-handJointGeo.setAttribute('position', new THREE.BufferAttribute(handJointPos, 3));
-handGroup.add(new THREE.Points(handJointGeo, new THREE.PointsMaterial({
-  color: 0x44FFAA, size: 0.12, map: SPRITE_SHARP, alphaTest: 0.01,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-})));
+// 재질 (피부색)
+const skinMat = new THREE.MeshStandardMaterial({
+  color: 0xFFCCAA, roughness: 0.65, metalness: 0.0,
+});
+const jointMat = new THREE.MeshStandardMaterial({
+  color: 0xFFBB99, roughness: 0.5, metalness: 0.0,
+});
+const tipMat = new THREE.MeshStandardMaterial({
+  color: 0xFFDDCC, roughness: 0.4, metalness: 0.0, emissive: 0x331100, emissiveIntensity: 0.2,
+});
 
-// 뼈대 (라인)
-const handBonePos = new Float32Array(HAND_CONNS.length * 6);
-const handBoneGeo = new THREE.BufferGeometry();
-handBoneGeo.setAttribute('position', new THREE.BufferAttribute(handBonePos, 3));
-handGroup.add(new THREE.LineSegments(handBoneGeo, new THREE.LineBasicMaterial({
-  color: 0x44FFAA, transparent: true, opacity: 0.7,
-  blending: THREE.AdditiveBlending, depthWrite: false,
-})));
+// 공유 지오메트리
+const capsuleGeo  = new THREE.CapsuleGeometry(1, 1, 4, 8);
+const sphereGeo   = new THREE.SphereGeometry(1, 10, 10);
 
-// 손가락 끝 하이라이트 (더 밝은 점)
-const FINGERTIPS = [4, 8, 12, 16, 20];
-const tipPos = new Float32Array(FINGERTIPS.length * 3);
-const tipGeo = new THREE.BufferGeometry();
-tipGeo.setAttribute('position', new THREE.BufferAttribute(tipPos, 3));
-handGroup.add(new THREE.Points(tipGeo, new THREE.PointsMaterial({
-  color: 0xFFFFAA, size: 0.18, map: SPRITE_SOFT, alphaTest: 0.01,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-})));
-
-// 손 피부 메쉬 (반투명 — 뇌 실루엣처럼)
-const HAND_TRIS = [
-  0,5,9, 0,9,13, 0,13,17,
-  5,6,9, 6,9,10, 9,10,13, 10,13,14, 13,14,17, 14,17,18,
-  0,1,2, 0,2,5, 2,3,4,
-  6,7,10, 7,10,11, 10,11,14, 11,14,15, 14,15,18, 15,18,19,
+// 뼈 두께 (인덱스별)
+const BONE_R = [
+  0.032,  // 0: wrist→thumb_cmc
+  0.028, 0.025, 0.022,  // thumb
+  0.032, 0.026, 0.022, 0.018,  // index
+  0.032, 0.026, 0.022, 0.018,  // middle
+  0.032, 0.024, 0.020, 0.016,  // ring
+  0.032, 0.024, 0.020, 0.016,  // pinky
+  0.028, 0.028, 0.028,         // palm cross
 ];
-const skinPositions = new Float32Array(HAND_TRIS.length * 3);
-const skinGeo = new THREE.BufferGeometry();
-skinGeo.setAttribute('position', new THREE.BufferAttribute(skinPositions, 3));
-handGroup.add(new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({
-  color: 0x33DDAA, transparent: true, opacity: 0.08,
-  side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
-})));
+const JOINT_R = [
+  0.038,  // wrist
+  0.030, 0.026, 0.024, 0.022,  // thumb
+  0.030, 0.026, 0.022, 0.018,  // index
+  0.030, 0.026, 0.022, 0.018,  // middle
+  0.028, 0.024, 0.020, 0.016,  // ring
+  0.028, 0.024, 0.020, 0.016,  // pinky
+];
+
+// 뼈 메쉬 (HAND_CONNS 각각)
+const _up = new THREE.Vector3(0, 1, 0);
+const _dir = new THREE.Vector3();
+const boneMeshes = HAND_CONNS.map((_, i) => {
+  const m = new THREE.Mesh(capsuleGeo, skinMat);
+  handGroup.add(m);
+  return m;
+});
+
+// 관절 구체
+const FINGERTIPS = [4, 8, 12, 16, 20];
+const jointMeshes = Array.from({length: 21}, (_, i) => {
+  const mat = FINGERTIPS.includes(i) ? tipMat : jointMat;
+  const m = new THREE.Mesh(sphereGeo, mat);
+  handGroup.add(m);
+  return m;
+});
 
 // 스무딩 버퍼 (떨림 제거)
 const HAND_SMOOTH = 0.35;
@@ -1041,37 +1056,36 @@ function updateHandSkeleton(landmarks) {
   const halfH = dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const halfW = halfH * camera.aspect;
 
+  // 3D 관절 좌표 계산
+  const jPos = [];
   for (let i = 0; i < 21; i++) {
-    const x = (0.5 - sLM[i].x) * halfW * 2;
-    const y = -(sLM[i].y - 0.5) * halfH * 2 + camera.position.y;
-    const z = HAND_Z_BASE - sLM[i].z * 2;
-    handJointPos[i*3] = x; handJointPos[i*3+1] = y; handJointPos[i*3+2] = z;
+    jPos.push(new THREE.Vector3(
+      (0.5 - sLM[i].x) * halfW * 2,
+      -(sLM[i].y - 0.5) * halfH * 2 + camera.position.y,
+      HAND_Z_BASE - sLM[i].z * 2,
+    ));
   }
-  handJointGeo.attributes.position.needsUpdate = true;
 
-  // 뼈대
+  // 관절 구체 배치
+  for (let i = 0; i < 21; i++) {
+    const r = JOINT_R[i] || 0.02;
+    jointMeshes[i].position.copy(jPos[i]);
+    jointMeshes[i].scale.setScalar(r);
+  }
+
+  // 뼈 캡슐 배치 (두 관절 사이)
   for (let i = 0; i < HAND_CONNS.length; i++) {
     const [a, b] = HAND_CONNS[i];
-    handBonePos[i*6+0] = handJointPos[a*3];   handBonePos[i*6+1] = handJointPos[a*3+1]; handBonePos[i*6+2] = handJointPos[a*3+2];
-    handBonePos[i*6+3] = handJointPos[b*3];   handBonePos[i*6+4] = handJointPos[b*3+1]; handBonePos[i*6+5] = handJointPos[b*3+2];
-  }
-  handBoneGeo.attributes.position.needsUpdate = true;
+    const pa = jPos[a], pb = jPos[b];
+    const mid = new THREE.Vector3().addVectors(pa, pb).multiplyScalar(0.5);
+    const len = pa.distanceTo(pb);
+    const r   = BONE_R[i] || 0.02;
 
-  // 손가락 끝 하이라이트
-  for (let i = 0; i < FINGERTIPS.length; i++) {
-    const fi = FINGERTIPS[i];
-    tipPos[i*3] = handJointPos[fi*3]; tipPos[i*3+1] = handJointPos[fi*3+1]; tipPos[i*3+2] = handJointPos[fi*3+2];
+    boneMeshes[i].position.copy(mid);
+    _dir.subVectors(pb, pa).normalize();
+    boneMeshes[i].quaternion.setFromUnitVectors(_up, _dir);
+    boneMeshes[i].scale.set(r, len / 2, r);
   }
-  tipGeo.attributes.position.needsUpdate = true;
-
-  // 피부 메쉬
-  for (let i = 0; i < HAND_TRIS.length; i++) {
-    const li = HAND_TRIS[i];
-    skinPositions[i*3]   = handJointPos[li*3];
-    skinPositions[i*3+1] = handJointPos[li*3+1];
-    skinPositions[i*3+2] = handJointPos[li*3+2];
-  }
-  skinGeo.attributes.position.needsUpdate = true;
 }
 
 // ─── 별 배경 ───

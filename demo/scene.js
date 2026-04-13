@@ -296,18 +296,18 @@ for (const e of edges) {
     }
     geo.computeVertexNormals();
 
-    // 와이어프레임 메쉬 (시안/블루 — 내부 앰버 네트워크와 대비)
+    // 와이어프레임 메쉬 (시안/블루 — 뇌 실루엣)
     network.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
       color: 0x3399FF, wireframe: true,
       blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.055, depthWrite: false,
+      transparent: true, opacity: 0.13, depthWrite: false,
     })));
 
-    // 솔리드 표면 (극히 얇은 반투명 블루 — 형체감)
+    // 솔리드 표면 (반투명 블루 — 형체감)
     network.add(new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({
       color: 0x2266CC,
       blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.018, depthWrite: false,
+      transparent: true, opacity: 0.04, depthWrite: false,
     })));
   }
 })();
@@ -1218,7 +1218,7 @@ function animate() {
   for (let i = 0; i < edges.length; i++) {
     const e   = edges[i];
     const act = Math.max(e.src.activation * 0.8, e.dst.activation * 0.65);
-    const b   = e.weight * (0.035 + 0.965 * act);
+    const b   = e.weight * (0.12 + 0.88 * act);
     // 앰버 팔레트 (1.0, 0.40, 0.05)
     const r = b * 1.00, g = b * 0.40, bl = b * 0.05;
     eColArr[i*6+0] = r;  eColArr[i*6+1] = g;  eColArr[i*6+2] = bl;
@@ -1230,13 +1230,13 @@ function animate() {
   for (let i = 0; i < allNodes.length; i++) {
     const a = allNodes[i].activation;
     // 헤일로: 부드러운 앰버 글로우
-    nHaloArr[i*3+0] = 0.025 + a * 0.55;
-    nHaloArr[i*3+1] = 0.010 + a * 0.22;
-    nHaloArr[i*3+2] = 0.003 + a * 0.03;
+    nHaloArr[i*3+0] = 0.08 + a * 0.52;
+    nHaloArr[i*3+1] = 0.03 + a * 0.20;
+    nHaloArr[i*3+2] = 0.01 + a * 0.03;
     // 코어: 활성화 시 밝은 화이트-옐로우
-    nCoreArr[i*3+0] = 0.10 + a * 0.90;
-    nCoreArr[i*3+1] = 0.04 + a * 0.72;
-    nCoreArr[i*3+2] = 0.01 + a * 0.20;
+    nCoreArr[i*3+0] = 0.20 + a * 0.80;
+    nCoreArr[i*3+1] = 0.08 + a * 0.68;
+    nCoreArr[i*3+2] = 0.02 + a * 0.18;
   }
   nodeHaloGeo.attributes.color.needsUpdate = true;
   nodeCoreGeo.attributes.color.needsUpdate = true;

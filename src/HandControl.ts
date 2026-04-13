@@ -16,10 +16,11 @@ import type {
 
 // ─── 상태 머신 상수 ───────────────────────────────
 const PINCH_IN_THRESHOLD  = 0.06;   // 핀치 시작 (손가락 닿음)
-const PINCH_OUT_THRESHOLD = 0.10;   // 핀치 해제 (손가락 벌어짐)
+const PINCH_OUT_THRESHOLD = 0.15;   // 핀치 해제 (넓게 — 손 회전 시에도 확실히 풀림)
 const CLICK_MAX_HOLD_MS   = 300;    // 이 시간 이내 핀치→해제 = click
 const DBLCLICK_WINDOW_MS  = 500;    // click 간격 이내면 dblclick
 const DRAG_MIN_DIST_PX    = 8;      // 이 픽셀 이상 이동하면 drag
+const DRAG_TIMEOUT_MS     = 8000;   // 드래그 최대 유지 시간 (자동 해제)
 const HOVER_STILL_MS      = 500;    // 정지 시간 이상이면 hover
 const HOVER_MOVE_PX       = 50;     // 이 이상 움직이면 hover 해제
 const SCROLL_SENSITIVITY  = 120;    // 스크롤 속도 계수
@@ -31,7 +32,7 @@ const ADAPTIVE_SPEED_THRESHOLD = 0.022;
 const ADAPTIVE_MIN_ALPHA       = 0.04;
 const ADAPTIVE_MAX_ALPHA       = 0.65;
 
-type PointerState = 'idle' | 'mousedown' | 'dragging' | 'scrolling';
+type PointerState = 'idle' | 'mousedown' | 'dragging';
 
 function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' | null {
   if (h === 'right') return 'Right';
@@ -312,9 +313,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // ── 핀치 Transition 감지 ──
     const isPinching = result.thumbIndexDist < PINCH_IN_THRESHOLD;
     const pinchReleased = !isPinching && result.thumbIndexDist > PINCH_OUT_THRESHOLD;
+    // 제스처 기반 강제 해제: pointing/openpalm이면 확실히 핀치 아님
+    const gestureForceRelease = (result.gestureName === 'pointing' || result.gestureName === 'openpalm');
     const pinchIn  = isPinching && !this.wasPinching;
-    const pinchOut = pinchReleased && this.wasPinching;
-    this.wasPinching = isPinching || (this.wasPinching && !pinchReleased);
+    const pinchOut = (pinchReleased || gestureForceRelease) && this.wasPinching;
+    this.wasPinching = isPinching || (this.wasPinching && !pinchReleased && !gestureForceRelease);
 
     // ── 우클릭 (중지+엄지 핀치) Transition ──
     const isRightPinch = result.thumbMiddleDist < PINCH_IN_THRESHOLD;
@@ -334,11 +337,11 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
           this.mouseDownPos  = { x: pos.screenX, y: pos.screenY };
           this.emit('mousedown', pos as ClickEvent);
         }
-        // 두 손가락 (victory) → 스크롤 모드
-        if (result.gestureName === 'victory') {
-          this.pointerState  = 'scrolling';
-          this.prevScrollY   = this.rawHandY;  // 실제 손 위치 기준
-          this.scrollGraceMs = now;
+        // 엄지 위/아래 → 스크롤 (정적 제스처, 스와이프 불필요)
+        if (result.gestureName === 'thumbsup') {
+          this.emit('scroll', { deltaY: -SCROLL_SENSITIVITY * 0.15 });
+        } else if (result.gestureName === 'thumbsdown') {
+          this.emit('scroll', { deltaY: SCROLL_SENSITIVITY * 0.15 });
         }
         break;
 
@@ -374,9 +377,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         break;
 
       case 'dragging':
-        if (pinchOut) {
+        if (pinchOut || now - this.mouseDownTime > DRAG_TIMEOUT_MS) {
           this.emit('dragend', pos as ClickEvent);
           this.emit('mouseup', pos as ClickEvent);
+          this.wasPinching = false;
           this.pointerState = 'idle';
         } else {
           // 드래그: 고정 커서가 아닌 실제 손 위치를 전달 (회전 delta 계산용)
@@ -389,23 +393,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         }
         break;
 
-      case 'scrolling': {
-        const isVictory = result.gestureName === 'victory';
-        if (isVictory) this.scrollGraceMs = now;
-
-        // grace period (300ms): victory 깜빡임에도 스크롤 유지
-        if (!isVictory && now - this.scrollGraceMs > 300) {
-          this.pointerState = 'idle';
-        } else {
-          // 실제 손 Y 위치로 스크롤 delta 계산 (커서 스무딩 무관)
-          const deltaY = (this.rawHandY - this.prevScrollY) * SCROLL_SENSITIVITY;
-          if (Math.abs(deltaY) > 0.3) {
-            this.emit('scroll', { deltaY });
-          }
-          this.prevScrollY = this.rawHandY;
-        }
-        break;
-      }
+      // scrolling 상태 제거 — 엄지 위/아래가 idle에서 직접 처리
     }
 
     // ── 제스처 이벤트 (개발자 API) + 단축키 ──

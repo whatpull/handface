@@ -1070,10 +1070,9 @@ function syncEdgeWeightsFromModel() {
 // ─────────────────────────────────────────
 const control = new HandControl({ handedness: 'right', cursorSource: 'gaze' });
 
-// 커서 오프셋 (-0.5 ~ +0.5) — 회전 속도의 입력
-let cursorOffX = 0, cursorOffY = 0;
-// 누적 회전 (커서 위치 기반 속도로 적분됨)
-let cursorRotX = 0, cursorRotY = 0;
+// 회전 상태 (drag 이벤트로 제어)
+let dragRotX   = 0, dragRotY = 0;
+let prevDragX  = 0, prevDragY = 0;
 let baseRotY   = 0;
 let clickCount = 0;
 
@@ -1081,14 +1080,10 @@ control.on('move', (e) => {
   cursorEl.style.left = `${e.screenX}px`;
   cursorEl.style.top  = `${e.screenY}px`;
   sPosEl.textContent  = `${e.screenX} · ${e.screenY}`;
-  cursorOffX = e.x - 0.5;
-  cursorOffY = e.y - 0.5;
 });
 
-// 마우스 폴백 (HandControl 시작 전에도 회전 가능)
+// 마우스 폴백 (HandControl 시작 전 커서 표시)
 window.addEventListener('mousemove', (e) => {
-  cursorOffX = (e.clientX / window.innerWidth)  - 0.5;
-  cursorOffY = (e.clientY / window.innerHeight) - 0.5;
   cursorEl.style.left = `${e.clientX}px`;
   cursorEl.style.top  = `${e.clientY}px`;
 });
@@ -1111,6 +1106,34 @@ control.on('dblclick', () => {
 });
 control.on('contextmenu', () => {
   pushLog('', '🖖 contextmenu');
+});
+// 3D 뇌 회전: drag 이벤트로 제어
+control.on('dragstart', (e) => {
+  prevDragX = e.screenX;
+  prevDragY = e.screenY;
+  pushLog('', '↔ dragstart');
+});
+control.on('drag', (e) => {
+  dragRotY += (e.screenX - prevDragX) * 0.006;
+  dragRotX += (e.screenY - prevDragY) * 0.004;
+  dragRotX  = Math.max(-1.2, Math.min(1.2, dragRotX));
+  prevDragX = e.screenX;
+  prevDragY = e.screenY;
+});
+control.on('dragend', () => {
+  pushLog('', '↔ dragend');
+});
+// 마우스 드래그 폴백 (HandControl 시작 전)
+let mouseDown = false, mousePrevX = 0, mousePrevY = 0;
+window.addEventListener('mousedown', (e) => { mouseDown = true; mousePrevX = e.clientX; mousePrevY = e.clientY; });
+window.addEventListener('mouseup',   ()  => { mouseDown = false; });
+window.addEventListener('mousemove', (e) => {
+  if (!mouseDown) return;
+  dragRotY += (e.clientX - mousePrevX) * 0.006;
+  dragRotX += (e.clientY - mousePrevY) * 0.004;
+  dragRotX  = Math.max(-1.2, Math.min(1.2, dragRotX));
+  mousePrevX = e.clientX;
+  mousePrevY = e.clientY;
 });
 
 control.on('scroll', (e) => {
@@ -1240,16 +1263,10 @@ function animate() {
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
 
-  // ── 카메라 고정, 뇌만 회전 (공간 그리드는 고정) ──
+  // ── 뇌 회전: 자동 + 핀치 드래그 ──
   baseRotY += 0.0015;
-  const DZ = 0.06;
-  const dx = Math.sign(cursorOffX) * Math.max(0, Math.abs(cursorOffX) - DZ);
-  const dy = Math.sign(cursorOffY) * Math.max(0, Math.abs(cursorOffY) - DZ);
-  cursorRotY += dx * 0.016;
-  cursorRotX += dy * 0.011;
-  cursorRotX = Math.max(-1.0, Math.min(1.0, cursorRotX));
-  network.rotation.x = cursorRotX;
-  network.rotation.y = baseRotY + cursorRotY;
+  network.rotation.x = dragRotX;
+  network.rotation.y = baseRotY + dragRotY;
 
   camZ += (targetCamZ - camZ) * 0.055;
   camera.position.z = camZ;

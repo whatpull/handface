@@ -4,8 +4,8 @@ import { GESTURE_META, type GestureName } from './types';
 
 const P = 'hf-'; // CSS class prefix (스타일 충돌 방지)
 
-const CONFIGURABLE: GestureName[] = ['thumbsup', 'thumbsdown', 'victory', 'iloveyou'];
-const BUILTIN: GestureName[]      = ['pointing', 'fist', 'openpalm'];
+const CONFIGURABLE: GestureName[] = ['pointing', 'fist', 'openpalm', 'thumbsup', 'thumbsdown', 'iloveyou'];
+const BUILTIN: GestureName[]      = ['victory'];
 
 /** 핸드페이스 플로팅 설정 패널 */
 export class ControlPanel {
@@ -154,8 +154,10 @@ export class ControlPanel {
     const container = this.panel.querySelector<HTMLElement>(`.${P}builtin-rows`)!;
     container.innerHTML = '';
 
-    // 클릭(핀치) 고정 행
-    container.appendChild(this.makeReadonlyRow('🤌', '엄지+검지 핀치', '클릭', null));
+    // 핀치 동작 고정 행들
+    container.appendChild(this.makeReadonlyRow('🤏', '엄지+검지 핀치 (빠르게)', '클릭', null));
+    container.appendChild(this.makeReadonlyRow('🤏', '핀치 유지 + 이동', '드래그', null));
+    container.appendChild(this.makeReadonlyRow('🖖', '엄지+중지 핀치', '우클릭', null));
 
     for (const g of BUILTIN) {
       const meta = GESTURE_META[g];

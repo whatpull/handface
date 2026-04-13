@@ -54,9 +54,9 @@ for (const sign of [1, -1]) {
     const sinL = Math.sin(lat), cosL = Math.cos(lat);
     for (let i = 0; i <= SEGS; i++) {
       const lon = (i / SEGS) * Math.PI;  // 0→π (반구만)
-      let nx = sinL * Math.cos(lon) * sign;
+      let nx = sinL * Math.cos(lon);
       const ny = cosL;
-      let nz = sinL * Math.sin(lon);
+      let nz = sinL * Math.sin(lon) * sign;  // 좌/우 반구 미러
 
       const d = deform(nx, ny, nz);
       d.z += sign * CLEFT;

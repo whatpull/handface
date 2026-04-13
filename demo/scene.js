@@ -1068,7 +1068,7 @@ function syncEdgeWeightsFromModel() {
 // ─────────────────────────────────────────
 // HandControl (시선 추적)
 // ─────────────────────────────────────────
-const control = new HandControl({ handedness: 'right', cursorSource: 'gaze' });
+const control = new HandControl({ handedness: 'right', cursorSource: 'hand', cursorAnchor: 'index' });
 
 // 회전 상태 (drag 이벤트로 제어)
 let dragRotX   = 0, dragRotY = 0;

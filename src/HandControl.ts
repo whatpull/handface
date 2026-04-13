@@ -60,6 +60,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private lastClickTime   = 0;
   private lastGestureMs   = new Map<GestureName, number>();
 
+  // ── 드래그 시 실제 손 위치 추적 (커서 고정과 무관) ──
+  private rawHandX = 0.5;
+  private rawHandY = 0.5;
+
   // ── hover 감지 ──
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
   private isHovering   = false;
@@ -207,6 +211,16 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       rawY = anchor.y;
     }
 
+    // ── 항상 원시 손 위치 추적 (드래그 이벤트용 — 커서 고정과 무관) ──
+    if (gestureResult) {
+      const handAnchor =
+        this.cursorAnchor === 'index' ? gestureResult.indexTip :
+        this.cursorAnchor === 'palm'  ? gestureResult.palmCenter :
+        gestureResult.wrist;
+      this.rawHandX = this.flipHorizontal ? 1 - handAnchor.x : handAnchor.x;
+      this.rawHandY = handAnchor.y;
+    }
+
     // ── 커서 이동 (드래그 중이면 커서 고정) ──
     const canMove = this.pointerState !== 'dragging';
 
@@ -352,7 +366,13 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
           this.emit('mouseup', pos as ClickEvent);
           this.pointerState = 'idle';
         } else {
-          this.emit('drag', pos as ClickEvent);
+          // 드래그: 고정 커서가 아닌 실제 손 위치를 전달 (회전 delta 계산용)
+          this.emit('drag', {
+            x: this.rawHandX,
+            y: this.rawHandY,
+            screenX: Math.round(this.rawHandX * window.innerWidth),
+            screenY: Math.round(this.rawHandY * window.innerHeight),
+          } as ClickEvent);
         }
         break;
 

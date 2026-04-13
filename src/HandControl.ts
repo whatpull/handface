@@ -55,7 +55,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   // ── 상태 머신 ──
   private pointerState: PointerState = 'idle';
   private wasPinching     = false;
-  private wasRightPinching = false;
   private mouseDownTime   = 0;
   private mouseDownPos    = { x: 0, y: 0 };
   private lastClickTime   = 0;
@@ -312,27 +311,36 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     pos: Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'>,
   ): void {
     const now = Date.now();
+    let eventFired = false;   // 프레임당 하나의 이벤트만
+
+    // ── 양손 줌 (최우선 — idle 상태에서만, 다른 이벤트 없을 때) ──
+    if (result.twoHandDist !== null && this.pointerState === 'idle') {
+      if (this.prevTwoHandDist === null) {
+        this.smoothTwoHandDist = result.twoHandDist;
+      } else {
+        this.smoothTwoHandDist += (result.twoHandDist - this.smoothTwoHandDist) * 0.25;
+        const delta = this.smoothTwoHandDist - this.prevTwoHandDist;
+        if (Math.abs(delta) > 0.003) {
+          this.emit('scroll', { deltaY: -delta * SCROLL_SENSITIVITY * 3 });
+          eventFired = true;
+        }
+      }
+      this.prevTwoHandDist = this.smoothTwoHandDist;
+    } else {
+      this.prevTwoHandDist = null;
+    }
+
+    if (eventFired) return;  // 줌이 발동했으면 다른 이벤트 무시
 
     // ── 핀치 Transition 감지 ──
     const isPinching = result.thumbIndexDist < PINCH_IN_THRESHOLD;
     const pinchReleased = !isPinching && result.thumbIndexDist > PINCH_OUT_THRESHOLD;
-    // 핀치 시작 가드: 주먹/손바닥/엄지 제스처에서는 핀치 시작 안 함
     const BLOCK_PINCH = ['fist', 'openpalm', 'thumbsup', 'thumbsdown', 'iloveyou'];
     const canStartPinch = !BLOCK_PINCH.includes(result.gestureName ?? '');
-    // 제스처 기반 강제 해제: pointing/openpalm이면 확실히 핀치 아님
     const gestureForceRelease = (result.gestureName === 'pointing' || result.gestureName === 'openpalm');
     const pinchIn  = isPinching && !this.wasPinching && canStartPinch;
     const pinchOut = (pinchReleased || gestureForceRelease) && this.wasPinching;
     this.wasPinching = isPinching || (this.wasPinching && !pinchReleased && !gestureForceRelease);
-
-    // ── 우클릭 (중지+엄지 핀치) Transition ──
-    const isRightPinch = result.thumbMiddleDist < PINCH_IN_THRESHOLD;
-    const rightPinchIn = isRightPinch && !this.wasRightPinching;
-    this.wasRightPinching = isRightPinch;
-
-    if (rightPinchIn && this.pointerState === 'idle') {
-      this.emit('contextmenu', pos as ClickEvent);
-    }
 
     // ── 상태별 처리 ──
     switch (this.pointerState) {
@@ -415,21 +423,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.panel?.setDetected(null, 0);
     }
 
-    // ── 양손 줌/스크롤: 벌리면 줌인, 모으면 줌아웃 ──
-    if (result.twoHandDist !== null) {
-      if (this.prevTwoHandDist === null) {
-        this.smoothTwoHandDist = result.twoHandDist;
-      } else {
-        this.smoothTwoHandDist += (result.twoHandDist - this.smoothTwoHandDist) * 0.25;
-        const delta = this.smoothTwoHandDist - this.prevTwoHandDist;
-        if (Math.abs(delta) > 0.003) {
-          this.emit('scroll', { deltaY: -delta * SCROLL_SENSITIVITY * 3 });
-        }
-      }
-      this.prevTwoHandDist = this.smoothTwoHandDist;
-    } else {
-      this.prevTwoHandDist = null;
-    }
+    // ── 제스처 이벤트 (줌/핀치가 안 잡혔을 때만) ──
+    if (eventFired) return;
 
     // ── 박수 ──
     if (result.clap) {

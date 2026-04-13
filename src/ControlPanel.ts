@@ -156,8 +156,7 @@ export class ControlPanel {
 
     container.appendChild(this.makeReadonlyRow('🤏', '엄지+검지 핀치 (빠르게)', '클릭', null));
     container.appendChild(this.makeReadonlyRow('🤏', '핀치 유지 + 이동', '드래그', null));
-    container.appendChild(this.makeReadonlyRow('🖖', '엄지+중지 핀치', '우클릭', null));
-    container.appendChild(this.makeReadonlyRow('🤲', '양손 벌리기/모으기', '줌', null));
+    container.appendChild(this.makeReadonlyRow('🤲', '양손 거리 조절', '줌', null));
 
     for (const g of BUILTIN) {
       const meta = GESTURE_META[g];

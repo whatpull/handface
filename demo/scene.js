@@ -1140,9 +1140,6 @@ control.on('click', () => {
 control.on('dblclick', () => {
   pushLog('ev-click', '🤏🤏 dblclick');
 });
-control.on('contextmenu', () => {
-  pushLog('', '🖖 contextmenu');
-});
 // 3D 뇌 회전: drag 이벤트로 제어
 let isDraggingBrain = false;
 control.on('dragstart', (e) => {

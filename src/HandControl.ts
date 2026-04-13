@@ -71,6 +71,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   // ── 스크롤 상태 ──
   private prevScrollY = 0.5;
+  private scrollGraceMs = 0;       // victory 깜빡임 대응 grace period
 
   // ── 커서 상태 ──
   private smoothX = 0.5;
@@ -330,8 +331,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         }
         // 두 손가락 (victory) → 스크롤 모드
         if (result.gestureName === 'victory') {
-          this.pointerState = 'scrolling';
-          this.prevScrollY  = pos.y;
+          this.pointerState  = 'scrolling';
+          this.prevScrollY   = this.rawHandY;  // 실제 손 위치 기준
+          this.scrollGraceMs = now;
         }
         break;
 
@@ -382,17 +384,23 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         }
         break;
 
-      case 'scrolling':
-        if (result.gestureName !== 'victory') {
+      case 'scrolling': {
+        const isVictory = result.gestureName === 'victory';
+        if (isVictory) this.scrollGraceMs = now;
+
+        // grace period (300ms): victory 깜빡임에도 스크롤 유지
+        if (!isVictory && now - this.scrollGraceMs > 300) {
           this.pointerState = 'idle';
         } else {
-          const deltaY = (pos.y - this.prevScrollY) * SCROLL_SENSITIVITY;
-          if (Math.abs(deltaY) > 0.5) {
+          // 실제 손 Y 위치로 스크롤 delta 계산 (커서 스무딩 무관)
+          const deltaY = (this.rawHandY - this.prevScrollY) * SCROLL_SENSITIVITY;
+          if (Math.abs(deltaY) > 0.3) {
             this.emit('scroll', { deltaY });
           }
-          this.prevScrollY = pos.y;
+          this.prevScrollY = this.rawHandY;
         }
         break;
+      }
     }
 
     // ── 제스처 이벤트 (개발자 API) + 단축키 ──

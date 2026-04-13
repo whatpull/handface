@@ -139,7 +139,7 @@ export const GESTURE_META: Record<
   GestureName,
   { icon: string; label: string; labelKo: string; builtin: boolean; builtinAction?: string }
 > = {
-  pointing:   { icon: '☝️',  label: 'Pointing Up',  labelKo: '검지 가리키기',   builtin: false },
+  pointing:   { icon: '☝️',  label: 'Pointing Up',  labelKo: '검지 가리키기',   builtin: true,  builtinAction: '커서' },
   fist:       { icon: '✊',  label: 'Closed Fist',   labelKo: '주먹',            builtin: false },
   openpalm:   { icon: '🖐️',  label: 'Open Palm',    labelKo: '펼친 손',         builtin: false },
   thumbsup:   { icon: '👍',  label: 'Thumbs Up',    labelKo: '엄지 위',         builtin: false },

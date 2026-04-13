@@ -31,12 +31,9 @@ export interface DragEvent {
 /** MediaPipe GestureRecognizer 제스처 이름 */
 export type GestureName =
   | 'pointing'
-  | 'fist'
   | 'openpalm'
   | 'thumbsup'
-  | 'thumbsdown'
-  | 'victory'
-  | 'iloveyou';
+  | 'victory';
 
 export interface GestureEvent {
   gesture: GestureName;
@@ -74,12 +71,9 @@ export type HandControlEventMap = {
   hover:       MoveEvent;
   // Gesture events (개발자 API)
   pointing:    GestureEvent;
-  fist:        GestureEvent;
   openpalm:    GestureEvent;
   thumbsup:    GestureEvent;
-  thumbsdown:  GestureEvent;
   victory:     GestureEvent;
-  iloveyou:    GestureEvent;
   clap:        GestureEvent;
 };
 
@@ -140,10 +134,7 @@ export const GESTURE_META: Record<
   { icon: string; label: string; labelKo: string; builtin: boolean; builtinAction?: string }
 > = {
   pointing:   { icon: '☝️',  label: 'Pointing Up',  labelKo: '검지 가리키기',   builtin: true,  builtinAction: '커서' },
-  fist:       { icon: '✊',  label: 'Closed Fist',   labelKo: '주먹',            builtin: false },
   openpalm:   { icon: '🖐️',  label: 'Open Palm',    labelKo: '펼친 손',         builtin: false },
   thumbsup:   { icon: '👍',  label: 'Thumbs Up',    labelKo: '엄지 위',         builtin: false },
-  thumbsdown: { icon: '👎',  label: 'Thumbs Down',  labelKo: '엄지 아래',       builtin: false },
   victory:    { icon: '✌️',  label: 'Victory',      labelKo: '브이',            builtin: false },
-  iloveyou:   { icon: '🤟',  label: 'I Love You',   labelKo: '아이 러브 유',    builtin: false },
 };

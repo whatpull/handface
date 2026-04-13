@@ -1183,9 +1183,7 @@ control.on('scroll', (e) => {
 
 const GCFG = {
   thumbsup:   { label: '👍 thumbs up' },
-  thumbsdown: { label: '👎 thumbs down' },
   victory:    { label: '✌️ victory' },
-  iloveyou:   { label: '🤟 iloveyou' },
 };
 for (const [g, cfg] of Object.entries(GCFG)) {
   control.on(g, () => pushLog('', cfg.label));

@@ -335,7 +335,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     // ── 핀치 Transition 감지 ──
     const isPinching = result.thumbIndexDist < PINCH_IN_THRESHOLD;
     const pinchReleased = !isPinching && result.thumbIndexDist > PINCH_OUT_THRESHOLD;
-    const BLOCK_PINCH = ['fist', 'openpalm', 'thumbsup', 'thumbsdown', 'iloveyou'];
+    const BLOCK_PINCH = ['openpalm', 'thumbsup'];
     const canStartPinch = !BLOCK_PINCH.includes(result.gestureName ?? '');
     const gestureForceRelease = (result.gestureName === 'pointing' || result.gestureName === 'openpalm');
     const pinchIn  = isPinching && !this.wasPinching && canStartPinch;

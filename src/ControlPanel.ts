@@ -4,7 +4,7 @@ import { GESTURE_META, type GestureName } from './types';
 
 const P = 'hf-'; // CSS class prefix (스타일 충돌 방지)
 
-const CONFIGURABLE: GestureName[] = ['fist', 'openpalm', 'victory', 'thumbsup', 'thumbsdown', 'iloveyou'];
+const CONFIGURABLE: GestureName[] = ['openpalm', 'victory', 'thumbsup'];
 const BUILTIN: GestureName[]      = ['pointing'];
 
 /** 핸드페이스 플로팅 설정 패널 */

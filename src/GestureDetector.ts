@@ -20,12 +20,9 @@ const PALM_INDICES = [LM.WRIST, LM.INDEX_MCP, LM.MIDDLE_MCP, LM.RING_MCP, LM.PIN
 
 const MP_GESTURE_MAP: Record<string, GestureName> = {
   Pointing_Up:  'pointing',
-  Closed_Fist:  'fist',
   Open_Palm:    'openpalm',
   Thumb_Up:     'thumbsup',
-  Thumb_Down:   'thumbsdown',
   Victory:      'victory',
-  ILoveYou:     'iloveyou',
 };
 
 /**

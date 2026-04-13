@@ -1082,9 +1082,10 @@ function syncEdgeWeightsFromModel() {
 // ─────────────────────────────────────────
 const control = new HandControl({ handedness: 'right', cursorSource: 'hand', cursorAnchor: 'index' });
 
-// 회전 상태 (drag 이벤트로 제어)
-let dragRotX   = 0, dragRotY = 0;
-let prevDragX  = 0, prevDragY = 0;
+// 회전 상태 (drag 이벤트로 제어, 스무딩 적용)
+let dragRotX       = 0, dragRotY       = 0;
+let targetDragRotX = 0, targetDragRotY = 0;
+let prevDragX      = 0, prevDragY      = 0;
 let baseRotY   = 0;
 let clickCount = 0;
 
@@ -1126,12 +1127,11 @@ control.on('dragstart', (e) => {
   pushLog('', '↔ dragstart');
 });
 control.on('drag', (e) => {
-  // delta 클램프 (손 위치 점프 시 회전 폭발 방지)
   const dx = Math.max(-30, Math.min(30, e.screenX - prevDragX));
   const dy = Math.max(-30, Math.min(30, e.screenY - prevDragY));
-  dragRotY += dx * 0.005;
-  dragRotX += dy * 0.003;
-  dragRotX  = Math.max(-1.2, Math.min(1.2, dragRotX));
+  targetDragRotY += dx * 0.004;
+  targetDragRotX += dy * 0.003;
+  targetDragRotX  = Math.max(-1.2, Math.min(1.2, targetDragRotX));
   prevDragX = e.screenX;
   prevDragY = e.screenY;
 });
@@ -1144,9 +1144,9 @@ window.addEventListener('mousedown', (e) => { mouseDown = true; mousePrevX = e.c
 window.addEventListener('mouseup',   ()  => { mouseDown = false; });
 window.addEventListener('mousemove', (e) => {
   if (!mouseDown) return;
-  dragRotY += (e.clientX - mousePrevX) * 0.006;
-  dragRotX += (e.clientY - mousePrevY) * 0.004;
-  dragRotX  = Math.max(-1.2, Math.min(1.2, dragRotX));
+  targetDragRotY += (e.clientX - mousePrevX) * 0.005;
+  targetDragRotX += (e.clientY - mousePrevY) * 0.004;
+  targetDragRotX  = Math.max(-1.2, Math.min(1.2, targetDragRotX));
   mousePrevX = e.clientX;
   mousePrevY = e.clientY;
 });
@@ -1278,8 +1278,10 @@ function animate() {
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
 
-  // ── 뇌 회전: 자동 + 핀치 드래그 ──
+  // ── 뇌 회전: 자동 + 핀치 드래그 (스무딩 보간) ──
   baseRotY += 0.0015;
+  dragRotX += (targetDragRotX - dragRotX) * 0.12;
+  dragRotY += (targetDragRotY - dragRotY) * 0.12;
   network.rotation.x = dragRotX;
   network.rotation.y = baseRotY + dragRotY;
 

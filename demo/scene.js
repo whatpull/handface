@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { WebLLMBackend } from './webllm-backend.js';
@@ -265,65 +266,95 @@ for (const e of edges) {
 // 뇌 외곽 와이어프레임 (참고 이미지처럼 뇌 실루엣이 보이도록)
 // brainShape 비율을 그대로 가져온 변형 구체를 반투명 와이어로 표현
 // ─────────────────────────────────────────
-(function addBrainOutline() {
-  const R = 2.55;
-  const SX = 1.30, SY = 0.78, SZ = 1.02;
-  const CLEFT = 0.14 * R;
+// ─── 뇌 외곽: GLB 모델 로드 (실패 시 procedural fallback) ───
+const BRAIN_URLS = [
+  'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LittlestTokyo.glb', // placeholder
+  'https://www.get3dmodels.com/download/Brain.glb',
+];
 
-  for (const sign of [1, -1]) {
-    const geo = new THREE.SphereGeometry(R, 36, 28);  // 더 높은 해상도
+const brainWireMat = new THREE.MeshBasicMaterial({
+  color: 0x3399FF, wireframe: true,
+  blending: THREE.AdditiveBlending,
+  transparent: true, opacity: 0.12, depthWrite: false,
+});
+const brainSolidMat = new THREE.MeshBasicMaterial({
+  color: 0x2266CC,
+  blending: THREE.AdditiveBlending,
+  transparent: true, opacity: 0.035, depthWrite: false,
+  side: THREE.DoubleSide,
+});
+
+// Procedural fallback (이전 방식 간소화)
+function addProceduralBrainOutline() {
+  const R = 2.55, SX = 1.30, SY = 0.78, SZ = 1.02, CL = 0.14 * R;
+  for (const s of [1, -1]) {
+    const geo = new THREE.SphereGeometry(R, 32, 24);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
-      let x = pos.getX(i) * SX;
-      let y = pos.getY(i) * SY;
-      let z = pos.getZ(i) * SZ;
-
-      if (sign > 0 && z < 0) z = 0;
-      if (sign < 0 && z > 0) z = 0;
-
-      const len = Math.sqrt(x*x + y*y + z*z) || 1;
-      const nx = x/len, ny = y/len, nz = z/len;
-      const theta = Math.atan2(nz, nx);
-
-      // 아래쪽 평탄화
-      let yS = 1.0;
-      if (ny < -0.25) yS = 0.6 + 0.4 * ((ny + 1) / 0.75);
-      const tw = ny > 0 ? 1 + 0.08 * ny : 1;
-
-      // 엽 돌출 (brainShape와 동일)
-      let bulge = 1.0;
-      if (nx > 0.2 && ny > -0.4) bulge += 0.22 * Math.max(0, nx-0.2) * (1.2-Math.abs(ny));
-      if (ny > 0.35) bulge += 0.13 * (ny - 0.35);
-      if (nx < -0.35 && ny > -0.3) bulge += 0.16 * Math.pow(Math.abs(nx)-0.35, 0.7);
-      if (Math.abs(nz) > 0.3 && ny < 0.15) bulge += 0.20 * (Math.abs(nz)-0.3) * (0.6-ny);
-      if (nx < -0.15 && ny < -0.3) bulge += 0.30 * Math.max(0, Math.abs(nx+0.15)+Math.abs(ny+0.3)-0.08);
-
-      // 3D noise 주름
-      const fold = 0.08 * brainNoise(nx*6, ny*6, nz*6);
-      const cs = (Math.abs(nx)<0.12 && ny>0.1) ? -0.07*(1-Math.abs(nx)/0.12)*ny : 0;
-      const ls = (Math.abs(nz)>0.25 && ny>-0.15 && ny<0.25) ? -0.05*Math.max(0,Math.abs(nz)-0.25) : 0;
-
-      const fr = bulge * (1 + fold + cs + ls);
-      x = x * fr * tw; y = y * fr * yS; z = z * fr * tw;
-      z += sign * CLEFT;
+      let x = pos.getX(i)*SX, y = pos.getY(i)*SY, z = pos.getZ(i)*SZ;
+      if (s > 0 && z < 0) z = 0;
+      if (s < 0 && z > 0) z = 0;
+      const l = Math.sqrt(x*x+y*y+z*z)||1;
+      const fold = 0.08 * brainNoise(x/l*6, y/l*6, z/l*6);
+      x *= (1+fold); y *= (1+fold); z *= (1+fold);
+      z += s * CL;
       pos.setXYZ(i, x, y, z);
     }
     geo.computeVertexNormals();
-
-    // 와이어프레임 메쉬 (시안/블루 — 뇌 실루엣)
-    network.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: 0x3399FF, wireframe: true,
-      blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.13, depthWrite: false,
-    })));
-
-    // 솔리드 표면 (반투명 블루 — 형체감)
-    network.add(new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({
-      color: 0x2266CC,
-      blending: THREE.AdditiveBlending,
-      transparent: true, opacity: 0.04, depthWrite: false,
-    })));
+    network.add(new THREE.Mesh(geo, brainWireMat.clone()));
+    network.add(new THREE.Mesh(geo.clone(), brainSolidMat.clone()));
   }
+}
+
+// GLB 로드 시도
+(async function loadBrainModel() {
+  const loader = new GLTFLoader();
+
+  for (const url of BRAIN_URLS) {
+    try {
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(url, resolve, undefined, reject);
+      });
+
+      const model = gltf.scene;
+
+      // 바운딩 박스로 크기 계산 → 뇌 노드와 매칭되도록 스케일
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const targetSize = 5.2;  // 노드 네트워크가 ~5 단위 크기
+      const scale = targetSize / maxDim;
+
+      model.scale.setScalar(scale);
+      model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+
+      // 모든 메쉬를 와이어프레임 + 반투명 솔리드로 교체
+      model.traverse((node) => {
+        if (node.isMesh) {
+          // 와이어프레임 복사본
+          const wire = new THREE.Mesh(node.geometry, brainWireMat);
+          wire.position.copy(node.position);
+          wire.rotation.copy(node.rotation);
+          wire.scale.copy(node.scale);
+          model.add(wire);
+
+          // 원본 → 반투명 솔리드
+          node.material = brainSolidMat;
+        }
+      });
+
+      network.add(model);
+      console.log('[handface] Brain GLB loaded from:', url);
+      return;  // 성공 → 종료
+    } catch {
+      console.warn('[handface] Brain GLB failed:', url);
+    }
+  }
+
+  // 모든 URL 실패 → procedural fallback
+  console.log('[handface] Using procedural brain outline');
+  addProceduralBrainOutline();
 })();
 
 // ─────────────────────────────────────────

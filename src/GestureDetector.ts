@@ -49,7 +49,9 @@ export interface DetectionResult {
   palmCenter: { x: number; y: number };
   /** 양손 박수 감지 */
   clap: boolean;
-  /** 전체 21개 손 랜드마크 (3D 스켈레톤 표시용) */
+  /** 양손 간 거리 (null = 한 손만 감지). 0 = 닿음, ~0.8 = 최대 벌림 */
+  twoHandDist: number | null;
+  /** 전체 21개 손 랜드마크 */
   landmarks: Array<{ x: number; y: number; z: number }> | null;
 }
 
@@ -88,12 +90,15 @@ export class GestureDetector {
     const result = this.recognizer.recognizeForVideo(video, timestampMs);
     if (!result.landmarks || result.landmarks.length === 0) return null;
 
-    // ── 양손 박수 감지 ──
+    // ── 양손 감지: 박수 + 거리 측정 ──
     let clap = false;
+    let twoHandDist: number | null = null;
     if (result.landmarks.length >= 2) {
       const p1 = result.landmarks[0][LM.MIDDLE_MCP];
       const p2 = result.landmarks[1][LM.MIDDLE_MCP];
       const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      twoHandDist = dist;
+
       const isClose = dist < CLAP_DISTANCE;
       if (isClose && !this.wasHandsClose) {
         const now = performance.now();
@@ -118,7 +123,7 @@ export class GestureDetector {
           gestureName: null, gestureConfidence: 0,
           thumbIndexDist: 1, thumbMiddleDist: 1,
           indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
-          palmCenter: {x:0.5,y:0.5}, clap, landmarks: null,
+          palmCenter: {x:0.5,y:0.5}, clap, twoHandDist, landmarks: null,
         };
         return null;
       }
@@ -128,6 +133,7 @@ export class GestureDetector {
     const categories = result.gestures[handIdx] ?? [];
     const det = this.analyze(result.landmarks[handIdx], categories);
     det.clap = clap;
+    det.twoHandDist = twoHandDist;
     det.landmarks = result.landmarks[handIdx].map(lm => ({ x: lm.x, y: lm.y, z: lm.z }));
     return det;
   }
@@ -164,6 +170,7 @@ export class GestureDetector {
       wrist:       { x: wrist.x,     y: wrist.y },
       palmCenter,
       clap: false,
+      twoHandDist: null,
       landmarks: null,
     };
   }

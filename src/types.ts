@@ -142,8 +142,8 @@ export const GESTURE_META: Record<
   pointing:   { icon: '☝️',  label: 'Pointing Up',  labelKo: '검지 가리키기',   builtin: true,  builtinAction: '커서' },
   fist:       { icon: '✊',  label: 'Closed Fist',   labelKo: '주먹',            builtin: false },
   openpalm:   { icon: '🖐️',  label: 'Open Palm',    labelKo: '펼친 손',         builtin: false },
-  thumbsup:   { icon: '👍',  label: 'Thumbs Up',    labelKo: '엄지 위',         builtin: true,  builtinAction: '스크롤 업' },
-  thumbsdown: { icon: '👎',  label: 'Thumbs Down',  labelKo: '엄지 아래',       builtin: true,  builtinAction: '스크롤 다운' },
+  thumbsup:   { icon: '👍',  label: 'Thumbs Up',    labelKo: '엄지 위',         builtin: false },
+  thumbsdown: { icon: '👎',  label: 'Thumbs Down',  labelKo: '엄지 아래',       builtin: false },
   victory:    { icon: '✌️',  label: 'Victory',      labelKo: '브이',            builtin: false },
   iloveyou:   { icon: '🤟',  label: 'I Love You',   labelKo: '아이 러브 유',    builtin: false },
 };

@@ -74,7 +74,9 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private isHovering   = false;
   private lastMovePos  = { x: 0, y: 0 };
 
-  // (scroll은 이제 idle에서 thumbsup/down으로 직접 처리)
+  // ── 양손 스크롤/줌 ──
+  private prevTwoHandDist: number | null = null;
+  private smoothTwoHandDist = 0;
 
   // ── 커서 상태 ──
   private smoothX = 0.5;
@@ -335,12 +337,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
           this.mouseDownPos  = { x: pos.screenX, y: pos.screenY };
           this.emit('mousedown', pos as ClickEvent);
         }
-        // 엄지 위/아래 → 스크롤 (정적 제스처, 스와이프 불필요)
-        if (result.gestureName === 'thumbsup') {
-          this.emit('scroll', { deltaY: -SCROLL_SENSITIVITY * 0.15 });
-        } else if (result.gestureName === 'thumbsdown') {
-          this.emit('scroll', { deltaY: SCROLL_SENSITIVITY * 0.15 });
-        }
         break;
 
       case 'mousedown':
@@ -411,6 +407,22 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       }
     } else {
       this.panel?.setDetected(null, 0);
+    }
+
+    // ── 양손 줌/스크롤: 벌리면 줌인, 모으면 줌아웃 ──
+    if (result.twoHandDist !== null) {
+      if (this.prevTwoHandDist === null) {
+        this.smoothTwoHandDist = result.twoHandDist;
+      } else {
+        this.smoothTwoHandDist += (result.twoHandDist - this.smoothTwoHandDist) * 0.25;
+        const delta = this.smoothTwoHandDist - this.prevTwoHandDist;
+        if (Math.abs(delta) > 0.003) {
+          this.emit('scroll', { deltaY: -delta * SCROLL_SENSITIVITY * 3 });
+        }
+      }
+      this.prevTwoHandDist = this.smoothTwoHandDist;
+    } else {
+      this.prevTwoHandDist = null;
     }
 
     // ── 박수 ──

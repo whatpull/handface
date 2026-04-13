@@ -59,23 +59,28 @@ export interface GestureKeyBinding {
 }
 
 export type HandControlEventMap = {
-  // Mouse emulation
-  click: ClickEvent;
-  rightclick: ClickEvent;
-  move: MoveEvent;
-  scroll: ScrollEvent;
-  drag: DragEvent;
-  dragstart: ClickEvent;
-  dragend: ClickEvent;
+  // Mouse emulation — 이산 이벤트 (Transition 기반)
+  mousedown:   ClickEvent;
+  mouseup:     ClickEvent;
+  click:       ClickEvent;
+  dblclick:    ClickEvent;
+  contextmenu: ClickEvent;
+  // Mouse emulation — 연속 이벤트 (State 기반)
+  move:        MoveEvent;
+  scroll:      ScrollEvent;
+  drag:        DragEvent;
+  dragstart:   ClickEvent;
+  dragend:     ClickEvent;
+  hover:       MoveEvent;
   // Gesture events (개발자 API)
-  pointing:   GestureEvent;
-  fist:       GestureEvent;
-  openpalm:   GestureEvent;
-  thumbsup:   GestureEvent;
-  thumbsdown: GestureEvent;
-  victory:    GestureEvent;
-  iloveyou:   GestureEvent;
-  clap:       GestureEvent;
+  pointing:    GestureEvent;
+  fist:        GestureEvent;
+  openpalm:    GestureEvent;
+  thumbsup:    GestureEvent;
+  thumbsdown:  GestureEvent;
+  victory:     GestureEvent;
+  iloveyou:    GestureEvent;
+  clap:        GestureEvent;
 };
 
 export interface HandControlOptions {

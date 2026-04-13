@@ -1,5 +1,6 @@
 import { EventEmitter } from './EventEmitter';
 import { GestureDetector } from './GestureDetector';
+import type { DetectionResult } from './GestureDetector';
 import { GazeDetector } from './GazeDetector';
 import { GestureMapper } from './GestureMapper';
 import { ControlPanel } from './ControlPanel';
@@ -13,15 +14,24 @@ import type {
   GestureName,
 } from './types';
 
-const CLICK_RELEASE_HYSTERESIS = 0.11;  // 엄지가 이 거리 이하로 오므려지면 클릭 해제
-const CLICK_COOLDOWN_MS        = 1000; // 반복 클릭 방지 (600 → 1000ms)
-const SCROLL_DELTA             = 12;
-const GESTURE_COOLDOWN_MS      = 900;
+// ─── 상태 머신 상수 ───────────────────────────────
+const PINCH_IN_THRESHOLD  = 0.06;   // 핀치 시작 (손가락 닿음)
+const PINCH_OUT_THRESHOLD = 0.10;   // 핀치 해제 (손가락 벌어짐)
+const CLICK_MAX_HOLD_MS   = 300;    // 이 시간 이내 핀치→해제 = click
+const DBLCLICK_WINDOW_MS  = 500;    // click 간격 이내면 dblclick
+const DRAG_MIN_DIST_PX    = 8;      // 이 픽셀 이상 이동하면 drag
+const HOVER_STILL_MS      = 500;    // 정지 시간 이상이면 hover
+const HOVER_MOVE_PX       = 50;     // 이 이상 움직이면 hover 해제
+const SCROLL_SENSITIVITY  = 120;    // 스크롤 속도 계수
+const GESTURE_COOLDOWN_MS = 900;
+const CLICK_COOLDOWN_MS   = 200;    // 연타 방지
 
-// ③ 적응형 스무딩 파라미터 (정지 시 안정 / 이동 시 반응)
+// ─── 적응형 스무딩 파라미터 ─────────────────────
 const ADAPTIVE_SPEED_THRESHOLD = 0.022;
-const ADAPTIVE_MIN_ALPHA       = 0.04;  // 정지: 강한 스무딩
-const ADAPTIVE_MAX_ALPHA       = 0.65;  // 빠른 이동: 적당한 반응
+const ADAPTIVE_MIN_ALPHA       = 0.04;
+const ADAPTIVE_MAX_ALPHA       = 0.65;
+
+type PointerState = 'idle' | 'mousedown' | 'dragging' | 'scrolling';
 
 function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' | null {
   if (h === 'right') return 'Right';
@@ -29,7 +39,6 @@ function toMPHandedness(h: HandControlOptions['handedness']): 'Left' | 'Right' |
   return null;
 }
 
-/** ② 절대 모드용: active zone → 0~1 리매핑 (clamp 포함) */
 function remapZone(v: number, min: number, max: number): number {
   return Math.max(0, Math.min(1, (v - min) / (max - min)));
 }
@@ -42,56 +51,59 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private stream: MediaStream | null = null;
   private panel: ControlPanel | null = null;
 
-  // 제스처 상태
-  private isClicking = false;
-  private lastClickMs = 0;
-  private lastGestureMs = new Map<GestureName, number>();
+  // ── 상태 머신 ──
+  private pointerState: PointerState = 'idle';
+  private wasPinching     = false;
+  private wasRightPinching = false;
+  private mouseDownTime   = 0;
+  private mouseDownPos    = { x: 0, y: 0 };
+  private lastClickTime   = 0;
+  private lastGestureMs   = new Map<GestureName, number>();
 
-  // 커서 상태
+  // ── hover 감지 ──
+  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  private isHovering   = false;
+  private lastMovePos  = { x: 0, y: 0 };
+
+  // ── 스크롤 상태 ──
+  private prevScrollY = 0.5;
+
+  // ── 커서 상태 ──
   private smoothX = 0.5;
   private smoothY = 0.5;
   private prevRawX = 0.5;
   private prevRawY = 0.5;
-  private wasMovingCursor = false;
 
-  // 캘리브레이션 상태 (절대 모드용)
+  // ── 캘리브레이션 ──
   private calibrated = false;
   private zoneX0 = 0;
   private zoneX1 = 1;
   private zoneY0 = 0;
   private zoneY1 = 1;
 
-  // 옵션
+  // ── 옵션 ──
   private readonly flipHorizontal: boolean;
   private readonly cursorSource: 'hand' | 'gaze';
   private readonly cursorAnchor: 'wrist' | 'palm' | 'index';
   private readonly cursorMode: 'absolute' | 'relative';
   private readonly sensitivity: number;
   private readonly activeZone: [number, number, number, number];
-  private readonly gestureGated: boolean;
   private readonly ownedVideo: boolean;
 
-  /** 단축키 바인딩 엔진 — 직접 접근 가능 */
   readonly mapper = new GestureMapper();
 
   constructor(options: HandControlOptions = {}) {
     super();
     this.flipHorizontal = options.flipHorizontal ?? true;
     this.cursorSource   = options.cursorSource   ?? 'hand';
-    this.cursorAnchor   = options.cursorAnchor   ?? 'palm';      // 손바닥 중심 (안정적)
-    this.cursorMode     = options.cursorMode      ?? 'absolute';  // 절대 위치 (직관적)
+    this.cursorAnchor   = options.cursorAnchor   ?? 'palm';
+    this.cursorMode     = options.cursorMode      ?? 'absolute';
     this.sensitivity    = options.sensitivity     ?? 2.5;
-    this.gestureGated   = options.gestureGated    ?? false;       // 제스처 무관 커서 이동
 
-    // gaze 모드: 홍채 이동 범위가 손보다 훨씬 좁으므로 기본 activeZone을 좁게 설정
-    // gaze 모드: 눈소켓 정규화 좌표(0~1 비율) 기준 ±0.15 범위가 편안한 시선 이동
     const defaultZone: [number, number, number, number] =
       this.cursorSource === 'gaze' ? [0.35, 0.35, 0.65, 0.65] : [0.3, 0.1, 0.95, 0.85];
     this.activeZone = options.activeZone ?? defaultZone;
-    // 초기 zone 변수 설정 (캘리브레이션 전 기본값)
     [this.zoneX0, this.zoneY0, this.zoneX1, this.zoneY1] = this.activeZone;
-
-    const threshold = options.threshold ?? 0.14;
 
     if (options.video) {
       this.video      = options.video;
@@ -103,7 +115,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
     this.detector = new GestureDetector(
       options.wasmPath,
-      threshold,
       toMPHandedness(options.handedness ?? 'right'),
     );
 
@@ -112,7 +123,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     }
   }
 
-  /** 카메라 열고 감지 시작 */
   async start(): Promise<void> {
     await this.detector.init();
     if (this.gazeDetector) await this.gazeDetector.init();
@@ -127,7 +137,6 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.loop();
   }
 
-  /** 감지 중지 및 리소스 해제 */
   stop(): void {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
@@ -144,19 +153,10 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     this.removeAllListeners();
   }
 
-  /**
-   * 캘리브레이션을 초기화합니다.
-   * 다음 손 감지 시 그 위치가 화면 중앙으로 재설정됩니다.
-   * cursorMode: 'absolute' 일 때만 동작합니다.
-   */
   recalibrate(): void {
     this.calibrated = false;
   }
 
-  /**
-   * 플로팅 설정 패널을 생성하고 document.body 에 주입합니다.
-   * 이미 생성된 경우 기존 인스턴스를 반환합니다.
-   */
   createPanel(): ControlPanel {
     if (!this.panel) {
       this.panel = new ControlPanel(this.mapper);
@@ -182,7 +182,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private tick(): void {
     const now = performance.now();
 
-    // ── 제스처 감지 (항상 실행 — 클릭/스크롤 소스) ──
+    // ── 제스처 감지 (항상 실행) ──
     const gestureResult = this.detector.detect(this.video, now);
 
     // ── 커서 소스 결정 ──
@@ -190,17 +190,14 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     let rawY: number;
 
     if (this.gazeDetector) {
-      // 시선 추적 모드: 홍채 위치 → 커서
       const gaze = this.gazeDetector.detect(this.video, now);
       if (!gaze) {
-        // 얼굴 미감지 시 제스처 이벤트만 처리하고 커서 유지
-        if (gestureResult) this.handleGestureEvents(gestureResult, this.currentPos());
+        if (gestureResult) this.processStateMachine(gestureResult, this.currentPos());
         return;
       }
       rawX = this.flipHorizontal ? 1 - gaze.gazeX : gaze.gazeX;
       rawY = gaze.gazeY;
     } else {
-      // 손 추적 모드: 손 위치 → 커서
       if (!gestureResult) return;
       const anchor =
         this.cursorAnchor === 'index' ? gestureResult.indexTip :
@@ -210,35 +207,19 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       rawY = anchor.y;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 커서 이동 조건:
-    //   - 클릭 중이면 커서 고정 (클릭+이동 동시 방지)
-    //   - gaze 모드에서는 gestureGated 무시 (시선은 항상 이동 가능)
-    //   - hand 모드 + gestureGated=true 이면 pointing 제스처만 이동
-    // ─────────────────────────────────────────────────────────────
-    const canMove =
-      !this.isClicking &&
-      (this.gazeDetector !== null ||
-        !this.gestureGated ||
-        gestureResult?.gestureName === 'pointing');
+    // ── 커서 이동 (드래그 중이면 커서 고정) ──
+    const canMove = this.pointerState !== 'dragging';
 
     if (canMove) {
       let targetX: number;
       let targetY: number;
 
       if (this.cursorMode === 'relative') {
-        // 상대 이동 모드
-        if (!this.wasMovingCursor) {
-          this.prevRawX = rawX;
-          this.prevRawY = rawY;
-        }
         const dx = (rawX - this.prevRawX) * this.sensitivity;
         const dy = (rawY - this.prevRawY) * this.sensitivity;
         targetX = Math.max(0, Math.min(1, this.smoothX + dx));
         targetY = Math.max(0, Math.min(1, this.smoothY + dy));
       } else {
-        // 절대 모드 + Active Zone 리매핑
-        // 첫 감지 시 현재 위치를 zone 중심으로 자동 캘리브레이션
         if (!this.calibrated) {
           const halfW = (this.activeZone[2] - this.activeZone[0]) / 2;
           const halfH = (this.activeZone[3] - this.activeZone[1]) / 2;
@@ -254,25 +235,39 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
         targetY = remapZone(rawY, this.zoneY0, this.zoneY1);
       }
 
-      // 적응형 스무딩
       const speed = Math.hypot(rawX - this.prevRawX, rawY - this.prevRawY);
       const t     = Math.min(speed / ADAPTIVE_SPEED_THRESHOLD, 1);
       const alpha = ADAPTIVE_MIN_ALPHA + t * (ADAPTIVE_MAX_ALPHA - ADAPTIVE_MIN_ALPHA);
-
       this.smoothX = lerp(this.smoothX, targetX, alpha);
       this.smoothY = lerp(this.smoothY, targetY, alpha);
     }
 
-    this.prevRawX        = rawX;
-    this.prevRawY        = rawY;
-    this.wasMovingCursor = canMove;
+    this.prevRawX = rawX;
+    this.prevRawY = rawY;
 
     const pos = this.currentPos();
     this.emit('move', pos);
 
-    // 제스처 결과가 있으면 클릭/스크롤/이벤트 처리
+    // ── hover 감지 (정지 500ms) ──
+    const moveDist = Math.hypot(
+      pos.screenX - this.lastMovePos.x,
+      pos.screenY - this.lastMovePos.y,
+    );
+    if (moveDist > HOVER_MOVE_PX) {
+      this.lastMovePos = { x: pos.screenX, y: pos.screenY };
+      if (this.isHovering) {
+        this.isHovering = false;
+      }
+      if (this.hoverTimer) clearTimeout(this.hoverTimer);
+      this.hoverTimer = setTimeout(() => {
+        this.isHovering = true;
+        this.emit('hover', this.currentPos());
+      }, HOVER_STILL_MS);
+    }
+
+    // ── 상태 머신 ──
     if (gestureResult) {
-      this.handleGestureEvents(gestureResult, pos);
+      this.processStateMachine(gestureResult, pos);
     }
   }
 
@@ -285,42 +280,102 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     };
   }
 
-  private handleGestureEvents(
-    result: import('./GestureDetector').DetectionResult,
+  // ────────────────────────────────────────────────────────
+  // 상태 머신: 핀치 전환 + 이동 여부 + 시간으로 이벤트 결정
+  // ────────────────────────────────────────────────────────
+  private processStateMachine(
+    result: DetectionResult,
     pos: Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'>,
   ): void {
-    // ── 클릭: 검지 가리키기 + 엄지 펴기 ──
-    if (result.gesture === 'click') {
-      if (!this.isClicking) {
-        this.isClicking = true;
-        const nowMs = Date.now();
-        if (nowMs - this.lastClickMs > CLICK_COOLDOWN_MS) {
-          this.lastClickMs = nowMs;
-          this.emit('click', pos as ClickEvent);
+    const now = Date.now();
+
+    // ── 핀치 Transition 감지 ──
+    const isPinching = result.thumbIndexDist < PINCH_IN_THRESHOLD;
+    const pinchReleased = !isPinching && result.thumbIndexDist > PINCH_OUT_THRESHOLD;
+    const pinchIn  = isPinching && !this.wasPinching;
+    const pinchOut = pinchReleased && this.wasPinching;
+    this.wasPinching = isPinching || (this.wasPinching && !pinchReleased);
+
+    // ── 우클릭 (중지+엄지 핀치) Transition ──
+    const isRightPinch = result.thumbMiddleDist < PINCH_IN_THRESHOLD;
+    const rightPinchIn = isRightPinch && !this.wasRightPinching;
+    this.wasRightPinching = isRightPinch;
+
+    if (rightPinchIn && this.pointerState === 'idle') {
+      this.emit('contextmenu', pos as ClickEvent);
+    }
+
+    // ── 상태별 처리 ──
+    switch (this.pointerState) {
+      case 'idle':
+        if (pinchIn) {
+          this.pointerState  = 'mousedown';
+          this.mouseDownTime = now;
+          this.mouseDownPos  = { x: pos.screenX, y: pos.screenY };
+          this.emit('mousedown', pos as ClickEvent);
         }
-      }
-    } else if (result.thumbExtension < CLICK_RELEASE_HYSTERESIS) {
-      // 엄지가 다시 오므려지면 클릭 해제
-      this.isClicking = false;
+        // 두 손가락 (victory) → 스크롤 모드
+        if (result.gestureName === 'victory') {
+          this.pointerState = 'scrolling';
+          this.prevScrollY  = pos.y;
+        }
+        break;
+
+      case 'mousedown':
+        if (pinchOut) {
+          // 핀치 해제
+          this.emit('mouseup', pos as ClickEvent);
+          const holdTime = now - this.mouseDownTime;
+          if (holdTime < CLICK_MAX_HOLD_MS && now - this.lastClickTime > CLICK_COOLDOWN_MS) {
+            this.emit('click', pos as ClickEvent);
+            // dblclick 체크
+            if (now - this.lastClickTime < DBLCLICK_WINDOW_MS) {
+              this.emit('dblclick', pos as ClickEvent);
+            }
+            this.lastClickTime = now;
+          }
+          this.pointerState = 'idle';
+        } else if (isPinching) {
+          // 핀치 유지 중 이동 → 드래그
+          const dx = pos.screenX - this.mouseDownPos.x;
+          const dy = pos.screenY - this.mouseDownPos.y;
+          if (Math.hypot(dx, dy) > DRAG_MIN_DIST_PX) {
+            this.pointerState = 'dragging';
+            this.emit('dragstart', this.mouseDownPos as ClickEvent);
+          }
+        }
+        break;
+
+      case 'dragging':
+        if (pinchOut) {
+          this.emit('dragend', pos as ClickEvent);
+          this.emit('mouseup', pos as ClickEvent);
+          this.pointerState = 'idle';
+        } else {
+          this.emit('drag', pos as ClickEvent);
+        }
+        break;
+
+      case 'scrolling':
+        if (result.gestureName !== 'victory') {
+          this.pointerState = 'idle';
+        } else {
+          const deltaY = (pos.y - this.prevScrollY) * SCROLL_SENSITIVITY;
+          if (Math.abs(deltaY) > 0.5) {
+            this.emit('scroll', { deltaY });
+          }
+          this.prevScrollY = pos.y;
+        }
+        break;
     }
 
-    // ── 스크롤: 주먹 → 다운 / 펼친 손 → 업 (클릭 중 무시) ──
-    if (!this.isClicking) {
-      if (result.gestureName === 'fist') {
-        this.emit('scroll', { deltaY: SCROLL_DELTA });
-      } else if (result.gestureName === 'openpalm') {
-        this.emit('scroll', { deltaY: -SCROLL_DELTA });
-      }
-    }
-
-    // ── 제스처 이벤트 (개발자 API) + 단축키 트리거 ──
+    // ── 제스처 이벤트 (개발자 API) + 단축키 ──
     const gestureName = result.gestureName;
     if (gestureName) {
       this.panel?.setDetected(gestureName, result.gestureConfidence);
-      const nowMs = Date.now();
       const lastFire = this.lastGestureMs.get(gestureName) ?? 0;
-      if (nowMs - lastFire > GESTURE_COOLDOWN_MS) {
-        this.lastGestureMs.set(gestureName, nowMs);
+      if (now - lastFire > GESTURE_COOLDOWN_MS) {
+        this.lastGestureMs.set(gestureName, now);
         const gestureEvent: GestureEvent = {
           gesture: gestureName,
           ...pos,
@@ -333,7 +388,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       this.panel?.setDetected(null, 0);
     }
 
-    // ── 박수: 양손 손바닥이 가까워지는 순간 ──
+    // ── 박수 ──
     if (result.clap) {
       this.emit('clap', { gesture: 'pointing' as GestureName, ...pos, confidence: 1 });
     }

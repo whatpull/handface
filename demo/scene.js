@@ -1093,19 +1093,31 @@ window.addEventListener('mousemove', (e) => {
   cursorEl.style.top  = `${e.clientY}px`;
 });
 
+control.on('mousedown', () => {
+  cursorEl.classList.add('clicking');
+  pushLog('', '⬇ mousedown');
+});
+control.on('mouseup', () => {
+  cursorEl.classList.remove('clicking');
+  pushLog('', '⬆ mouseup');
+});
 control.on('click', () => {
   clickCount++;
   sClicksEl.textContent = String(clickCount);
-  cursorEl.classList.add('clicking');
-  setTimeout(() => cursorEl.classList.remove('clicking'), 80);
-  pushLog('ev-click', '🤌 pinch');
+  pushLog('ev-click', '🤏 click');
+});
+control.on('dblclick', () => {
+  pushLog('ev-click', '🤏🤏 dblclick');
+});
+control.on('contextmenu', () => {
+  pushLog('', '🖖 contextmenu');
 });
 
 control.on('scroll', (e) => {
   targetCamZ = Math.max(4.0, Math.min(15, targetCamZ + e.deltaY * 0.055));
   const zoom = Math.round((1 - (targetCamZ - 4.0) / 11.0) * 100);
   sZoomEl.textContent = `${zoom}%`;
-  pushLog('ev-scroll', e.deltaY > 0 ? '✊ zoom out' : '🖐️ zoom in');
+  pushLog('ev-scroll', e.deltaY > 0 ? '✌️ scroll down' : '✌️ scroll up');
 });
 
 const GCFG = {

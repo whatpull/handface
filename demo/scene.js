@@ -988,6 +988,8 @@ handGroup.add(new THREE.Points(tipGeo, new THREE.PointsMaterial({
 
 handGroup.visible = false;
 
+const HAND_Z_BASE = 4.5;
+
 function updateHandSkeleton(landmarks) {
   if (!landmarks || landmarks.length < 21) {
     handGroup.visible = false;
@@ -995,14 +997,16 @@ function updateHandSkeleton(landmarks) {
   }
   handGroup.visible = true;
 
-  const SX = 7, SY = 5.5, SZ = 3, ZB = 4.5;
+  // 카메라 frustum 기반 동적 스케일 (화면과 1:1 매칭)
+  const dist  = camera.position.z - HAND_Z_BASE;
+  const halfH = dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfW = halfH * camera.aspect;
 
-  // 관절 위치 업데이트
   for (let i = 0; i < 21; i++) {
     const lm = landmarks[i];
-    const x = (0.5 - lm.x) * SX;      // 좌우 반전 (거울)
-    const y = -(lm.y - 0.5) * SY + 0.5;
-    const z = ZB - lm.z * SZ;
+    const x = (0.5 - lm.x) * halfW * 2;
+    const y = -(lm.y - 0.5) * halfH * 2 + camera.position.y;
+    const z = HAND_Z_BASE - lm.z * 2;
     handJointPos[i*3] = x; handJointPos[i*3+1] = y; handJointPos[i*3+2] = z;
   }
   handJointGeo.attributes.position.needsUpdate = true;
@@ -1170,9 +1174,20 @@ let baseRotY   = 0;
 let clickCount = 0;
 
 control.on('move', (e) => {
-  cursorEl.style.left = `${e.screenX}px`;
-  cursorEl.style.top  = `${e.screenY}px`;
-  sPosEl.textContent  = `${e.screenX} · ${e.screenY}`;
+  // 커서를 실제 손 위치(검지 끝)와 일치시키기 위해 rawHand 좌표 사용
+  const lm = control.handLandmarks;
+  if (lm && lm[8]) {
+    // 검지 끝(landmark 8)의 웹캠 좌표 → 스크린 좌표 (거울 반전)
+    const sx = (1 - lm[8].x) * window.innerWidth;
+    const sy = lm[8].y * window.innerHeight;
+    cursorEl.style.left = `${sx}px`;
+    cursorEl.style.top  = `${sy}px`;
+    sPosEl.textContent  = `${Math.round(sx)} · ${Math.round(sy)}`;
+  } else {
+    cursorEl.style.left = `${e.screenX}px`;
+    cursorEl.style.top  = `${e.screenY}px`;
+    sPosEl.textContent  = `${e.screenX} · ${e.screenY}`;
+  }
 });
 
 // 마우스 폴백 (HandControl 시작 전 커서 표시)

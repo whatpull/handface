@@ -284,7 +284,7 @@ const brainSolidMat = new THREE.MeshBasicMaterial({
 
 // 뇌 외곽선 임계 각도 (deg) — 곡률이 이 각도 이상 꺾이는 경계만 선으로 그림
 // 낮으면 와이어프레임에 가까워 뾰족, 높으면 실루엣만 남아 빈약
-const BRAIN_EDGE_ANGLE = 18;
+const BRAIN_EDGE_ANGLE = 22;
 
 (function loadBrainOBJ() {
   const loader = new OBJLoader();

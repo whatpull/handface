@@ -911,7 +911,7 @@ sparkGeo.setAttribute('position', new THREE.BufferAttribute(spPosArr, 3));
 sparkGeo.setAttribute('color',    new THREE.BufferAttribute(spColArr, 3));
 sparkGeo.setDrawRange(0, 0);
 network.add(new THREE.Points(sparkGeo, new THREE.PointsMaterial({
-  vertexColors: true, size: 0.05, map: SPRITE_SHARP, alphaTest: 0.01,
+  vertexColors: true, size: 0.11, map: SPRITE_SHARP, alphaTest: 0.01,
   blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
 })));
 
@@ -949,6 +949,20 @@ const coreHalo = new THREE.Mesh(
   }),
 );
 coreGroup.add(coreHalo);
+
+// ── Shockwave: 입력 활성도 급증 시 코어→뇌 표면으로 퍼지는 파동 ──
+// 멀리서도 잘 보이는 거대 이벤트 효과
+const shockwaveMat = new THREE.MeshBasicMaterial({
+  color: 0xFFCC88, blending: THREE.AdditiveBlending,
+  transparent: true, opacity: 0, depthWrite: false, side: THREE.BackSide,
+});
+const shockwave = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), shockwaveMat);
+shockwave.scale.setScalar(0.3);
+shockwave.visible = false;
+coreGroup.add(shockwave);
+// 활성 파동 상태 (life: 1→0 으로 감쇠, 0이면 비가시)
+let shockwaveLife = 0;
+let prevInputAct  = 0;
 
 // ─────────────────────────────────────────
 // 3D 공간 — 불투명 벽 + 그리드 (모니터 안쪽으로 들어간 방)
@@ -1095,8 +1109,10 @@ function triggerPass(seedText = null) {
             if (e.intra) continue;
             const intensity = e.weight * srcNode.targetActivation;
             spawnSpark(e, 0);
-            if (intensity > 0.5) spawnSpark(e, 0.04 + Math.random() * 0.06);
-            if (intensity > 0.8) spawnSpark(e, 0.09 + Math.random() * 0.06);
+            spawnSpark(e, 0.03 + Math.random() * 0.04);
+            if (intensity > 0.4) spawnSpark(e, 0.07 + Math.random() * 0.05);
+            if (intensity > 0.6) spawnSpark(e, 0.12 + Math.random() * 0.05);
+            if (intensity > 0.8) spawnSpark(e, 0.18 + Math.random() * 0.05);
           }
         }
       }
@@ -1299,8 +1315,27 @@ function animate() {
   let inputAct = 0;
   for (const n of layerData[0]) inputAct += n.activation;
   inputAct /= layerData[0].length;
-  coreBright.material.opacity = 0.55 + 0.30 * inputAct + 0.06 * Math.sin(t * 2.5);
-  coreHalo.material.opacity   = 0.08 + 0.18 * inputAct + 0.03 * Math.sin(t * 1.5);
+  coreBright.material.opacity = 0.55 + 0.30 * inputAct + 0.06 * Math.sin(t * 2.5)
+                              + 0.60 * shockwaveLife; // 파동 트리거 시 일시적 번쩍
+  coreHalo.material.opacity   = 0.08 + 0.18 * inputAct + 0.03 * Math.sin(t * 1.5)
+                              + 0.25 * shockwaveLife;
+
+  // ── Shockwave 업데이트 — 입력 활성도 급증 감지 → 파동 생성 ──
+  const dInputAct = inputAct - prevInputAct;
+  prevInputAct = inputAct;
+  if (dInputAct > 0.05) shockwaveLife = 1.0; // 활성 도약 시 트리거
+  if (shockwaveLife > 0) {
+    shockwave.visible = true;
+    // 수명: 1 → 0, 약 0.67초 (60fps 기준)
+    const age = 1 - shockwaveLife; // 0 → 1
+    // 크기: 코어(0.3) → 뇌 표면 근처(5.5), easeOutCubic
+    const eased = 1 - Math.pow(1 - age, 3);
+    shockwave.scale.setScalar(0.3 + eased * 5.5);
+    // 불투명도: 시작 0.45 → 끝 0, 살짝 지연 페이드
+    shockwaveMat.opacity = shockwaveLife * shockwaveLife * 0.45;
+    shockwaveLife -= 0.025;
+    if (shockwaveLife <= 0) { shockwaveLife = 0; shockwave.visible = false; }
+  }
 
   // ── 엣지/노드/스파크 업데이트 (드래그 중 건너뛰어 부하 감소) ──
   if (!isDraggingBrain) {

@@ -63,6 +63,12 @@ export class IRISBackend {
   _makeDummyModel() {
     const VOCAB_SIZE = 64;
     const H = 32;
+    const randRow = (cols) => Float32Array.from(
+      { length: cols }, () => (Math.random() - 0.5) * 0.6
+    );
+    const randMat = (rows, cols) => Array.from(
+      { length: rows }, () => randRow(cols)
+    );
     return {
       CTX: 8,
       vocab: { size: VOCAB_SIZE },
@@ -88,6 +94,13 @@ export class IRISBackend {
       lastH2:    new Float32Array(H),
       lastH3:    new Float32Array(H),
       lastProbs: new Float32Array(VOCAB_SIZE),
+      // scene.js syncEdgeWeightsFromModel() 이 요구하는 가중치 행렬 (2D array)
+      W1: randMat(H, H),
+      W2: randMat(H, H),
+      W3: randMat(H, H),
+      W4: randMat(VOCAB_SIZE, H),
+      // CharNLMBackend 호환용: invVocab (문자열 배열)
+      invVocab: Array.from({ length: VOCAB_SIZE }, (_, i) => String.fromCharCode(i + 32)),
     };
   }
 

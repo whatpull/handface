@@ -4,5 +4,4 @@ dist-demo/
 .DS_Store
 .env
 .env.*
-demo/.env
-demo/iris-config.js
+demo/public/iris-config.js

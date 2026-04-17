@@ -1,9 +1,11 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '.env');
+const envPath   = resolve(__dirname, '../.env');              // 루트 .env 사용
+const outDir    = resolve(__dirname, 'public');               // vite publicDir
+const outPath   = resolve(outDir, 'iris-config.js');
 
 let IRIS_API_KEY = '';
 let IRIS_ENDPOINT = 'https://whatpull-iris-assistant.hf.space';
@@ -36,5 +38,6 @@ window.__IRIS_CONFIG__ = {
 console.log('[IRIS] 자동 설정 로드 완료');
 `.trim();
 
-writeFileSync(resolve(__dirname, 'iris-config.js'), configContent);
-console.log('[build-env] demo/iris-config.js 생성 완료');
+if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+writeFileSync(outPath, configContent);
+console.log('[build-env] demo/public/iris-config.js 생성 완료 (vite 배포 포함됨)');

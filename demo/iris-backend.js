@@ -72,7 +72,16 @@ export class IRISBackend {
   emit(ev) { this._listeners.forEach(fn => fn(ev)); }
 
   // scene.js 가 기대하는 public surface (다른 백엔드와 호환)
-  get history() { return this._history; }
+  // 내부 저장은 {role:'user'|'assistant', content} (IRIS 서버 스타일),
+  // 외부 노출은 {role:'user'|'ai', text} (scene.js 호환)로 변환
+  get history() {
+    return this._history.map(m => ({
+      role: m.role === 'assistant' ? 'ai' : m.role,
+      text: typeof m.text === 'string' ? m.text
+          : typeof m.content === 'string' ? m.content
+          : '',
+    }));
+  }
   get model()   { return this._shadow; }
 
   get stats() {
@@ -136,34 +145,35 @@ export class IRISBackend {
     if (!this._apiKey) {
       this.emit({
         type: 'generate-end',
-        text: '⚠️ IRIS API Key가 설정되지 않았습니다. Settings에서 X-API-Key를 입력해주세요.',
+        text: '⚠️ IRIS API Key가 설정되지 않았습니다. Settings(⚙️)에서 X-API-Key를 입력해주세요.',
       });
       return;
     }
 
-    // 1. Shadow NLM 학습 (viz 구동)
-    this._trainShadow(message);
-
-    // 2. RAG 메모리 검색
-    const memories = this._memory.search(message, 3);
-
-    // 3. IRIS API 호출
+    // 1. 시작 이벤트
     this.emit({ type: 'training-start' });
 
-    try {
-      const body = {
-        message,
-        max_tokens: 256,
-        session_id: this._sessionId,
-      };
+    // 2. Shadow NLM 학습 (viz 구동)
+    this._trainShadow(message);
 
-      const res = await fetch(`${this.endpoint}/chat`, {
+    // 3. RAG 메모리 검색
+    const memories = this._memory.search(message, 3);
+
+    try {
+      const endpoint = this._endpoint ||
+        'https://whatpull-iris-assistant.hf.space';
+
+      const res = await fetch(`${endpoint}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': this._apiKey,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          message,
+          max_tokens: 256,
+          session_id: this._sessionId,
+        }),
       });
 
       if (!res.ok) {
@@ -175,34 +185,37 @@ export class IRISBackend {
       const reply = data.response || '';
       this._sessionId = data.session_id || this._sessionId;
 
-      // 4. 히스토리 + 메모리 저장 (scene.js 포맷: {role:'user'|'ai', text})
-      this._history.push({ role: 'user', text: message });
-      this._history.push({ role: 'ai',   text: reply   });
+      // 4. 히스토리 + 메모리 저장 (내부는 IRIS 서버 스타일 {role, content})
+      this._history.push({ role: 'user',      content: message });
+      this._history.push({ role: 'assistant', content: reply   });
       this._memory.add(message);
       this._memory.add(reply);
 
-      // 5. Shadow NLM 재학습 (응답 반영)
+      // 5. Shadow NLM 재학습
       this._trainShadow(reply);
 
       // 6. 저장
       this._saveLocal();
 
-      // 7. 이벤트 발행
-      this.emit({ type: 'generate-end', text: reply });
+      // 7. 이벤트 발행 (순서 중요!) — partial 포함해야 scene.js 스트리밍 UI 동작
+      this.emit({ type: 'generate-token', token: reply, partial: reply });
+      this.emit({ type: 'generate-end',   text: reply  });
       this.emit({ type: 'state', stats: this.stats });
 
     } catch (e) {
       console.error('[IRIS]', e);
 
-      // 콜드스타트 메시지
-      const msg = e.message?.includes('503') || e.message?.includes('warming')
-        ? 'IRIS가 깨어나는 중입니다, 주인님. 잠시 후 다시 시도해주세요. (콜드스타트 약 30초)'
+      const msg = e.message?.includes('503') ||
+                  e.message?.includes('warming') ||
+                  e.message?.includes('Service Unavailable')
+        ? 'IRIS가 깨어나는 중입니다, 주인님. 잠시 후 다시 시도해주세요. (콜드스타트 약 30~60초)'
         : `IRIS 연결 오류: ${e.message}`;
 
       this.emit({ type: 'generate-end', text: msg });
     }
 
-    this.emit({ type: 'training-end' });
+    // 8. 종료 이벤트 (payload 포함 — scene.js training-end 핸들러 크래시 방지)
+    this.emit({ type: 'training-end', avgLoss: 0, stepsRun: 0, totalSteps: this._history.length });
   }
 
   // ── Test Connection ────────────────────────────────────────

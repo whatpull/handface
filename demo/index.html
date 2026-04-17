@@ -4,6 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>handface — Neural Mesh</title>
+  <script>
+    // IRIS 전용 초기화 - 구버전 캐시 제거
+    const providerCache = localStorage.getItem('handface-provider');
+    if (providerCache !== 'iris') {
+      // 구버전 캐시 전부 삭제
+      localStorage.removeItem('handface-provider');
+      localStorage.removeItem('handface-nlm-v3');
+      localStorage.removeItem('handface-hf-v1');
+      localStorage.removeItem('handface-claude-v1');
+      localStorage.setItem('handface-provider', 'iris');
+      console.log('[IRIS] 구버전 캐시 초기화 완료');
+    }
+  </script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 

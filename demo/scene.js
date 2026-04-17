@@ -574,9 +574,11 @@ function backendEventHandler(ev) {
   if (ev.type === 'training-end') {
     syncEdgeWeightsFromModel();
     updateChatStats();
-    pushLossSample(ev.avgLoss);
+    const avgLoss  = typeof ev.avgLoss  === 'number' ? ev.avgLoss  : 0;
+    const stepsRun = typeof ev.stepsRun === 'number' ? ev.stepsRun : 0;
+    pushLossSample(avgLoss);
     updatePredictions();
-    pushLog('', `🧠 ${ev.stepsRun} steps (loss ${ev.avgLoss.toFixed(2)})`);
+    pushLog('', `🧠 ${stepsRun} steps (loss ${avgLoss.toFixed(2)})`);
 
   } else if (ev.type === 'generate-token') {
     // 첫 토큰: thinking 숨기고 렌더링 재개
@@ -607,6 +609,12 @@ function backendEventHandler(ev) {
       voice.speakChunk(ttsBuffer.trim());
     }
     ttsBuffer = '';
+    // PROCESSING 오버레이 제거 (IRIS 응답 도착 시 확실히 숨기기)
+    const processingEl = document.getElementById('processing');
+    if (processingEl) processingEl.style.display = 'none';
+    const thinkingElLocal = document.getElementById('thinking');
+    if (thinkingElLocal) thinkingElLocal.classList.remove('on');
+    thinkingShown = false;
 
   } else if (ev.type === 'state') {
     updateChatStats();

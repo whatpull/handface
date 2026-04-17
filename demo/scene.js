@@ -522,14 +522,11 @@ async function handleSend() {
   chatSendEl.disabled = true;
   appendChatMsg('user', text);
 
-  // thinking 즉시 표시 + 렌더링 중지
-  showThinking();
-  // 브라우저가 thinking을 실제 화면에 그릴 시간 확보
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // PROCESSING 오버레이 표시 제거
+  // showThinking() 호출 안 함 → 렌더링 계속 유지
 
-  pushLog('', `💬 training (${text.length} chars)`);
+  pushLog('', `💬 sending (${text.length} chars)`);
   await backend.send(text);
-  triggerPass(text);
   chatSendEl.disabled = false;
 }
 
@@ -605,12 +602,6 @@ function backendEventHandler(ev) {
       voice.speakChunk(ttsBuffer.trim());
     }
     ttsBuffer = '';
-    // PROCESSING 오버레이 제거 (IRIS 응답 도착 시 확실히 숨기기)
-    const processingEl = document.getElementById('processing');
-    if (processingEl) processingEl.style.display = 'none';
-    const thinkingElLocal = document.getElementById('thinking');
-    if (thinkingElLocal) thinkingElLocal.classList.remove('on');
-    thinkingShown = false;
 
   } else if (ev.type === 'state') {
     updateChatStats();

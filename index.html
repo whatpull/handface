@@ -292,6 +292,40 @@
     .s-label { color: #FF8800; opacity: 0.5; letter-spacing: 0.08em; }
     .s-val { color: #FFCC44; letter-spacing: 0.04em; }
 
+    /* ── IRIS Status (net-info 내부, 작은 HUD 톤) ── */
+    .iris-status-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .iris-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 0.6rem;
+      line-height: 1.4;
+    }
+    .iris-status-label {
+      color: #FF8800;
+      opacity: 0.55;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.52rem;
+      flex-shrink: 0;
+    }
+    .iris-status-val {
+      color: #FFCC44;
+      letter-spacing: 0.02em;
+      font-family: 'Courier New', monospace;
+      font-size: 0.6rem;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
     /* ── Event Log ── */
     #log {
       position: fixed;

@@ -33,7 +33,9 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           echo "Triggering DPO training with ${{ steps.check.outputs.count }} RLAIF samples..."
-          kaggle kernels push -k whatpull/iris-auto-dpo
+          kaggle kernels pull whatpull/iris-auto-dpo -p ./notebook
+          cd ./notebook
+          kaggle kernels push -p .
           echo "Kaggle notebook triggered!"
 
       - name: Skip - insufficient data

@@ -208,10 +208,11 @@ export class IRISBackend {
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
 
-      const data  = await res.json();
-      this._lastLatency = Date.now() - t0;
-      const reply = (data.response || '').trim();
-      this._sessionId = data.session_id || this._sessionId;
+      const data             = await res.json();
+      const reply            = (data.response || '').trim();
+      const attentionLayers  = data.attention_layers || [];
+      this._sessionId        = data.session_id || this._sessionId;
+      this._lastLatency      = Date.now() - t0;
 
       // 히스토리 + 메모리 저장
       this._history.push({ role: 'user',      content: message });
@@ -229,8 +230,17 @@ export class IRISBackend {
       }
 
       // partial 포함 — scene.js 스트리밍 UI 가 ev.partial 을 읽음
-      this.emit({ type: 'generate-token', token: reply, partial: reply });
-      this.emit({ type: 'generate-end',   text:  reply });
+      this.emit({
+        type:             'generate-token',
+        token:            reply,
+        partial:          reply,
+        attention_layers: attentionLayers,
+      });
+      this.emit({
+        type:             'generate-end',
+        text:             reply,
+        attention_layers: attentionLayers,
+      });
       this.emit({ type: 'state', stats: this.stats });
 
     } catch (e) {

@@ -573,14 +573,27 @@ function backendEventHandler(ev) {
   } else if (ev.type === 'generate-end') {
     if (!wasStreaming) appendChatMsg('ai', ev.text);
     streamingMsgEl = null;
-    wasStreaming = false;
-    triggerPass(ev.text);
+    wasStreaming    = false;
+
+    // 어텐션 기반 triggerPass (서버가 보내주면 실제 가중치, 아니면 더미)
+    if (ev.attention_layers && ev.attention_layers.length > 0) {
+      triggerPassWithAttention(ev.attention_layers);
+    } else {
+      triggerPass(ev.text);
+    }
+
     updatePredictions();
+    updateNetInfo();
+
     // 남은 TTS 버퍼 읽기
     if (voice.available && ttsBuffer.trim().length > 0) {
       voice.speakChunk(ttsBuffer.trim());
     }
     ttsBuffer = '';
+
+    const thinkingElLocal = document.getElementById('thinking');
+    if (thinkingElLocal) thinkingElLocal.classList.remove('on');
+    thinkingShown = false;
 
   } else if (ev.type === 'state') {
     updateChatStats();
@@ -1242,6 +1255,61 @@ function triggerPass(seedText = null) {
       }
     }, li * LAYER_DELAY_MS);
   }
+}
+
+/**
+ * 실제 IRIS 어텐션 가중치로 뉴런 활성화 — triggerPass 의 어텐션 버전.
+ * attentionLayers: 7개 레이어 × 각 레이어 값 배열 (0~1 정규화)
+ */
+function triggerPassWithAttention(attentionLayers) {
+  for (let li = 0; li < LAYER_SIZES.length; li++) {
+    setTimeout(() => {
+      const layerNodes = layerData[li];
+      const attnValues = attentionLayers[li] ?? [];
+
+      for (let i = 0; i < layerNodes.length; i++) {
+        // 어텐션 값을 뉴런 인덱스에 매핑
+        const attnIdx = Math.floor(
+          (i / layerNodes.length) * attnValues.length
+        );
+        const attnVal = attnValues[attnIdx] ?? 0;
+
+        // 최소 활성화 보장 + 어텐션 가중치 반영
+        layerNodes[i].targetActivation =
+          0.05 + 0.95 * attnVal;
+      }
+
+      // 스파크 발사 (inter-layer)
+      if (li < LAYER_SIZES.length - 1) {
+        for (const srcNode of layerNodes) {
+          if (srcNode.targetActivation < 0.15) continue;
+          const out = outgoingEdges.get(srcNode);
+          if (!out) continue;
+          for (const e of out) {
+            if (e.intra) continue;
+            const intensity = e.weight * srcNode.targetActivation;
+            spawnSpark(e, 0);
+            if (intensity > 0.3)
+              spawnSpark(e, 0.05 + Math.random() * 0.05);
+            if (intensity > 0.5)
+              spawnSpark(e, 0.10 + Math.random() * 0.05);
+            if (intensity > 0.7)
+              spawnSpark(e, 0.15 + Math.random() * 0.05);
+            if (intensity > 0.9)
+              spawnSpark(e, 0.20 + Math.random() * 0.05);
+          }
+        }
+      }
+
+    }, li * LAYER_DELAY_MS);
+  }
+
+  console.log(
+    '[IRIS viz] 실제 어텐션 가중치 적용:',
+    attentionLayers.map(l =>
+      l.map(v => v.toFixed(2)).join(' ')
+    ).join(' | ')
+  );
 }
 
 /**

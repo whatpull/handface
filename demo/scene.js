@@ -623,7 +623,83 @@ function backendEventHandler(ev) {
     }
   } else if (ev.type === 'loading-done') {
     appendChatMsg('sys', 'Model loaded. Ready to chat!');
+  } else if (ev.type === 'growth-update') {
+    applyGrowthVisualization(ev.growth);
   }
+}
+
+// ─────────────────────────────────────────
+// IRIS 성장 지표 시각화 — 버전별 색상, 성장 점수에 따른 밀도
+// ─────────────────────────────────────────
+function applyGrowthVisualization(growth) {
+  const score   = growth.growth_score ?? 0;
+  const version = growth.version ?? 'v1.0';
+  const dpo     = growth.dpo_count ?? 0;
+
+  // ── 버전별 뇌 색상 변화 ──────────────────────
+  let rimColor  = 0x66BBFF;  // 기본 블루
+  let coreColor = 0x1A4488;
+
+  if (dpo >= 5) {
+    // v2.0 이상: 화이트 (완전 성숙)
+    rimColor   = 0xFFFFFF;
+    coreColor  = 0x8888FF;
+  } else if (dpo >= 3) {
+    // v1.5: 사이안
+    rimColor   = 0x00FFEE;
+    coreColor  = 0x004444;
+  } else if (dpo >= 1) {
+    // v1.1: 블루+골드 혼합
+    rimColor   = 0x44AAFF;
+    coreColor  = 0x112266;
+  }
+
+  // Fresnel 쉐이더 색상 업데이트 (brainRimMat 은 모든 뇌 메쉬가 공유)
+  if (brainRimMat?.uniforms) {
+    brainRimMat.uniforms.rimColor.value.setHex(rimColor);
+    brainRimMat.uniforms.coreColor.value.setHex(coreColor);
+  }
+
+  // ── 성장 점수 → 뉴럴 밀도 표현 ──────────────
+  // score 0~100 → opacity/intensity 0.3~1.0
+  const intensity = 0.3 + (score / 100) * 0.7;
+  if (network) {
+    network.traverse(obj => {
+      if (obj.material && obj.material.opacity !== undefined && obj.material.transparent) {
+        obj.material.opacity = Math.min(1.0,
+          obj.material.opacity * 0.9 + intensity * 0.1
+        );
+      }
+    });
+  }
+
+  // ── IRIS 배지 버전 업데이트 ──────────────────
+  const badge = document.getElementById('mode-badge');
+  if (badge) {
+    badge.textContent = `⬡ IRIS ${version}`;
+    badge.style.color = dpo >= 1 ? '#66FFCC' : '#66BBFF';
+  }
+
+  // ── 성장 점수 HUD 표시 (#stats 내 전용 row, 기존 구조 보존) ──
+  const statsEl = document.getElementById('stats');
+  if (statsEl) {
+    const filled = Math.max(0, Math.min(10, Math.floor(score / 10)));
+    const growthBar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+    let growthRow = document.getElementById('s-growth-row');
+    if (!growthRow) {
+      growthRow = document.createElement('div');
+      growthRow.id = 's-growth-row';
+      growthRow.className = 's-row';
+      growthRow.innerHTML =
+        '<span class="s-label">IRIS</span>' +
+        '<span class="s-val" id="s-growth-val"></span>';
+      statsEl.appendChild(growthRow);
+    }
+    const growthVal = document.getElementById('s-growth-val');
+    if (growthVal) growthVal.textContent = `${version} ${growthBar} ${score}`;
+  }
+
+  console.log(`[IRIS viz] ${version} | score: ${score} | dpo: ${dpo}`);
 }
 backend.onEvent(backendEventHandler);
 
@@ -1448,6 +1524,11 @@ startBtn.addEventListener('click', async () => {
     overlay.classList.add('fade-out');
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
     pushLog('', 'start');
+
+    // 초기 성장 데이터 조회 (IRIS 서버 콜드스타트 고려 2초 딜레이)
+    setTimeout(async () => {
+      if (backend._fetchGrowthData) await backend._fetchGrowthData();
+    }, 2000);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', 'recalibrated'); }
     });

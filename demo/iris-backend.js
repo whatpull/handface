@@ -48,6 +48,15 @@ export class IRISBackend {
     this._sessionId  = null;
     this.busy        = false;
 
+    // 성장 데이터 (IRIS /health 응답에서 갱신)
+    this._growthData = {
+      version:            'v1.0',
+      conversation_count: 0,
+      rlaif_count:        0,
+      dpo_count:          0,
+      growth_score:       0,
+    };
+
     // Shadow model (triggerPass 호환용 더미)
     this.model = this._makeDummyModel();
 
@@ -212,6 +221,11 @@ export class IRISBackend {
       // 응답 후 model 활성화 갱신 (viz 반응)
       this.model.forward([]);
 
+      // 성장 데이터 갱신 (10회 대화마다)
+      if (this._history.length % 10 === 0) {
+        this._fetchGrowthData();
+      }
+
       // partial 포함 — scene.js 스트리밍 UI 가 ev.partial 을 읽음
       this.emit({ type: 'generate-token', token: reply, partial: reply });
       this.emit({ type: 'generate-end',   text:  reply });
@@ -244,9 +258,18 @@ export class IRISBackend {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.growth) {
+          this._growthData = {
+            version:            data.version ?? 'v1.0',
+            conversation_count: data.growth.conversation_count ?? 0,
+            rlaif_count:        data.growth.rlaif_count ?? 0,
+            dpo_count:          data.growth.dpo_count ?? 0,
+            growth_score:       data.growth.growth_score ?? 0,
+          };
+        }
         return {
           ok:  true,
-          msg: `IRIS 시스템 온라인 | RLAIF: ${data.rlaif_data_count ?? 0}건`,
+          msg: `IRIS ${data.version ?? 'v1.0'} 온라인 | 대화: ${data.growth?.conversation_count ?? 0}건 | RLAIF: ${data.growth?.rlaif_count ?? 0}건 | 성장: ${data.growth?.growth_score ?? 0}점`,
         };
       }
       return { ok: false, msg: `HTTP ${res.status}` };
@@ -254,6 +277,35 @@ export class IRISBackend {
       return { ok: false, msg: `연결 실패: ${e.message}` };
     }
   }
+
+  // ── 성장 데이터 조회 (주기적으로 호출됨) ─────────────────────
+  async _fetchGrowthData() {
+    try {
+      const res = await fetch(`${this._endpoint}/health`, {
+        headers: { 'X-API-Key': this._apiKey },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.growth) {
+        this._growthData = {
+          version:            data.version ?? 'v1.0',
+          conversation_count: data.growth.conversation_count ?? 0,
+          rlaif_count:        data.growth.rlaif_count ?? 0,
+          dpo_count:          data.growth.dpo_count ?? 0,
+          growth_score:       data.growth.growth_score ?? 0,
+        };
+        this.emit({
+          type:   'growth-update',
+          growth: this._growthData,
+        });
+        console.log('[IRIS] 성장 데이터 갱신:', this._growthData);
+      }
+    } catch (e) {
+      console.warn('[IRIS] 성장 데이터 조회 실패:', e.message);
+    }
+  }
+
+  get growthData() { return this._growthData; }
 
   // ── 로컬 저장 ─────────────────────────────────────────────
   _saveLocal() {

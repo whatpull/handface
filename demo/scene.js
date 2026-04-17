@@ -15,17 +15,13 @@ const APIKEY_STORAGE   = 'handface-apikey';
 const MODEL_STORAGE    = 'handface-model';
 
 function createBackend() {
-  const provider = localStorage.getItem(PROVIDER_STORAGE) || 'huggingface';
-  const apiKey   = localStorage.getItem(APIKEY_STORAGE);
-  const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
-
-  if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
-  if (provider === 'iris' && apiKey) {
-    const be = new IRISBackend();
-    be.setApiKey(apiKey);
-    return be;
-  }
-  return new WebLLMBackend();
+  localStorage.setItem('handface-provider', 'iris');
+  const b = new IRISBackend();
+  const savedKey = localStorage.getItem('iris-api-key') ?? '';
+  const savedEndpoint = localStorage.getItem('iris-endpoint') ?? '';
+  if (savedKey) b.setApiKey(savedKey);
+  if (savedEndpoint) b.setEndpoint(savedEndpoint);
+  return b;
 }
 
 let backend = createBackend();
@@ -711,16 +707,11 @@ function getSelectedModel() {
 }
 
 function updateModeBadge() {
-  const existing = document.getElementById('mode-badge');
-  if (existing) existing.remove();
-  const badge = document.createElement('span');
-  badge.id = 'mode-badge';
-  let label = 'Qwen2.5-1.5B';
-  if (backend instanceof ClaudeAPIBackend) label = 'CLAUDE';
-  else if (backend instanceof IRISBackend) label = 'IRIS';
-  badge.className = 'mode-badge cloud';
-  badge.textContent = label;
-  document.getElementById('chat-title').appendChild(badge);
+  const badge = document.getElementById('mode-badge');
+  if (!badge) return;
+  badge.textContent = 'IRIS v1.0';
+  badge.style.color = '#66BBFF';
+  badge.style.background = 'rgba(0,100,255,0.15)';
 }
 updateModeBadge();
 

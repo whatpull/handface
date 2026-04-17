@@ -71,6 +71,10 @@ export class IRISBackend {
 
   emit(ev) { this._listeners.forEach(fn => fn(ev)); }
 
+  // scene.js 가 기대하는 public surface (다른 백엔드와 호환)
+  get history() { return this._history; }
+  get model()   { return this._shadow; }
+
   get stats() {
     return {
       vocabSize:  0,
@@ -120,6 +124,13 @@ export class IRISBackend {
     this._saveLocal();
   }
 
+  setEndpoint(url) {
+    this._endpoint = (url || '').trim();
+    this._saveLocal();
+  }
+
+  get endpoint() { return this._endpoint || IRIS_ENDPOINT; }
+
   // ── 메인 send() ───────────────────────────────────────────
   async send(message) {
     if (!this._apiKey) {
@@ -146,7 +157,7 @@ export class IRISBackend {
         session_id: this._sessionId,
       };
 
-      const res = await fetch(`${IRIS_ENDPOINT}/chat`, {
+      const res = await fetch(`${this.endpoint}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,9 +175,9 @@ export class IRISBackend {
       const reply = data.response || '';
       this._sessionId = data.session_id || this._sessionId;
 
-      // 4. 히스토리 + 메모리 저장
-      this._history.push({ role: 'user',      content: message });
-      this._history.push({ role: 'assistant', content: reply   });
+      // 4. 히스토리 + 메모리 저장 (scene.js 포맷: {role:'user'|'ai', text})
+      this._history.push({ role: 'user', text: message });
+      this._history.push({ role: 'ai',   text: reply   });
       this._memory.add(message);
       this._memory.add(reply);
 
@@ -198,7 +209,7 @@ export class IRISBackend {
   async testConnection() {
     if (!this._apiKey) return { ok: false, msg: 'API Key를 입력해주세요.' };
     try {
-      const res = await fetch(`${IRIS_ENDPOINT}/health`, {
+      const res = await fetch(`${this.endpoint}/health`, {
         headers: { 'X-API-Key': this._apiKey },
       });
       if (res.ok) {
@@ -219,8 +230,12 @@ export class IRISBackend {
   _trainShadow(text) {
     if (!text || !this._shadow) return;
     try {
-      this._shadow.trainOnText(text, 1);
-    } catch (_) {}
+      if (typeof this._shadow.trainOnText === 'function') {
+        this._shadow.trainOnText(text, 1);
+      }
+    } catch (e) {
+      // Shadow NLM 오류 무시 (viz 전용)
+    }
   }
 
   // ── 로컬 저장 ─────────────────────────────────────────────
@@ -230,6 +245,7 @@ export class IRISBackend {
         history:   this._history.slice(-40),
         memory:    this._memory.items,
         sessionId: this._sessionId,
+        endpoint:  this._endpoint || '',
       }));
     } catch (_) {}
   }
@@ -242,6 +258,7 @@ export class IRISBackend {
       this._history   = d.history   ?? [];
       this._memory.items = d.memory ?? [];
       this._sessionId = d.sessionId ?? null;
+      this._endpoint  = d.endpoint  ?? '';
     } catch (_) {}
   }
 }

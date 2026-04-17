@@ -16,12 +16,13 @@
     "dist"
   ],
   "scripts": {
-    "dev": "vite",
+    "dev": "node demo/build-env.mjs --local && vite",
     "build": "vite build",
-    "build:demo": "vite build --config vite.config.demo.ts",
     "build:env": "node demo/build-env.mjs",
+    "build:env:local": "node demo/build-env.mjs --local",
+    "build:demo": "node demo/build-env.mjs && vite build --config vite.config.demo.ts",
     "deploy:demo": "npm run build:demo && gh-pages -d dist-demo",
-    "deploy:iris": "node demo/build-env.mjs && NODE_OPTIONS=--max-old-space-size=8192 npm run deploy:demo",
+    "deploy:iris": "NODE_OPTIONS=--max-old-space-size=8192 npm run deploy:demo",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },

@@ -891,7 +891,7 @@ function applyBackend(be, label) {
   pushLog('', label);
 }
 
-sSaveBtn.addEventListener('click', () => {
+sSaveBtn.addEventListener('click', async () => {
   const key      = sApiKeyEl.value.trim();
   const endpoint = sEndpointEl?.value.trim() ?? '';
   if (!key) { sStatusEl.textContent = 'Please enter IRIS X-API-Key.'; return; }
@@ -901,7 +901,15 @@ sSaveBtn.addEventListener('click', () => {
   be.setApiKey(key);
   if (endpoint) be.setEndpoint(endpoint);
   applyBackend(be, '⬡ IRIS mode');
-  sStatusEl.textContent = '✓ Now using IRIS Assistant.';
+  sStatusEl.textContent = '✓ IRIS 연결 중... 모델 구조 조회';
+  // 키 저장 직후 모델 정보 + 성장 데이터 조회 (28레이어 viz 트리거)
+  try {
+    if (backend.fetchModelInfo)   await backend.fetchModelInfo();
+    if (backend._fetchGrowthData) await backend._fetchGrowthData();
+    sStatusEl.textContent = '✓ Now using IRIS Assistant.';
+  } catch (e) {
+    sStatusEl.textContent = `✓ 연결됨. 모델 정보 조회 실패: ${e.message}`;
+  }
 });
 
 sDeleteBtn.addEventListener('click', () => {

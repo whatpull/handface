@@ -22,15 +22,17 @@ jobs:
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           echo "RLAIF count: $COUNT, Status: $STATUS"
 
-      - name: Install Kaggle CLI
+      - name: Install Kaggle CLI and configure auth
         if: steps.check.outputs.status == 'ready'
-        run: pip install kaggle
+        run: |
+          pip install kaggle
+          mkdir -p ~/.kaggle
+          echo '{"username":"${{ secrets.KAGGLE_USERNAME }}","key":"${{ secrets.KAGGLE_KEY }}"}' > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+          echo "Kaggle CLI configured"
 
       - name: Trigger Kaggle DPO notebook
         if: steps.check.outputs.status == 'ready'
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           echo "Triggering DPO training with ${{ steps.check.outputs.count }} RLAIF samples..."
           kaggle kernels pull whatpull/iris-auto-dpo -p ./notebook

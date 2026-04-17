@@ -1720,8 +1720,7 @@ function animate() {
     if (shockwaveLife <= 0) { shockwaveLife = 0; shockwave.visible = false; }
   }
 
-  // ── 엣지/노드/스파크 업데이트 (드래그 중 건너뛰어 부하 감소) ──
-  if (!isDraggingBrain) {
+  // ── 엣지/노드/스파크 업데이트 (드래그 중에도 흐름 유지) ──
 
   // 엣지 색상 (가중치 × 활성화 = 밝기) — 곡선 정점 전체에 동일 색
   for (let i = 0; i < edges.length; i++) {
@@ -1776,8 +1775,6 @@ function animate() {
   sparkGeo.setDrawRange(0, sparkPool.length);
   sparkGeo.attributes.position.needsUpdate = true;
   sparkGeo.attributes.color.needsUpdate    = true;
-
-  } // end if (!isDraggingBrain) — 드래그 중 무거운 업데이트 건너뜀
 
   // ── 뇌 회전: 자동 + 핀치 드래그 (스무딩 보간) ──
   baseRotY += 0.0015;

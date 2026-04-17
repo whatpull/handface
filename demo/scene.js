@@ -104,8 +104,15 @@ const SPRITE_SHARP = makeCircleSprite(0.30);  // 코어/스파크용 (선명한 
 //   L4 Mid-Late Blocks 19-23
 //   L5 Late Blocks 24-28
 //   L6 Output Projection   (core — decision emerges)
-// 기본값 (IRIS 모델 정보 수신 전 placeholder)
-let LAYER_SIZES = [6, 10, 16, 24, 32, 40, 48, 40, 32, 24, 16, 10, 6];
+// IRIS 실제 구조 기반 기본값 (28레이어)
+// 처음부터 올바른 구조로 시작
+let LAYER_SIZES = [
+  6, 8, 12, 16, 20, 24, 28,  // 레이어 0~6  (embedding/초반)
+  32, 36, 40, 44, 48, 48,    // 레이어 7~12 (semantic)
+  48, 48, 48, 48,            // 레이어 13~16 (reasoning 중심)
+  44, 40, 36, 32, 28,        // 레이어 17~21 (후반)
+  24, 20, 16, 12, 8, 6,      // 레이어 22~27 (generation/출력)
+];  // 총 28레이어
 let LAYER_RADII = makeLayerRadii(LAYER_SIZES.length);
 const K_FORWARD   = 4;
 const K_BACKWARD  = 3;
@@ -666,7 +673,10 @@ function backendEventHandler(ev) {
     applyGrowthVisualization(ev.growth);
   } else if (ev.type === 'model-info') {
     console.log('[IRIS] 모델 구조 수신:', ev.numLayers, '레이어');
-    rebuildNetwork(ev.layerSizes, ev.layerDetails);
+    // 첫 번째 로드는 페이드 아웃 스킵 (이미 투명한 상태이므로)
+    const isFirstLoad = !window.__irisNetworkLoaded;
+    window.__irisNetworkLoaded = true;
+    rebuildNetwork(ev.layerSizes, ev.layerDetails, isFirstLoad);
   }
 }
 
@@ -1155,13 +1165,17 @@ function buildNetworkGeometry() {
 // ── 초기 빌드 + 반환값 전역 보존 ─────────────
 let geoRefs = buildNetworkGeometry();
 
-async function rebuildNetwork(newLayerSizes, layerDetails = []) {
-  const newKey = JSON.stringify(newLayerSizes);
-  const oldKey = JSON.stringify(LAYER_SIZES);
-  if (newKey === oldKey) return;
+// 초기 네트워크 투명하게 시작
+// (모델 정보 수신 후 페이드 인)
+if (edgeMesh)     edgeMesh.material.opacity     = 0;
+if (nodeHaloMesh) nodeHaloMesh.material.opacity = 0;
+if (nodeCoreMesh) nodeCoreMesh.material.opacity = 0;
+
+async function rebuildNetwork(newLayerSizes, layerDetails = [], skipFadeOut = false) {
+  if (!newLayerSizes || newLayerSizes.length === 0) return;
 
   console.log(
-    '[IRIS viz] 네트워크 리빌드 시작:',
+    '[IRIS viz] 네트워크 리빌드:',
     newLayerSizes.length, '레이어,',
     newLayerSizes.reduce((a, b) => a+b, 0), '노드'
   );
@@ -1173,17 +1187,19 @@ async function rebuildNetwork(newLayerSizes, layerDetails = []) {
   // ── 2. sparkPool 초기화 ────────────────────
   if (typeof sparkPool !== 'undefined') sparkPool.length = 0;
 
-  // ── 3. 페이드 아웃 ─────────────────────────
-  await new Promise(resolve => {
-    let opacity = 1.0;
-    const id = setInterval(() => {
-      opacity -= 0.08;
-      if (edgeMesh)     edgeMesh.material.opacity     = Math.max(0, opacity);
-      if (nodeHaloMesh) nodeHaloMesh.material.opacity = Math.max(0, opacity);
-      if (nodeCoreMesh) nodeCoreMesh.material.opacity = Math.max(0, opacity);
-      if (opacity <= 0) { clearInterval(id); resolve(); }
-    }, 16);
-  });
+  // ── 3. 페이드 아웃 (skipFadeOut 이면 스킵) ──
+  if (!skipFadeOut) {
+    await new Promise(resolve => {
+      let opacity = 1.0;
+      const id = setInterval(() => {
+        opacity -= 0.08;
+        if (edgeMesh)     edgeMesh.material.opacity     = Math.max(0, opacity);
+        if (nodeHaloMesh) nodeHaloMesh.material.opacity = Math.max(0, opacity);
+        if (nodeCoreMesh) nodeCoreMesh.material.opacity = Math.max(0, opacity);
+        if (opacity <= 0) { clearInterval(id); resolve(); }
+      }, 16);
+    });
+  }
 
   // ── 4. LAYER_SIZES / LAYER_RADII 업데이트 ──
   LAYER_SIZES.length = 0;

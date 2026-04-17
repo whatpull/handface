@@ -319,6 +319,78 @@ export class IRISBackend {
 
   get growthData() { return this._growthData; }
 
+  // ── 모델 정보 조회 (28-layer viz 구조 생성용) ───────────────
+  async fetchModelInfo() {
+    if (!this._apiKey) return null;
+    try {
+      const res = await fetch(
+        `${this._endpoint}/model-info`,
+        { headers: { 'X-API-Key': this._apiKey } }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+
+      // 28개 레이어 → viz용 레이어 크기 배열 생성
+      const numLayers = data.architecture?.num_layers ?? 28;
+      const hiddenSize = data.architecture?.hidden_size ?? 3072;
+
+      // 레이어별 노드 수 계산
+      // 입력층 → 히든층들 → 출력층
+      // 실제 28레이어를 viz에 맞게 노드 밀도 설정
+      const layerSizes = this._computeLayerSizes(
+        numLayers,
+        data.layer_details ?? []
+      );
+
+      this.emit({
+        type:        'model-info',
+        numLayers:   numLayers,
+        layerSizes:  layerSizes,
+        layerDetails: data.layer_details ?? [],
+        architecture: data.architecture,
+      });
+
+      return data;
+    } catch (e) {
+      console.warn('[IRIS] 모델 정보 조회 실패:', e.message);
+      return null;
+    }
+  }
+
+  _computeLayerSizes(numLayers, layerDetails) {
+    // 실제 IRIS 레이어 구조를 viz에 맞게 변환
+    // 트랜스포머 특성 반영:
+    // 입력부 → 증가 → 최대 → 감소 → 출력부
+
+    const sizes = [];
+
+    for (let i = 0; i < numLayers; i++) {
+      const detail   = layerDetails[i];
+      const strength = detail?.strength ?? 1.0;
+      const ratio    = i / Math.max(numLayers - 1, 1);
+
+      // 벨 커브 형태 (중간 레이어가 가장 큰)
+      const bellCurve = Math.sin(ratio * Math.PI);
+
+      // 기본 노드 수 (6~48 범위)
+      const minNodes = 6;
+      const maxNodes = 48;
+      const baseNodes = Math.round(
+        minNodes + (maxNodes - minNodes) * bellCurve
+      );
+
+      // strength로 조정
+      const nodeCount = Math.max(
+        4,
+        Math.round(baseNodes * (0.5 + strength * 0.5))
+      );
+
+      sizes.push(nodeCount);
+    }
+
+    return sizes;
+  }
+
   // ── 로컬 저장 ─────────────────────────────────────────────
   _saveLocal() {
     try {

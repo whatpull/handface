@@ -255,7 +255,16 @@ export class IRISBackend {
       const raw = localStorage.getItem('handface-iris-v1');
       if (!raw) return;
       const d = JSON.parse(raw);
-      this._history   = d.history   ?? [];
+      // 구 포맷 마이그레이션: {role:'assistant', content} → {role:'ai', text}
+      const rawHistory = d.history ?? [];
+      this._history = rawHistory
+        .map(m => ({
+          role: m.role === 'assistant' ? 'ai' : (m.role ?? 'ai'),
+          text: typeof m.text === 'string' ? m.text
+              : typeof m.content === 'string' ? m.content
+              : '',
+        }))
+        .filter(m => m.text.length > 0);
       this._memory.items = d.memory ?? [];
       this._sessionId = d.sessionId ?? null;
       this._endpoint  = d.endpoint  ?? '';

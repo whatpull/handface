@@ -29,7 +29,8 @@ jobs:
       - name: Trigger Kaggle DPO notebook
         if: steps.check.outputs.status == 'ready'
         env:
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           echo "Triggering DPO training with ${{ steps.check.outputs.count }} RLAIF samples..."
           kaggle kernels push -k whatpull/iris-auto-dpo

@@ -189,6 +189,7 @@ export class IRISBackend {
     this.model.forward([]);
 
     try {
+      const t0 = Date.now();
       const res = await fetch(`${this._endpoint}/chat`, {
         method: 'POST',
         headers: {
@@ -208,6 +209,7 @@ export class IRISBackend {
       }
 
       const data  = await res.json();
+      this._lastLatency = Date.now() - t0;
       const reply = (data.response || '').trim();
       this._sessionId = data.session_id || this._sessionId;
 

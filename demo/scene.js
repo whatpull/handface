@@ -333,99 +333,73 @@ const brainRimMat = new THREE.ShaderMaterial({
 // ─────────────────────────────────────────
 // HUD 패널: Input Vector + Layer Weights
 // ─────────────────────────────────────────
+// 구 HUD 요소 (IRIS-전용 패널로 교체됨) — init 블록 null-guard 유지
 const inputGridEl = document.getElementById('input-grid');
-inputGridEl.style.gridTemplateColumns = `repeat(${LAYER_SIZES[0]}, 1fr)`;
 const inputCellFills = [];
 const inputCellVals  = [];
-for (let i = 0; i < LAYER_SIZES[0]; i++) {
-  const cell = document.createElement('div');
-  cell.className = 'input-cell';
-  const fill = document.createElement('div');
-  fill.className = 'input-cell-fill';
-  const val  = document.createElement('div');
-  val.className  = 'input-cell-val';
-  val.textContent = '00';
-  cell.appendChild(fill);
-  cell.appendChild(val);
-  inputGridEl.appendChild(cell);
-  inputCellFills.push(fill);
-  inputCellVals.push(val);
+if (inputGridEl) {
+  inputGridEl.style.gridTemplateColumns = `repeat(${LAYER_SIZES[0]}, 1fr)`;
+  for (let i = 0; i < LAYER_SIZES[0]; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'input-cell';
+    const fill = document.createElement('div');
+    fill.className = 'input-cell-fill';
+    const val  = document.createElement('div');
+    val.className  = 'input-cell-val';
+    val.textContent = '00';
+    cell.appendChild(fill);
+    cell.appendChild(val);
+    inputGridEl.appendChild(cell);
+    inputCellFills.push(fill);
+    inputCellVals.push(val);
+  }
 }
 
 const weightListEl = document.getElementById('weight-list');
 const weightRowEls = [];
-for (let li = 1; li < LAYER_SIZES.length; li++) {
-  const row = document.createElement('div');
-  row.className = 'weight-row';
-  row.innerHTML = `
-    <span class="weight-label">L${li-1}→${li}</span>
-    <div class="weight-bar"><div class="weight-fill"></div></div>
-    <span class="weight-val">—</span>
-  `;
-  weightListEl.appendChild(row);
-  weightRowEls.push({
-    fill:     row.querySelector('.weight-fill'),
-    val:      row.querySelector('.weight-val'),
-    layerIdx: li,
-  });
+if (weightListEl) {
+  for (let li = 1; li < LAYER_SIZES.length; li++) {
+    const row = document.createElement('div');
+    row.className = 'weight-row';
+    row.innerHTML = `
+      <span class="weight-label">L${li-1}→${li}</span>
+      <div class="weight-bar"><div class="weight-fill"></div></div>
+      <span class="weight-val">—</span>
+    `;
+    weightListEl.appendChild(row);
+    weightRowEls.push({
+      fill:     row.querySelector('.weight-fill'),
+      val:      row.querySelector('.weight-val'),
+      layerIdx: li,
+    });
+  }
 }
 
-// ── Top-K next-char predictions panel ──
+// ── Top-K next-char predictions panel (IRIS-전용 패널로 교체됨) ──
 const predListEl = document.getElementById('pred-list');
 const PRED_K = 8;
 const predRowEls = [];
-for (let i = 0; i < PRED_K; i++) {
-  const row = document.createElement('div');
-  row.className = 'pred-row';
-  row.innerHTML = `
-    <span class="pred-char">·</span>
-    <div class="pred-bar"><div class="pred-fill"></div></div>
-    <span class="pred-pct">—</span>
-  `;
-  predListEl.appendChild(row);
-  predRowEls.push({
-    char: row.querySelector('.pred-char'),
-    fill: row.querySelector('.pred-fill'),
-    pct:  row.querySelector('.pred-pct'),
-  });
+if (predListEl) {
+  for (let i = 0; i < PRED_K; i++) {
+    const row = document.createElement('div');
+    row.className = 'pred-row';
+    row.innerHTML = `
+      <span class="pred-char">·</span>
+      <div class="pred-bar"><div class="pred-fill"></div></div>
+      <span class="pred-pct">—</span>
+    `;
+    predListEl.appendChild(row);
+    predRowEls.push({
+      char: row.querySelector('.pred-char'),
+      fill: row.querySelector('.pred-fill'),
+      pct:  row.querySelector('.pred-pct'),
+    });
+  }
 }
 
 function updatePredictions() {
-  const text = backend.history.length > 0
-    ? backend.history[backend.history.length - 1].text
-    : ' ';
-  // forward pass on the last context
-  const indices = backend.model.encode(text);
-  const ctx = new Array(backend.model.CTX);
-  for (let k = 0; k < backend.model.CTX; k++) {
-    const pos = indices.length - backend.model.CTX + k;
-    ctx[k] = pos >= 0 ? indices[pos] : 0;
-  }
-  backend.model.forward(ctx);
-
-  const probs = backend.model.lastProbs;
-  const V     = backend.model.vocab.size;
-  const items = [];
-  for (let i = 1; i < V; i++) {                  // skip PAD at 0
-    const ch = backend.model.invVocab[i];
-    if (!ch || ch === '\n') continue;             // hide structural tokens
-    items.push({ ch, p: probs[i] });
-  }
-  items.sort((a, b) => b.p - a.p);
-
-  for (let i = 0; i < PRED_K; i++) {
-    const item = items[i];
-    if (item) {
-      const display = item.ch === ' ' ? '␣' : item.ch;
-      predRowEls[i].char.textContent = display;
-      predRowEls[i].fill.style.width = `${Math.round(item.p * 100)}%`;
-      predRowEls[i].pct.textContent  = (item.p * 100).toFixed(1) + '%';
-    } else {
-      predRowEls[i].char.textContent = '·';
-      predRowEls[i].fill.style.width = '0%';
-      predRowEls[i].pct.textContent  = '—';
-    }
-  }
+  // IRIS 모드에서는 updateNetInfo()가 대신 처리
+  updateNetInfo();
 }
 
 // ── Loss sparkline (canvas) ──
@@ -493,16 +467,21 @@ function appendChatMsg(role, text) {
 }
 
 function updateChatStats() {
-  const s = backend.stats;
-  const lossStr = s.lossEMA != null ? s.lossEMA.toFixed(2) : '—';
-  const tokenStr = s.tokenCount ? ` · tokens ${s.tokenCount}` : '';
-  const memStr   = s.memories != null ? ` · mem ${s.memories}` : '';
-  chatStatsEl.textContent = `steps ${s.totalSteps} · loss ${lossStr}${memStr}${tokenStr}`;
-  if (s.lossEMA != null) {
-    // 학습 진척도: loss가 낮을수록 바가 가득 (5.0 → 0% / 0.5 → 90%)
-    const filled = Math.max(0, Math.min(1, 1 - s.lossEMA / 5));
-    chatLossFillEl.style.width = `${Math.round(filled * 100)}%`;
-  }
+  const growth  = backend.growthData ?? {};
+  const history = backend.history ?? [];
+  const msgs    = Math.floor(history.length / 2);
+  const score   = growth.growth_score ?? 0;
+  const version = growth.version ?? 'v1.0';
+
+  chatStatsEl.textContent =
+    `IRIS ${version} · 대화 ${msgs}건 · 성장 ${score}pt`;
+
+  // loss bar → growth score bar로 재활용
+  const filled = score / 100;
+  chatLossFillEl.style.width = `${Math.round(filled * 100)}%`;
+  chatLossFillEl.style.background =
+    score > 50 ? '#44FF88' :
+    score > 20 ? '#FFAA44' : '#66BBFF';
 }
 
 function bootstrapChat() {
@@ -852,26 +831,110 @@ sDeleteBtn.addEventListener('click', () => {
 });
 
 function updateNetInfo() {
-  // Input vector (활성화 값)
-  for (let i = 0; i < LAYER_SIZES[0]; i++) {
-    const a = layerData[0][i].activation;
-    inputCellFills[i].style.height = `${Math.round(a * 100)}%`;
-    inputCellVals[i].textContent   = String(Math.round(a * 100)).padStart(2, '0');
+  const growth   = backend.growthData ?? {};
+  const stats    = backend.stats ?? {};
+  const history  = backend.history ?? [];
+  const endpoint = backend._endpoint ?? '—';
+
+  // ── IRIS Status ──────────────────────────────
+  const versionEl = document.getElementById('iris-version');
+  if (versionEl)
+    versionEl.textContent = growth.version ?? 'v1.0';
+
+  const endpointEl = document.getElementById('iris-endpoint-status');
+  if (endpointEl) {
+    const short = endpoint.replace('https://', '').split('.')[0];
+    endpointEl.textContent = short;
   }
-  // Layer weights (각 층의 inter-layer incoming 평균 가중치)
-  for (const row of weightRowEls) {
-    let sum = 0, cnt = 0;
-    for (const n of layerData[row.layerIdx]) {
-      const inc = incomingEdges.get(n);
-      if (!inc) continue;
-      for (const e of inc) {
-        if (e.intra) continue;
-        sum += e.weight; cnt++;
-      }
-    }
-    const avg = cnt > 0 ? sum / cnt : 0;
-    row.fill.style.width = `${Math.round(avg * 100)}%`;
-    row.val.textContent  = avg.toFixed(2);
+
+  const sessionEl = document.getElementById('iris-session');
+  if (sessionEl) {
+    const sid = backend._sessionId;
+    sessionEl.textContent = sid ? sid.slice(0, 8) + '...' : '—';
+  }
+
+  const latencyEl = document.getElementById('iris-latency');
+  if (latencyEl)
+    latencyEl.textContent = backend._lastLatency
+      ? `${backend._lastLatency}ms` : '—';
+
+  // ── IRIS Growth bars ─────────────────────────
+  const convCount  = growth.conversation_count ?? 0;
+  const rlaifCount = growth.rlaif_count        ?? 0;
+  const dpoCount   = growth.dpo_count          ?? 0;
+  const score      = growth.growth_score       ?? 0;
+  const steps      = stats.totalSteps          ?? history.length;
+  const memCount   = backend._memory?.items?.length ?? 0;
+
+  // 각 항목 최대값 기준 바 너비 계산
+  const setBar = (barId, valId, value, maxVal, suffix = '') => {
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    if (bar) bar.style.width = `${Math.min(100, (value / maxVal) * 100)}%`;
+    if (val) val.textContent = value + suffix;
+  };
+
+  setBar('iris-conv-bar',   'iris-conv-val',   convCount,  500);
+  setBar('iris-rlaif-bar',  'iris-rlaif-val',  rlaifCount, 200);
+  setBar('iris-dpo-bar',    'iris-dpo-val',    dpoCount,   10,   'x');
+  setBar('iris-score-bar',  'iris-score-val',  score,      100,  'pt');
+  setBar('iris-steps-bar',  'iris-steps-val',  steps,      100);
+  setBar('iris-memory-bar', 'iris-memory-val', memCount,   200);
+
+  // ── IRIS Signal ──────────────────────────────
+  // 연결 상태
+  const isConnected = backend._apiKey?.length > 0;
+  const connBar = document.getElementById('iris-sig-conn-bar');
+  const connTxt = document.getElementById('iris-sig-conn');
+  if (connBar) connBar.style.width = isConnected ? '100%' : '0%';
+  if (connBar) connBar.style.background = isConnected ? '#44FF88' : '#FF4444';
+  if (connTxt) connTxt.textContent = isConnected ? 'ONLINE' : 'OFFLINE';
+
+  // 모델 상태
+  const modelBar = document.getElementById('iris-sig-model-bar');
+  const modelTxt = document.getElementById('iris-sig-model');
+  if (modelBar) modelBar.style.width = '100%';
+  if (modelTxt) modelTxt.textContent = growth.version ?? 'v1.0';
+
+  // 채팅 메시지 수
+  const chatCount = Math.floor(history.length / 2);
+  const chatBar = document.getElementById('iris-sig-chat-bar');
+  const chatTxt = document.getElementById('iris-sig-chat');
+  if (chatBar) chatBar.style.width = `${Math.min(100, chatCount)}%`;
+  if (chatTxt) chatTxt.textContent = `${chatCount} msgs`;
+
+  // 성장 점수
+  const growthBar = document.getElementById('iris-sig-growth-bar');
+  const growthTxt = document.getElementById('iris-sig-growth');
+  if (growthBar) growthBar.style.width = `${score}%`;
+  if (growthTxt) growthTxt.textContent = `${score}%`;
+
+  // RLAIF 데이터
+  const rlaifBar = document.getElementById('iris-sig-rlaif-bar');
+  const rlaifTxt = document.getElementById('iris-sig-rlaif');
+  if (rlaifBar) rlaifBar.style.width = `${Math.min(100, rlaifCount / 2)}%`;
+  if (rlaifTxt) rlaifTxt.textContent = `${rlaifCount} data`;
+
+  // DPO 횟수
+  const dpoBar = document.getElementById('iris-sig-dpo-bar');
+  const dpoTxt = document.getElementById('iris-sig-dpo');
+  if (dpoBar) dpoBar.style.width = `${Math.min(100, dpoCount * 10)}%`;
+  if (dpoTxt) dpoTxt.textContent = `DPO x${dpoCount}`;
+
+  // 업타임
+  const uptimeTxt = document.getElementById('iris-sig-uptime');
+  if (uptimeTxt) {
+    const mins = Math.floor(performance.now() / 60000);
+    uptimeTxt.textContent = mins > 0 ? `${mins}m` : '<1m';
+  }
+
+  // 엔드포인트
+  const epBar = document.getElementById('iris-sig-endpoint-bar');
+  const epTxt = document.getElementById('iris-sig-endpoint');
+  if (epBar) epBar.style.width = isConnected ? '100%' : '30%';
+  if (epTxt) {
+    const isHF = endpoint.includes('huggingface');
+    epTxt.textContent = isHF ? 'HF Space' : 'Custom';
   }
 }
 

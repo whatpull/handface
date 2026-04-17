@@ -27,9 +27,9 @@ jobs:
         run: |
           pip install kaggle
           mkdir -p ~/.kaggle
-          echo '{"username":"${{ secrets.KAGGLE_USERNAME }}","key":"${{ secrets.KAGGLE_KEY }}"}' > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
-          echo "Kaggle CLI configured"
+          echo "${{ secrets.KAGGLE_API_TOKEN }}" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+          echo "Kaggle CLI configured with access_token"
 
       - name: Trigger Kaggle DPO notebook
         if: steps.check.outputs.status == 'ready'

@@ -2,24 +2,20 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import brainObjUrl from './brain.obj?url';
 import { HandControl } from '../src/index.ts';
-import { ClaudeAPIBackend } from './claude-backend.js';
-import { WebLLMBackend } from './webllm-backend.js';
 import { IRISBackend } from './iris-backend.js';
 import { VoiceController } from './voice.js';
 
 // ─────────────────────────────────────────
-// Neural backend — provider에 따라 Gemini / Claude / Local 선택
+// Neural backend — IRIS 전용
 // ─────────────────────────────────────────
-const PROVIDER_STORAGE = 'handface-provider';   // 'gemini' | 'claude' | 'local'
-const APIKEY_STORAGE   = 'handface-apikey';
-const MODEL_STORAGE    = 'handface-model';
+const IRIS_APIKEY_STORAGE   = 'iris-api-key';
+const IRIS_ENDPOINT_STORAGE = 'iris-endpoint';
 
 function createBackend() {
-  localStorage.setItem('handface-provider', 'iris');
-  const b = new IRISBackend();
-  const savedKey = localStorage.getItem('iris-api-key') ?? '';
-  const savedEndpoint = localStorage.getItem('iris-endpoint') ?? '';
-  if (savedKey) b.setApiKey(savedKey);
+  const b             = new IRISBackend();
+  const savedKey      = localStorage.getItem(IRIS_APIKEY_STORAGE)   ?? '';
+  const savedEndpoint = localStorage.getItem(IRIS_ENDPOINT_STORAGE) ?? '';
+  if (savedKey)      b.setApiKey(savedKey);
   if (savedEndpoint) b.setEndpoint(savedEndpoint);
   return b;
 }
@@ -699,68 +695,60 @@ micBtn.addEventListener('click', () => {
 const settingsBtn    = document.getElementById('settings-btn');
 const settingsModal  = document.getElementById('settings-modal');
 const sApiKeyEl      = document.getElementById('s-apikey');
+const sEndpointEl    = document.getElementById('s-endpoint');
 const sStatusEl      = document.getElementById('settings-status');
 const sSaveBtn       = document.getElementById('s-save');
 const sTestBtn       = document.getElementById('s-test');
 const sDeleteBtn     = document.getElementById('s-delete');
 const sCloseBtn      = document.getElementById('s-close');
 
-function getSelectedProvider() {
-  const c = document.querySelector('input[name="s-provider"]:checked');
-  return c ? c.value : 'local';
-}
-function getSelectedModel() {
-  const c = document.querySelector('input[name="s-model"]:checked');
-  return c ? c.value : 'claude-haiku-4-5-20251001';
-}
-
 function updateModeBadge() {
-  const badge = document.getElementById('mode-badge');
-  if (!badge) return;
-  badge.textContent = 'IRIS v1.0';
-  badge.style.color = '#66BBFF';
-  badge.style.background = 'rgba(0,100,255,0.15)';
+  // 배지가 DOM에 없으면 생성 (chat-title 안에 삽입)
+  let badge = document.getElementById('mode-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'mode-badge';
+    badge.className = 'mode-badge cloud';
+    const chatTitle = document.getElementById('chat-title');
+    if (chatTitle) chatTitle.appendChild(badge);
+    else return;
+  }
+  badge.textContent        = '⬡ IRIS';
+  badge.style.color        = '#66BBFF';
+  badge.style.background   = 'rgba(0,80,255,0.15)';
+  badge.style.borderColor  = '#66BBFF';
 }
 updateModeBadge();
 
-// Populate saved settings
-const savedKey      = localStorage.getItem(APIKEY_STORAGE);
-const savedProvider = localStorage.getItem(PROVIDER_STORAGE);
-const savedModel    = localStorage.getItem(MODEL_STORAGE);
-if (savedKey) sApiKeyEl.value = savedKey;
-if (savedProvider) {
-  const r = document.querySelector(`input[name="s-provider"][value="${savedProvider}"]`);
-  if (r) r.checked = true;
-}
-if (savedModel) {
-  const r = document.querySelector(`input[name="s-model"][value="${savedModel}"]`);
-  if (r) r.checked = true;
+function closeSettings() {
+  settingsModal.style.display = 'none';
+  settingsModal.classList.remove('open');
 }
 
-settingsBtn.addEventListener('click', () => settingsModal.classList.add('open'));
-sCloseBtn.addEventListener('click',   () => settingsModal.classList.remove('open'));
+settingsBtn.addEventListener('click', () => {
+  const savedKey      = localStorage.getItem(IRIS_APIKEY_STORAGE) ?? '';
+  const savedEndpoint = localStorage.getItem(IRIS_ENDPOINT_STORAGE)
+    ?? 'https://whatpull-iris-assistant.hf.space';
+  if (sApiKeyEl)   sApiKeyEl.value   = savedKey;
+  if (sEndpointEl) sEndpointEl.value = savedEndpoint;
+  if (sStatusEl)   sStatusEl.textContent = '';
+  settingsModal.style.display = 'flex';
+});
+sCloseBtn.addEventListener('click', closeSettings);
 settingsModal.addEventListener('click', (e) => {
-  if (e.target === settingsModal) settingsModal.classList.remove('open');
+  if (e.target === settingsModal) closeSettings();
 });
 
 sTestBtn.addEventListener('click', async () => {
-  const prov = getSelectedProvider();
-  if (prov === 'huggingface') { sStatusEl.textContent = 'SmolLM2 — no key needed. Just send a message.'; return; }
-  const key = sApiKeyEl.value.trim();
-  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
+  const key      = sApiKeyEl.value.trim();
+  const endpoint = sEndpointEl?.value.trim() ?? '';
+  if (!key) { sStatusEl.textContent = 'Please enter IRIS X-API-Key.'; return; }
   sStatusEl.textContent = 'Testing...';
-  if (prov === 'iris') {
-    const testBe = new IRISBackend();
-    testBe.setApiKey(key);
-    const result = await testBe.testConnection();
-    sStatusEl.textContent = result.ok ? `✓ ${result.msg}` : `✗ ${result.msg}`;
-    return;
-  }
-  const testBe = new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
+  const testBe = new IRISBackend();
+  testBe.setApiKey(key);
+  if (endpoint) testBe.setEndpoint(endpoint);
   const result = await testBe.testConnection();
-  sStatusEl.textContent = result.ok
-    ? '✓ Connection successful!'
-    : `✗ ${result.error || 'Failed — check your key.'}`;
+  sStatusEl.textContent = result.ok ? `✓ ${result.msg}` : `✗ ${result.msg}`;
 });
 
 function applyBackend(be, label) {
@@ -771,46 +759,29 @@ function applyBackend(be, label) {
   syncEdgeWeightsFromModel();
   updateModeBadge();
   updateChatStats();
-  settingsModal.classList.remove('open');
+  closeSettings();
   pushLog('', label);
 }
 
 sSaveBtn.addEventListener('click', () => {
-  const prov  = getSelectedProvider();
-  const key   = sApiKeyEl.value.trim();
-  const model = getSelectedModel();
-
-  if (prov === 'huggingface') {
-    localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
-    localStorage.removeItem(APIKEY_STORAGE);
-    applyBackend(new WebLLMBackend(), '🧠 Qwen2.5-1.5B mode');
-    sStatusEl.textContent = '✓ Qwen2.5-1.5B — model loads on START.';
-    return;
-  }
-  if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
-  if (prov === 'iris') {
-    localStorage.setItem(PROVIDER_STORAGE, 'iris');
-    localStorage.setItem(APIKEY_STORAGE, key);
-    const be = new IRISBackend();
-    be.setApiKey(key);
-    applyBackend(be, '👁️ IRIS mode');
-    sStatusEl.textContent = '✓ Now using IRIS Assistant.';
-    return;
-  }
-  localStorage.setItem(PROVIDER_STORAGE, 'claude');
-  localStorage.setItem(APIKEY_STORAGE, key);
-  localStorage.setItem(MODEL_STORAGE, model);
-  applyBackend(new ClaudeAPIBackend({ apiKey: key, model }), '☁ Claude mode');
-  sStatusEl.textContent = '✓ Now using Claude.';
+  const key      = sApiKeyEl.value.trim();
+  const endpoint = sEndpointEl?.value.trim() ?? '';
+  if (!key) { sStatusEl.textContent = 'Please enter IRIS X-API-Key.'; return; }
+  localStorage.setItem(IRIS_APIKEY_STORAGE, key);
+  if (endpoint) localStorage.setItem(IRIS_ENDPOINT_STORAGE, endpoint);
+  const be = new IRISBackend();
+  be.setApiKey(key);
+  if (endpoint) be.setEndpoint(endpoint);
+  applyBackend(be, '⬡ IRIS mode');
+  sStatusEl.textContent = '✓ Now using IRIS Assistant.';
 });
 
 sDeleteBtn.addEventListener('click', () => {
-  localStorage.removeItem(APIKEY_STORAGE);
-  localStorage.setItem(PROVIDER_STORAGE, 'huggingface');
-  localStorage.removeItem(MODEL_STORAGE);
-  sApiKeyEl.value = '';
-  applyBackend(new WebLLMBackend(), '🧠 Qwen2.5-1.5B mode');
-  sStatusEl.textContent = 'Key deleted — Qwen2.5-1.5B mode.';
+  localStorage.removeItem(IRIS_APIKEY_STORAGE);
+  localStorage.removeItem(IRIS_ENDPOINT_STORAGE);
+  if (sApiKeyEl)   sApiKeyEl.value   = '';
+  if (sEndpointEl) sEndpointEl.value = 'https://whatpull-iris-assistant.hf.space';
+  sStatusEl.textContent = 'Key & endpoint cleared.';
 });
 
 function updateNetInfo() {

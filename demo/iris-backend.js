@@ -1,27 +1,18 @@
 /**
- * iris-backend.js
- * IRIS FastAPI (HuggingFace Spaces) 백엔드
- * Shadow NLM으로 3D viz 구동 (hf-backend.js 패턴 재사용)
+ * iris-backend.js — IRIS 전용 백엔드 (IRIS FastAPI 연동)
  */
 
-import { NeuralLM } from './nlm.js';
-
-const IRIS_ENDPOINT = 'https://whatpull-iris-assistant.hf.space';
-
-// ── RAG 메모리 (hf-backend.js 패턴 재사용) ─────────────────
+// ── RAG 메모리 ─────────────────────────────────────────────
 class RAGMemory {
   constructor(maxItems = 200) {
     this.items = [];
     this.maxItems = maxItems;
   }
-
   add(text) {
     this.items.push(text);
-    if (this.items.length > this.maxItems)
-      this.items.shift();
+    if (this.items.length > this.maxItems) this.items.shift();
   }
-
-  search(query, k = 5) {
+  search(query, k = 3) {
     const qBigrams = this._bigrams(query.toLowerCase());
     return this.items
       .map(item => ({
@@ -33,14 +24,12 @@ class RAGMemory {
       .filter(x => x.score > 0)
       .map(x => x.item);
   }
-
   _bigrams(str) {
     const s = new Set();
     for (let i = 0; i < str.length - 1; i++)
       s.add(str.slice(i, i + 2));
     return s;
   }
-
   _similarity(a, b) {
     let inter = 0;
     for (const g of a) if (b.has(g)) inter++;
@@ -48,22 +37,58 @@ class RAGMemory {
   }
 }
 
-// ── IRIS 백엔드 메인 클래스 ────────────────────────────────
+// ── IRIS 백엔드 ────────────────────────────────────────────
 export class IRISBackend {
   constructor() {
-    this._listeners = [];
-    this._history  = [];
-    this._memory   = new RAGMemory(200);
-    this._apiKey   = '';
-    this._sessionId = null;
+    this._listeners  = [];
+    this._history    = [];
+    this._memory     = new RAGMemory(200);
+    this._apiKey     = '';
+    this._endpoint   = 'https://whatpull-iris-assistant.hf.space';
+    this._sessionId  = null;
+    this.busy        = false;
 
-    // Shadow NLM (3D viz 전용) — NeuralLM API 시그니처에 맞춤
-    this._shadow = new NeuralLM({
-      maxVocab: 220, contextLen: 8, embedDim: 16,
-      h1: 112, h2: 96, h3: 64, lr: 0.025, clipGrad: 1.0,
-    });
+    // Shadow model (triggerPass 호환용 더미)
+    this.model = this._makeDummyModel();
+
+    // .env 빌드 설정 자동 로드 (build-env.mjs 가 생성하는 iris-config.js)
+    const cfg = typeof window !== 'undefined' ? window.__IRIS_CONFIG__ : null;
+    if (cfg?.apiKey)   this._apiKey   = cfg.apiKey;
+    if (cfg?.endpoint) this._endpoint = cfg.endpoint;
 
     this._loadLocal();
+  }
+
+  // triggerPass() 가 호출하는 model 인터페이스 더미
+  _makeDummyModel() {
+    const VOCAB_SIZE = 64;
+    const H = 32;
+    return {
+      CTX: 8,
+      vocab: { size: VOCAB_SIZE },
+      encode: (text) => {
+        // 문자 → 0~63 인덱스 변환
+        return [...text].map(c => c.charCodeAt(0) % VOCAB_SIZE);
+      },
+      forward: (ctx) => {
+        // 랜덤 활성화 생성 (viz용)
+        this.model.lastX     = Float32Array.from({ length: H },
+          () => Math.random() * 0.8 + 0.1);
+        this.model.lastH1    = Float32Array.from({ length: H },
+          () => Math.random() * 0.8 + 0.1);
+        this.model.lastH2    = Float32Array.from({ length: H },
+          () => Math.random() * 0.8 + 0.1);
+        this.model.lastH3    = Float32Array.from({ length: H },
+          () => Math.random() * 0.8 + 0.1);
+        this.model.lastProbs = Float32Array.from({ length: VOCAB_SIZE },
+          () => Math.random());
+      },
+      lastX:     new Float32Array(H),
+      lastH1:    new Float32Array(H),
+      lastH2:    new Float32Array(H),
+      lastH3:    new Float32Array(H),
+      lastProbs: new Float32Array(VOCAB_SIZE),
+    };
   }
 
   // ── 공통 surface ──────────────────────────────────────────
@@ -71,9 +96,7 @@ export class IRISBackend {
 
   emit(ev) { this._listeners.forEach(fn => fn(ev)); }
 
-  // scene.js 가 기대하는 public surface (다른 백엔드와 호환)
-  // 내부 저장은 {role:'user'|'assistant', content} (IRIS 서버 스타일),
-  // 외부 노출은 {role:'user'|'ai', text} (scene.js 호환)로 변환
+  // scene.js 호환용: 내부 {role:'user'|'assistant', content} → {role:'user'|'ai', text}
   get history() {
     return this._history.map(m => ({
       role: m.role === 'assistant' ? 'ai' : m.role,
@@ -82,11 +105,10 @@ export class IRISBackend {
           : '',
     }));
   }
-  get model()   { return this._shadow; }
 
   get stats() {
     return {
-      vocabSize:  0,
+      vocabSize:  64,
       totalSteps: this._history.length,
       lossEMA:    0,
       label:      'IRIS',
@@ -94,36 +116,22 @@ export class IRISBackend {
   }
 
   get modelState() {
-    if (!this._shadow) return {
-      embed: [], h1: [], h2: [], h3: [], probs: []
-    };
     return {
-      embed: this._shadow.lastX     ?? [],
-      h1:    this._shadow.lastH1    ?? [],
-      h2:    this._shadow.lastH2    ?? [],
-      h3:    this._shadow.lastH3    ?? [],
-      probs: this._shadow.lastProbs ?? [],
+      embed: this.model.lastX,
+      h1:    this.model.lastH1,
+      h2:    this.model.lastH2,
+      h3:    this.model.lastH3,
+      probs: this.model.lastProbs,
     };
   }
 
-  layerWeightAverages() {
-    if (!this._shadow) return [0, 0, 0];
-    try {
-      return this._shadow.layerWeightAverages?.()
-        ?? [0, 0, 0];
-    } catch (_) {
-      return [0, 0, 0];
-    }
-  }
+  layerWeightAverages() { return [0.5, 0.5, 0.5]; }
 
   reset() {
-    this._history  = [];
-    this._memory   = new RAGMemory(200);
+    this._history   = [];
+    this._memory    = new RAGMemory(200);
     this._sessionId = null;
-    this._shadow   = new NeuralLM({
-      maxVocab: 220, contextLen: 8, embedDim: 16,
-      h1: 112, h2: 96, h3: 64, lr: 0.025, clipGrad: 1.0,
-    });
+    this.model      = this._makeDummyModel();
     this._saveLocal();
     this.emit({ type: 'state', stats: this.stats });
   }
@@ -134,40 +142,36 @@ export class IRISBackend {
   }
 
   setEndpoint(url) {
-    this._endpoint = (url || '').trim();
-    this._saveLocal();
+    if (url && url.startsWith('http')) {
+      this._endpoint = url.trim().replace(/\/$/, '');
+      this._saveLocal();
+    }
   }
-
-  get endpoint() { return this._endpoint || IRIS_ENDPOINT; }
 
   // ── 메인 send() ───────────────────────────────────────────
   async send(message) {
+    if (this.busy) return;
+
     if (!this._apiKey) {
       this.emit({
         type: 'generate-end',
-        text: '⚠️ IRIS API Key가 설정되지 않았습니다. Settings(⚙️)에서 X-API-Key를 입력해주세요.',
+        text: '⚠️ IRIS API Key가 설정되지 않았습니다.\nSettings(⚙️)에서 X-API-Key를 입력해주세요.',
       });
       return;
     }
 
-    // 1. 시작 이벤트
+    this.busy = true;
     this.emit({ type: 'training-start' });
 
-    // 2. Shadow NLM 학습 (viz 구동)
-    this._trainShadow(message);
-
-    // 3. RAG 메모리 검색
-    const memories = this._memory.search(message, 3);
+    // dummy model 활성화 (viz 즉시 반응)
+    this.model.forward([]);
 
     try {
-      const endpoint = this._endpoint ||
-        'https://whatpull-iris-assistant.hf.space';
-
-      const res = await fetch(`${endpoint}/chat`, {
+      const res = await fetch(`${this._endpoint}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': this._apiKey,
+          'X-API-Key':    this._apiKey,
         },
         body: JSON.stringify({
           message,
@@ -181,56 +185,55 @@ export class IRISBackend {
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      const reply = data.response || '';
+      const data  = await res.json();
+      const reply = (data.response || '').trim();
       this._sessionId = data.session_id || this._sessionId;
 
-      // 4. 히스토리 + 메모리 저장 (내부는 IRIS 서버 스타일 {role, content})
+      // 히스토리 + 메모리 저장
       this._history.push({ role: 'user',      content: message });
       this._history.push({ role: 'assistant', content: reply   });
       this._memory.add(message);
       this._memory.add(reply);
-
-      // 5. Shadow NLM 재학습
-      this._trainShadow(reply);
-
-      // 6. 저장
       this._saveLocal();
 
-      // 7. 이벤트 발행 (순서 중요!) — partial 포함해야 scene.js 스트리밍 UI 동작
+      // 응답 후 model 활성화 갱신 (viz 반응)
+      this.model.forward([]);
+
+      // partial 포함 — scene.js 스트리밍 UI 가 ev.partial 을 읽음
       this.emit({ type: 'generate-token', token: reply, partial: reply });
-      this.emit({ type: 'generate-end',   text: reply  });
+      this.emit({ type: 'generate-end',   text:  reply });
       this.emit({ type: 'state', stats: this.stats });
 
     } catch (e) {
       console.error('[IRIS]', e);
-
-      const msg = e.message?.includes('503') ||
-                  e.message?.includes('warming') ||
-                  e.message?.includes('Service Unavailable')
-        ? 'IRIS가 깨어나는 중입니다, 주인님. 잠시 후 다시 시도해주세요. (콜드스타트 약 30~60초)'
+      const isWarmup = e.message?.includes('503') ||
+                       e.message?.includes('Service Unavailable') ||
+                       e.message?.includes('warming');
+      const msg = isWarmup
+        ? 'IRIS가 깨어나는 중입니다, 주인님.\n잠시 후 다시 시도해주세요. (콜드스타트 약 30~60초)'
         : `IRIS 연결 오류: ${e.message}`;
 
       this.emit({ type: 'generate-end', text: msg });
     }
 
-    // 8. 종료 이벤트 (payload 포함 — scene.js training-end 핸들러 크래시 방지)
+    this.busy = false;
+    // payload 포함 — scene.js training-end 핸들러 ev.avgLoss.toFixed() 크래시 방지
     this.emit({ type: 'training-end', avgLoss: 0, stepsRun: 0, totalSteps: this._history.length });
   }
 
   // ── Test Connection ────────────────────────────────────────
   async testConnection() {
-    if (!this._apiKey) return { ok: false, msg: 'API Key를 입력해주세요.' };
+    if (!this._apiKey)
+      return { ok: false, msg: 'API Key를 입력해주세요.' };
     try {
-      const res = await fetch(`${this.endpoint}/health`, {
+      const res = await fetch(`${this._endpoint}/health`, {
         headers: { 'X-API-Key': this._apiKey },
       });
       if (res.ok) {
         const data = await res.json();
-        const loaded = data.model_loaded ? '✅' : '⏳';
         return {
-          ok: true,
-          msg: `${loaded} IRIS 시스템 온라인 | RLAIF 데이터: ${data.rlaif_data_count ?? 0}건`,
+          ok:  true,
+          msg: `IRIS 시스템 온라인 | RLAIF: ${data.rlaif_data_count ?? 0}건`,
         };
       }
       return { ok: false, msg: `HTTP ${res.status}` };
@@ -239,26 +242,14 @@ export class IRISBackend {
     }
   }
 
-  // ── Shadow NLM 학습 (viz 전용) ─────────────────────────────
-  _trainShadow(text) {
-    if (!text || !this._shadow) return;
-    try {
-      if (typeof this._shadow.trainOnText === 'function') {
-        this._shadow.trainOnText(text, 1);
-      }
-    } catch (e) {
-      // Shadow NLM 오류 무시 (viz 전용)
-    }
-  }
-
   // ── 로컬 저장 ─────────────────────────────────────────────
   _saveLocal() {
     try {
       localStorage.setItem('handface-iris-v1', JSON.stringify({
-        history:   this._history.slice(-40),
-        memory:    this._memory.items,
-        sessionId: this._sessionId,
-        endpoint:  this._endpoint || '',
+        history:    this._history.slice(-40),
+        memory:     this._memory.items,
+        sessionId:  this._sessionId,
+        endpoint:   this._endpoint,
       }));
     } catch (_) {}
   }
@@ -268,19 +259,10 @@ export class IRISBackend {
       const raw = localStorage.getItem('handface-iris-v1');
       if (!raw) return;
       const d = JSON.parse(raw);
-      // 구 포맷 마이그레이션: {role:'assistant', content} → {role:'ai', text}
-      const rawHistory = d.history ?? [];
-      this._history = rawHistory
-        .map(m => ({
-          role: m.role === 'assistant' ? 'ai' : (m.role ?? 'ai'),
-          text: typeof m.text === 'string' ? m.text
-              : typeof m.content === 'string' ? m.content
-              : '',
-        }))
-        .filter(m => m.text.length > 0);
-      this._memory.items = d.memory ?? [];
-      this._sessionId = d.sessionId ?? null;
-      this._endpoint  = d.endpoint  ?? '';
+      this._history      = d.history   ?? [];
+      this._memory.items = d.memory    ?? [];
+      this._sessionId    = d.sessionId ?? null;
+      if (d.endpoint) this._endpoint = d.endpoint;
     } catch (_) {}
   }
 }

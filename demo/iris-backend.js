@@ -81,13 +81,26 @@ export class IRISBackend {
   }
 
   get modelState() {
-    return this._shadow.getActivations?.() ?? {
+    if (!this._shadow) return {
       embed: [], h1: [], h2: [], h3: [], probs: []
+    };
+    return {
+      embed: this._shadow.lastX     ?? [],
+      h1:    this._shadow.lastH1    ?? [],
+      h2:    this._shadow.lastH2    ?? [],
+      h3:    this._shadow.lastH3    ?? [],
+      probs: this._shadow.lastProbs ?? [],
     };
   }
 
   layerWeightAverages() {
-    return this._shadow.layerWeightAverages?.() ?? [0, 0, 0];
+    if (!this._shadow) return [0, 0, 0];
+    try {
+      return this._shadow.layerWeightAverages?.()
+        ?? [0, 0, 0];
+    } catch (_) {
+      return [0, 0, 0];
+    }
   }
 
   reset() {
@@ -204,14 +217,9 @@ export class IRISBackend {
 
   // ── Shadow NLM 학습 (viz 전용) ─────────────────────────────
   _trainShadow(text) {
-    if (!text || !this._shadow?.train) return;
+    if (!text || !this._shadow) return;
     try {
-      const tokens = text.slice(0, 64).split('').map(
-        c => c.charCodeAt(0) % 8
-      );
-      for (let i = 0; i < tokens.length - 1; i++) {
-        this._shadow.train([tokens[i]], [tokens[i + 1]]);
-      }
+      this._shadow.trainOnText(text, 1);
     } catch (_) {}
   }
 

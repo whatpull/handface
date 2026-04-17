@@ -806,11 +806,12 @@
         <div class="settings-radios">
           <label><input type="radio" name="s-provider" value="huggingface" checked /> Qwen2.5-1.5B WebGPU (free, no key, Korean)</label>
           <label><input type="radio" name="s-provider" value="claude" /> Claude (API key required)</label>
+          <label><input type="radio" name="s-provider" value="iris" /> IRIS Assistant (X-API-Key required)</label>
         </div>
       </div>
       <div class="settings-row" id="s-apikey-row">
-        <label>API Key (Claude only)</label>
-        <input id="s-apikey" type="password" placeholder="sk-ant-api03-..." autocomplete="off" />
+        <label>API Key</label>
+        <input id="s-apikey" type="password" placeholder="sk-ant-api03-... / IRIS X-API-Key" autocomplete="off" />
       </div>
       <div class="settings-row" id="s-model-row">
         <label>Claude Model</label>

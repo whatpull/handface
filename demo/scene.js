@@ -4,6 +4,7 @@ import brainObjUrl from './brain.obj?url';
 import { HandControl } from '../src/index.ts';
 import { ClaudeAPIBackend } from './claude-backend.js';
 import { WebLLMBackend } from './webllm-backend.js';
+import { IRISBackend } from './iris-backend.js';
 import { VoiceController } from './voice.js';
 
 // ─────────────────────────────────────────
@@ -19,6 +20,11 @@ function createBackend() {
   const model    = localStorage.getItem(MODEL_STORAGE) || 'claude-haiku-4-5-20251001';
 
   if (provider === 'claude' && apiKey) return new ClaudeAPIBackend({ apiKey, model });
+  if (provider === 'iris' && apiKey) {
+    const be = new IRISBackend();
+    be.setApiKey(apiKey);
+    return be;
+  }
   return new WebLLMBackend();
 }
 
@@ -709,9 +715,11 @@ function updateModeBadge() {
   if (existing) existing.remove();
   const badge = document.createElement('span');
   badge.id = 'mode-badge';
-  const isClaude = backend instanceof ClaudeAPIBackend;
-  badge.className = `mode-badge ${isClaude ? 'cloud' : 'cloud'}`;
-  badge.textContent = isClaude ? 'CLAUDE' : 'Qwen2.5-1.5B';
+  let label = 'Qwen2.5-1.5B';
+  if (backend instanceof ClaudeAPIBackend) label = 'CLAUDE';
+  else if (backend instanceof IRISBackend) label = 'IRIS';
+  badge.className = 'mode-badge cloud';
+  badge.textContent = label;
   document.getElementById('chat-title').appendChild(badge);
 }
 updateModeBadge();
@@ -742,6 +750,13 @@ sTestBtn.addEventListener('click', async () => {
   const key = sApiKeyEl.value.trim();
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
   sStatusEl.textContent = 'Testing...';
+  if (prov === 'iris') {
+    const testBe = new IRISBackend();
+    testBe.setApiKey(key);
+    const result = await testBe.testConnection();
+    sStatusEl.textContent = result.ok ? `✓ ${result.msg}` : `✗ ${result.msg}`;
+    return;
+  }
   const testBe = new ClaudeAPIBackend({ apiKey: key, model: getSelectedModel() });
   const result = await testBe.testConnection();
   sStatusEl.textContent = result.ok
@@ -774,6 +789,15 @@ sSaveBtn.addEventListener('click', () => {
     return;
   }
   if (!key) { sStatusEl.textContent = 'Please enter an API key.'; return; }
+  if (prov === 'iris') {
+    localStorage.setItem(PROVIDER_STORAGE, 'iris');
+    localStorage.setItem(APIKEY_STORAGE, key);
+    const be = new IRISBackend();
+    be.setApiKey(key);
+    applyBackend(be, '👁️ IRIS mode');
+    sStatusEl.textContent = '✓ Now using IRIS Assistant.';
+    return;
+  }
   localStorage.setItem(PROVIDER_STORAGE, 'claude');
   localStorage.setItem(APIKEY_STORAGE, key);
   localStorage.setItem(MODEL_STORAGE, model);

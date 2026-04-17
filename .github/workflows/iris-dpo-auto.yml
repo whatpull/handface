@@ -35,7 +35,7 @@ jobs:
         if: steps.check.outputs.status == 'ready'
         run: |
           echo "Triggering DPO training with ${{ steps.check.outputs.count }} RLAIF samples..."
-          kaggle kernels pull whatpull/iris-auto-dpo -p ./notebook
+          kaggle kernels pull whatpull/iris-auto-dpo -p ./notebook -m
           cd ./notebook
           kaggle kernels push -p .
           echo "Kaggle notebook triggered!"

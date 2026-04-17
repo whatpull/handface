@@ -104,11 +104,28 @@ const SPRITE_SHARP = makeCircleSprite(0.30);  // 코어/스파크용 (선명한 
 //   L4 Mid-Late Blocks 19-23
 //   L5 Late Blocks 24-28
 //   L6 Output Projection   (core — decision emerges)
-const LAYER_SIZES = [14, 24, 36, 48, 36, 24, 14];        // 196 nodes, symmetric
-const LAYER_RADII = [2.45, 2.10, 1.75, 1.40, 1.05, 0.70, 0.35];
+// 기본값 (IRIS 모델 정보 수신 전 placeholder)
+let LAYER_SIZES = [6, 10, 16, 24, 32, 40, 48, 40, 32, 24, 16, 10, 6];
+let LAYER_RADII = makeLayerRadii(LAYER_SIZES.length);
 const K_FORWARD   = 4;
 const K_BACKWARD  = 3;
 const K_INTRA     = 3;
+
+// pending timer 추적 (재빌드 시 취소용)
+let passTimers = [];
+
+// 재빌드용 Three.js 객체 참조
+let edgeMesh     = null;
+let nodeHaloMesh = null;
+let nodeCoreMesh = null;
+
+// LAYER_RADII 자동 생성 함수
+function makeLayerRadii(n) {
+  return Array.from(
+    { length: n },
+    (_, i) => 2.45 - (2.45 - 0.35) * (i / Math.max(n - 1, 1))
+  );
+}
 
 // 3D pseudo-noise (유기적 주름 — 사인파보다 자연스러움)
 function brainNoise(x, y, z) {
@@ -189,77 +206,116 @@ function brainShape(n, radius) {
   return points;
 }
 
-const layerData = LAYER_SIZES.map((count, li) =>
-  brainShape(count, LAYER_RADII[li]).map((pos, localIdx) => ({
-    pos,
-    activation:       0,
-    targetActivation: 0,
-    layerIdx:         li,
-    layerLocalIdx:    localIdx,
-  })),
-);
+let layerData = [];
+let allNodes  = [];
 
-const allNodes = layerData.flat();
+function buildLayerData() {
+  layerData = LAYER_SIZES.map((count, li) =>
+    brainShape(count, LAYER_RADII[li]).map((pos, localIdx) => ({
+      pos,
+      activation:       0,
+      targetActivation: 0,
+      layerIdx:         li,
+      layerLocalIdx:    localIdx,
+    }))
+  );
+  allNodes = layerData.flat();
+}
+
+// 초기 빌드
+buildLayerData();
 
 // ─── K-최근접 시냅스 엣지 (inter-layer + intra-layer, 중복 제거) ───
-const edges    = [];
-const edgeSet  = new Set();
-const nodeIdx  = new Map();
-allNodes.forEach((n, i) => nodeIdx.set(n, i));
+let edges         = [];
+let edgeSet       = new Set();
+let nodeIdx       = new Map();
+let incomingEdges = new Map();
+let outgoingEdges = new Map();
 
-function tryAddEdge(src, dst, intra) {
-  const key = nodeIdx.get(src) * 100000 + nodeIdx.get(dst);
-  if (edgeSet.has(key)) return;
-  edgeSet.add(key);
-  edges.push({
-    src, dst, intra,
-    weight:       0.12 + Math.random() * 0.88,
-    targetWeight: 0.12 + Math.random() * 0.88,
-  });
-}
+function buildEdgeData() {
+  edges         = [];
+  edgeSet       = new Set();
+  nodeIdx       = new Map();
+  incomingEdges = new Map();
+  outgoingEdges = new Map();
 
-// Forward (inter-layer): 각 source → 다음 층의 K개 최근접 dst
-for (let li = 0; li < LAYER_SIZES.length - 1; li++) {
-  for (const src of layerData[li]) {
-    layerData[li + 1]
-      .map(dst => ({ dst, d: src.pos.distanceTo(dst.pos) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, K_FORWARD)
-      .forEach(({ dst }) => tryAddEdge(src, dst, false));
+  allNodes.forEach((n, i) => nodeIdx.set(n, i));
+
+  function tryAddEdge(src, dst, intra) {
+    const key = nodeIdx.get(src) * allNodes.length + nodeIdx.get(dst);
+    if (edgeSet.has(key)) return;
+    edgeSet.add(key);
+    const dx = dst.pos.x - src.pos.x;
+    const dy = dst.pos.y - src.pos.y;
+    const dz = dst.pos.z - src.pos.z;
+    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    const w = intra
+      ? 0.3 + Math.random() * 0.4
+      : 0.5 + Math.random() * 0.5;
+    const e = { src, dst, weight: w, targetWeight: w, intra, dist,
+                flow: 0, curve: null, curvePoints: null };
+    edges.push(e);
+    if (!outgoingEdges.has(src)) outgoingEdges.set(src, []);
+    if (!incomingEdges.has(dst)) incomingEdges.set(dst, []);
+    outgoingEdges.get(src).push(e);
+    incomingEdges.get(dst).push(e);
+  }
+
+  // Forward edges
+  for (let li = 0; li < LAYER_SIZES.length - 1; li++) {
+    const srcLayer = layerData[li];
+    const dstLayer = layerData[li + 1];
+    for (const src of srcLayer) {
+      const sorted = [...dstLayer].sort((a, b) => {
+        const da = Math.hypot(
+          a.pos.x-src.pos.x, a.pos.y-src.pos.y, a.pos.z-src.pos.z);
+        const db = Math.hypot(
+          b.pos.x-src.pos.x, b.pos.y-src.pos.y, b.pos.z-src.pos.z);
+        return da - db;
+      });
+      for (let k = 0; k < Math.min(K_FORWARD, sorted.length); k++)
+        tryAddEdge(src, sorted[k], false);
+    }
+  }
+
+  // Backward edges
+  for (let li = 1; li < LAYER_SIZES.length; li++) {
+    const dstLayer = layerData[li];
+    const srcLayer = layerData[li - 1];
+    for (const dst of dstLayer) {
+      const sorted = [...srcLayer].sort((a, b) => {
+        const da = Math.hypot(
+          a.pos.x-dst.pos.x, a.pos.y-dst.pos.y, a.pos.z-dst.pos.z);
+        const db = Math.hypot(
+          b.pos.x-dst.pos.x, b.pos.y-dst.pos.y, b.pos.z-dst.pos.z);
+        return da - db;
+      });
+      for (let k = 0; k < Math.min(K_BACKWARD, sorted.length); k++)
+        tryAddEdge(sorted[k], dst, false);
+    }
+  }
+
+  // Intra-layer edges
+  for (let li = 0; li < LAYER_SIZES.length; li++) {
+    const layer = layerData[li];
+    for (const src of layer) {
+      const sorted = [...layer]
+        .filter(n => n !== src)
+        .sort((a, b) => {
+          const da = Math.hypot(
+            a.pos.x-src.pos.x, a.pos.y-src.pos.y, a.pos.z-src.pos.z);
+          const db = Math.hypot(
+            b.pos.x-src.pos.x, b.pos.y-src.pos.y, b.pos.z-src.pos.z);
+          return da - db;
+        });
+      for (let k = 0; k < Math.min(K_INTRA, sorted.length); k++)
+        tryAddEdge(src, sorted[k], true);
+    }
   }
 }
-// Backward (inter-layer): 각 dst ← 이전 층의 K개 최근접 src
-for (let li = 1; li < LAYER_SIZES.length; li++) {
-  for (const dst of layerData[li]) {
-    layerData[li - 1]
-      .map(src => ({ src, d: dst.pos.distanceTo(src.pos) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, K_BACKWARD)
-      .forEach(({ src }) => tryAddEdge(src, dst, false));
-  }
-}
-// Intra-layer: 같은 층 내 K-NN (퍼지 볼 효과 — 신호 전파에는 영향 없음)
-for (let li = 0; li < LAYER_SIZES.length; li++) {
-  const layer = layerData[li];
-  for (const src of layer) {
-    layer
-      .filter(n => n !== src)
-      .map(dst => ({ dst, d: src.pos.distanceTo(dst.pos) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, K_INTRA)
-      .forEach(({ dst }) => tryAddEdge(src, dst, true));
-  }
-}
 
-// 인접 리스트 (forward pass / spark 발사용 — O(1) lookup)
-const incomingEdges = new Map();
-const outgoingEdges = new Map();
-for (const e of edges) {
-  if (!incomingEdges.has(e.dst)) incomingEdges.set(e.dst, []);
-  incomingEdges.get(e.dst).push(e);
-  if (!outgoingEdges.has(e.src)) outgoingEdges.set(e.src, []);
-  outgoingEdges.get(e.src).push(e);
-}
+// 초기 빌드
+buildEdgeData();
 
 // ─────────────────────────────────────────
 // 뇌 외곽 와이어프레임 (참고 이미지처럼 뇌 실루엣이 보이도록)
@@ -608,6 +664,9 @@ function backendEventHandler(ev) {
     appendChatMsg('sys', 'Model loaded. Ready to chat!');
   } else if (ev.type === 'growth-update') {
     applyGrowthVisualization(ev.growth);
+  } else if (ev.type === 'model-info') {
+    console.log('[IRIS] 모델 구조 수신:', ev.numLayers, '레이어');
+    rebuildNetwork(ev.layerSizes, ev.layerDetails);
   }
 }
 
@@ -954,87 +1013,203 @@ function updateNetInfo() {
 // ─────────────────────────────────────────
 // 엣지 지오메트리 (버텍스 컬러 → 매 프레임 가중치 반영)
 // ─────────────────────────────────────────
-console.log(`[handface] nodes: ${allNodes.length}, edges: ${edges.length}`);
+// 곡선 엣지 세그먼트 상수 (animate 루프에서도 참조되므로 모듈 스코프 유지)
+const CURVE_SEGMENTS = 10;
+const VERTS_PER_EDGE = CURVE_SEGMENTS * 2;
 
-// 초기 가중치를 강제 설정 (syncEdgeWeightsFromModel 전에도 보이도록)
-for (const e of edges) e.weight = e.targetWeight = 0.3 + Math.random() * 0.5;
+function buildNetworkGeometry() {
+  console.log(`[handface] nodes: ${allNodes.length}, edges: ${edges.length}`);
+  const _curveDir  = new THREE.Vector3();
+  const _curveAxis = new THREE.Vector3();
+  const _curveN    = new THREE.Vector3();
+  const _refUp     = new THREE.Vector3(0, 1, 0);
 
-// ─── 곡선 엣지: 각 엣지에 QuadraticBezier 곡선 생성 (자연스러운 뉴런 돌기 느낌) ───
-const CURVE_SEGMENTS  = 10;
-const VERTS_PER_EDGE  = CURVE_SEGMENTS * 2; // LineSegments (세그먼트당 정점 2개)
-const _curveDir  = new THREE.Vector3();
-const _curveAxis = new THREE.Vector3();
-const _curveN    = new THREE.Vector3();
-const _refUp     = new THREE.Vector3(0, 1, 0);
-edges.forEach((e, i) => {
-  _curveDir.subVectors(e.dst.pos, e.src.pos);
-  const len = _curveDir.length();
-  // 엣지 인덱스 기반 결정적 시드 (0~1)
-  const seed = ((i * 9301 + 49297) % 233280) / 233280;
-  // src→dst 축에 수직인 방향 얻기
-  _curveAxis.copy(_curveDir).normalize();
-  _curveN.crossVectors(_curveDir, _refUp);
-  if (_curveN.lengthSq() < 1e-6) _curveN.set(1, 0, 0);
-  _curveN.normalize();
-  // 수직방향을 축 중심으로 회전 → 엣지별 다른 곡선 면
-  _curveN.applyAxisAngle(_curveAxis, seed * Math.PI * 2);
-  // 곡률 강도: 엣지 길이의 10~18% + intra-layer는 더 휘게
-  const strength = len * (0.10 + seed * 0.08) * (e.intra ? 1.4 : 1.0);
-  const mid = new THREE.Vector3()
-    .addVectors(e.src.pos, e.dst.pos).multiplyScalar(0.5)
-    .addScaledVector(_curveN, strength);
-  e.curve = new THREE.QuadraticBezierCurve3(e.src.pos.clone(), mid, e.dst.pos.clone());
-  e.curvePoints = e.curve.getPoints(CURVE_SEGMENTS); // CURVE_SEGMENTS+1 points
-});
+  edges.forEach((e, i) => {
+    _curveDir.subVectors(e.dst.pos, e.src.pos);
+    const len  = _curveDir.length();
+    const seed = ((i * 9301 + 49297) % 233280) / 233280;
+    _curveAxis.copy(_curveDir).normalize();
+    _curveN.crossVectors(_curveDir, _refUp);
+    if (_curveN.lengthSq() < 1e-6) _curveN.set(1, 0, 0);
+    _curveN.normalize();
+    _curveN.applyAxisAngle(_curveAxis, seed * Math.PI * 2);
+    const strength = len * (0.10 + seed * 0.08)
+      * (e.intra ? 1.4 : 1.0);
+    const mid = new THREE.Vector3()
+      .addVectors(e.src.pos, e.dst.pos).multiplyScalar(0.5)
+      .addScaledVector(_curveN, strength);
+    e.curve       = new THREE.QuadraticBezierCurve3(
+      e.src.pos.clone(), mid, e.dst.pos.clone());
+    e.curvePoints = e.curve.getPoints(CURVE_SEGMENTS);
+  });
 
-const ePosArr = new Float32Array(edges.length * VERTS_PER_EDGE * 3);
-const eColArr = new Float32Array(edges.length * VERTS_PER_EDGE * 3);
-edges.forEach((e, i) => {
-  const base = i * VERTS_PER_EDGE * 3;
-  const b = e.weight * 0.12;
-  for (let s = 0; s < CURVE_SEGMENTS; s++) {
-    const a = e.curvePoints[s], c = e.curvePoints[s + 1];
-    const off = base + s * 6;
-    ePosArr[off+0] = a.x; ePosArr[off+1] = a.y; ePosArr[off+2] = a.z;
-    ePosArr[off+3] = c.x; ePosArr[off+4] = c.y; ePosArr[off+5] = c.z;
-    eColArr[off+0] = b; eColArr[off+1] = b * 0.4; eColArr[off+2] = b * 0.05;
-    eColArr[off+3] = b; eColArr[off+4] = b * 0.4; eColArr[off+5] = b * 0.05;
+  const ePosArr = new Float32Array(
+    edges.length * VERTS_PER_EDGE * 3);
+  const eColArr = new Float32Array(
+    edges.length * VERTS_PER_EDGE * 3);
+
+  edges.forEach((e, i) => {
+    const base = i * VERTS_PER_EDGE * 3;
+    const b = e.weight * 0.12;
+    for (let s = 0; s < CURVE_SEGMENTS; s++) {
+      const a   = e.curvePoints[s];
+      const c   = e.curvePoints[s + 1];
+      const off = base + s * 6;
+      ePosArr[off+0] = a.x; ePosArr[off+1] = a.y; ePosArr[off+2] = a.z;
+      ePosArr[off+3] = c.x; ePosArr[off+4] = c.y; ePosArr[off+5] = c.z;
+      eColArr[off+0] = b;   eColArr[off+1] = b*0.4; eColArr[off+2] = b*0.05;
+      eColArr[off+3] = b;   eColArr[off+4] = b*0.4; eColArr[off+5] = b*0.05;
+    }
+  });
+
+  const edgeGeo = new THREE.BufferGeometry();
+  edgeGeo.setAttribute('position',
+    new THREE.BufferAttribute(ePosArr, 3));
+  edgeGeo.setAttribute('color',
+    new THREE.BufferAttribute(eColArr, 3));
+
+  // 기존 edgeMesh 제거
+  if (edgeMesh) {
+    network.remove(edgeMesh);
+    edgeMesh.geometry.dispose();
+    edgeMesh.material.dispose();
+    edgeMesh = null;
   }
-});
-const edgeGeo = new THREE.BufferGeometry();
-edgeGeo.setAttribute('position', new THREE.BufferAttribute(ePosArr, 3));
-edgeGeo.setAttribute('color',    new THREE.BufferAttribute(eColArr, 3));
-network.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({
-  vertexColors: true,
-  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-})));
 
-// ─────────────────────────────────────────
-// 노드 지오메트리 (헤일로 + 코어 두 레이어)
-// ─────────────────────────────────────────
-const nPosArr  = new Float32Array(allNodes.length * 3);
-const nHaloArr = new Float32Array(allNodes.length * 3);
-const nCoreArr = new Float32Array(allNodes.length * 3);
-allNodes.forEach((n, i) => {
-  nPosArr[i*3] = n.pos.x; nPosArr[i*3+1] = n.pos.y; nPosArr[i*3+2] = n.pos.z;
-  // 초기 노드 색상 (첫 프레임부터 보이도록)
-  nHaloArr[i*3+0] = 0.08; nHaloArr[i*3+1] = 0.03; nHaloArr[i*3+2] = 0.01;
-  nCoreArr[i*3+0] = 0.20; nCoreArr[i*3+1] = 0.08; nCoreArr[i*3+2] = 0.02;
-});
+  edgeMesh = new THREE.LineSegments(edgeGeo,
+    new THREE.LineBasicMaterial({
+      vertexColors: true,
+      blending:     THREE.AdditiveBlending,
+      transparent:  true,
+      depthWrite:   false,
+    })
+  );
+  network.add(edgeMesh);
 
-function makeNodePoints(colArr, size, sharedPos, sprite) {
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(sharedPos, 3));
-  geo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
-  network.add(new THREE.Points(geo, new THREE.PointsMaterial({
-    vertexColors: true, size, map: sprite, alphaTest: 0.01,
-    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-  })));
-  return geo;
+  // ── 노드 지오메트리 ──────────────────────────
+  const nPosArr  = new Float32Array(allNodes.length * 3);
+  const nHaloArr = new Float32Array(allNodes.length * 3);
+  const nCoreArr = new Float32Array(allNodes.length * 3);
+
+  allNodes.forEach((n, i) => {
+    nPosArr[i*3]   = n.pos.x;
+    nPosArr[i*3+1] = n.pos.y;
+    nPosArr[i*3+2] = n.pos.z;
+    nHaloArr[i*3+0] = 0.08; nHaloArr[i*3+1] = 0.03; nHaloArr[i*3+2] = 0.01;
+    nCoreArr[i*3+0] = 0.20; nCoreArr[i*3+1] = 0.08; nCoreArr[i*3+2] = 0.02;
+  });
+
+  // 기존 nodeHaloMesh / nodeCoreMesh 제거
+  if (nodeHaloMesh) {
+    network.remove(nodeHaloMesh);
+    nodeHaloMesh.geometry.dispose();
+    nodeHaloMesh.material.dispose();
+    nodeHaloMesh = null;
+  }
+  if (nodeCoreMesh) {
+    network.remove(nodeCoreMesh);
+    nodeCoreMesh.geometry.dispose();
+    nodeCoreMesh.material.dispose();
+    nodeCoreMesh = null;
+  }
+
+  function makeNodePoints(colArr, size, sharedPos, sprite) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position',
+      new THREE.BufferAttribute(sharedPos, 3));
+    geo.setAttribute('color',
+      new THREE.BufferAttribute(colArr, 3));
+    const mesh = new THREE.Points(geo,
+      new THREE.PointsMaterial({
+        vertexColors: true,
+        size,
+        map:          sprite,
+        alphaTest:    0.01,
+        blending:     THREE.AdditiveBlending,
+        transparent:  true,
+        depthWrite:   false,
+      })
+    );
+    network.add(mesh);
+    return { geo, mesh };
+  }
+
+  const halo = makeNodePoints(nHaloArr, 0.18, nPosArr, SPRITE_SOFT);
+  const core = makeNodePoints(nCoreArr, 0.065, nPosArr, SPRITE_SHARP);
+
+  nodeHaloMesh = halo.mesh;
+  nodeCoreMesh = core.mesh;
+
+  // animate 루프에서 참조하는 지오메트리 반환
+  return {
+    nodeHaloGeo: halo.geo,
+    nodeCoreGeo: core.geo,
+    edgeGeo,
+    nHaloArr,
+    nCoreArr,
+    ePosArr,
+    eColArr,
+  };
 }
 
-const nodeHaloGeo = makeNodePoints(nHaloArr, 0.18, nPosArr, SPRITE_SOFT);
-const nodeCoreGeo = makeNodePoints(nCoreArr, 0.065, nPosArr, SPRITE_SHARP);
+// ── 초기 빌드 + 반환값 전역 보존 ─────────────
+let geoRefs = buildNetworkGeometry();
+
+async function rebuildNetwork(newLayerSizes, layerDetails = []) {
+  const newKey = JSON.stringify(newLayerSizes);
+  const oldKey = JSON.stringify(LAYER_SIZES);
+  if (newKey === oldKey) return;
+
+  console.log(
+    '[IRIS viz] 네트워크 리빌드 시작:',
+    newLayerSizes.length, '레이어,',
+    newLayerSizes.reduce((a, b) => a+b, 0), '노드'
+  );
+
+  // ── 1. pending timers 취소 ─────────────────
+  passTimers.forEach(id => clearTimeout(id));
+  passTimers = [];
+
+  // ── 2. sparkPool 초기화 ────────────────────
+  if (typeof sparkPool !== 'undefined') sparkPool.length = 0;
+
+  // ── 3. 페이드 아웃 ─────────────────────────
+  await new Promise(resolve => {
+    let opacity = 1.0;
+    const id = setInterval(() => {
+      opacity -= 0.08;
+      if (edgeMesh)     edgeMesh.material.opacity     = Math.max(0, opacity);
+      if (nodeHaloMesh) nodeHaloMesh.material.opacity = Math.max(0, opacity);
+      if (nodeCoreMesh) nodeCoreMesh.material.opacity = Math.max(0, opacity);
+      if (opacity <= 0) { clearInterval(id); resolve(); }
+    }, 16);
+  });
+
+  // ── 4. LAYER_SIZES / LAYER_RADII 업데이트 ──
+  LAYER_SIZES.length = 0;
+  newLayerSizes.forEach(s => LAYER_SIZES.push(s));
+  LAYER_RADII.length = 0;
+  makeLayerRadii(LAYER_SIZES.length).forEach(r => LAYER_RADII.push(r));
+
+  // ── 5. 데이터 재빌드 ──────────────────────
+  buildLayerData();
+  buildEdgeData();
+  geoRefs = buildNetworkGeometry();
+
+  // ── 6. 페이드 인 ───────────────────────────
+  await new Promise(resolve => {
+    let opacity = 0;
+    const id = setInterval(() => {
+      opacity += 0.04;
+      if (edgeMesh)     edgeMesh.material.opacity     = Math.min(1, opacity);
+      if (nodeHaloMesh) nodeHaloMesh.material.opacity = Math.min(1, opacity);
+      if (nodeCoreMesh) nodeCoreMesh.material.opacity = Math.min(1, opacity);
+      if (opacity >= 1) { clearInterval(id); resolve(); }
+    }, 16);
+  });
+
+  console.log('[IRIS viz] 네트워크 리빌드 완료 ✅');
+}
 
 // ─────────────────────────────────────────
 // 스파크 파티클 (전류 흐름 표현)
@@ -1216,7 +1391,7 @@ function triggerPass(seedText = null) {
 
   // viz 층마다 지연을 두고 활성화 (파동 효과)
   for (let li = 0; li < LAYER_SIZES.length; li++) {
-    setTimeout(() => {
+    passTimers.push(setTimeout(() => {
       const src = sources[li];
       const len = lengths[li];
       const layerNodes = layerData[li];
@@ -1253,7 +1428,7 @@ function triggerPass(seedText = null) {
           }
         }
       }
-    }, li * LAYER_DELAY_MS);
+    }, li * LAYER_DELAY_MS));
   }
 }
 
@@ -1263,7 +1438,7 @@ function triggerPass(seedText = null) {
  */
 function triggerPassWithAttention(attentionLayers) {
   for (let li = 0; li < LAYER_SIZES.length; li++) {
-    setTimeout(() => {
+    passTimers.push(setTimeout(() => {
       const layerNodes = layerData[li];
       const attnValues = attentionLayers[li] ?? [];
 
@@ -1301,7 +1476,7 @@ function triggerPassWithAttention(attentionLayers) {
         }
       }
 
-    }, li * LAYER_DELAY_MS);
+    }, li * LAYER_DELAY_MS));
   }
 
   console.log(
@@ -1542,27 +1717,27 @@ function animate() {
     const base = i * VERTS_PER_EDGE * 3;
     for (let v = 0; v < VERTS_PER_EDGE; v++) {
       const off = base + v * 3;
-      eColArr[off]   = r;
-      eColArr[off+1] = g;
-      eColArr[off+2] = bl;
+      geoRefs.eColArr[off]   = r;
+      geoRefs.eColArr[off+1] = g;
+      geoRefs.eColArr[off+2] = bl;
     }
   }
-  edgeGeo.attributes.color.needsUpdate = true;
+  geoRefs.edgeGeo.attributes.color.needsUpdate = true;
 
   // ── 노드 색상 업데이트 ──
   for (let i = 0; i < allNodes.length; i++) {
     const a = allNodes[i].activation;
     // 헤일로: 부드러운 앰버 글로우
-    nHaloArr[i*3+0] = 0.08 + a * 0.52;
-    nHaloArr[i*3+1] = 0.03 + a * 0.20;
-    nHaloArr[i*3+2] = 0.01 + a * 0.03;
+    geoRefs.nHaloArr[i*3+0] = 0.08 + a * 0.52;
+    geoRefs.nHaloArr[i*3+1] = 0.03 + a * 0.20;
+    geoRefs.nHaloArr[i*3+2] = 0.01 + a * 0.03;
     // 코어: 활성화 시 밝은 화이트-옐로우
-    nCoreArr[i*3+0] = 0.20 + a * 0.80;
-    nCoreArr[i*3+1] = 0.08 + a * 0.68;
-    nCoreArr[i*3+2] = 0.02 + a * 0.18;
+    geoRefs.nCoreArr[i*3+0] = 0.20 + a * 0.80;
+    geoRefs.nCoreArr[i*3+1] = 0.08 + a * 0.68;
+    geoRefs.nCoreArr[i*3+2] = 0.02 + a * 0.18;
   }
-  nodeHaloGeo.attributes.color.needsUpdate = true;
-  nodeCoreGeo.attributes.color.needsUpdate = true;
+  geoRefs.nodeHaloGeo.attributes.color.needsUpdate = true;
+  geoRefs.nodeCoreGeo.attributes.color.needsUpdate = true;
 
   // ── 스파크 이동 (전류 흐름) ──
   for (let i = sparkPool.length - 1; i >= 0; i--) {
@@ -1647,10 +1822,12 @@ startBtn.addEventListener('click', async () => {
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
     pushLog('', 'start');
 
-    // 초기 성장 데이터 조회 (IRIS 서버 콜드스타트 고려 2초 딜레이)
+    // 초기 성장 데이터 + 모델 구조 조회 (IRIS 서버 콜드스타트 고려 2초 딜레이)
     setTimeout(async () => {
+      console.log('[IRIS] 모델 구조 + 성장 데이터 조회 중...');
+      if (backend.fetchModelInfo)    await backend.fetchModelInfo();
       if (backend._fetchGrowthData) await backend._fetchGrowthData();
-    }, 2000);
+    }, 1500);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', 'recalibrated'); }
     });

@@ -1,0 +1,42 @@
+name: IRIS Auto DPO Training
+
+on:
+  schedule:
+    - cron: '0 3 * * 6'
+  workflow_dispatch:
+
+jobs:
+  check-and-train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check RLAIF data count
+        id: check
+        run: |
+          RESPONSE=$(curl -s -H "X-API-Key: ${{ secrets.IRIS_API_KEY }}" \
+            -X POST \
+            https://whatpull-iris-assistant.hf.space/trigger-dpo)
+          echo "Response: $RESPONSE"
+          STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','error'))")
+          COUNT=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('rlaif_count',0))")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "RLAIF count: $COUNT, Status: $STATUS"
+
+      - name: Install Kaggle CLI
+        if: steps.check.outputs.status == 'ready'
+        run: pip install kaggle
+
+      - name: Trigger Kaggle DPO notebook
+        if: steps.check.outputs.status == 'ready'
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          echo "Triggering DPO training with ${{ steps.check.outputs.count }} RLAIF samples..."
+          kaggle kernels push -k whatpull/iris-auto-dpo
+          echo "Kaggle notebook triggered!"
+
+      - name: Skip - insufficient data
+        if: steps.check.outputs.status != 'ready'
+        run: |
+          echo "RLAIF data: ${{ steps.check.outputs.count }} (need 50+)"
+          echo "Skipping DPO training"

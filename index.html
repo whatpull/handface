@@ -5,18 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>handface — Neural Mesh</title>
   <script>
-    // IRIS 전용 초기화 - 구버전 캐시 제거
-    const providerCache = localStorage.getItem('handface-provider');
-    if (providerCache !== 'iris') {
-      // 구버전 캐시 전부 삭제
-      localStorage.removeItem('handface-provider');
-      localStorage.removeItem('handface-nlm-v3');
-      localStorage.removeItem('handface-hf-v1');
-      localStorage.removeItem('handface-claude-v1');
-      localStorage.setItem('handface-provider', 'iris');
-      console.log('[IRIS] 구버전 캐시 초기화 완료');
-    }
+    // IRIS 전용 초기화 - 구버전 캐시 완전 제거
+    ['handface-provider','handface-nlm-v3',
+     'handface-hf-v1','handface-claude-v1',
+     'handface-apikey','handface-model'].forEach(k => {
+      localStorage.removeItem(k);
+    });
+    console.log('[IRIS] 구버전 캐시 초기화 완료');
   </script>
+  <script src="./iris-config.js" onerror="
+    window.__IRIS_CONFIG__ = {
+      apiKey: '',
+      endpoint: 'https://whatpull-iris-assistant.hf.space'
+    };
+    console.warn('[IRIS] iris-config.js 없음 - Settings에서 직접 입력하세요');
+  "></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -750,7 +753,7 @@
       letter-spacing: 0.1em;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-3e_nXgK5.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-Bm4m29WB.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -814,33 +817,30 @@
 
   <div id="settings-modal">
     <div class="settings-box">
-      <h2>API Settings</h2>
+      <h2>⬡ IRIS Settings</h2>
+
       <div class="settings-row">
-        <label>Provider</label>
-        <div class="settings-radios">
-          <label><input type="radio" name="s-provider" value="huggingface" checked /> Qwen2.5-1.5B WebGPU (free, no key, Korean)</label>
-          <label><input type="radio" name="s-provider" value="claude" /> Claude (API key required)</label>
-          <label><input type="radio" name="s-provider" value="iris" /> IRIS Assistant (X-API-Key required)</label>
-        </div>
+        <label>IRIS API Key</label>
+        <input id="s-apikey" type="password"
+               placeholder="X-API-Key 입력"
+               autocomplete="off" />
       </div>
-      <div class="settings-row" id="s-apikey-row">
-        <label>API Key</label>
-        <input id="s-apikey" type="password" placeholder="sk-ant-api03-... / IRIS X-API-Key" autocomplete="off" />
+
+      <div class="settings-row">
+        <label>Endpoint URL</label>
+        <input id="s-endpoint" type="text"
+               value="https://whatpull-iris-assistant.hf.space"
+               placeholder="https://whatpull-iris-assistant.hf.space"
+               autocomplete="off" />
       </div>
-      <div class="settings-row" id="s-model-row">
-        <label>Claude Model</label>
-        <div class="settings-radios">
-          <label><input type="radio" name="s-model" value="claude-haiku-4-5-20251001" checked /> Haiku</label>
-          <label><input type="radio" name="s-model" value="claude-sonnet-4-5-20241022" /> Sonnet</label>
-          <label><input type="radio" name="s-model" value="claude-sonnet-4-6" /> Sonnet 4.6</label>
-        </div>
-      </div>
+
       <div class="settings-actions">
-        <button id="s-test" type="button">Test Connection</button>
-        <button id="s-save" type="button" class="primary">Save &amp; Apply</button>
+        <button id="s-test"   type="button">Test Connection</button>
+        <button id="s-save"   type="button" class="primary">Save &amp; Apply</button>
         <button id="s-delete" type="button">Delete Key</button>
-        <button id="s-close" type="button">Close</button>
+        <button id="s-close"  type="button">Close</button>
       </div>
+
       <div id="settings-status"></div>
     </div>
   </div>

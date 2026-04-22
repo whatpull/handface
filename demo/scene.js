@@ -2,22 +2,14 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import brainObjUrl from './brain.obj?url';
 import { HandControl } from '../src/index.ts';
-import { IRISBackend } from './iris-backend.js';
-import { VoiceController } from './voice.js';
+import { NeuronFaceBackend } from './neuronface-backend.js';
 
 // ─────────────────────────────────────────
-// Neural backend — IRIS 전용
+// Neural backend — NeuronFace (stub in 3c; real HTTP in 3d)
 // ─────────────────────────────────────────
-const IRIS_APIKEY_STORAGE   = 'iris-api-key';
-const IRIS_ENDPOINT_STORAGE = 'iris-endpoint';
-
 function createBackend() {
-  const b             = new IRISBackend();
-  const savedKey      = localStorage.getItem(IRIS_APIKEY_STORAGE)   ?? '';
-  const savedEndpoint = localStorage.getItem(IRIS_ENDPOINT_STORAGE) ?? '';
-  if (savedKey)      b.setApiKey(savedKey);
-  if (savedEndpoint) b.setEndpoint(savedEndpoint);
-  return b;
+  // TODO(3d): read API key from handface-neuronface-v1 localStorage
+  return new NeuronFaceBackend();
 }
 
 let backend = createBackend();
@@ -460,573 +452,33 @@ if (predListEl) {
   }
 }
 
-function updatePredictions() {
-  // IRIS 모드에서는 updateNetInfo()가 대신 처리
-  updateNetInfo();
-}
-
-// ── Loss sparkline (canvas) ──
-const lossSparkEl  = document.getElementById('loss-spark');
-const lossSparkCtx = lossSparkEl.getContext('2d');
-const lossHistory  = [];
-
-function pushLossSample(loss) {
-  if (!Number.isFinite(loss)) return;
-  lossHistory.push(loss);
-  if (lossHistory.length > 100) lossHistory.shift();
-  drawLossSpark();
-}
-
-function drawLossSpark() {
-  const w = lossSparkEl.width;
-  const h = lossSparkEl.height;
-  lossSparkCtx.clearRect(0, 0, w, h);
-  if (lossHistory.length < 2) return;
-
-  let maxL = -Infinity, minL = Infinity;
-  for (const v of lossHistory) {
-    if (v > maxL) maxL = v;
-    if (v < minL) minL = v;
-  }
-  const range = Math.max(0.15, maxL - minL);
-
-  // baseline (max value at top, min at bottom)
-  lossSparkCtx.strokeStyle = 'rgba(255, 200, 80, 0.85)';
-  lossSparkCtx.lineWidth = 1.2;
-  lossSparkCtx.beginPath();
-  for (let i = 0; i < lossHistory.length; i++) {
-    const x = (i / Math.max(1, lossHistory.length - 1)) * (w - 1) + 0.5;
-    // higher loss → top of sparkline
-    const y = 1 + ((maxL - lossHistory[i]) / range) * (h - 2);
-    if (i === 0) lossSparkCtx.moveTo(x, y);
-    else         lossSparkCtx.lineTo(x, y);
-  }
-  lossSparkCtx.stroke();
-}
+// updatePredictions / loss sparkline were IRIS-specific HUD panels.
+// Removed in 3c; neuron-firing visualization will replace them in 3e.
 
 // ─────────────────────────────────────────
-// 채팅 UI (continual learning interface)
+// Backend event router (NeuronFace; real shapes wired in 3d/3e)
 // ─────────────────────────────────────────
-const chatMsgsEl     = document.getElementById('chat-msgs');
-const chatInputEl    = document.getElementById('chat-input');
-const chatSendEl     = document.getElementById('chat-send');
-const chatResetEl    = document.getElementById('chat-reset');
-const chatStatsEl    = document.getElementById('chat-stats');
-const chatLossFillEl = document.getElementById('chat-loss-fill');
-
-function appendChatMsg(role, text) {
-  const el = document.createElement('div');
-  el.className = `chat-msg ${role}`;
-  const r = document.createElement('span');
-  r.className = 'chat-msg-role';
-  r.textContent = role;
-  const t = document.createElement('span');
-  t.className = 'chat-msg-text';
-  t.textContent = ' ' + text;
-  el.appendChild(r);
-  el.appendChild(t);
-  chatMsgsEl.appendChild(el);
-  chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
-}
-
-function updateChatStats() {
-  const growth  = backend.growthData ?? {};
-  const history = backend.history ?? [];
-  const msgs    = Math.floor(history.length / 2);
-  const score   = growth.growth_score ?? 0;
-  const version = growth.version ?? 'v1.0';
-
-  chatStatsEl.textContent =
-    `IRIS ${version} · 대화 ${msgs}건 · 성장 ${score}pt`;
-
-  // loss bar → growth score bar로 재활용
-  const filled = score / 100;
-  chatLossFillEl.style.width = `${Math.round(filled * 100)}%`;
-  chatLossFillEl.style.background =
-    score > 50 ? '#44FF88' :
-    score > 20 ? '#FFAA44' : '#66BBFF';
-}
-
-function bootstrapChat() {
-  if (backend.history.length === 0) {
-    appendChatMsg('sys', 'Type a message in English. The brain learns from your input.');
-  } else {
-    for (const m of backend.history) appendChatMsg(m.role, m.text);
+function backendEventHandler(event) {
+  // TODO(3d): handle connection-status events from NeuronFaceBackend
+  // TODO(3e): handle neuron-firing events and route into 3D viewer
+  switch (event?.type) {
+    case 'neuron-firing':
+      // TODO(3e): drive node activations + edge spark from firing rates
+      break;
+    case 'connection-status':
+      // TODO(3d): reflect online/offline in HUD
+      break;
+    default:
+      // IRIS events (generate-token/generate-end/training-*) were removed in 3c.
+      // Unknown types silently ignored during stub phase.
+      break;
   }
-  updateChatStats();
-}
-bootstrapChat();
-
-async function handleSend() {
-  const text = chatInputEl.value.trim();
-  if (!text || backend.busy) return;
-  chatInputEl.value = '';
-  chatSendEl.disabled = true;
-  appendChatMsg('user', text);
-
-  // PROCESSING 오버레이 표시 제거
-  // showThinking() 호출 안 함 → 렌더링 계속 유지
-
-  pushLog('', `💬 sending (${text.length} chars)`);
-  await backend.send(text);
-  chatSendEl.disabled = false;
-}
-
-chatSendEl.addEventListener('click', handleSend);
-chatInputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); handleSend(); }
-});
-chatResetEl.addEventListener('click', () => {
-  if (!confirm('Reset model weights and memory?')) return;
-  backend.reset();
-  chatMsgsEl.innerHTML = '';
-  bootstrapChat();
-  syncEdgeWeightsFromModel();
-  pushLog('', '🔄 model reset');
-});
-
-// ── Streaming chat message + TTS ──
-let streamingMsgEl = null;
-let wasStreaming    = false;
-let ttsBuffer       = '';
-
-function startStreamingMsg() {
-  const el = document.createElement('div');
-  el.className = 'chat-msg ai';
-  const r = document.createElement('span');
-  r.className = 'chat-msg-role';
-  r.textContent = 'ai';
-  const t = document.createElement('span');
-  t.className = 'chat-msg-text';
-  t.textContent = ' ';
-  el.appendChild(r);
-  el.appendChild(t);
-  chatMsgsEl.appendChild(el);
-  streamingMsgEl = t;
-}
-
-function backendEventHandler(ev) {
-  if (ev.type === 'training-end') {
-    syncEdgeWeightsFromModel();
-    updateChatStats();
-    const avgLoss  = typeof ev.avgLoss  === 'number' ? ev.avgLoss  : 0;
-    const stepsRun = typeof ev.stepsRun === 'number' ? ev.stepsRun : 0;
-    pushLossSample(avgLoss);
-    updatePredictions();
-    pushLog('', `🧠 ${stepsRun} steps (loss ${avgLoss.toFixed(2)})`);
-
-  } else if (ev.type === 'generate-token') {
-    // 첫 토큰: thinking 숨기고 렌더링 재개
-    if (thinkingShown) hideThinking();
-    // 스트리밍 채팅 메시지 업데이트
-    if (!streamingMsgEl) startStreamingMsg();
-    streamingMsgEl.textContent = ' ' + ev.partial;
-    chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
-    wasStreaming = true;
-    // 각 토큰마다 뇌 신호 파동 (실제 LLM 추론과 동기화)
-    triggerPass(ev.token);
-
-    // 스트리밍 TTS: 문장 끝이 오면 바로 읽기
-    ttsBuffer += ev.token;
-    if (/[.!?。\n]\s*$/.test(ttsBuffer) && ttsBuffer.trim().length > 3) {
-      if (voice.available) voice.speakChunk(ttsBuffer.trim());
-      ttsBuffer = '';
-    }
-
-  } else if (ev.type === 'generate-end') {
-    if (!wasStreaming) appendChatMsg('ai', ev.text);
-    streamingMsgEl = null;
-    wasStreaming    = false;
-
-    // 어텐션 기반 triggerPass (서버가 보내주면 실제 가중치, 아니면 더미)
-    if (ev.attention_layers && ev.attention_layers.length > 0) {
-      triggerPassWithAttention(ev.attention_layers);
-    } else {
-      triggerPass(ev.text);
-    }
-
-    updatePredictions();
-    updateNetInfo();
-
-    // 남은 TTS 버퍼 읽기
-    if (voice.available && ttsBuffer.trim().length > 0) {
-      voice.speakChunk(ttsBuffer.trim());
-    }
-    ttsBuffer = '';
-
-    const thinkingElLocal = document.getElementById('thinking');
-    if (thinkingElLocal) thinkingElLocal.classList.remove('on');
-    thinkingShown = false;
-
-  } else if (ev.type === 'state') {
-    updateChatStats();
-  } else if (ev.type === 'loading') {
-    appendChatMsg('sys', ev.message);
-  } else if (ev.type === 'loading-progress') {
-    const last = chatMsgsEl.lastElementChild;
-    if (last?.classList.contains('sys')) {
-      last.querySelector('.chat-msg-text').textContent = ` Loading... ${ev.progress}%`;
-    }
-  } else if (ev.type === 'loading-done') {
-    appendChatMsg('sys', 'Model loaded. Ready to chat!');
-  } else if (ev.type === 'growth-update') {
-    applyGrowthVisualization(ev.growth);
-  } else if (ev.type === 'model-info') {
-    console.log('[IRIS] 모델 구조 수신:', ev.numLayers, '레이어');
-    // 첫 번째 로드는 페이드 아웃 스킵 (이미 투명한 상태이므로)
-    const isFirstLoad = !window.__irisNetworkLoaded;
-    window.__irisNetworkLoaded = true;
-    rebuildNetwork(ev.layerSizes, ev.layerDetails, isFirstLoad);
-  }
-}
-
-// ─────────────────────────────────────────
-// IRIS 성장 지표 시각화 — 버전별 색상, 성장 점수에 따른 밀도
-// ─────────────────────────────────────────
-function applyGrowthVisualization(growth) {
-  const score   = growth.growth_score ?? 0;
-  const version = growth.version ?? 'v1.0';
-  const dpo     = growth.dpo_count ?? 0;
-
-  // ── 버전별 뇌 색상 변화 ──────────────────────
-  let rimColor  = 0x66BBFF;  // 기본 블루
-  let coreColor = 0x1A4488;
-
-  if (dpo >= 5) {
-    // v2.0 이상: 화이트 (완전 성숙)
-    rimColor   = 0xFFFFFF;
-    coreColor  = 0x8888FF;
-  } else if (dpo >= 3) {
-    // v1.5: 사이안
-    rimColor   = 0x00FFEE;
-    coreColor  = 0x004444;
-  } else if (dpo >= 1) {
-    // v1.1: 블루+골드 혼합
-    rimColor   = 0x44AAFF;
-    coreColor  = 0x112266;
-  }
-
-  // Fresnel 쉐이더 색상 업데이트 (brainRimMat 은 모든 뇌 메쉬가 공유)
-  if (brainRimMat?.uniforms) {
-    brainRimMat.uniforms.rimColor.value.setHex(rimColor);
-    brainRimMat.uniforms.coreColor.value.setHex(coreColor);
-  }
-
-  // ── 성장 점수 → 뉴럴 밀도 표현 ──────────────
-  // score 0~100 → opacity/intensity 0.3~1.0
-  const intensity = 0.3 + (score / 100) * 0.7;
-  if (network) {
-    network.traverse(obj => {
-      if (obj.material && obj.material.opacity !== undefined && obj.material.transparent) {
-        obj.material.opacity = Math.min(1.0,
-          obj.material.opacity * 0.9 + intensity * 0.1
-        );
-      }
-    });
-  }
-
-  // ── IRIS 배지 버전 업데이트 ──────────────────
-  const badge = document.getElementById('mode-badge');
-  if (badge) {
-    badge.textContent = `⬡ IRIS ${version}`;
-    badge.style.color = dpo >= 1 ? '#66FFCC' : '#66BBFF';
-  }
-
-  // ── 성장 점수 HUD 표시 (#stats 내 전용 row, 기존 구조 보존) ──
-  const statsEl = document.getElementById('stats');
-  if (statsEl) {
-    const filled = Math.max(0, Math.min(10, Math.floor(score / 10)));
-    const growthBar = '█'.repeat(filled) + '░'.repeat(10 - filled);
-    let growthRow = document.getElementById('s-growth-row');
-    if (!growthRow) {
-      growthRow = document.createElement('div');
-      growthRow.id = 's-growth-row';
-      growthRow.className = 's-row';
-      growthRow.innerHTML =
-        '<span class="s-label">IRIS</span>' +
-        '<span class="s-val" id="s-growth-val"></span>';
-      statsEl.appendChild(growthRow);
-    }
-    const growthVal = document.getElementById('s-growth-val');
-    if (growthVal) growthVal.textContent = `${version} ${growthBar} ${score}`;
-  }
-
-  console.log(`[IRIS viz] ${version} | score: ${score} | dpo: ${dpo}`);
 }
 backend.onEvent(backendEventHandler);
 
-// 초기 가중치 동기화 + 예측 패널
-syncEdgeWeightsFromModel();
-updatePredictions();
-
-// ─────────────────────────────────────────
-// Voice: 박수 감지 + 음성 인식(STT) + 음성 합성(TTS)
-// ─────────────────────────────────────────
-const voice       = new VoiceController();
-const voiceStatus = document.getElementById('voice-status');
-const micBtn      = document.getElementById('chat-mic');
-
-voice.onEvent((ev) => {
-  if (ev.type === 'ready') {
-    voiceStatus.textContent = '🔈 Always listening — just talk';
-    voiceStatus.className   = '';
-  }
-  if (ev.type === 'listening-start') {
-    voiceStatus.textContent = '🎤 Listening... (auto-send after 5s silence)';
-    voiceStatus.className   = 'listening';
-    micBtn.classList.add('active');
-  }
-  if (ev.type === 'listening-stop') {
-    voiceStatus.textContent = '🔈 Always listening — just talk';
-    voiceStatus.className   = '';
-    micBtn.classList.remove('active');
-    if (ev.text && ev.text.trim().length > 0) {
-      chatInputEl.value = ev.text.trim();
-      handleSend();
-    }
-  }
-  if (ev.type === 'transcript') {
-    chatInputEl.value = ev.text;
-  }
-  if (ev.type === 'speaking-start') {
-    voiceStatus.textContent = '🔊 AI speaking... (mic paused)';
-    voiceStatus.className   = 'speaking';
-  }
-  if (ev.type === 'speaking-end') {
-    voiceStatus.textContent = '🔈 Always listening — just talk';
-    voiceStatus.className   = '';
-  }
-  if (ev.type === 'denied') {
-    voiceStatus.textContent = '🔇 Mic not allowed';
-    voiceStatus.className   = '';
-  }
-  if (ev.type === 'error') {
-    voiceStatus.textContent = `⚠ ${ev.error}`;
-    if (voice.available) {
-      setTimeout(() => { voiceStatus.textContent = '🔈 Always listening'; }, 3000);
-    }
-  }
-});
-
-// 마이크 버튼: 수동 즉시 전송
-micBtn.addEventListener('click', () => {
-  if (!voice.available) {
-    voiceStatus.textContent = '⚠ Voice not available. Allow microphone.';
-    return;
-  }
-  voice.manualSend();
-});
-
-// ─────────────────────────────────────────
-// Settings modal + backend switching
-// ─────────────────────────────────────────
-const settingsBtn    = document.getElementById('settings-btn');
-const settingsModal  = document.getElementById('settings-modal');
-const sApiKeyEl      = document.getElementById('s-apikey');
-const sEndpointEl    = document.getElementById('s-endpoint');
-const sStatusEl      = document.getElementById('settings-status');
-const sSaveBtn       = document.getElementById('s-save');
-const sTestBtn       = document.getElementById('s-test');
-const sDeleteBtn     = document.getElementById('s-delete');
-const sCloseBtn      = document.getElementById('s-close');
-
-function updateModeBadge() {
-  // 배지가 DOM에 없으면 생성 (chat-title 안에 삽입)
-  let badge = document.getElementById('mode-badge');
-  if (!badge) {
-    badge = document.createElement('span');
-    badge.id = 'mode-badge';
-    badge.className = 'mode-badge cloud';
-    const chatTitle = document.getElementById('chat-title');
-    if (chatTitle) chatTitle.appendChild(badge);
-    else return;
-  }
-  badge.textContent        = '⬡ IRIS';
-  badge.style.color        = '#66BBFF';
-  badge.style.background   = 'rgba(0,80,255,0.15)';
-  badge.style.borderColor  = '#66BBFF';
-}
-updateModeBadge();
-
-function closeSettings() {
-  settingsModal.style.display = 'none';
-  settingsModal.classList.remove('open');
-}
-
-settingsBtn.addEventListener('click', () => {
-  const savedKey      = localStorage.getItem(IRIS_APIKEY_STORAGE) ?? '';
-  const savedEndpoint = localStorage.getItem(IRIS_ENDPOINT_STORAGE)
-    ?? 'https://whatpull-iris-assistant.hf.space';
-  if (sApiKeyEl)   sApiKeyEl.value   = savedKey;
-  if (sEndpointEl) sEndpointEl.value = savedEndpoint;
-  if (sStatusEl)   sStatusEl.textContent = '';
-  settingsModal.style.display = 'flex';
-});
-sCloseBtn.addEventListener('click', closeSettings);
-settingsModal.addEventListener('click', (e) => {
-  if (e.target === settingsModal) closeSettings();
-});
-
-sTestBtn.addEventListener('click', async () => {
-  const key      = sApiKeyEl.value.trim();
-  const endpoint = sEndpointEl?.value.trim() ?? '';
-  if (!key) { sStatusEl.textContent = 'Please enter IRIS X-API-Key.'; return; }
-  sStatusEl.textContent = 'Testing...';
-  const testBe = new IRISBackend();
-  testBe.setApiKey(key);
-  if (endpoint) testBe.setEndpoint(endpoint);
-  const result = await testBe.testConnection();
-  sStatusEl.textContent = result.ok ? `✓ ${result.msg}` : `✗ ${result.msg}`;
-});
-
-function applyBackend(be, label) {
-  backend = be;
-  backend.onEvent(backendEventHandler);
-  chatMsgsEl.innerHTML = '';
-  bootstrapChat();
-  syncEdgeWeightsFromModel();
-  updateModeBadge();
-  updateChatStats();
-  closeSettings();
-  pushLog('', label);
-}
-
-sSaveBtn.addEventListener('click', async () => {
-  const key      = sApiKeyEl.value.trim();
-  const endpoint = sEndpointEl?.value.trim() ?? '';
-  if (!key) { sStatusEl.textContent = 'Please enter IRIS X-API-Key.'; return; }
-  localStorage.setItem(IRIS_APIKEY_STORAGE, key);
-  if (endpoint) localStorage.setItem(IRIS_ENDPOINT_STORAGE, endpoint);
-  const be = new IRISBackend();
-  be.setApiKey(key);
-  if (endpoint) be.setEndpoint(endpoint);
-  applyBackend(be, '⬡ IRIS mode');
-  sStatusEl.textContent = '✓ IRIS 연결 중... 모델 구조 조회';
-  // 키 저장 직후 모델 정보 + 성장 데이터 조회 (28레이어 viz 트리거)
-  try {
-    if (backend.fetchModelInfo)   await backend.fetchModelInfo();
-    if (backend._fetchGrowthData) await backend._fetchGrowthData();
-    sStatusEl.textContent = '✓ Now using IRIS Assistant.';
-  } catch (e) {
-    sStatusEl.textContent = `✓ 연결됨. 모델 정보 조회 실패: ${e.message}`;
-  }
-});
-
-sDeleteBtn.addEventListener('click', () => {
-  localStorage.removeItem(IRIS_APIKEY_STORAGE);
-  localStorage.removeItem(IRIS_ENDPOINT_STORAGE);
-  if (sApiKeyEl)   sApiKeyEl.value   = '';
-  if (sEndpointEl) sEndpointEl.value = 'https://whatpull-iris-assistant.hf.space';
-  sStatusEl.textContent = 'Key & endpoint cleared.';
-});
-
-function updateNetInfo() {
-  const growth   = backend.growthData ?? {};
-  const stats    = backend.stats ?? {};
-  const history  = backend.history ?? [];
-  const endpoint = backend._endpoint ?? '—';
-
-  // ── IRIS Status ──────────────────────────────
-  const versionEl = document.getElementById('iris-version');
-  if (versionEl)
-    versionEl.textContent = growth.version ?? 'v1.0';
-
-  const endpointEl = document.getElementById('iris-endpoint-status');
-  if (endpointEl) {
-    const short = endpoint.replace('https://', '').split('.')[0];
-    endpointEl.textContent = short;
-  }
-
-  const sessionEl = document.getElementById('iris-session');
-  if (sessionEl) {
-    const sid = backend._sessionId;
-    sessionEl.textContent = sid ? sid.slice(0, 8) + '...' : '—';
-  }
-
-  const latencyEl = document.getElementById('iris-latency');
-  if (latencyEl)
-    latencyEl.textContent = backend._lastLatency
-      ? `${backend._lastLatency}ms` : '—';
-
-  // ── IRIS Growth bars ─────────────────────────
-  const convCount  = growth.conversation_count ?? 0;
-  const rlaifCount = growth.rlaif_count        ?? 0;
-  const dpoCount   = growth.dpo_count          ?? 0;
-  const score      = growth.growth_score       ?? 0;
-  const steps      = stats.totalSteps          ?? history.length;
-  const memCount   = backend._memory?.items?.length ?? 0;
-
-  // 각 항목 최대값 기준 바 너비 계산
-  const setBar = (barId, valId, value, maxVal, suffix = '') => {
-    const bar = document.getElementById(barId);
-    const val = document.getElementById(valId);
-    if (bar) bar.style.width = `${Math.min(100, (value / maxVal) * 100)}%`;
-    if (val) val.textContent = value + suffix;
-  };
-
-  setBar('iris-conv-bar',   'iris-conv-val',   convCount,  500);
-  setBar('iris-rlaif-bar',  'iris-rlaif-val',  rlaifCount, 200);
-  setBar('iris-dpo-bar',    'iris-dpo-val',    dpoCount,   10,   'x');
-  setBar('iris-score-bar',  'iris-score-val',  score,      100,  'pt');
-  setBar('iris-steps-bar',  'iris-steps-val',  steps,      100);
-  setBar('iris-memory-bar', 'iris-memory-val', memCount,   200);
-
-  // ── IRIS Signal ──────────────────────────────
-  // 연결 상태
-  const isConnected = backend._apiKey?.length > 0;
-  const connBar = document.getElementById('iris-sig-conn-bar');
-  const connTxt = document.getElementById('iris-sig-conn');
-  if (connBar) connBar.style.width = isConnected ? '100%' : '0%';
-  if (connBar) connBar.style.background = isConnected ? '#44FF88' : '#FF4444';
-  if (connTxt) connTxt.textContent = isConnected ? 'ONLINE' : 'OFFLINE';
-
-  // 모델 상태
-  const modelBar = document.getElementById('iris-sig-model-bar');
-  const modelTxt = document.getElementById('iris-sig-model');
-  if (modelBar) modelBar.style.width = '100%';
-  if (modelTxt) modelTxt.textContent = growth.version ?? 'v1.0';
-
-  // 채팅 메시지 수
-  const chatCount = Math.floor(history.length / 2);
-  const chatBar = document.getElementById('iris-sig-chat-bar');
-  const chatTxt = document.getElementById('iris-sig-chat');
-  if (chatBar) chatBar.style.width = `${Math.min(100, chatCount)}%`;
-  if (chatTxt) chatTxt.textContent = `${chatCount} msgs`;
-
-  // 성장 점수
-  const growthBar = document.getElementById('iris-sig-growth-bar');
-  const growthTxt = document.getElementById('iris-sig-growth');
-  if (growthBar) growthBar.style.width = `${score}%`;
-  if (growthTxt) growthTxt.textContent = `${score}%`;
-
-  // RLAIF 데이터
-  const rlaifBar = document.getElementById('iris-sig-rlaif-bar');
-  const rlaifTxt = document.getElementById('iris-sig-rlaif');
-  if (rlaifBar) rlaifBar.style.width = `${Math.min(100, rlaifCount / 2)}%`;
-  if (rlaifTxt) rlaifTxt.textContent = `${rlaifCount} data`;
-
-  // DPO 횟수
-  const dpoBar = document.getElementById('iris-sig-dpo-bar');
-  const dpoTxt = document.getElementById('iris-sig-dpo');
-  if (dpoBar) dpoBar.style.width = `${Math.min(100, dpoCount * 10)}%`;
-  if (dpoTxt) dpoTxt.textContent = `DPO x${dpoCount}`;
-
-  // 업타임
-  const uptimeTxt = document.getElementById('iris-sig-uptime');
-  if (uptimeTxt) {
-    const mins = Math.floor(performance.now() / 60000);
-    uptimeTxt.textContent = mins > 0 ? `${mins}m` : '<1m';
-  }
-
-  // 엔드포인트
-  const epBar = document.getElementById('iris-sig-endpoint-bar');
-  const epTxt = document.getElementById('iris-sig-endpoint');
-  if (epBar) epBar.style.width = isConnected ? '100%' : '30%';
-  if (epTxt) {
-    const isHF = endpoint.includes('huggingface');
-    epTxt.textContent = isHF ? 'HF Space' : 'Custom';
-  }
-}
+// Initial edge weight sync + net info panel were IRIS-driven. Removed in 3c.
+// 3e will reintroduce an initial sync once /presets/basic returns the synapse
+// list from the neuronface API.
 
 // ─────────────────────────────────────────
 // 엣지 지오메트리 (버텍스 컬러 → 매 프레임 가중치 반영)
@@ -1380,168 +832,39 @@ const LAYER_DELAY_MS   = 280;
 const SYNC_INTERVAL_MS = 600;
 
 /**
- * 시드 텍스트로 모델을 forward 시킨 뒤 활성화를 viz 층에 매핑하여 신호 전파를 트리거.
+ * TODO(3e): rewrite to accept neuronface firing rates.
  *
- * 핵심 포인트:
- *  1) 활성화 배열을 **스냅샷**으로 복사해서 쓴다. 이후 backend.send() 안에서 동기
- *     학습/샘플링이 돌아가며 model.lastH* 배열을 덮어쓰더라도, setTimeout 콜백이
- *     읽는 사본은 영향받지 않는다.
- *  2) 각 층 내에서 **max로 정규화**해서 절대값이 어떻든 상대적 대비가 항상 보이도록.
+ * Previous IRIS implementation forwarded the dummy model and mapped
+ * per-layer activations + scheduled cross-layer sparks with delays.
+ * After 3e this will consume `response.top_active_neurons` / `rates_by_region`
+ * from /handface_and_observe and drive node.targetActivation directly.
+ * Kept as a no-op stub during 3c so call sites can be wired without errors.
  */
-function triggerPass(seedText = null) {
-  const text = seedText
-    || (backend.history.length > 0 ? backend.history[backend.history.length - 1].text : 'hi');
-
-  // 마지막 CTX 글자 → context 인덱스 배열
-  const indices = backend.model.encode(text);
-  const ctx = new Array(backend.model.CTX);
-  for (let k = 0; k < backend.model.CTX; k++) {
-    const pos = indices.length - backend.model.CTX + k;
-    ctx[k] = pos >= 0 ? indices[pos] : 0;
-  }
-  backend.model.forward(ctx);
-
-  // ── 활성화 배열을 즉시 스냅샷 (참조가 아닌 복사본) ──
-  const vocabSize = backend.model.vocab.size;
-  const embedSnap = new Float32Array(backend.model.lastX);
-  const h1Snap    = new Float32Array(backend.model.lastH1);
-  const h2Snap    = new Float32Array(backend.model.lastH2);
-  const h3Snap    = new Float32Array(backend.model.lastH3);
-  const probsSnap = new Float32Array(backend.model.lastProbs.subarray(0, vocabSize));
-
-  // 5 model states → 7 viz layers (duplicate mid layers to fill transformer depth)
-  const sources = [embedSnap, h1Snap, h1Snap, h2Snap, h2Snap, h3Snap, probsSnap];
-  const lengths = [embedSnap.length, h1Snap.length, h1Snap.length, h2Snap.length, h2Snap.length, h3Snap.length, probsSnap.length];
-
-  // viz 층마다 지연을 두고 활성화 (파동 효과)
-  for (let li = 0; li < LAYER_SIZES.length; li++) {
-    passTimers.push(setTimeout(() => {
-      const src = sources[li];
-      const len = lengths[li];
-      const layerNodes = layerData[li];
-
-      // 층 내 max로 정규화 → 상대적 대비 보장
-      let maxV = 1e-6;
-      for (let k = 0; k < len; k++) {
-        const av = Math.abs(src[k]);
-        if (av > maxV) maxV = av;
-      }
-      const invMax = 1 / maxV;
-
-      for (let i = 0; i < layerNodes.length; i++) {
-        const j = Math.min(len - 1, Math.floor((i / layerNodes.length) * len));
-        const v = Math.abs(src[j]) * invMax;
-        // 0..1로 정규화된 값 + 최소 noise floor (완전히 꺼져있는 뉴런도 약하게 보임)
-        layerNodes[i].targetActivation = 0.08 + 0.92 * v;
-      }
-
-      // 다음 층으로 스파크 발사 (inter-layer 만)
-      if (li < LAYER_SIZES.length - 1) {
-        for (const srcNode of layerNodes) {
-          if (srcNode.targetActivation < 0.2) continue;
-          const out = outgoingEdges.get(srcNode);
-          if (!out) continue;
-          for (const e of out) {
-            if (e.intra) continue;
-            const intensity = e.weight * srcNode.targetActivation;
-            spawnSpark(e, 0);
-            spawnSpark(e, 0.03 + Math.random() * 0.04);
-            if (intensity > 0.4) spawnSpark(e, 0.07 + Math.random() * 0.05);
-            if (intensity > 0.6) spawnSpark(e, 0.12 + Math.random() * 0.05);
-            if (intensity > 0.8) spawnSpark(e, 0.18 + Math.random() * 0.05);
-          }
-        }
-      }
-    }, li * LAYER_DELAY_MS));
-  }
+function triggerPass(_seedText = null) {
+  // TODO(3e): map firing rates (from NeuronFaceBackend 'neuron-firing' event)
+  // onto layerData[*].targetActivation, scheduling inter-layer sparks.
 }
 
 /**
- * 실제 IRIS 어텐션 가중치로 뉴런 활성화 — triggerPass 의 어텐션 버전.
- * attentionLayers: 7개 레이어 × 각 레이어 값 배열 (0~1 정규화)
+ * TODO(3e): accept neuronface membrane_response_by_region instead of
+ * iris attention matrices (7 arrays of 0..1 values). Target shape is
+ * roughly { INPUT: {...}, V1: {...}, V2: {...}, OUT: {...} } mapping
+ * onto 4 pseudo-layers in the refreshed layout.
  */
-function triggerPassWithAttention(attentionLayers) {
-  for (let li = 0; li < LAYER_SIZES.length; li++) {
-    passTimers.push(setTimeout(() => {
-      const layerNodes = layerData[li];
-      const attnValues = attentionLayers[li] ?? [];
-
-      for (let i = 0; i < layerNodes.length; i++) {
-        // 어텐션 값을 뉴런 인덱스에 매핑
-        const attnIdx = Math.floor(
-          (i / layerNodes.length) * attnValues.length
-        );
-        const attnVal = attnValues[attnIdx] ?? 0;
-
-        // 최소 활성화 보장 + 어텐션 가중치 반영
-        layerNodes[i].targetActivation =
-          0.05 + 0.95 * attnVal;
-      }
-
-      // 스파크 발사 (inter-layer)
-      if (li < LAYER_SIZES.length - 1) {
-        for (const srcNode of layerNodes) {
-          if (srcNode.targetActivation < 0.15) continue;
-          const out = outgoingEdges.get(srcNode);
-          if (!out) continue;
-          for (const e of out) {
-            if (e.intra) continue;
-            const intensity = e.weight * srcNode.targetActivation;
-            spawnSpark(e, 0);
-            if (intensity > 0.3)
-              spawnSpark(e, 0.05 + Math.random() * 0.05);
-            if (intensity > 0.5)
-              spawnSpark(e, 0.10 + Math.random() * 0.05);
-            if (intensity > 0.7)
-              spawnSpark(e, 0.15 + Math.random() * 0.05);
-            if (intensity > 0.9)
-              spawnSpark(e, 0.20 + Math.random() * 0.05);
-          }
-        }
-      }
-
-    }, li * LAYER_DELAY_MS));
-  }
-
-  console.log(
-    '[IRIS viz] 실제 어텐션 가중치 적용:',
-    attentionLayers.map(l =>
-      l.map(v => v.toFixed(2)).join(' ')
-    ).join(' | ')
-  );
+function triggerPassWithAttention(_membraneResponse) {
+  // TODO(3e): translate membrane_response_by_region into per-layer
+  // node activations + spark propagation.
 }
 
 /**
- * 모델의 실제 가중치를 viz 엣지에 매핑.
- * src/dst node 인덱스 → 모델 행렬의 (row, col) 매핑으로 결정적 샘플링.
+ * TODO(3e): accept neuronface synapse list `[{pre, post, weight, delay}]`
+ * instead of iris W1..W4 matrices. Map each edge e = (src neuron, dst neuron)
+ * directly to the corresponding synapse.weight via a (preName, postName) key.
+ * Kept as a stub during 3c; no-op is safe because edges retain their
+ * default targetWeight from buildNetworkGeometry().
  */
-function syncEdgeWeightsFromModel() {
-  const matrices = [
-    backend.model.W1,  // ctxDim → H1
-    backend.model.W2,  // H1 → H2
-    backend.model.W3,  // H2 → H3
-    backend.model.W4,  // H3 → vocab
-  ];
-
-  for (const e of edges) {
-    // 6 inter-layer connections → 4 model matrices
-    const matIdx  = Math.min(matrices.length - 1, Math.floor(e.src.layerIdx * matrices.length / (LAYER_SIZES.length - 1)));
-    const mat     = matrices[matIdx];
-    const matRows = mat.length;
-    const matCols = mat[0].length;
-
-    const srcLayer = e.src.layerIdx;
-    const dstLayer = e.intra ? srcLayer : e.dst.layerIdx;
-    const srcLayerSize = LAYER_SIZES[srcLayer];
-    const dstLayerSize = LAYER_SIZES[dstLayer];
-
-    const r = Math.min(matRows - 1, Math.floor((e.src.layerLocalIdx / srcLayerSize) * matRows));
-    const c = Math.min(matCols - 1, Math.floor((e.dst.layerLocalIdx / dstLayerSize) * matCols));
-    const w = Math.abs(mat[r][c] || 0);
-
-    // 모델 가중치 (~0.05–0.5) → viz 가중치 (0.05–1)
-    e.targetWeight = Math.max(0.05, Math.min(1, w * 5));
-  }
+function syncEdgeWeightsFromModel(/* synapses */) {
+  // TODO(3e): populate e.targetWeight from neuronface synapse list.
 }
 
 // ─────────────────────────────────────────
@@ -1798,7 +1121,8 @@ function animate() {
   starMesh.rotation.y += 0.000035;
 
   // ── HUD 패널 업데이트 ──
-  updateNetInfo();
+  // (updateNetInfo was IRIS-specific and removed in 3c; 3e will
+  //  reintroduce a neuron-firing status panel if needed.)
 
   renderer.render(scene, camera);
 }
@@ -1815,15 +1139,9 @@ startBtn.addEventListener('click', async () => {
     await control.start();
     control.createPanel();
 
-    // Phase 2: AI model (HuggingFace or other — preload so chat is instant)
-    if (backend._ensureModel) {
-      loadMsg.textContent = 'Loading AI model...';
-      await backend._ensureModel();
-    }
-
-    // Phase 3: Voice (wake-word STT + TTS)
-    loadMsg.textContent = 'Setting up voice...';
-    try { await voice.init(); } catch {}
+    // Phase 2: NeuronFace backend (stubbed in 3c; real POST /networks + preset in 3d)
+    loadMsg.textContent = 'Initializing neural circuit...';
+    await backend.initialize();
 
     // 카메라 미리보기
     const camPreview = document.getElementById('cam-preview');
@@ -1843,12 +1161,7 @@ startBtn.addEventListener('click', async () => {
     setTimeout(() => { overlay.style.display = 'none'; }, 650);
     pushLog('', 'start');
 
-    // 초기 성장 데이터 + 모델 구조 조회 (IRIS 서버 콜드스타트 고려 2초 딜레이)
-    setTimeout(async () => {
-      console.log('[IRIS] 모델 구조 + 성장 데이터 조회 중...');
-      if (backend.fetchModelInfo)    await backend.fetchModelInfo();
-      if (backend._fetchGrowthData) await backend._fetchGrowthData();
-    }, 1500);
+    // TODO(3d): periodic health/firing stats poll (removed IRIS version)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'r' || e.key === 'R') { control.recalibrate(); pushLog('', 'recalibrated'); }
     });

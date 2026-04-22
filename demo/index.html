@@ -770,6 +770,59 @@
       min-height: 1.2em;
       letter-spacing: 0.1em;
     }
+
+    /* ── NeuronFace Settings (mini, top-right) ── */
+    #neuronface-settings {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      color: #eee;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      min-width: 280px;
+      border: 1px solid rgba(255, 170, 68, 0.3);
+    }
+    #neuronface-settings .nf-title {
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #FFAA44;
+    }
+    #neuronface-settings .nf-field {
+      margin-bottom: 6px;
+    }
+    #neuronface-settings .nf-field label {
+      display: block;
+      opacity: 0.7;
+      margin-bottom: 2px;
+    }
+    #neuronface-settings .nf-field input {
+      width: 100%;
+      padding: 4px;
+      background: #111;
+      color: #eee;
+      border: 1px solid #333;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    #neuronface-settings .nf-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    #neuronface-settings .nf-actions button {
+      flex: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    #neuronface-settings #nf-status {
+      margin-top: 6px;
+      font-size: 11px;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -828,6 +881,25 @@
     </div>
     <button id="start-btn" type="button">START</button>
     <div id="load-msg"></div>
+  </div>
+
+  <div id="neuronface-settings">
+    <div class="nf-title">NeuronFace Settings</div>
+    <div class="nf-field">
+      <label>Endpoint</label>
+      <input id="nf-endpoint" type="text"
+        placeholder="https://whatpull-neuronface.hf.space" />
+    </div>
+    <div class="nf-field">
+      <label>API Key</label>
+      <input id="nf-apikey" type="password"
+        placeholder="nf_live_..." autocomplete="off" />
+    </div>
+    <div class="nf-actions">
+      <button id="nf-save" type="button">Save</button>
+      <button id="nf-test" type="button">Test</button>
+    </div>
+    <div id="nf-status">not tested</div>
   </div>
 
   <script type="module" src="./scene.js"></script>

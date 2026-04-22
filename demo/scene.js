@@ -2,17 +2,57 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import brainObjUrl from './brain.obj?url';
 import { HandControl } from '../src/index.ts';
-import { NeuronFaceBackend } from './neuronface-backend.js';
+import {
+  NeuronFaceBackend,
+  loadNeuronFaceSettings,
+  saveNeuronFaceSettings,
+} from './neuronface-backend.js';
 
 // ─────────────────────────────────────────
-// Neural backend — NeuronFace (stub in 3c; real HTTP in 3d)
+// Neural backend — NeuronFace (real HTTP, wired 3d)
 // ─────────────────────────────────────────
 function createBackend() {
-  // TODO(3d): read API key from handface-neuronface-v1 localStorage
-  return new NeuronFaceBackend();
+  const { apiKey, endpoint } = loadNeuronFaceSettings();
+  return new NeuronFaceBackend({ apiKey, endpoint });
 }
 
 let backend = createBackend();
+
+// ─── Mini Settings UI (see #neuronface-settings in index.html) ───
+function setupSettingsUI() {
+  const endpointInput = document.getElementById('nf-endpoint');
+  const apiKeyInput   = document.getElementById('nf-apikey');
+  const saveBtn       = document.getElementById('nf-save');
+  const testBtn       = document.getElementById('nf-test');
+  const statusEl      = document.getElementById('nf-status');
+  if (!endpointInput || !saveBtn || !testBtn) return;
+
+  const current = loadNeuronFaceSettings();
+  endpointInput.value = current.endpoint;
+  apiKeyInput.value   = current.apiKey;
+
+  saveBtn.addEventListener('click', () => {
+    const ok = saveNeuronFaceSettings({
+      endpoint: endpointInput.value.trim(),
+      apiKey:   apiKeyInput.value.trim(),
+    });
+    statusEl.textContent = ok ? 'saved (reload page to apply)' : 'save failed';
+  });
+
+  testBtn.addEventListener('click', async () => {
+    statusEl.textContent = 'testing...';
+    // Throwaway probe so main backend state is untouched.
+    const probe = new NeuronFaceBackend({
+      endpoint: endpointInput.value.trim(),
+      apiKey:   apiKeyInput.value.trim(),
+    });
+    const result = await probe.testConnection();
+    statusEl.textContent = result.ok
+      ? `OK — ${result.status} (${result.version})`
+      : `FAIL — ${result.reason}`;
+  });
+}
+setupSettingsUI();
 
 // ─── DOM refs ───
 const cursorEl  = document.getElementById('cursor');
@@ -456,21 +496,37 @@ if (predListEl) {
 // Removed in 3c; neuron-firing visualization will replace them in 3e.
 
 // ─────────────────────────────────────────
-// Backend event router (NeuronFace; real shapes wired in 3d/3e)
+// Backend event router (NeuronFace)
 // ─────────────────────────────────────────
 function backendEventHandler(event) {
-  // TODO(3d): handle connection-status events from NeuronFaceBackend
-  // TODO(3e): handle neuron-firing events and route into 3D viewer
   switch (event?.type) {
-    case 'neuron-firing':
-      // TODO(3e): drive node activations + edge spark from firing rates
-      break;
     case 'connection-status':
-      // TODO(3d): reflect online/offline in HUD
+      if (event.ok) {
+        console.info(
+          `[neuronface] connected. network=${event.networkId}, ` +
+          `neurons=${event.neuronsAdded}, synapses=${event.synapsesAdded}`,
+        );
+        pushLog('', `⬡ neuronface ${event.neuronsAdded} neurons`);
+      } else {
+        console.warn(`[neuronface] connection failed: ${event.reason}`);
+        pushLog('', `⚠ neuronface: ${event.reason}`);
+      }
+      break;
+    case 'neuron-firing':
+      if (event.response) {
+        // TODO(3e): dispatch to 3D viewer for node activation / spark
+        const v1 = event.response.membrane_response_by_region?.V1;
+        const active = v1?.active_count ?? 0;
+        const maxPeak = v1?.max_peak_v;
+        console.debug(
+          `[neuronface] ${event.gesture} → V1 active=${active} ` +
+          `max_peak=${maxPeak ?? '—'}`,
+        );
+      } else if (event.error) {
+        console.warn(`[neuronface] ${event.gesture} failed: ${event.error}`);
+      }
       break;
     default:
-      // IRIS events (generate-token/generate-end/training-*) were removed in 3c.
-      // Unknown types silently ignored during stub phase.
       break;
   }
 }
@@ -963,12 +1019,22 @@ control.on('scroll', (e) => {
   pushLog('ev-scroll', e.deltaY > 0 ? '🤲 zoom out' : '🤲 zoom in');
 });
 
+// ── Gesture dispatch: HandControl emits each 4-gesture name once per cooldown.
+//    We log the gesture locally AND forward to NeuronFaceBackend for
+//    /handface_and_observe. backend.sendGesture is fire-and-forget — it emits
+//    a 'neuron-firing' event (handled by backendEventHandler) when the
+//    response returns, and self-initializes if not yet connected.
 const GCFG = {
-  thumbsup:   { label: '👍 thumbs up' },
-  victory:    { label: '✌️ victory' },
+  pointing: { label: '☝ pointing' },
+  openpalm: { label: '🤚 open palm' },
+  thumbsup: { label: '👍 thumbs up' },
+  victory:  { label: '✌️ victory' },
 };
 for (const [g, cfg] of Object.entries(GCFG)) {
-  control.on(g, () => pushLog('', cfg.label));
+  control.on(g, (e) => {
+    pushLog('', cfg.label);
+    backend.sendGesture(g, e?.confidence ?? 1.0);
+  });
 }
 
 // ─── 유틸리티 ───
@@ -1139,9 +1205,13 @@ startBtn.addEventListener('click', async () => {
     await control.start();
     control.createPanel();
 
-    // Phase 2: NeuronFace backend (stubbed in 3c; real POST /networks + preset in 3d)
+    // Phase 2: NeuronFace backend — POST /networks + /presets/basic
     loadMsg.textContent = 'Initializing neural circuit...';
-    await backend.initialize();
+    const initResult = await backend.initialize();
+    if (!initResult.ok) {
+      // Non-fatal: UI continues, gestures will retry initialize lazily.
+      console.error(`[neuronface] init failed: ${initResult.reason}`);
+    }
 
     // 카메라 미리보기
     const camPreview = document.getElementById('cam-preview');

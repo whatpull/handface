@@ -4,22 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>handface — Neural Mesh</title>
-  <script>
-    // IRIS 전용 초기화 - 구버전 캐시 완전 제거
-    ['handface-provider','handface-nlm-v3',
-     'handface-hf-v1','handface-claude-v1',
-     'handface-apikey','handface-model'].forEach(k => {
-      localStorage.removeItem(k);
-    });
-    console.log('[IRIS] 구버전 캐시 초기화 완료');
-  </script>
-  <script src="./iris-config.js" onerror="
-    window.__IRIS_CONFIG__ = {
-      apiKey: '',
-      endpoint: 'https://whatpull-iris-assistant.hf.space'
-    };
-    console.warn('[IRIS] iris-config.js 없음 - Settings에서 직접 입력하세요');
-  "></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -818,113 +802,6 @@
     <div class="g-row"><span class="g-icon">🤲</span><span class="g-label">Both hands apart/together → zoom</span></div>
   </div>
 
-  <div id="net-info">
-    <h3>Neural Network</h3>
-    <div class="net-section">
-      <div class="net-title">IRIS Status</div>
-      <div class="iris-status-grid" id="iris-status-grid">
-        <div class="iris-status-row">
-          <span class="iris-status-label">VERSION</span>
-          <span class="iris-status-val" id="iris-version">v1.0</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">ENDPOINT</span>
-          <span class="iris-status-val" id="iris-endpoint-status">—</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">SESSION</span>
-          <span class="iris-status-val" id="iris-session">—</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">LATENCY</span>
-          <span class="iris-status-val" id="iris-latency">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="net-section">
-      <div class="net-title">IRIS Growth</div>
-      <div class="weight-list" id="iris-growth-list">
-        <div class="weight-row">
-          <span class="weight-label">CONV</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-conv-bar"></div></div>
-          <span class="weight-val" id="iris-conv-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">RLAIF</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-rlaif-bar"></div></div>
-          <span class="weight-val" id="iris-rlaif-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">DPO</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-dpo-bar"></div></div>
-          <span class="weight-val" id="iris-dpo-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">SCORE</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-score-bar"></div></div>
-          <span class="weight-val" id="iris-score-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">STEPS</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-steps-bar"></div></div>
-          <span class="weight-val" id="iris-steps-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">MEMORY</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-memory-bar"></div></div>
-          <span class="weight-val" id="iris-memory-val">0</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="net-section">
-      <div class="net-title">IRIS Signal</div>
-      <div class="pred-list" id="iris-signal-list">
-        <div class="pred-row">
-          <span class="pred-char">🟢</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-conn-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-conn">OFFLINE</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🧠</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-model-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-model">—</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">💬</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-chat-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-chat">0 msgs</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">📈</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-growth-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-growth">0%</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">⚡</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-rlaif-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-rlaif">0 data</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🔄</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-dpo-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-dpo">DPO x0</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🕐</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-uptime-bar" style="width:100%"></div></div>
-          <span class="pred-pct" id="iris-sig-uptime">—</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🌐</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-endpoint-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-endpoint">HF Space</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div id="stats">
     <h3>System Status</h3>
     <div class="s-row"><span class="s-label">STATUS</span><span class="s-val" id="s-status">STANDBY</span></div>
@@ -935,57 +812,6 @@
 
   <div id="log">
     <h3>Event Log</h3>
-  </div>
-
-  <button id="settings-btn" type="button" title="API Settings">⚙</button>
-
-  <div id="settings-modal">
-    <div class="settings-box">
-      <h2>⬡ IRIS Settings</h2>
-
-      <div class="settings-row">
-        <label>IRIS API Key</label>
-        <input id="s-apikey" type="password"
-               placeholder="X-API-Key 입력"
-               autocomplete="off" />
-      </div>
-
-      <div class="settings-row">
-        <label>Endpoint URL</label>
-        <input id="s-endpoint" type="text"
-               value="https://whatpull-iris-assistant.hf.space"
-               placeholder="https://whatpull-iris-assistant.hf.space"
-               autocomplete="off" />
-      </div>
-
-      <div class="settings-actions">
-        <button id="s-test"   type="button">Test Connection</button>
-        <button id="s-save"   type="button" class="primary">Save &amp; Apply</button>
-        <button id="s-delete" type="button">Delete Key</button>
-        <button id="s-close"  type="button">Close</button>
-      </div>
-
-      <div id="settings-status"></div>
-    </div>
-  </div>
-
-  <div id="chat">
-    <div id="chat-header">
-      <span id="chat-title">Continual Learning Chat</span>
-      <span id="chat-stats-wrap">
-        <canvas id="loss-spark" width="80" height="14"></canvas>
-        <span id="chat-stats">vocab 1 · steps 0 · loss —</span>
-      </span>
-    </div>
-    <div id="chat-msgs"></div>
-    <div id="voice-status"></div>
-    <div id="chat-input-row">
-      <input id="chat-input" type="text" placeholder="메시지를 입력하세요 (한국어/English)" maxlength="120" />
-      <button id="chat-mic" class="chat-btn mic" type="button" title="Toggle voice (or say 시작/보내)">🎤</button>
-      <button id="chat-send" class="chat-btn" type="button">SEND</button>
-      <button id="chat-reset" class="chat-btn" type="button" title="Reset model">RESET</button>
-    </div>
-    <div id="chat-loss-bar"><div id="chat-loss-fill"></div></div>
   </div>
 
   <div id="overlay">

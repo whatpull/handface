@@ -137,18 +137,15 @@ const SPRITE_SHARP = makeCircleSprite(0.30);  // 코어/스파크용 (선명한 
 //   L5 Late Blocks 24-28
 //   L6 Output Projection   (core — decision emerges)
 // IRIS 실제 구조 기반 기본값 (28레이어)
-// 처음부터 올바른 구조로 시작
-let LAYER_SIZES = [
-  6, 8, 12, 16, 20, 24, 28,  // 레이어 0~6  (embedding/초반)
-  32, 36, 40, 44, 48, 48,    // 레이어 7~12 (semantic)
-  48, 48, 48, 48,            // 레이어 13~16 (reasoning 중심)
-  44, 40, 36, 32, 28,        // 레이어 17~21 (후반)
-  24, 20, 16, 12, 8, 6,      // 레이어 22~27 (generation/출력)
-];  // 총 28레이어
+// NeuronFace circuit: INPUT(6) / V1(20) / V2(20) / OUT(4) — 총 50 뉴런.
+// connection-status 이벤트로 실제 구조가 오면 REGION_ORDER 기준으로 덮어씀.
+// 이 초기값은 Start 버튼 누르기 전의 placeholder 역할.
+const REGION_ORDER = ['INPUT', 'V1', 'V2', 'OUT'];
+let LAYER_SIZES = [6, 20, 20, 4];
 let LAYER_RADII = makeLayerRadii(LAYER_SIZES.length);
-const K_FORWARD   = 4;
-const K_BACKWARD  = 3;
-const K_INTRA     = 3;
+
+// 뉴런 이름 → layer node 매핑 (neuronface topology 주입 후 채움).
+let nameToNode = new Map();
 
 // pending timer 추적 (재빌드 시 취소용)
 let passTimers = [];
@@ -248,113 +245,111 @@ function brainShape(n, radius) {
 let layerData = [];
 let allNodes  = [];
 
-function buildLayerData() {
-  layerData = LAYER_SIZES.map((count, li) =>
-    brainShape(count, LAYER_RADII[li]).map((pos, localIdx) => ({
-      pos,
-      activation:       0,
-      targetActivation: 0,
-      layerIdx:         li,
-      layerLocalIdx:    localIdx,
-    }))
-  );
+function buildLayerData(neuronsByLayer = null) {
+  // neuronsByLayer: optional [[neuronMeta, ...], ...] for neuronface mode.
+  // Each meta = { name, region, population }. When null, placeholder
+  // anonymous nodes are created (pre-connection).
+  nameToNode = new Map();
+  layerData = LAYER_SIZES.map((count, li) => {
+    const positions = brainShape(count, LAYER_RADII[li]);
+    const layerMeta = neuronsByLayer ? neuronsByLayer[li] : null;
+    return positions.map((pos, localIdx) => {
+      const meta = layerMeta ? layerMeta[localIdx] : null;
+      const node = {
+        pos,
+        activation:       0,
+        targetActivation: 0,
+        layerIdx:         li,
+        layerLocalIdx:    localIdx,
+        name:             meta?.name       ?? null,
+        region:           meta?.region     ?? REGION_ORDER[li] ?? null,
+        population:       meta?.population ?? null,
+      };
+      if (node.name) nameToNode.set(node.name, node);
+      return node;
+    });
+  });
   allNodes = layerData.flat();
 }
 
-// 초기 빌드
+// 초기 빌드 (placeholder — connection-status 이벤트로 neuronface 토폴로지 주입)
 buildLayerData();
 
-// ─── K-최근접 시냅스 엣지 (inter-layer + intra-layer, 중복 제거) ───
+// ─── 엣지: neuronface synapse list 또는 placeholder ───
 let edges         = [];
 let edgeSet       = new Set();
 let nodeIdx       = new Map();
 let incomingEdges = new Map();
 let outgoingEdges = new Map();
 
-function buildEdgeData() {
+function _resetEdgeIndex() {
   edges         = [];
   edgeSet       = new Set();
   nodeIdx       = new Map();
   incomingEdges = new Map();
   outgoingEdges = new Map();
-
   allNodes.forEach((n, i) => nodeIdx.set(n, i));
+}
 
-  function tryAddEdge(src, dst, intra) {
-    const key = nodeIdx.get(src) * allNodes.length + nodeIdx.get(dst);
-    if (edgeSet.has(key)) return;
-    edgeSet.add(key);
-    const dx = dst.pos.x - src.pos.x;
-    const dy = dst.pos.y - src.pos.y;
-    const dz = dst.pos.z - src.pos.z;
-    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-    const w = intra
-      ? 0.3 + Math.random() * 0.4
-      : 0.5 + Math.random() * 0.5;
-    const e = { src, dst, weight: w, targetWeight: w, intra, dist,
-                flow: 0, curve: null, curvePoints: null };
-    edges.push(e);
-    if (!outgoingEdges.has(src)) outgoingEdges.set(src, []);
-    if (!incomingEdges.has(dst)) incomingEdges.set(dst, []);
-    outgoingEdges.get(src).push(e);
-    incomingEdges.get(dst).push(e);
-  }
+function _addEdge(src, dst, { weight = 0.5, sign = 1, synapse = null } = {}) {
+  const key = nodeIdx.get(src) * allNodes.length + nodeIdx.get(dst);
+  if (edgeSet.has(key)) return;
+  edgeSet.add(key);
+  const intra = src.layerIdx === dst.layerIdx;
+  const e = {
+    src, dst,
+    weight,          // 렌더링용 정규화 가중치 (0..1)
+    targetWeight: weight,
+    intra,
+    sign,            // +1 excitatory, -1 inhibitory
+    synapse,         // 원본 synapse ref (없으면 null)
+    flow: 0,
+    curve: null,
+    curvePoints: null,
+  };
+  edges.push(e);
+  if (!outgoingEdges.has(src)) outgoingEdges.set(src, []);
+  if (!incomingEdges.has(dst)) incomingEdges.set(dst, []);
+  outgoingEdges.get(src).push(e);
+  incomingEdges.get(dst).push(e);
+}
 
-  // Forward edges
+/** Placeholder edge builder (no neuronface payload yet): sparse K-nearest. */
+function buildEdgeDataPlaceholder() {
+  _resetEdgeIndex();
+  const K = 2;
   for (let li = 0; li < LAYER_SIZES.length - 1; li++) {
     const srcLayer = layerData[li];
     const dstLayer = layerData[li + 1];
     for (const src of srcLayer) {
-      const sorted = [...dstLayer].sort((a, b) => {
-        const da = Math.hypot(
-          a.pos.x-src.pos.x, a.pos.y-src.pos.y, a.pos.z-src.pos.z);
-        const db = Math.hypot(
-          b.pos.x-src.pos.x, b.pos.y-src.pos.y, b.pos.z-src.pos.z);
-        return da - db;
-      });
-      for (let k = 0; k < Math.min(K_FORWARD, sorted.length); k++)
-        tryAddEdge(src, sorted[k], false);
-    }
-  }
-
-  // Backward edges
-  for (let li = 1; li < LAYER_SIZES.length; li++) {
-    const dstLayer = layerData[li];
-    const srcLayer = layerData[li - 1];
-    for (const dst of dstLayer) {
-      const sorted = [...srcLayer].sort((a, b) => {
-        const da = Math.hypot(
-          a.pos.x-dst.pos.x, a.pos.y-dst.pos.y, a.pos.z-dst.pos.z);
-        const db = Math.hypot(
-          b.pos.x-dst.pos.x, b.pos.y-dst.pos.y, b.pos.z-dst.pos.z);
-        return da - db;
-      });
-      for (let k = 0; k < Math.min(K_BACKWARD, sorted.length); k++)
-        tryAddEdge(sorted[k], dst, false);
-    }
-  }
-
-  // Intra-layer edges
-  for (let li = 0; li < LAYER_SIZES.length; li++) {
-    const layer = layerData[li];
-    for (const src of layer) {
-      const sorted = [...layer]
-        .filter(n => n !== src)
-        .sort((a, b) => {
-          const da = Math.hypot(
-            a.pos.x-src.pos.x, a.pos.y-src.pos.y, a.pos.z-src.pos.z);
-          const db = Math.hypot(
-            b.pos.x-src.pos.x, b.pos.y-src.pos.y, b.pos.z-src.pos.z);
-          return da - db;
-        });
-      for (let k = 0; k < Math.min(K_INTRA, sorted.length); k++)
-        tryAddEdge(src, sorted[k], true);
+      const sorted = [...dstLayer].sort((a, b) =>
+        Math.hypot(a.pos.x - src.pos.x, a.pos.y - src.pos.y, a.pos.z - src.pos.z)
+        - Math.hypot(b.pos.x - src.pos.x, b.pos.y - src.pos.y, b.pos.z - src.pos.z),
+      );
+      for (let k = 0; k < Math.min(K, sorted.length); k++) {
+        _addEdge(src, sorted[k], { weight: 0.3 });
+      }
     }
   }
 }
 
-// 초기 빌드
-buildEdgeData();
+/** Real edge builder from neuronface synapse list. */
+function buildEdgeDataFromSynapses(synapses) {
+  _resetEdgeIndex();
+  for (const syn of synapses ?? []) {
+    const src = nameToNode.get(syn.pre);
+    const dst = nameToNode.get(syn.post);
+    if (!src || !dst) continue;
+    _addEdge(src, dst, {
+      weight:  Math.min(1, Math.abs(syn.weight) / 10),
+      sign:    syn.weight >= 0 ? 1 : -1,
+      synapse: syn,
+    });
+  }
+}
+
+// 초기 빌드 (placeholder)
+buildEdgeDataPlaceholder();
 
 // ─────────────────────────────────────────
 // 뇌 외곽 와이어프레임 (참고 이미지처럼 뇌 실루엣이 보이도록)
@@ -507,6 +502,11 @@ function backendEventHandler(event) {
           `neurons=${event.neuronsAdded}, synapses=${event.synapsesAdded}`,
         );
         pushLog('', `⬡ neuronface ${event.neuronsAdded} neurons`);
+        // Rebuild the 3D viewer with the real neuronface topology.
+        if (Array.isArray(event.neurons) && event.neurons.length > 0) {
+          rebuildFromNeuronface(event.neurons, event.synapses);
+          syncEdgeWeightsFromModel(event.synapses);
+        }
       } else {
         console.warn(`[neuronface] connection failed: ${event.reason}`);
         pushLog('', `⚠ neuronface: ${event.reason}`);
@@ -514,14 +514,33 @@ function backendEventHandler(event) {
       break;
     case 'neuron-firing':
       if (event.response) {
-        // TODO(3e): dispatch to 3D viewer for node activation / spark
-        const v1 = event.response.membrane_response_by_region?.V1;
+        const r = event.response;
+        const v1 = r.membrane_response_by_region?.V1;
         const active = v1?.active_count ?? 0;
         const maxPeak = v1?.max_peak_v;
         console.debug(
           `[neuronface] ${event.gesture} → V1 active=${active} ` +
           `max_peak=${maxPeak ?? '—'}`,
         );
+        // 1) INPUT: flash the stimulated target neuron.
+        if (r.target) {
+          triggerPass({ region: 'INPUT', activeNeurons: [r.target] });
+          // 2) V1: the API returns only aggregated counts, so derive the
+          //    actual activated V1 neurons from the synapse graph — these
+          //    are the direct downstream targets of the input neuron.
+          if (active > 0) {
+            const targetNode = nameToNode.get(r.target);
+            const out = targetNode ? outgoingEdges.get(targetNode) : null;
+            if (out) {
+              const v1Names = out
+                .map(e => e.dst?.name)
+                .filter(name => name && name.startsWith('v1_'));
+              if (v1Names.length > 0) {
+                triggerPass({ region: 'V1', activeNeurons: v1Names });
+              }
+            }
+          }
+        }
       } else if (event.error) {
         console.warn(`[neuronface] ${event.gesture} failed: ${event.error}`);
       }
@@ -687,13 +706,14 @@ if (edgeMesh)     edgeMesh.material.opacity     = 0;
 if (nodeHaloMesh) nodeHaloMesh.material.opacity = 0;
 if (nodeCoreMesh) nodeCoreMesh.material.opacity = 0;
 
-async function rebuildNetwork(newLayerSizes, layerDetails = [], skipFadeOut = false) {
+async function rebuildNetwork(newLayerSizes, layerDetails = [], skipFadeOut = false, synapses = null) {
   if (!newLayerSizes || newLayerSizes.length === 0) return;
 
   console.log(
-    '[IRIS viz] 네트워크 리빌드:',
-    newLayerSizes.length, '레이어,',
-    newLayerSizes.reduce((a, b) => a+b, 0), '노드'
+    '[neuronface viz] rebuild:',
+    newLayerSizes.length, 'layers,',
+    newLayerSizes.reduce((a, b) => a + b, 0), 'nodes,',
+    synapses ? `${synapses.length} synapses` : 'no synapse data',
   );
 
   // ── 1. pending timers 취소 ─────────────────
@@ -724,8 +744,18 @@ async function rebuildNetwork(newLayerSizes, layerDetails = [], skipFadeOut = fa
   makeLayerRadii(LAYER_SIZES.length).forEach(r => LAYER_RADII.push(r));
 
   // ── 5. 데이터 재빌드 ──────────────────────
-  buildLayerData();
-  buildEdgeData();
+  // layerDetails: optional [[neuronMeta, ...], ...] partitioned by REGION_ORDER.
+  // synapses:     optional [{pre, post, weight, delay}, ...] from neuronface.
+  const neuronsByLayer = Array.isArray(layerDetails) && layerDetails.length
+    ? layerDetails
+    : null;
+  const synapseList = Array.isArray(synapses) ? synapses : null;
+  buildLayerData(neuronsByLayer);
+  if (synapseList) {
+    buildEdgeDataFromSynapses(synapseList);
+  } else {
+    buildEdgeDataPlaceholder();
+  }
   geoRefs = buildNetworkGeometry();
 
   // ── 6. 페이드 인 ───────────────────────────
@@ -740,7 +770,18 @@ async function rebuildNetwork(newLayerSizes, layerDetails = [], skipFadeOut = fa
     }, 16);
   });
 
-  console.log('[IRIS viz] 네트워크 리빌드 완료 ✅');
+  console.log('[neuronface viz] rebuild complete ✅');
+}
+
+/**
+ * Partition neuronface neuron list by REGION_ORDER and dispatch rebuildNetwork.
+ * Called from backendEventHandler on 'connection-status' {ok:true}.
+ */
+function rebuildFromNeuronface(neurons, synapses) {
+  if (!Array.isArray(neurons) || neurons.length === 0) return;
+  const buckets = REGION_ORDER.map(r => neurons.filter(n => n.region === r));
+  const sizes   = buckets.map(b => b.length);
+  rebuildNetwork(sizes, buckets, /* skipFadeOut= */ false, synapses);
 }
 
 // ─────────────────────────────────────────
@@ -888,39 +929,76 @@ const LAYER_DELAY_MS   = 280;
 const SYNC_INTERVAL_MS = 600;
 
 /**
- * TODO(3e): rewrite to accept neuronface firing rates.
+ * Per-neuron activation flash. Used by the 'neuron-firing' event handler
+ * to highlight the neurons that fired (or accumulated significant PSP)
+ * in response to a gesture event.
  *
- * Previous IRIS implementation forwarded the dummy model and mapped
- * per-layer activations + scheduled cross-layer sparks with delays.
- * After 3e this will consume `response.top_active_neurons` / `rates_by_region`
- * from /handface_and_observe and drive node.targetActivation directly.
- * Kept as a no-op stub during 3c so call sites can be wired without errors.
+ * Each node's `targetActivation` is pulsed to 1.0 then released back to 0
+ * after `FLASH_MS`. The animate loop (unchanged) smoothly interpolates
+ * `node.activation → targetActivation` and re-colors the core/halo
+ * sprites accordingly.
+ *
+ * For cross-layer signal propagation we also spawn sparks along the
+ * outgoing synapses of each activated node, reusing the existing
+ * spawnSpark() infrastructure.
  */
-function triggerPass(_seedText = null) {
-  // TODO(3e): map firing rates (from NeuronFaceBackend 'neuron-firing' event)
-  // onto layerData[*].targetActivation, scheduling inter-layer sparks.
+const FLASH_MS = 500;
+function triggerPass({ region, activeNeurons } = {}) {
+  if (!Array.isArray(activeNeurons) || activeNeurons.length === 0) return;
+  for (const name of activeNeurons) {
+    const node = nameToNode.get(name);
+    if (!node) continue;
+    node.targetActivation = 1.0;
+    // Spawn sparks along outgoing synapses to visualize propagation.
+    const out = outgoingEdges.get(node);
+    if (out) {
+      for (const e of out) {
+        spawnSpark(e, 0);
+        spawnSpark(e, 0.05 + Math.random() * 0.05);
+      }
+    }
+    // Release after a short flash. animate() loop handles the interp.
+    passTimers.push(setTimeout(() => {
+      node.targetActivation = 0;
+    }, FLASH_MS));
+  }
+  // Region tag is informational only (for logs / future filters).
+  if (region) console.debug(`[viz] flash ${region}: ${activeNeurons.length} nodes`);
 }
 
 /**
- * TODO(3e): accept neuronface membrane_response_by_region instead of
- * iris attention matrices (7 arrays of 0..1 values). Target shape is
- * roughly { INPUT: {...}, V1: {...}, V2: {...}, OUT: {...} } mapping
- * onto 4 pseudo-layers in the refreshed layout.
+ * Attention-based pass. Reserved for Phase 4 (STDP) — once V2/OUT start
+ * firing with tuned weights, this will receive the full
+ * `membrane_response_by_region` shape and cascade activations across all
+ * regions. For Stage 3 it is a stub; callers should use triggerPass()
+ * for per-region flashes.
  */
 function triggerPassWithAttention(_membraneResponse) {
-  // TODO(3e): translate membrane_response_by_region into per-layer
-  // node activations + spark propagation.
+  // TODO(Phase 4): consume membrane_response_by_region {INPUT, V1, V2, OUT}
+  // and drive multi-region cascade with inter-region delays.
 }
 
 /**
- * TODO(3e): accept neuronface synapse list `[{pre, post, weight, delay}]`
- * instead of iris W1..W4 matrices. Map each edge e = (src neuron, dst neuron)
- * directly to the corresponding synapse.weight via a (preName, postName) key.
- * Kept as a stub during 3c; no-op is safe because edges retain their
- * default targetWeight from buildNetworkGeometry().
+ * Normalize edge weights against the neuronface synapse list.
+ * Called once on rebuild (connection-status) after buildEdgeDataFromSynapses
+ * has already stored synapse refs on each edge. This second pass updates
+ * the rendering-side `e.targetWeight` in [0.05, 1] using a max-absolute
+ * normalization so inhibitory (-6) and excitatory (8) all render on a
+ * comparable visual scale.
  */
-function syncEdgeWeightsFromModel(/* synapses */) {
-  // TODO(3e): populate e.targetWeight from neuronface synapse list.
+function syncEdgeWeightsFromModel(synapses) {
+  if (!Array.isArray(synapses) || synapses.length === 0) return;
+  let maxAbs = 0;
+  for (const s of synapses) {
+    const a = Math.abs(s.weight);
+    if (a > maxAbs) maxAbs = a;
+  }
+  if (maxAbs < 1e-6) return;
+  for (const e of edges) {
+    if (!e.synapse) continue;
+    const norm = Math.abs(e.synapse.weight) / maxAbs;
+    e.targetWeight = Math.max(0.05, Math.min(1, norm));
+  }
 }
 
 // ─────────────────────────────────────────

@@ -83,9 +83,11 @@ export class NeuronFaceBackend {
   // ─── public API ───
 
   /**
-   * POST /networks, then POST /networks/{id}/presets/basic.
+   * POST /networks → POST /networks/{id}/presets/basic → GET /networks/{id}.
    * Idempotent: no-op if already connected. Concurrency-safe via _initializing.
-   * Always emits 'connection-status' on completion.
+   * Always emits 'connection-status' on completion. On success, the event
+   * includes the full `neurons` and `synapses` arrays from the snapshot so
+   * scene.js can rebuild its 3D topology.
    */
   async initialize() {
     if (this._connected) {
@@ -107,6 +109,8 @@ export class NeuronFaceBackend {
         `/networks/${this._networkId}/presets/basic`,
         { method: 'POST', body: {} },
       );
+      // Fetch the full snapshot so the viewer can lay out nodes + edges.
+      const snapshot = await this._fetch(`/networks/${this._networkId}`);
       this._connected = true;
       this.emit({
         type:          'connection-status',
@@ -114,12 +118,14 @@ export class NeuronFaceBackend {
         networkId:     this._networkId,
         neuronsAdded:  preset.neurons_added,
         synapsesAdded: preset.synapses_added,
+        neurons:       snapshot.neurons ?? [],
+        synapses:      snapshot.synapses ?? [],
       });
       return {
-        ok:       true,
+        ok:         true,
         network_id: this._networkId,
-        neurons:  preset.neurons_added,
-        synapses: preset.synapses_added,
+        neurons:    preset.neurons_added,
+        synapses:   preset.synapses_added,
       };
     } catch (err) {
       this._connected = false;

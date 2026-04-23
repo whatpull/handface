@@ -1109,9 +1109,14 @@ const GCFG = {
   victory:  { label: '✌️ victory' },
 };
 for (const [g, cfg] of Object.entries(GCFG)) {
-  control.on(g, (e) => {
+  control.on(g, (_e) => {
     pushLog('', cfg.label);
-    backend.sendGesture(g, e?.confidence ?? 1.0);
+    // MediaPipe confidence 는 detection/classification 신뢰도이지 gesture
+    // intensity (강도) 가 아님. HandControl 의 GESTURE_COOLDOWN_MS 필터를
+    // 통과한 시점에서 이미 "유효 제스처" 로 확정되었으므로 full intensity
+    // (1.0) 로 전달. 강도 축이 진짜 필요하면 hold duration / repeat 등
+    // 별도 신호를 계산해 넘길 것.
+    backend.sendGesture(g, 1.0);
   });
 }
 

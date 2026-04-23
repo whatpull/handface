@@ -4,22 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>handface — Neural Mesh</title>
-  <script>
-    // IRIS 전용 초기화 - 구버전 캐시 완전 제거
-    ['handface-provider','handface-nlm-v3',
-     'handface-hf-v1','handface-claude-v1',
-     'handface-apikey','handface-model'].forEach(k => {
-      localStorage.removeItem(k);
-    });
-    console.log('[IRIS] 구버전 캐시 초기화 완료');
-  </script>
-  <script src="./iris-config.js" onerror="
-    window.__IRIS_CONFIG__ = {
-      apiKey: '',
-      endpoint: 'https://whatpull-iris-assistant.hf.space'
-    };
-    console.warn('[IRIS] iris-config.js 없음 - Settings에서 직접 입력하세요');
-  "></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -131,141 +115,6 @@
     .g-icon { font-size: 0.95rem; width: 22px; text-align: center; }
     .g-label { font-size: 0.68rem; color: #FFAA44; opacity: 0.72; letter-spacing: 0.02em; }
 
-    /* ── Network Info ── */
-    #net-info {
-      position: fixed;
-      top: 62px; left: 24px;
-      z-index: 10;
-      width: 220px;
-    }
-    #net-info h3 {
-      font-size: 0.52rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.55;
-      margin-bottom: 12px;
-    }
-    .net-section { margin-bottom: 14px; }
-    .net-section:last-child { margin-bottom: 0; }
-    .net-title {
-      font-size: 0.5rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #FF8800;
-      opacity: 0.5;
-      margin-bottom: 6px;
-    }
-    .input-grid {
-      display: grid;
-      gap: 3px;
-    }
-    .input-cell {
-      height: 28px;
-      background: rgba(255, 153, 0, 0.06);
-      border: 1px solid rgba(255, 153, 0, 0.20);
-      position: relative;
-      overflow: hidden;
-    }
-    .input-cell-fill {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: linear-gradient(to top, rgba(255,100,0,0.55), rgba(255,200,80,0.85));
-      height: 0%;
-    }
-    .input-cell-val {
-      position: absolute;
-      top: 2px; left: 0; right: 0;
-      text-align: center;
-      font-size: 0.5rem;
-      color: #FFCC44;
-      font-family: 'Courier New', monospace;
-      z-index: 2;
-    }
-    .weight-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .weight-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.55rem;
-    }
-    .weight-label {
-      width: 38px;
-      color: #FF8800;
-      opacity: 0.55;
-      letter-spacing: 0.04em;
-      font-family: 'Courier New', monospace;
-    }
-    .weight-bar {
-      flex: 1;
-      height: 5px;
-      background: rgba(255, 153, 0, 0.10);
-    }
-    .weight-fill {
-      height: 100%;
-      background: linear-gradient(to right, rgba(255,100,0,0.7), rgba(255,200,80,0.95));
-      width: 0%;
-    }
-    .weight-val {
-      width: 30px;
-      text-align: right;
-      color: #FFCC44;
-      font-family: 'Courier New', monospace;
-    }
-    /* Top-K next-char predictions */
-    .pred-list {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .pred-row {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 0.55rem;
-    }
-    .pred-char {
-      width: 20px;
-      text-align: center;
-      font-family: 'Courier New', monospace;
-      color: #FFCC44;
-      background: rgba(255, 153, 0, 0.07);
-      border: 1px solid rgba(255, 153, 0, 0.18);
-      padding: 1px 0;
-      font-size: 0.6rem;
-    }
-    .pred-bar {
-      flex: 1;
-      height: 4px;
-      background: rgba(255, 153, 0, 0.10);
-    }
-    .pred-fill {
-      height: 100%;
-      background: linear-gradient(to right, rgba(255,100,0,0.7), rgba(255,200,80,0.95));
-      width: 0%;
-    }
-    .pred-pct {
-      width: 30px;
-      text-align: right;
-      color: #FFCC44;
-      font-family: 'Courier New', monospace;
-      font-size: 0.5rem;
-    }
-    /* Loss sparkline canvas in chat header */
-    #chat-stats-wrap {
-      display: flex;
-      align-items: center;
-      gap: 0;
-    }
-    #loss-spark {
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-
     /* ── Stats ── */
     #stats {
       position: fixed;
@@ -291,40 +140,6 @@
     .s-row:last-child { margin-bottom: 0; }
     .s-label { color: #FF8800; opacity: 0.5; letter-spacing: 0.08em; }
     .s-val { color: #FFCC44; letter-spacing: 0.04em; }
-
-    /* ── IRIS Status (net-info 내부, 작은 HUD 톤) ── */
-    .iris-status-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .iris-status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      font-size: 0.6rem;
-      line-height: 1.4;
-    }
-    .iris-status-label {
-      color: #FF8800;
-      opacity: 0.55;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-size: 0.52rem;
-      flex-shrink: 0;
-    }
-    .iris-status-val {
-      color: #FFCC44;
-      letter-spacing: 0.02em;
-      font-family: 'Courier New', monospace;
-      font-size: 0.6rem;
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0;
-    }
 
     /* ── Event Log ── */
     #log {
@@ -352,286 +167,6 @@
     }
     .log-item.ev-click  { color: #FFDD44; opacity: 1; }
     .log-item.ev-scroll { color: #FF9900; opacity: 0.9; }
-
-    /* ── Chat Panel ── */
-    #chat {
-      position: fixed;
-      bottom: 24px; left: 50%;
-      transform: translateX(-50%);
-      width: min(540px, calc(100vw - 48px));
-      z-index: 20;
-      background: rgba(0, 8, 16, 0.78);
-      border: 1px solid rgba(255, 153, 0, 0.30);
-      -webkit-backdrop-filter: blur(6px);
-      backdrop-filter: blur(6px);
-      padding: 12px 14px 10px;
-    }
-    #chat-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    #chat-title {
-      font-size: 0.5rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.7;
-    }
-    #chat-stats {
-      font-size: 0.5rem;
-      letter-spacing: 0.05em;
-      color: #FFCC44;
-      opacity: 0.65;
-      font-family: 'Courier New', monospace;
-    }
-    #chat-msgs {
-      max-height: 140px;
-      overflow-y: auto;
-      margin-bottom: 8px;
-      padding-right: 4px;
-      font-family: 'Courier New', monospace;
-    }
-    #chat-msgs::-webkit-scrollbar { width: 4px; }
-    #chat-msgs::-webkit-scrollbar-thumb { background: rgba(255,153,0,0.3); }
-    .chat-msg {
-      font-size: 0.7rem;
-      line-height: 1.5;
-      margin-bottom: 4px;
-      word-wrap: break-word;
-    }
-    .chat-msg-role {
-      display: inline-block;
-      width: 38px;
-      font-size: 0.55rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      opacity: 0.55;
-    }
-    .chat-msg.user .chat-msg-role { color: #FFCC44; }
-    .chat-msg.user .chat-msg-text { color: #FFDD88; }
-    .chat-msg.ai   .chat-msg-role { color: #FF8833; }
-    .chat-msg.ai   .chat-msg-text { color: #FFAA55; opacity: 0.85; }
-    .chat-msg.sys  .chat-msg-role { color: #888; }
-    .chat-msg.sys  .chat-msg-text { color: #999; font-style: italic; }
-    #chat-input-row {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    #chat-input {
-      flex: 1;
-      background: rgba(255, 153, 0, 0.05);
-      border: 1px solid rgba(255, 153, 0, 0.30);
-      color: #FFCC44;
-      font-family: 'Courier New', monospace;
-      font-size: 0.75rem;
-      padding: 7px 10px;
-      outline: none;
-      letter-spacing: 0.02em;
-    }
-    #chat-input:focus {
-      border-color: rgba(255, 153, 0, 0.65);
-      background: rgba(255, 153, 0, 0.08);
-    }
-    #chat-input::placeholder {
-      color: rgba(255, 153, 0, 0.4);
-    }
-    .chat-btn {
-      background: transparent;
-      border: 1px solid rgba(255, 153, 0, 0.45);
-      color: #FF9900;
-      font-family: 'Courier New', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 7px 10px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .chat-btn:hover:not(:disabled) {
-      background: rgba(255, 153, 0, 0.12);
-      border-color: #FF9900;
-    }
-    .chat-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    /* ── Voice status ── */
-    #voice-status {
-      font-size: 0.52rem;
-      color: #FF8800;
-      opacity: 0.6;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      min-height: 1.1em;
-      margin-bottom: 4px;
-      text-align: center;
-    }
-    #voice-status.listening { color: #44FF88; opacity: 1; }
-    #voice-status.speaking  { color: #55BBFF; opacity: 1; }
-    .chat-btn.mic { font-size: 0.85rem; padding: 5px 8px; }
-    .chat-btn.mic.active {
-      background: rgba(68, 255, 136, 0.15);
-      border-color: #44FF88;
-      color: #44FF88;
-    }
-
-    #chat-loss-bar {
-      height: 2px;
-      background: rgba(255, 153, 0, 0.10);
-      margin-top: 8px;
-      position: relative;
-      overflow: hidden;
-    }
-    #chat-loss-fill {
-      position: absolute;
-      top: 0; left: 0; bottom: 0;
-      width: 0%;
-      background: linear-gradient(to right, rgba(255,100,0,0.6), rgba(255,200,80,0.95));
-      transition: width 0.3s;
-    }
-
-    /* ── Settings Modal ── */
-    #settings-btn {
-      position: fixed;
-      top: 18px; right: 18px;
-      width: 30px; height: 30px;
-      z-index: 25;
-      background: transparent;
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      color: #FF9900;
-      font-size: 1rem;
-      cursor: pointer;
-      border-radius: 2px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-    }
-    #settings-btn:hover {
-      background: rgba(255, 153, 0, 0.12);
-      border-color: #FF9900;
-    }
-    #settings-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 400;
-      background: rgba(0, 8, 16, 0.92);
-      align-items: center;
-      justify-content: center;
-    }
-    #settings-modal.open { display: flex; }
-    .settings-box {
-      background: rgba(0, 12, 24, 0.95);
-      border: 1px solid rgba(255, 153, 0, 0.40);
-      padding: 28px 32px;
-      width: min(420px, calc(100vw - 48px));
-      font-family: 'Courier New', monospace;
-    }
-    .settings-box h2 {
-      font-size: 0.7rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF9900;
-      margin-bottom: 18px;
-    }
-    .settings-row {
-      margin-bottom: 14px;
-    }
-    .settings-row label {
-      display: block;
-      font-size: 0.55rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #FF8800;
-      opacity: 0.65;
-      margin-bottom: 5px;
-    }
-    .settings-row input[type="password"],
-    .settings-row input[type="text"] {
-      width: 100%;
-      background: rgba(255, 153, 0, 0.05);
-      border: 1px solid rgba(255, 153, 0, 0.30);
-      color: #FFCC44;
-      font-family: 'Courier New', monospace;
-      font-size: 0.68rem;
-      padding: 7px 10px;
-      outline: none;
-    }
-    .settings-row input:focus {
-      border-color: rgba(255, 153, 0, 0.65);
-    }
-    .settings-radios {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-    .settings-radios label {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 0.62rem;
-      color: #FFAA44;
-      cursor: pointer;
-      opacity: 1;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-    .settings-radios input[type="radio"] {
-      accent-color: #FF9900;
-    }
-    .settings-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 18px;
-      flex-wrap: wrap;
-    }
-    .settings-actions button {
-      background: transparent;
-      border: 1px solid rgba(255, 153, 0, 0.45);
-      color: #FF9900;
-      font-family: 'Courier New', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 7px 14px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .settings-actions button:hover {
-      background: rgba(255, 153, 0, 0.12);
-      border-color: #FF9900;
-    }
-    .settings-actions button.primary {
-      border-color: #FF9900;
-      background: rgba(255, 153, 0, 0.15);
-    }
-    #settings-status {
-      font-size: 0.55rem;
-      color: #FFCC44;
-      margin-top: 10px;
-      min-height: 1em;
-    }
-    .mode-badge {
-      font-size: 0.5rem;
-      padding: 1px 6px;
-      border-radius: 2px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-left: 6px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .mode-badge.local {
-      background: rgba(255, 153, 0, 0.15);
-      color: #FF9900;
-      border: 1px solid rgba(255, 153, 0, 0.35);
-    }
-    .mode-badge.cloud {
-      background: rgba(80, 180, 255, 0.15);
-      color: #55BBFF;
-      border: 1px solid rgba(80, 180, 255, 0.35);
-    }
 
     /* ── Thinking overlay (static design — nothing to freeze) ── */
     #thinking {
@@ -786,8 +321,61 @@
       min-height: 1.2em;
       letter-spacing: 0.1em;
     }
+
+    /* ── NeuronFace Settings (mini, top-right) ── */
+    #neuronface-settings {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      color: #eee;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      min-width: 280px;
+      border: 1px solid rgba(255, 170, 68, 0.3);
+    }
+    #neuronface-settings .nf-title {
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #FFAA44;
+    }
+    #neuronface-settings .nf-field {
+      margin-bottom: 6px;
+    }
+    #neuronface-settings .nf-field label {
+      display: block;
+      opacity: 0.7;
+      margin-bottom: 2px;
+    }
+    #neuronface-settings .nf-field input {
+      width: 100%;
+      padding: 4px;
+      background: #111;
+      color: #eee;
+      border: 1px solid #333;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    #neuronface-settings .nf-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    #neuronface-settings .nf-actions button {
+      flex: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    #neuronface-settings #nf-status {
+      margin-top: 6px;
+      font-size: 11px;
+      opacity: 0.7;
+    }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-fcTUXHYs.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CFgHkhU2.js"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -819,113 +407,6 @@
     <div class="g-row"><span class="g-icon">🤲</span><span class="g-label">Both hands apart/together → zoom</span></div>
   </div>
 
-  <div id="net-info">
-    <h3>Neural Network</h3>
-    <div class="net-section">
-      <div class="net-title">IRIS Status</div>
-      <div class="iris-status-grid" id="iris-status-grid">
-        <div class="iris-status-row">
-          <span class="iris-status-label">VERSION</span>
-          <span class="iris-status-val" id="iris-version">v1.0</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">ENDPOINT</span>
-          <span class="iris-status-val" id="iris-endpoint-status">—</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">SESSION</span>
-          <span class="iris-status-val" id="iris-session">—</span>
-        </div>
-        <div class="iris-status-row">
-          <span class="iris-status-label">LATENCY</span>
-          <span class="iris-status-val" id="iris-latency">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="net-section">
-      <div class="net-title">IRIS Growth</div>
-      <div class="weight-list" id="iris-growth-list">
-        <div class="weight-row">
-          <span class="weight-label">CONV</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-conv-bar"></div></div>
-          <span class="weight-val" id="iris-conv-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">RLAIF</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-rlaif-bar"></div></div>
-          <span class="weight-val" id="iris-rlaif-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">DPO</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-dpo-bar"></div></div>
-          <span class="weight-val" id="iris-dpo-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">SCORE</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-score-bar"></div></div>
-          <span class="weight-val" id="iris-score-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">STEPS</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-steps-bar"></div></div>
-          <span class="weight-val" id="iris-steps-val">0</span>
-        </div>
-        <div class="weight-row">
-          <span class="weight-label">MEMORY</span>
-          <div class="weight-bar"><div class="weight-fill" id="iris-memory-bar"></div></div>
-          <span class="weight-val" id="iris-memory-val">0</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="net-section">
-      <div class="net-title">IRIS Signal</div>
-      <div class="pred-list" id="iris-signal-list">
-        <div class="pred-row">
-          <span class="pred-char">🟢</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-conn-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-conn">OFFLINE</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🧠</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-model-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-model">—</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">💬</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-chat-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-chat">0 msgs</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">📈</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-growth-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-growth">0%</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">⚡</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-rlaif-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-rlaif">0 data</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🔄</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-dpo-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-dpo">DPO x0</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🕐</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-uptime-bar" style="width:100%"></div></div>
-          <span class="pred-pct" id="iris-sig-uptime">—</span>
-        </div>
-        <div class="pred-row">
-          <span class="pred-char">🌐</span>
-          <div class="pred-bar"><div class="pred-fill" id="iris-sig-endpoint-bar" style="width:0%"></div></div>
-          <span class="pred-pct" id="iris-sig-endpoint">HF Space</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div id="stats">
     <h3>System Status</h3>
     <div class="s-row"><span class="s-label">STATUS</span><span class="s-val" id="s-status">STANDBY</span></div>
@@ -936,57 +417,6 @@
 
   <div id="log">
     <h3>Event Log</h3>
-  </div>
-
-  <button id="settings-btn" type="button" title="API Settings">⚙</button>
-
-  <div id="settings-modal">
-    <div class="settings-box">
-      <h2>⬡ IRIS Settings</h2>
-
-      <div class="settings-row">
-        <label>IRIS API Key</label>
-        <input id="s-apikey" type="password"
-               placeholder="X-API-Key 입력"
-               autocomplete="off" />
-      </div>
-
-      <div class="settings-row">
-        <label>Endpoint URL</label>
-        <input id="s-endpoint" type="text"
-               value="https://whatpull-iris-assistant.hf.space"
-               placeholder="https://whatpull-iris-assistant.hf.space"
-               autocomplete="off" />
-      </div>
-
-      <div class="settings-actions">
-        <button id="s-test"   type="button">Test Connection</button>
-        <button id="s-save"   type="button" class="primary">Save &amp; Apply</button>
-        <button id="s-delete" type="button">Delete Key</button>
-        <button id="s-close"  type="button">Close</button>
-      </div>
-
-      <div id="settings-status"></div>
-    </div>
-  </div>
-
-  <div id="chat">
-    <div id="chat-header">
-      <span id="chat-title">Continual Learning Chat</span>
-      <span id="chat-stats-wrap">
-        <canvas id="loss-spark" width="80" height="14"></canvas>
-        <span id="chat-stats">vocab 1 · steps 0 · loss —</span>
-      </span>
-    </div>
-    <div id="chat-msgs"></div>
-    <div id="voice-status"></div>
-    <div id="chat-input-row">
-      <input id="chat-input" type="text" placeholder="메시지를 입력하세요 (한국어/English)" maxlength="120" />
-      <button id="chat-mic" class="chat-btn mic" type="button" title="Toggle voice (or say 시작/보내)">🎤</button>
-      <button id="chat-send" class="chat-btn" type="button">SEND</button>
-      <button id="chat-reset" class="chat-btn" type="button" title="Reset model">RESET</button>
-    </div>
-    <div id="chat-loss-bar"><div id="chat-loss-fill"></div></div>
   </div>
 
   <div id="overlay">
@@ -1005,5 +435,24 @@
     <div id="load-msg"></div>
   </div>
 
+  <div id="neuronface-settings">
+    <div class="nf-title">NeuronFace Settings</div>
+    <div class="nf-field">
+      <label>Endpoint</label>
+      <input id="nf-endpoint" type="text"
+        placeholder="https://whatpull-neuronface.hf.space" />
+    </div>
+    <div class="nf-field">
+      <label>API Key</label>
+      <input id="nf-apikey" type="password"
+        placeholder="nf_live_..." autocomplete="off" />
+    </div>
+    <div class="nf-actions">
+      <button id="nf-save" type="button">Save</button>
+      <button id="nf-test" type="button">Test</button>
+    </div>
+    <div id="nf-status">not tested</div>
+  </div>
+
 </body>
 </html>

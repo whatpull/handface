@@ -374,6 +374,86 @@
       font-size: 11px;
       opacity: 0.7;
     }
+
+    /* ── Exp5 measurement panel (only visible when ?mode=exp5 or ?measure=1) ── */
+    #exp5-panel {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 280px;
+      padding: 14px 16px;
+      background: rgba(12, 6, 28, 0.92);
+      border: 1px solid #8844ff;
+      border-radius: 4px;
+      color: #d9c8ff;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      z-index: 50;
+      box-shadow: 0 0 24px rgba(136, 68, 255, 0.25);
+    }
+    #exp5-panel .exp5-title {
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      color: #b088ff;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    #exp5-panel .exp5-target {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ffffff;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      min-height: 28px;
+    }
+    #exp5-panel .exp5-countdown {
+      font-size: 28px;
+      color: #ffdd44;
+      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+    #exp5-panel .exp5-progress {
+      width: 100%;
+      height: 4px;
+      background: rgba(136, 68, 255, 0.18);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    #exp5-panel #exp5-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #8844ff, #b088ff);
+      transition: width 0.08s linear;
+    }
+    #exp5-panel .exp5-actions {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    #exp5-panel .exp5-actions button {
+      flex: 1 1 30%;
+      padding: 6px 4px;
+      background: #2a154f;
+      color: #d9c8ff;
+      border: 1px solid #5533aa;
+      font-family: monospace;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    #exp5-panel .exp5-actions button:hover:not(:disabled) {
+      background: #3a2570;
+    }
+    #exp5-panel .exp5-actions button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    #exp5-panel .exp5-status {
+      font-size: 10px;
+      opacity: 0.7;
+      min-height: 12px;
+    }
   </style>
 </head>
 <body>

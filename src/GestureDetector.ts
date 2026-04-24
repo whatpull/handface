@@ -32,6 +32,8 @@ const MP_GESTURE_MAP: Record<string, GestureName> = {
 export interface DetectionResult {
   /** GestureRecognizer 원본 제스처 */
   gestureName: GestureName | null;
+  /** MediaPipe raw category name before alias mapping (e.g. "Open_Palm", "Closed_Fist"). */
+  rawGestureName: string | null;
   gestureConfidence: number;
   /** 엄지 ↔ 검지 끝 거리 (클릭 핀치 감지용) */
   thumbIndexDist: number;
@@ -119,7 +121,7 @@ export class GestureDetector {
       );
       if (idx === -1) {
         if (clap) return {
-          gestureName: null, gestureConfidence: 0,
+          gestureName: null, rawGestureName: null, gestureConfidence: 0,
           thumbIndexDist: 1, thumbMiddleDist: 1,
           indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
           palmCenter: {x:0.5,y:0.5}, clap, twoHandDist, landmarks: null,
@@ -164,12 +166,14 @@ export class GestureDetector {
     );
 
     const topCat = categories[0];
+    const rawGestureName = topCat?.categoryName ?? null;
     const gestureName: GestureName | null =
       topCat ? (MP_GESTURE_MAP[topCat.categoryName] ?? null) : null;
     const gestureConfidence = topCat?.score ?? 0;
 
     return {
       gestureName,
+      rawGestureName,
       gestureConfidence,
       thumbIndexDist,
       thumbMiddleDist,

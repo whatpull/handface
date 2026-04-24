@@ -7,6 +7,11 @@ import {
   loadNeuronFaceSettings,
   saveNeuronFaceSettings,
 } from './neuronface-backend.js';
+import { exp5Active, createExp5 } from './exp5_measure.js';
+
+// ── Exp5 measurement layer (inert unless ?mode=exp5 / ?measure=1) ──
+// Constructed early so the UI panel is visible even before HandControl starts.
+const exp5 = exp5Active() ? createExp5() : null;
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP, wired 3d)
@@ -513,6 +518,13 @@ function backendEventHandler(event) {
       }
       break;
     case 'neuron-firing':
+      if (exp5 && __exp5DispatchQueue.length > 0) {
+        const id = __exp5DispatchQueue.shift();
+        const t0 = __exp5DispatchStart.get(id);
+        __exp5DispatchStart.delete(id);
+        const latencyMs = (t0 != null) ? (performance.now() - t0) : null;
+        exp5.recordResponse(id, event.response ?? null, event.error ?? null, latencyMs);
+      }
       if (event.response) {
         const r = event.response;
         const v1 = r.membrane_response_by_region?.V1;
@@ -1004,7 +1016,13 @@ function syncEdgeWeightsFromModel(synapses) {
 // ─────────────────────────────────────────
 // HandControl (시선 추적)
 // ─────────────────────────────────────────
-const control = new HandControl({ handedness: 'right', cursorSource: 'hand', cursorAnchor: 'index' });
+const control = new HandControl({
+  handedness: 'right',
+  cursorSource: 'hand',
+  cursorAnchor: 'index',
+  // Exp5 only: passing the probe is a no-op when exp5 is null.
+  onFrameProbe: exp5 ? exp5.onFrameProbe : undefined,
+});
 
 // 회전 상태 (drag 이벤트로 제어, 스무딩 적용)
 let dragRotX       = 0, dragRotY       = 0;
@@ -1108,6 +1126,13 @@ const GCFG = {
   thumbsup: { label: '👍 thumbs up' },
   victory:  { label: '✌️ victory' },
 };
+// Exp5 dispatch<->response FIFO (only populated when exp5 is active).
+// NeuronFaceBackend.sendGesture is fire-and-forget, so we pair responses in
+// arrival order assuming the backend preserves submission order (it does —
+// sequential awaits per gesture).
+const __exp5DispatchQueue = [];
+const __exp5DispatchStart = new Map();  // dispatchId -> performance.now()
+
 for (const [g, cfg] of Object.entries(GCFG)) {
   control.on(g, (_e) => {
     pushLog('', cfg.label);
@@ -1116,6 +1141,11 @@ for (const [g, cfg] of Object.entries(GCFG)) {
     // 통과한 시점에서 이미 "유효 제스처" 로 확정되었으므로 full intensity
     // (1.0) 로 전달. 강도 축이 진짜 필요하면 hold duration / repeat 등
     // 별도 신호를 계산해 넘길 것.
+    if (exp5) {
+      const id = exp5.recordDispatch(g);
+      __exp5DispatchQueue.push(id);
+      __exp5DispatchStart.set(id, performance.now());
+    }
     backend.sendGesture(g, 1.0);
   });
 }

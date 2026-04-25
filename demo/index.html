@@ -454,9 +454,83 @@
       opacity: 0.7;
       min-height: 12px;
     }
+
+    /* ── T_viz panel shell (D16 P1-패널화 / P2-단일 / P3-기존 진입점) ── */
+    #panel-tabs {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 350;
+      display: flex;
+      gap: 4px;
+      padding: 6px 10px;
+      background: rgba(0, 8, 16, 0.85);
+      border: 1px solid rgba(255, 153, 0, 0.35);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+    }
+    .tviz-tab {
+      background: transparent;
+      color: #FF9900;
+      border: 1px solid rgba(255, 153, 0, 0.35);
+      border-radius: 2px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.6rem;
+      font-weight: 600;
+      padding: 5px 14px;
+      cursor: pointer;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tviz-tab:hover { background: rgba(255, 153, 0, 0.12); }
+    .tviz-tab-active {
+      background: rgba(255, 153, 0, 0.2);
+      color: #FFCC44;
+      border-color: #FF9900;
+    }
+    #panel-container {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+    }
+    #panel-container > * { pointer-events: auto; }
+    .tviz-dashboard {
+      position: fixed;
+      inset: 60px 24px 24px 24px;
+      background: rgba(0, 8, 16, 0.94);
+      border: 1px solid rgba(255, 153, 0, 0.35);
+      border-radius: 4px;
+      padding: 28px 32px;
+      color: #FFAA44;
+      font-family: 'Courier New', monospace;
+      overflow: auto;
+    }
+    .tviz-dashboard-header {
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #FFCC44;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 153, 0, 0.25);
+    }
+    .tviz-dashboard-body .tviz-placeholder {
+      font-size: 0.7rem;
+      color: #FF8800;
+      opacity: 0.6;
+      margin-bottom: 8px;
+      letter-spacing: 0.06em;
+    }
   </style>
 </head>
 <body>
+  <div id="panel-tabs"></div>
+  <div id="panel-container"></div>
+
+  <div id="scene-root">
   <div id="canvas-container"></div>
   <div id="cursor"></div>
   <video id="cam-preview" autoplay muted></video>
@@ -533,6 +607,8 @@
     <div id="nf-status">not tested</div>
   </div>
 
-  <script type="module" src="./scene.js"></script>
+  </div>
+
+  <script type="module" src="./main.js"></script>
 </body>
 </html>

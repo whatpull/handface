@@ -14,8 +14,6 @@
       overflow: hidden;
     }
 
-    #canvas-container { position: fixed; inset: 0; }
-
     /* ── Cursor ── */
     #cursor {
       position: fixed;
@@ -41,165 +39,10 @@
       border-color: #FFDD44;
     }
 
-    /* ── Corner HUD brackets ── */
-    .hud-corner {
-      position: fixed;
-      width: 24px; height: 24px;
-      z-index: 10;
-      opacity: 0.55;
-    }
-    .hud-corner::before, .hud-corner::after {
-      content: '';
-      position: absolute;
-      background: #FF9900;
-    }
-    .hud-corner::before { width: 2px; height: 100%; }
-    .hud-corner::after  { width: 100%; height: 2px; }
-    .hud-corner.tl { top: 14px; left: 14px; }
-    .hud-corner.tr { top: 14px; right: 14px; transform: scaleX(-1); }
-    .hud-corner.bl { bottom: 14px; left: 14px; transform: scaleY(-1); }
-    .hud-corner.br { bottom: 14px; right: 14px; transform: scale(-1); }
-
-    /* ── Header ── */
-    header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      padding: 18px 28px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      z-index: 10;
-      background: linear-gradient(to bottom, rgba(0,8,16,0.7) 0%, transparent 100%);
-    }
-    header h1 {
-      font-size: 0.72rem;
-      font-weight: 400;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #FFAA44;
-    }
-    .badge {
-      font-size: 0.58rem;
-      background: rgba(255, 153, 0, 0.15);
-      color: #FF9900;
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      padding: 2px 8px;
-      border-radius: 2px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-    .sub {
-      font-size: 0.65rem;
-      color: #FF7700;
-      opacity: 0.65;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    /* ── Gesture Guide ── */
-    #guide {
-      position: fixed;
-      bottom: 220px; left: 28px;
-      z-index: 10;
-    }
-    #guide h3 {
-      font-size: 0.52rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.55;
-      margin-bottom: 12px;
-    }
-    .g-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .g-row:last-child { margin-bottom: 0; }
-    .g-icon { font-size: 0.95rem; width: 22px; text-align: center; }
-    .g-label { font-size: 0.68rem; color: #FFAA44; opacity: 0.72; letter-spacing: 0.02em; }
-
-    /* ── Stats ── */
-    #stats {
-      position: fixed;
-      top: 62px; right: 24px;
-      z-index: 10;
-      min-width: 195px;
-    }
-    #stats h3 {
-      font-size: 0.52rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.55;
-      margin-bottom: 12px;
-    }
-    .s-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 7px;
-      font-size: 0.68rem;
-    }
-    .s-row:last-child { margin-bottom: 0; }
-    .s-label { color: #FF8800; opacity: 0.5; letter-spacing: 0.08em; }
-    .s-val { color: #FFCC44; letter-spacing: 0.04em; }
-
-    /* ── Event Log ── */
-    #log {
-      position: fixed;
-      bottom: 220px; right: 24px;
-      z-index: 10;
-      width: 215px;
-    }
-    #log h3 {
-      font-size: 0.52rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.55;
-      margin-bottom: 10px;
-    }
-    .log-item {
-      font-size: 0.65rem;
-      color: #FF8800;
-      opacity: 0.5;
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .log-item.ev-click  { color: #FFDD44; opacity: 1; }
-    .log-item.ev-scroll { color: #FF9900; opacity: 0.9; }
-
-    /* ── Thinking overlay (static design — nothing to freeze) ── */
-    #thinking {
-      position: fixed;
-      inset: 0;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      z-index: 18;
-      background: radial-gradient(ellipse at center, rgba(20,12,4,0.88) 0%, rgba(2,4,8,0.96) 65%);
-      pointer-events: none;
-    }
-    #thinking.on { display: flex; }
-    .think-icon {
-      font-size: 2.8rem;
-      color: #FFAA44;
-      text-shadow: 0 0 40px rgba(255,153,0,0.5), 0 0 80px rgba(255,100,0,0.25);
-    }
-    .think-label {
-      color: #FFAA44;
-      font-family: 'Courier New', monospace;
-      font-size: 0.72rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      opacity: 0.85;
-    }
-
     /* ── Camera Preview ── */
     #cam-preview {
       position: fixed;
-      top: 160px; right: 24px;
+      top: 24px; right: 24px;
       transform: scaleX(-1);
       width: 195px;
       border-radius: 6px;
@@ -210,7 +53,7 @@
     }
     #cam-toggle {
       position: fixed;
-      top: 160px; right: 24px;
+      top: 24px; right: 24px;
       z-index: 26;
       background: rgba(0,8,16,0.7);
       border: 1px solid rgba(255, 153, 0, 0.35);
@@ -236,112 +79,70 @@
     #flash.on { opacity: 1; transition: none; }
     #flash:not(.on) { transition: opacity 0.38s ease-out; }
 
-    /* ── Overlay ── */
-    #overlay {
+    /* ── NeuronFace Settings (floating, bottom-right above ✋ FAB) ── */
+    #nf-settings-fab {
       position: fixed;
-      inset: 0;
+      right: 20px;
+      bottom: 80px;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: rgba(40, 40, 50, 0.92);
+      color: #fff;
+      border: 1px solid rgba(255, 170, 68, 0.35);
+      cursor: pointer;
+      font-size: 1.1rem;
+      z-index: 1000;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
-      background: rgba(0, 8, 16, 0.97);
-      z-index: 300;
-      transition: opacity 0.6s;
+      transition: transform 0.18s, background 0.18s;
     }
-    #overlay.fade-out { opacity: 0; pointer-events: none; }
-
-    .ov-eyebrow {
-      font-size: 0.6rem;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #FF7700;
-      opacity: 0.65;
-    }
-    .ov-title {
-      font-size: clamp(2.2rem, 6vw, 3.4rem);
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #FF9900;
-      text-shadow: 0 0 40px rgba(255,153,0,0.55), 0 0 80px rgba(255,100,0,0.2);
-      text-align: center;
-      line-height: 1.15;
-    }
-    .ov-title span { color: #FFCC44; font-size: 0.55em; letter-spacing: 0.3em; display: block; margin-top: 4px; }
-    .ov-desc {
-      font-size: 0.8rem;
-      color: #FF8800;
-      opacity: 0.5;
-      text-align: center;
-      max-width: 280px;
-      line-height: 1.85;
-      letter-spacing: 0.04em;
-    }
-    .ov-gestures {
-      display: flex;
-      gap: 36px;
-      margin: 4px 0;
-    }
-    .ov-g {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      opacity: 0.55;
-    }
-    .ov-g-icon  { font-size: 1.55rem; }
-    .ov-g-label { font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: #FF9900; }
-
-    #start-btn {
-      margin-top: 4px;
-      padding: 12px 44px;
-      background: transparent;
-      color: #FF9900;
-      border: 1px solid rgba(255, 153, 0, 0.55);
-      border-radius: 2px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    #start-btn:hover:not(:disabled) {
-      background: rgba(255, 153, 0, 0.1);
-      border-color: #FF9900;
-      box-shadow: 0 0 20px rgba(255, 153, 0, 0.25);
-    }
-    #start-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    #load-msg {
-      font-size: 0.62rem;
-      color: #FF7700;
-      opacity: 0.5;
-      min-height: 1.2em;
-      letter-spacing: 0.1em;
+    #nf-settings-fab:hover {
+      background: rgba(60, 60, 75, 1);
+      transform: scale(1.06);
     }
 
-    /* ── NeuronFace Settings (mini, top-right) ── */
     #neuronface-settings {
       position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 100;
-      background: rgba(0, 0, 0, 0.8);
+      right: 20px;
+      bottom: 140px;
+      width: 280px;
+      background: rgba(0, 0, 0, 0.92);
       color: #eee;
-      padding: 12px;
-      border-radius: 6px;
+      padding: 14px;
+      border-radius: 8px;
       font-family: monospace;
       font-size: 12px;
-      min-width: 280px;
       border: 1px solid rgba(255, 170, 68, 0.3);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+      z-index: 999;
+      display: none;
+    }
+    #neuronface-settings.open { display: block; }
+
+    #neuronface-settings .nf-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
     }
     #neuronface-settings .nf-title {
-      margin-bottom: 8px;
       font-weight: bold;
       color: #FFAA44;
     }
+    #nf-settings-close {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    #nf-settings-close:hover { color: #fff; }
+
     #neuronface-settings .nf-field {
       margin-bottom: 6px;
     }
@@ -374,222 +175,20 @@
       font-size: 11px;
       opacity: 0.7;
     }
-
-    /* ── Exp5 measurement panel (only visible when ?mode=exp5 or ?measure=1) ── */
-    #exp5-panel {
-      position: fixed;
-      top: 80px;
-      right: 20px;
-      width: 280px;
-      padding: 14px 16px;
-      background: rgba(12, 6, 28, 0.92);
-      border: 1px solid #8844ff;
-      border-radius: 4px;
-      color: #d9c8ff;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      z-index: 50;
-      box-shadow: 0 0 24px rgba(136, 68, 255, 0.25);
-    }
-    #exp5-panel .exp5-title {
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      color: #b088ff;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-    }
-    #exp5-panel .exp5-target {
-      font-size: 22px;
-      font-weight: bold;
-      color: #ffffff;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-      min-height: 28px;
-    }
-    #exp5-panel .exp5-countdown {
-      font-size: 28px;
-      color: #ffdd44;
-      margin-bottom: 10px;
-      font-variant-numeric: tabular-nums;
-    }
-    #exp5-panel .exp5-progress {
-      width: 100%;
-      height: 4px;
-      background: rgba(136, 68, 255, 0.18);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-    #exp5-panel #exp5-progress-bar {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #8844ff, #b088ff);
-      transition: width 0.08s linear;
-    }
-    #exp5-panel .exp5-actions {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-    #exp5-panel .exp5-actions button {
-      flex: 1 1 30%;
-      padding: 6px 4px;
-      background: #2a154f;
-      color: #d9c8ff;
-      border: 1px solid #5533aa;
-      font-family: monospace;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    #exp5-panel .exp5-actions button:hover:not(:disabled) {
-      background: #3a2570;
-    }
-    #exp5-panel .exp5-actions button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    #exp5-panel .exp5-status {
-      font-size: 10px;
-      opacity: 0.7;
-      min-height: 12px;
-    }
-
-    /* ── T_viz panel shell (D16 P1-패널화 / P2-단일 / P3-기존 진입점) ── */
-    #panel-tabs {
-      position: fixed;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 350;
-      display: flex;
-      gap: 4px;
-      padding: 6px 10px;
-      background: rgba(0, 8, 16, 0.85);
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      border-top: none;
-      border-radius: 0 0 4px 4px;
-    }
-    .tviz-tab {
-      background: transparent;
-      color: #FF9900;
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      border-radius: 2px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.6rem;
-      font-weight: 600;
-      padding: 5px 14px;
-      cursor: pointer;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      transition: background 0.15s, color 0.15s;
-    }
-    .tviz-tab:hover { background: rgba(255, 153, 0, 0.12); }
-    .tviz-tab-active {
-      background: rgba(255, 153, 0, 0.2);
-      color: #FFCC44;
-      border-color: #FF9900;
-    }
-    #panel-container {
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      pointer-events: none;
-    }
-    #panel-container > * { pointer-events: auto; }
-    .tviz-dashboard {
-      position: fixed;
-      inset: 60px 24px 24px 24px;
-      background: rgba(0, 8, 16, 0.94);
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      border-radius: 4px;
-      padding: 28px 32px;
-      color: #FFAA44;
-      font-family: 'Courier New', monospace;
-      overflow: auto;
-    }
-    .tviz-dashboard-header {
-      font-size: 0.72rem;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #FFCC44;
-      margin-bottom: 18px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 153, 0, 0.25);
-    }
-    .tviz-dashboard-body .tviz-placeholder {
-      font-size: 0.7rem;
-      color: #FF8800;
-      opacity: 0.6;
-      margin-bottom: 8px;
-      letter-spacing: 0.06em;
-    }
   </style>
 </head>
 <body>
-  <div id="panel-tabs"></div>
-  <div id="panel-container"></div>
-
-  <div id="scene-root">
-  <div id="canvas-container"></div>
   <div id="cursor"></div>
   <video id="cam-preview" autoplay muted></video>
   <button id="cam-toggle" type="button">📷 CAM</button>
-  <div id="thinking" style="display:none">
-    <div class="think-icon">⟡</div>
-    <div class="think-label">PROCESSING</div>
-  </div>
   <div id="flash"></div>
 
-  <div class="hud-corner tl"></div>
-  <div class="hud-corner tr"></div>
-  <div class="hud-corner bl"></div>
-  <div class="hud-corner br"></div>
-
-  <header>
-    <h1>handface</h1>
-    <span class="badge">demo</span>
-    <span class="sub">Neural Mesh</span>
-  </header>
-
-  <div id="guide">
-    <h3>Control</h3>
-    <div class="g-row"><span class="g-icon">☝️</span><span class="g-label">Point index → cursor</span></div>
-    <div class="g-row"><span class="g-icon">🤏</span><span class="g-label">Pinch (quick) → click</span></div>
-    <div class="g-row"><span class="g-icon">🤏</span><span class="g-label">Pinch + move → drag / rotate</span></div>
-    <div class="g-row"><span class="g-icon">🤲</span><span class="g-label">Both hands apart/together → zoom</span></div>
-  </div>
-
-  <div id="stats">
-    <h3>System Status</h3>
-    <div class="s-row"><span class="s-label">STATUS</span><span class="s-val" id="s-status">STANDBY</span></div>
-    <div class="s-row"><span class="s-label">CURSOR</span><span class="s-val" id="s-pos">— · —</span></div>
-    <div class="s-row"><span class="s-label">SIGNALS</span><span class="s-val" id="s-clicks">0</span></div>
-    <div class="s-row"><span class="s-label">ZOOM</span><span class="s-val" id="s-zoom">50%</span></div>
-  </div>
-
-  <div id="log">
-    <h3>Event Log</h3>
-  </div>
-
-  <div id="overlay">
-    <div class="ov-eyebrow">handface · continual learning demo</div>
-    <div class="ov-title">
-      handface
-      <span>Neural Mesh</span>
-    </div>
-    <p class="ov-desc">AI brain that learns from your chat in real time.<br>Control with hand gestures. Camera access required.</p>
-    <div class="ov-gestures">
-      <div class="ov-g"><span class="ov-g-icon">☝️</span><span class="ov-g-label">Cursor</span></div>
-      <div class="ov-g"><span class="ov-g-icon">🤏</span><span class="ov-g-label">Click / Drag</span></div>
-      <div class="ov-g"><span class="ov-g-icon">🤲</span><span class="ov-g-label">Zoom</span></div>
-    </div>
-    <button id="start-btn" type="button">START</button>
-    <div id="load-msg"></div>
-  </div>
-
+  <button id="nf-settings-fab" type="button" aria-label="Open NeuronFace settings">⚙️</button>
   <div id="neuronface-settings">
-    <div class="nf-title">NeuronFace Settings</div>
+    <div class="nf-header">
+      <span class="nf-title">NeuronFace Settings</span>
+      <button id="nf-settings-close" type="button" aria-label="Close">✕</button>
+    </div>
     <div class="nf-field">
       <label>Endpoint</label>
       <input id="nf-endpoint" type="text"
@@ -607,8 +206,6 @@
     <div id="nf-status">not tested</div>
   </div>
 
-  </div>
-
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./scene.js"></script>
 </body>
 </html>

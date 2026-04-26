@@ -472,6 +472,30 @@
       box-shadow: 0 0 18px rgba(196, 181, 253, 0.35);
       transform: scale(1.08);
     }
+    /* T5.2 2단계 (D29): button-driven multi-select 시 .selected (persistent).
+       mediapipe-driven .active (transient lavender) 와 색감 구분 (cyan). */
+    .snn-gesture-icon.selected {
+      background: rgba(167, 250, 255, 0.45);
+      border-color: rgba(167, 250, 255, 0.8);
+      box-shadow: 0 0 24px rgba(167, 250, 255, 0.5);
+      transform: scale(1.06);
+    }
+    /* M14: 회로 INPUT 부재 GESTURE (thumbsup/victory) — click 차단 + 시각 약화. */
+    .snn-gesture-icon.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: grayscale(0.6);
+      pointer-events: none;
+    }
+    /* INPUT 영역 dot 의 multi-select highlight (button-driven).
+       selector = .snn-node.input[data-neuron="..."] 정합. */
+    .snn-node.input.selected {
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(167, 250, 255, 0.7), 0 0 32px rgba(167, 250, 255, 0.4);
+    }
+    .snn-node.input.selected svg circle:last-child {
+      fill: rgba(167, 250, 255, 0.9);
+    }
 
     /* Neuron nodes — filled center + concentric ring (SVG 2 circle).
        wrapper div = 16×16 hit area + drag handle, 안 SVG circle 은 pointer-events 없음. */

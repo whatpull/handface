@@ -22,6 +22,16 @@
 const DEFAULT_ENDPOINT = 'https://whatpull-neuronface.hf.space';
 const STORAGE_KEY      = 'handface-neuronface-v1';
 
+// T5.2 2단계 (D29 multi-INPUT): handface gesture alias → 회로 INPUT name mapping.
+// server-side HANDFACE_INPUT_MAP 의 단방향 부분집합 (회로 INPUT 부재한 thumbsup/victory 제외).
+// M14 정합: thumbsup → in_thumbsup / victory → in_victory 가 server mapping 박혀있으나
+// 회로 wiring (network.py:284) 에 부재 → 활성 2 GESTURE 만 박음 (β-1 결정).
+export const HANDFACE_GESTURE_TO_INPUT = {
+  pointing: 'in_point',
+  openpalm: 'in_palm',
+  // thumbsup, victory: 회로 INPUT 부재 — disabled UI (gesture.js)
+};
+
 export class NeuronFaceBackend {
   constructor({ apiKey = '', endpoint = DEFAULT_ENDPOINT } = {}) {
     this._apiKey       = apiKey;
@@ -193,6 +203,71 @@ export class NeuronFaceBackend {
         type:      'neuron-firing',
         gesture:   name,
         intensity,
+        response:  null,
+        error:     err.message,
+      });
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * T5.2 2단계 (D29 multi-INPUT): button-driven multi-select dispatch.
+   * gesture name list 를 받아 backend HANDFACE_INPUT_MAP 으로 INPUT 매핑됨 (server-side).
+   * body.inputs = list[str] → handler 분기 (D29 spec). intensity/duration/observe 는
+   * single-path (sendGesture) 와 동일.
+   * mediapipe single-path (sendGesture) 와 공존 — 별도 endpoint 호출 path.
+   */
+  async sendGestures(names, intensity = 1.0) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    if (!Array.isArray(names) || names.length === 0) {
+      console.warn('[neuronface] sendGestures: empty names array, skipped');
+      return null;
+    }
+    const clampedIntensity = Math.max(0, Math.min(1, intensity));
+    // body.name = first element (back-compat, 단 server-side 는 inputs 분기로 무시)
+    // body.inputs = D29 multi-INPUT (server HANDFACE_INPUT_MAP 으로 INPUT 매핑)
+    // 단 server validator 의 INPUT_NEURON_NAMES 는 raw INPUT name (in_palm 등) 기대 →
+    // 여기서 names 는 gesture alias (pointing/openpalm) 라 server-side mapping 통과 안 함.
+    // → handface 측에서 mapping 후 raw INPUT name list 로 박음.
+    const mappedInputs = names.map(n => HANDFACE_GESTURE_TO_INPUT[n]).filter(Boolean);
+    if (mappedInputs.length === 0) {
+      console.warn(`[neuronface] sendGestures: no valid INPUT mapping for ${JSON.stringify(names)}`);
+      return null;
+    }
+    const body = {
+      type:                 'gesture',
+      name:                 names[0],
+      inputs:               mappedInputs,
+      intensity:            clampedIntensity,
+      stimulus_duration_ms: 15.0,
+      observe_ms:           50.0,
+      detail:               'summary',
+      stdp:                 this._stdpEnabled,
+    };
+    console.log(
+      `[neuronface] calling /handface_train (multi) with stdp=${this._stdpEnabled} ` +
+      `(gestures=[${names.join(',')}] -> inputs=[${mappedInputs.join(',')}], intensity=${clampedIntensity})`,
+    );
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/handface_train`,
+        { method: 'POST', body },
+      );
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   names.join('+'),
+        intensity: clampedIntensity,
+        response:  resp,
+      });
+      return { ok: true, response: resp };
+    } catch (err) {
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   names.join('+'),
+        intensity: clampedIntensity,
         response:  null,
         error:     err.message,
       });

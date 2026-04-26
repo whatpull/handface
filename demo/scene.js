@@ -1,11 +1,14 @@
 import { HandControl } from '../src/index.ts';
 import {
   NeuronFaceBackend,
+  HANDFACE_GESTURE_TO_INPUT,
   loadNeuronFaceSettings,
   saveNeuronFaceSettings,
 } from './neuronface-backend.js';
 import { initSnnViz } from './snn-viz/index.js';
 import { initAsciiCamera } from './snn-viz/ascii-camera.js';
+import { onGestureToggle } from './snn-viz/gesture.js';
+import { highlightInputs } from './snn-viz/circuit.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -130,6 +133,23 @@ for (const g of GESTURES) {
     backend.sendGesture(g, 1.0);
   });
 }
+
+// T5.2 2단계 (D29 multi-INPUT): button-driven multi-select listener.
+// gesture.js 의 toggleGesture (button click) → onGestureToggle 호출 →
+// 1) INPUT 영역 dot .selected (persistent) 갱신
+// 2) backend.sendGestures (multi-INPUT body.inputs) dispatch
+// mediapipe single-path (위의 control.on) 와 공존 (d-3 결정).
+onGestureToggle((selectedGestures) => {
+  const mappedInputs = selectedGestures
+    .map(g => HANDFACE_GESTURE_TO_INPUT[g])
+    .filter(Boolean);
+  highlightInputs(mappedInputs);
+  if (selectedGestures.length > 0) {
+    backend.sendGestures(selectedGestures, 1.0);
+  } else {
+    console.log('[neuronface] all gestures deselected (no dispatch)');
+  }
+});
 
 console.info('[snn-viz] Phase A done: mapping removed');
 

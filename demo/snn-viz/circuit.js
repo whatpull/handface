@@ -171,3 +171,21 @@ export function flashRegion(region) {
     setTimeout(() => dot.classList.remove('fired'), 600);
   });
 }
+
+// T5.2 2단계 (D29 multi-INPUT): button-driven multi-select 시 INPUT 영역 dot 의 .selected
+// persistent toggle. dot selector = `.snn-node.input[data-neuron="<input_name>"]`
+// (className 'snn-node input' + dataset.neuron 박음, line 84-85 정합).
+// inputNames = list of raw INPUT neuron names (예: 'in_palm', 'in_point').
+export function highlightInputs(inputNames) {
+  // 모든 INPUT dot 의 .selected 제거 (overlay 안 dot 만, V1/V2/OUT 영향 없음)
+  const inputOverlay = state.dotOverlays?.input;
+  if (!inputOverlay) return;
+  const allInputDots = inputOverlay.querySelectorAll('.snn-node');
+  allInputDots.forEach(dot => dot.classList.remove('selected'));
+
+  if (!Array.isArray(inputNames) || inputNames.length === 0) return;
+  for (const name of inputNames) {
+    const dot = inputOverlay.querySelector(`.snn-node[data-neuron="${name}"]`);
+    if (dot) dot.classList.add('selected');
+  }
+}

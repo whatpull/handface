@@ -15,6 +15,19 @@ const REGION_TO_LAYER = {
 
 let dragging = null;
 
+/** Deterministic seed [0,1] from string — string→hash→LCG normalize.
+ *  같은 input = 매번 같은 output (reload 시 jitter 안정).  */
+function hashSeed(str) {
+  let h = 2166136261;  // FNV-1a 32-bit offset basis
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // LCG step + normalize to [0,1)
+  const x = Math.imul(h >>> 0, 1664525) + 1013904223;
+  return ((x >>> 0) % 100000) / 100000;
+}
+
 export function renderCircuit(neurons /*, synapses*/) {
   const byRegion = { INPUT: [], V1: [], V2: [], OUT: [] };
   for (const n of neurons) {
@@ -71,18 +84,34 @@ function layoutRegion(body, neurons, layerId) {
     dot.className = `snn-node ${layerId}`;
     dot.dataset.neuron = n.name;
     dot.title = `${n.name}\n${n.region} / ${n.population}`;
+    // Concentric SVG: filled center r=3 + ring r=6 stroke=1.5 opacity=0.6.
+    // currentColor = region 색 (CSS .snn-node.{region} --node-color → color).
+    dot.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.6"/>' +
+      '<circle cx="8" cy="8" r="3" fill="currentColor"/>' +
+      '</svg>';
 
-    let pos = getNodePosition(n.name);
-    if (!pos) {
+    const userPos = getNodePosition(n.name);
+    let pos;
+    if (userPos) {
+      // localStorage 저장 위치 — 사용자 의도 보존, jitter 적용 안 함
+      pos = userPos;
+    } else {
       const c = i % cols;
       const r = Math.floor(i / cols);
       const x = padX + (cols === 1 ? innerW / 2 : (innerW * c) / Math.max(1, cols - 1));
       const y = padY + (rows === 1 ? innerH / 2 : (innerH * r) / Math.max(1, rows - 1));
-      pos = { x: x / w, y: y / h };
+      // Organic jitter — deterministic seed (hash(layerId + neuronName))
+      // ±8px range, dot 충돌 방지
+      const seedX = hashSeed(`${layerId}:${n.name}:x`);
+      const seedY = hashSeed(`${layerId}:${n.name}:y`);
+      const jitterX = (seedX - 0.5) * 16;  // ±8px
+      const jitterY = (seedY - 0.5) * 16;
+      pos = { x: (x + jitterX) / w, y: (y + jitterY) / h };
     }
 
-    dot.style.left = `calc(${(pos.x * 100).toFixed(2)}% - 5px)`;
-    dot.style.top  = `calc(${(pos.y * 100).toFixed(2)}% - 5px)`;
+    dot.style.left = `calc(${(pos.x * 100).toFixed(2)}% - 8px)`;
+    dot.style.top  = `calc(${(pos.y * 100).toFixed(2)}% - 8px)`;
 
     attachDragHandlers(dot, body);
     body.appendChild(dot);
@@ -112,8 +141,8 @@ function onDragMove(e) {
   let y = (e.clientY - bodyRect.top)  / bodyRect.height;
   x = Math.max(0, Math.min(1, x));
   y = Math.max(0, Math.min(1, y));
-  dot.style.left = `calc(${(x * 100).toFixed(2)}% - 5px)`;
-  dot.style.top  = `calc(${(y * 100).toFixed(2)}% - 5px)`;
+  dot.style.left = `calc(${(x * 100).toFixed(2)}% - 8px)`;
+  dot.style.top  = `calc(${(y * 100).toFixed(2)}% - 8px)`;
   dragging.lastPos = { x, y };
   // 즉각 시냅스 line 재계산 (별도 module 의존 없이 dispatchEvent)
   window.dispatchEvent(new CustomEvent('snn-viz:positions-changed'));

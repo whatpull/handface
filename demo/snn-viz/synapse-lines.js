@@ -73,21 +73,24 @@ export function renderSynapseLines() {
     const ratio = Math.abs(wt) / maxAbsW;
     // excitatory cyan / inhibitory warm coral, glow via drop-shadow filter
     const color = wt >= 0 ? '#4dd0e1' : '#e07a5f';
-    const thickness = (1 + ratio * 0.5).toFixed(2);
-    // clamp(|weight|*0.7, 0.15, 0.7)
-    const alpha = Math.max(0.15, Math.min(0.7, ratio * 0.7)).toFixed(3);
+    // Stage 1.7-β idle: 매우 가늘 (0.35~0.5) + 약 alpha (clamp 0.4) + 약 glow (1px).
+    const thickness = (0.35 + ratio * 0.15).toFixed(2);  // 0.35 ~ 0.50
+    const alpha = Math.max(0.10, Math.min(0.40, ratio * 0.4)).toFixed(3);
 
     const line = document.createElementNS(SVG_NS, 'line');
+    line.classList.add('snn-synapse-line');
     line.setAttribute('stroke', color);
     line.setAttribute('stroke-width', thickness);
     line.setAttribute('stroke-opacity', alpha);
     line.setAttribute('stroke-linecap', 'round');
-    line.style.filter = `drop-shadow(0 0 3px ${color})`;
+    line.style.setProperty('--line-color', color);
+    line.style.transition = 'stroke-width 300ms ease-out, stroke-opacity 300ms ease-out, filter 300ms ease-out';
     line.dataset.pre = syn.pre;
     line.dataset.post = syn.post;
     line.dataset.weight = String(wt);
     line.dataset.baseAlpha = alpha;
     line.dataset.baseWidth = thickness;
+    line.dataset.color = color;
 
     lineMap.set(`${syn.pre}->${syn.post}`, line);
     svgEl.appendChild(line);
@@ -141,19 +144,13 @@ export function highlightSynapsesFromRegion(region) {
   const container = state.containers[layerId];
   if (!container) return;
 
+  // Stage 1.7-β: dot fire 동기 line active — region 의 outgoing line 들에 .active class
+  // 추가 (CSS 가 stroke-width / opacity / filter 강조), 300ms 후 자연 fade (transition).
   for (const [, line] of lineMap) {
     const pre = line.dataset.pre;
     const preNeuron = state.neurons.find(n => n.name === pre);
     if (!preNeuron || preNeuron.region !== region) continue;
-    const baseAlpha = line.dataset.baseAlpha;
-    const baseWidth = line.dataset.baseWidth;
-    line.setAttribute('stroke-opacity', '0.95');
-    line.setAttribute('stroke-width', String((parseFloat(baseWidth) * 1.6).toFixed(2)));
-    line.setAttribute('filter', 'url(#snn-synapse-glow)');
-    setTimeout(() => {
-      line.setAttribute('stroke-opacity', baseAlpha);
-      line.setAttribute('stroke-width', baseWidth);
-      line.removeAttribute('filter');
-    }, 600);
+    line.classList.add('active');
+    setTimeout(() => line.classList.remove('active'), 300);
   }
 }

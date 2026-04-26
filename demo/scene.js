@@ -5,6 +5,7 @@ import {
   saveNeuronFaceSettings,
 } from './neuronface-backend.js';
 import { initSnnViz } from './snn-viz/index.js';
+import { initAsciiCamera } from './snn-viz/ascii-camera.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -143,6 +144,11 @@ async function autoStart() {
         await camPreview.play();
       } catch (e) {
         console.warn('[handface] cam-preview play() rejected:', e?.message ?? e);
+      }
+      // ASCII pipeline mount (video frame stream → 60×32 ASCII cell + cyan→coral overlay)
+      const asciiMountEl = camPreview.parentElement;
+      if (asciiMountEl) {
+        initAsciiCamera({ videoEl: camPreview, mountEl: asciiMountEl });
       }
     }
 

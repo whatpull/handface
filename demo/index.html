@@ -395,6 +395,24 @@
       visibility: visible !important;
     }
 
+    /* ASCII camera canvas (text 렌더, image-rendering 불필요) */
+    .snn-layer-camera .snn-layer-body .snn-ascii-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 4px;
+      background: #000000;
+    }
+    /* cyan → coral gradient overlay (multiply blend → ASCII 흰 점에 색 inject) */
+    .snn-layer-camera .snn-layer-body .snn-ascii-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, #4dd0e1 0%, #e07a5f 100%);
+      mix-blend-mode: multiply;
+      border-radius: 4px;
+    }
     .snn-hand-canvas {
       width: 100%;
       height: 100%;

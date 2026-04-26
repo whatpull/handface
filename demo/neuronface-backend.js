@@ -6,7 +6,8 @@
  *                          → POST /networks/{id}/presets/basic
  *                          → emit 'connection-status' { ok, networkId, neuronsAdded, synapsesAdded }
  *   2. sendGesture(name, intensity)
- *                        — POST /networks/{id}/handface_and_observe
+ *                        — POST /networks/{id}/handface_train (D14, D26 partial_reset)
+ *                        body.stdp = this._stdpEnabled (T5.2 1단계, D9 surface)
  *                          → emit 'neuron-firing' { gesture, intensity, response }
  *   3. testConnection()   — GET /health (public, no auth)
  *
@@ -29,6 +30,17 @@ export class NeuronFaceBackend {
     this._networkId    = null;
     this._connected    = false;
     this._initializing = false;
+    // T5.2 1단계 (D14/D9 surface): /handface_train + stdp:bool body field.
+    // default false → anchor-equivalent path. UI toggle 가 setStdpEnabled() 통해 갱신.
+    this._stdpEnabled  = false;
+  }
+
+  setStdpEnabled(enabled) {
+    this._stdpEnabled = Boolean(enabled);
+  }
+
+  get stdpEnabled() {
+    return this._stdpEnabled;
   }
 
   // ─── event bus ───
@@ -137,7 +149,9 @@ export class NeuronFaceBackend {
   }
 
   /**
-   * POST /handface_and_observe. Auto-initializes if needed.
+   * POST /handface_train (T5.2 1단계, D14/D26). Auto-initializes if needed.
+   * body.stdp = this._stdpEnabled (default false = anchor-equivalent).
+   * inputs omit (1단계 single-INPUT D14 path; multi-INPUT 은 2단계 D29 영역).
    * Emits 'neuron-firing' with full response (success) or with error.
    */
   async sendGesture(name, intensity = 1.0) {
@@ -145,6 +159,9 @@ export class NeuronFaceBackend {
       const init = await this.initialize();
       if (!init.ok) return { ok: false, reason: init.reason };
     }
+    // T5.2 1단계 (D14/D9): endpoint = /handface_train (D26 partial_reset 적용 path).
+    // body.stdp = this._stdpEnabled. inputs omit (1단계 single-INPUT D14 path 유지).
+    // anchor identity 정합 = stdp:false 시 D35 통과 검증됨 (v1_active=5, max_peak=-68.996).
     const body = {
       type:                 'gesture',
       name:                 name,
@@ -152,10 +169,15 @@ export class NeuronFaceBackend {
       stimulus_duration_ms: 15.0,
       observe_ms:           50.0,
       detail:               'summary',
+      stdp:                 this._stdpEnabled,
     };
+    console.log(
+      `[neuronface] calling /handface_train with stdp=${this._stdpEnabled} ` +
+      `(name=${name}, intensity=${intensity})`,
+    );
     try {
       const resp = await this._fetch(
-        `/networks/${this._networkId}/handface_and_observe`,
+        `/networks/${this._networkId}/handface_train`,
         { method: 'POST', body },
       );
       this.emit({

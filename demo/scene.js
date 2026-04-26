@@ -61,6 +61,19 @@ function setupSettingsUI() {
       ? `OK — ${result.status} (${result.version})`
       : `FAIL — ${result.reason}`;
   });
+
+  // T5.2 1단계: STDP toggle (D14/D9 surface). default OFF = anchor-equivalent.
+  const stdpOffBtn = document.getElementById('nf-stdp-off');
+  const stdpOnBtn  = document.getElementById('nf-stdp-on');
+  function applyStdp(enabled) {
+    backend.setStdpEnabled(enabled);
+    if (stdpOffBtn) stdpOffBtn.classList.toggle('active', !enabled);
+    if (stdpOnBtn)  stdpOnBtn.classList.toggle('active',  enabled);
+    console.info(`[neuronface] STDP ${enabled ? 'ON' : 'OFF'} -> sendGesture body.stdp=${enabled}`);
+  }
+  if (stdpOffBtn) stdpOffBtn.addEventListener('click', () => applyStdp(false));
+  if (stdpOnBtn)  stdpOnBtn.addEventListener('click',  () => applyStdp(true));
+  applyStdp(false);  // initial = OFF (anchor-equivalent)
 }
 setupSettingsUI();
 

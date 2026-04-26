@@ -90,12 +90,28 @@ function drawFrame() {
   if (videoRef.readyState < 2) return;
   if (!videoRef.videoWidth || !videoRef.videoHeight) return;
 
-  // 1. video → sample canvas (60×32 downscale)
+  // 1. video → sample canvas (60×32 downscale, cover semantics)
+  // panel aspect-ratio 와 video aspect-ratio mismatch 시 source 를 panel 비율로 crop —
+  // letterbox 회피 (object-fit: cover 와 동일 효과를 drawImage 9-arg form 으로 달성).
+  const vw = videoRef.videoWidth;
+  const vh = videoRef.videoHeight;
+  const targetAR = asciiCanvas.width / asciiCanvas.height;  // panel ratio (1/1 등)
+  const vAR = vw / vh;
+  let sx, sy, sw, sh;
+  if (vAR > targetAR) {
+    // video 가 더 넓음 → 좌우 crop
+    sh = vh; sw = vh * targetAR; sx = (vw - sw) / 2; sy = 0;
+  } else if (vAR < targetAR) {
+    // video 가 더 좁음 → 상하 crop
+    sw = vw; sh = vw / targetAR; sx = 0; sy = (vh - sh) / 2;
+  } else {
+    sx = 0; sy = 0; sw = vw; sh = vh;
+  }
   // 좌우 mirror (사용자 시점) — scaleX(-1) effect via translate + scale
   sampleCtx.save();
   sampleCtx.translate(COLS, 0);
   sampleCtx.scale(-1, 1);
-  sampleCtx.drawImage(videoRef, 0, 0, COLS, ROWS);
+  sampleCtx.drawImage(videoRef, sx, sy, sw, sh, 0, 0, COLS, ROWS);
   sampleCtx.restore();
 
   // 2. read pixel data

@@ -65,9 +65,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private rawHandX = 0.5;
   private rawHandY = 0.5;
   private _lastLandmarks: Array<{x:number; y:number; z:number}> | null = null;
+  private _lastLandmarksAll: Array<Array<{x:number; y:number; z:number}>> | null = null;
 
-  /** 현재 프레임의 21개 손 랜드마크 (3D 스켈레톤 표시용) */
+  /** 현재 프레임의 21개 손 랜드마크 (primary hand, 3D 스켈레톤 표시용) */
   get handLandmarks() { return this._lastLandmarks; }
+  /** 감지된 모든 손의 랜드마크 (양손 시각화용). null = 손 없음. */
+  get handLandmarksAll() { return this._lastLandmarksAll; }
 
   // ── hover 감지 ──
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -241,7 +244,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     const gestureResult = this.detector.detect(this.video, now);
 
     // ── landmarks 즉시 업데이트 (early return 이전 — 프리즈 방지) ──
-    this._lastLandmarks = gestureResult?.landmarks ?? null;
+    this._lastLandmarks    = gestureResult?.landmarks ?? null;
+    this._lastLandmarksAll = gestureResult?.allLandmarks ?? null;
 
     // ── 커서 소스 결정 ──
     let rawX: number;

@@ -49,8 +49,10 @@ export interface DetectionResult {
   clap: boolean;
   /** 양손 간 거리 (null = 한 손만 감지). 0 = 닿음, ~0.8 = 최대 벌림 */
   twoHandDist: number | null;
-  /** 전체 21개 손 랜드마크 */
+  /** 전체 21개 손 랜드마크 (primary hand only) */
   landmarks: Array<{ x: number; y: number; z: number }> | null;
+  /** 감지된 모든 손의 21개 랜드마크 (양손 시각화용). 인덱스 = MediaPipe handedness 순서. */
+  allLandmarks: Array<Array<{ x: number; y: number; z: number }>> | null;
 }
 
 const DEFAULT_WASM_PATH =
@@ -125,6 +127,9 @@ export class GestureDetector {
           thumbIndexDist: 1, thumbMiddleDist: 1,
           indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
           palmCenter: {x:0.5,y:0.5}, clap, twoHandDist, landmarks: null,
+          allLandmarks: result.landmarks.map(hand =>
+            hand.map(lm => ({ x: lm.x, y: lm.y, z: lm.z })),
+          ),
         };
         return null;
       }
@@ -136,6 +141,9 @@ export class GestureDetector {
     det.clap = clap;
     det.twoHandDist = twoHandDist;
     det.landmarks = result.landmarks[handIdx].map(lm => ({ x: lm.x, y: lm.y, z: lm.z }));
+    det.allLandmarks = result.landmarks.map(hand =>
+      hand.map(lm => ({ x: lm.x, y: lm.y, z: lm.z })),
+    );
     return det;
   }
 
@@ -183,6 +191,7 @@ export class GestureDetector {
       clap: false,
       twoHandDist: null,
       landmarks: null,
+      allLandmarks: null,
     };
   }
 

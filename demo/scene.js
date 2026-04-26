@@ -4,6 +4,7 @@ import {
   loadNeuronFaceSettings,
   saveNeuronFaceSettings,
 } from './neuronface-backend.js';
+import { initSnnViz } from './snn-viz/index.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -62,9 +63,6 @@ function setupSettingsUI() {
 }
 setupSettingsUI();
 
-// ─── DOM refs ───
-const cursorEl = document.getElementById('cursor');
-
 // ─────────────────────────────────────────
 // Backend event router (NeuronFace)
 // ─────────────────────────────────────────
@@ -104,46 +102,22 @@ backend.onEvent(backendEventHandler);
 // HandControl (gesture input)
 // ─────────────────────────────────────────
 const control = new HandControl({
-  handedness:   'right',
+  handedness:   'any',
   cursorSource: 'hand',
   cursorAnchor: 'index',
 });
 
-let sCurX = 0, sCurY = 0, curInited = false;
-const CUR_SMOOTH = 0.25;
-
-control.on('move', (e) => {
-  const lm = control.handLandmarks;
-  if (lm && lm[8]) {
-    const rawX = (1 - lm[8].x) * window.innerWidth;
-    const rawY = lm[8].y * window.innerHeight;
-    if (!curInited) { sCurX = rawX; sCurY = rawY; curInited = true; }
-    else { sCurX += (rawX - sCurX) * CUR_SMOOTH; sCurY += (rawY - sCurY) * CUR_SMOOTH; }
-    cursorEl.style.left = `${sCurX}px`;
-    cursorEl.style.top  = `${sCurY}px`;
-  } else {
-    cursorEl.style.left = `${e.screenX}px`;
-    cursorEl.style.top  = `${e.screenY}px`;
-  }
-});
-
-// 마우스 폴백 (HandControl 시작 전 커서 표시)
-window.addEventListener('mousemove', (e) => {
-  cursorEl.style.left = `${e.clientX}px`;
-  cursorEl.style.top  = `${e.clientY}px`;
-});
-
-control.on('mousedown', () => { cursorEl.classList.add('clicking'); });
-control.on('mouseup',   () => { cursorEl.classList.remove('clicking'); });
-
 // ── Gesture dispatch: HandControl emits each 4-gesture name once per cooldown.
 //    forwarded to NeuronFaceBackend for /handface_and_observe.
+//    snn-viz also subscribes (for icon highlight) — see initSnnViz.
 const GESTURES = ['pointing', 'openpalm', 'thumbsup', 'victory'];
 for (const g of GESTURES) {
   control.on(g, () => {
     backend.sendGesture(g, 1.0);
   });
 }
+
+console.info('[snn-viz] Phase A done: mapping removed');
 
 // ─────────────────────────────────────────
 // Auto-start at module evaluation. fire-and-forget so the camera permission
@@ -152,7 +126,9 @@ for (const g of GESTURES) {
 async function autoStart() {
   try {
     await control.start();
-    control.createPanel();
+
+    // SNN viz mount (after control.start so handLandmarks are flowing)
+    initSnnViz({ control, backend });
 
     const initResult = await backend.initialize();
     if (!initResult.ok) {
@@ -160,17 +136,14 @@ async function autoStart() {
     }
 
     const camPreview = document.getElementById('cam-preview');
-    const camToggle  = document.getElementById('cam-toggle');
     if (control.mediaStream && camPreview) {
       camPreview.srcObject = control.mediaStream;
-    }
-    if (camToggle && camPreview) {
-      camToggle.textContent = '📷 HIDE';
-      camToggle.addEventListener('click', () => {
-        const on = camPreview.style.display !== 'block';
-        camPreview.style.display = on ? 'block' : 'none';
-        camToggle.textContent = on ? '📷 HIDE' : '📷 CAM';
-      });
+      // 명시적 play() — autoplay defer 방지 (off-screen / display 변형 시 일부 브라우저가 defer)
+      try {
+        await camPreview.play();
+      } catch (e) {
+        console.warn('[handface] cam-preview play() rejected:', e?.message ?? e);
+      }
     }
 
     document.addEventListener('keydown', (e) => {

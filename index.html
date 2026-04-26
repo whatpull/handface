@@ -229,7 +229,7 @@
     /* 와이드 + 세로 큰 화면에서 panel 무한 stretch 방지.
        1900×1000 → 80vh = 800px, 4K → 800px 상한 (정사각형 근접). 좁은 화면 영향 0. */
     .snn-flow > .snn-region-frame {
-      max-height: min(800px, 80vh);
+      max-height: 100vh;
     }
 
     /* Region frame: wraps panel + dots overlay so dots escape panel's backdrop-filter stacking */
@@ -472,6 +472,30 @@
       box-shadow: 0 0 18px rgba(196, 181, 253, 0.35);
       transform: scale(1.08);
     }
+    /* T5.2 2단계 (D29): button-driven multi-select 시 .selected (persistent).
+       mediapipe-driven .active (transient lavender) 와 색감 구분 (cyan). */
+    .snn-gesture-icon.selected {
+      background: rgba(167, 250, 255, 0.45);
+      border-color: rgba(167, 250, 255, 0.8);
+      box-shadow: 0 0 24px rgba(167, 250, 255, 0.5);
+      transform: scale(1.06);
+    }
+    /* M14: 회로 INPUT 부재 GESTURE (thumbsup/victory) — click 차단 + 시각 약화. */
+    .snn-gesture-icon.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: grayscale(0.6);
+      pointer-events: none;
+    }
+    /* INPUT 영역 dot 의 multi-select highlight (button-driven).
+       selector = .snn-node.input[data-neuron="..."] 정합. */
+    .snn-node.input.selected {
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(167, 250, 255, 0.7), 0 0 32px rgba(167, 250, 255, 0.4);
+    }
+    .snn-node.input.selected svg circle:last-child {
+      fill: rgba(167, 250, 255, 0.9);
+    }
 
     /* Neuron nodes — filled center + concentric ring (SVG 2 circle).
        wrapper div = 16×16 hit area + drag handle, 안 SVG circle 은 pointer-events 없음. */
@@ -549,7 +573,7 @@
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
       .snn-main {
         grid-template-columns: 1fr;
-        grid-template-rows: minmax(180px, auto) 1fr;
+        grid-template-rows: auto 1fr;  /* row1 = camera/hand/gesture 정사각형 콘텐츠 높이 fit, row2 = SNN 나머지 */
         padding: 16px;
       }
       .snn-input-col {
@@ -560,6 +584,46 @@
       }
       .snn-input-col > .snn-region-frame { min-width: 0; min-height: 0; }
       .snn-input-col > .snn-region-frame > .snn-layer { flex: 1; min-width: 0; }
+      /* GESTURE 모바일 정정 — aspect-ratio 1/1 유지 (camera/hand 와 동일 row height 정합),
+         4 button 가로 flex 스크롤 (정사각형 cell, height fit). */
+      .snn-region-frame-gesture .snn-gesture-icons {
+        display: flex;
+        flex-direction: row;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        align-items: center;  /* body 가 icon 보다 클 때 세로 중앙 정렬 */
+        /* Custom scrollbar — dark theme 정합 (얇은 line, hover glow) */
+        scrollbar-width: thin;
+        scrollbar-color: rgba(183, 148, 244, 0.35) transparent;
+      }
+      .snn-region-frame-gesture .snn-gesture-icons::-webkit-scrollbar {
+        height: 4px;
+      }
+      .snn-region-frame-gesture .snn-gesture-icons::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .snn-region-frame-gesture .snn-gesture-icons::-webkit-scrollbar-thumb {
+        background: rgba(183, 148, 244, 0.35);
+        border-radius: 2px;
+      }
+      .snn-region-frame-gesture .snn-gesture-icons::-webkit-scrollbar-thumb:hover {
+        background: rgba(183, 148, 244, 0.6);
+      }
+      .snn-region-frame-gesture .snn-gesture-icon {
+        flex-shrink: 0;
+        aspect-ratio: 1 / 1;
+        height: clamp(44px, 100%, 56px);  /* 좁은 viewport = body fit, 넓은 viewport = 56px 상한 */
+        padding: 4px;
+      }
+      .snn-region-frame-gesture .snn-gesture-icon-emoji { font-size: 18px; }
+      .snn-region-frame-gesture .snn-gesture-icon-label { font-size: 8px; }
+      /* Active/selected scale 무효화 — height:100% + scale 시 panel 박스 밖 overflow 발생,
+         색상 + box-shadow glow 만으로 시각 cue 충분. */
+      .snn-region-frame-gesture .snn-gesture-icon.active,
+      .snn-region-frame-gesture .snn-gesture-icon.selected {
+        transform: none;
+      }
       .snn-flow {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
@@ -567,7 +631,7 @@
       .snn-arrow { display: none; }
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-B5M_FPKe.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-D8M_gOqu.js"></script>
 </head>
 <body>
   <div id="snn-viz-root"></div>
@@ -609,6 +673,15 @@
         <button id="nf-mode-edit" type="button" class="nf-mode-btn">Edit</button>
       </div>
       <div class="nf-mode-hint">Edit: drag nodes to reposition (saved locally)</div>
+    </div>
+
+    <div class="nf-section nf-stdp-section">
+      <label class="nf-section-label">STDP (D9 plasticity)</label>
+      <div class="nf-mode-toggle">
+        <button id="nf-stdp-off" type="button" class="nf-mode-btn active">OFF</button>
+        <button id="nf-stdp-on"  type="button" class="nf-mode-btn">ON</button>
+      </div>
+      <div class="nf-mode-hint">OFF: anchor path (default). ON: STDP weight update on each gesture.</div>
     </div>
   </div>
 

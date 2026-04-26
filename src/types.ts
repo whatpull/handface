@@ -44,6 +44,31 @@ export interface GestureEvent {
   confidence: number;
 }
 
+/**
+ * Per-frame probe payload for measurement hooks (Exp5 only).
+ * Emitted unconditionally every tick, whether a hand was detected or not
+ * and whether the cooldown filter passed or not.
+ *
+ * Detected but cooldown-suppressed frames: mappedGesture != null, cooldownPassed=false.
+ * No-hand frames: detectedGesture=null, gestureConfidence=null.
+ */
+export interface FrameProbe {
+  /** performance.now() at the tick */
+  tPerf: number;
+  /** MediaPipe raw category name, e.g. "Open_Palm"; null if no hand */
+  detectedGesture: string | null;
+  /** Alias-mapped neuronface name ("openpalm"), null if mapping missing */
+  mappedGesture: GestureName | null;
+  /** MediaPipe top category score, null if no hand */
+  gestureConfidence: number | null;
+  /** hand anchor x in [0,1] after mirror (null if no hand) */
+  handX: number | null;
+  /** hand anchor y in [0,1] (null if no hand) */
+  handY: number | null;
+  /** True if this frame fired a gesture event (passed GESTURE_COOLDOWN_MS) */
+  cooldownPassed: boolean;
+}
+
 export interface GestureKeyBinding {
   gesture: GestureName;
   key: string;
@@ -126,6 +151,13 @@ export interface HandControlOptions {
    * true면 검지를 펼쳤을 때만 커서가 움직이고, 다른 제스처 시 커서 고정
    */
   gestureGated?: boolean;
+  /**
+   * Optional per-frame measurement probe (Exp5 only). If provided, called
+   * every tick with raw MediaPipe detection info regardless of cooldown.
+   * Not a runtime event; kept as a plain callback to avoid widening
+   * HandControlEventMap with measurement-only channels.
+   */
+  onFrameProbe?: (frame: FrameProbe) => void;
 }
 
 /** 제스처 표시 메타데이터 */

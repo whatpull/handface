@@ -32,6 +32,8 @@ const MP_GESTURE_MAP: Record<string, GestureName> = {
 export interface DetectionResult {
   /** GestureRecognizer 원본 제스처 */
   gestureName: GestureName | null;
+  /** MediaPipe raw category name before alias mapping (e.g. "Open_Palm", "Closed_Fist"). */
+  rawGestureName: string | null;
   gestureConfidence: number;
   /** 엄지 ↔ 검지 끝 거리 (클릭 핀치 감지용) */
   thumbIndexDist: number;
@@ -47,8 +49,10 @@ export interface DetectionResult {
   clap: boolean;
   /** 양손 간 거리 (null = 한 손만 감지). 0 = 닿음, ~0.8 = 최대 벌림 */
   twoHandDist: number | null;
-  /** 전체 21개 손 랜드마크 */
+  /** 전체 21개 손 랜드마크 (primary hand only) */
   landmarks: Array<{ x: number; y: number; z: number }> | null;
+  /** 감지된 모든 손의 21개 랜드마크 (양손 시각화용). 인덱스 = MediaPipe handedness 순서. */
+  allLandmarks: Array<Array<{ x: number; y: number; z: number }>> | null;
 }
 
 const DEFAULT_WASM_PATH =
@@ -119,10 +123,13 @@ export class GestureDetector {
       );
       if (idx === -1) {
         if (clap) return {
-          gestureName: null, gestureConfidence: 0,
+          gestureName: null, rawGestureName: null, gestureConfidence: 0,
           thumbIndexDist: 1, thumbMiddleDist: 1,
           indexTip: {x:0.5,y:0.5}, wrist: {x:0.5,y:0.5},
           palmCenter: {x:0.5,y:0.5}, clap, twoHandDist, landmarks: null,
+          allLandmarks: result.landmarks.map(hand =>
+            hand.map(lm => ({ x: lm.x, y: lm.y, z: lm.z })),
+          ),
         };
         return null;
       }
@@ -134,6 +141,9 @@ export class GestureDetector {
     det.clap = clap;
     det.twoHandDist = twoHandDist;
     det.landmarks = result.landmarks[handIdx].map(lm => ({ x: lm.x, y: lm.y, z: lm.z }));
+    det.allLandmarks = result.landmarks.map(hand =>
+      hand.map(lm => ({ x: lm.x, y: lm.y, z: lm.z })),
+    );
     return det;
   }
 
@@ -164,12 +174,14 @@ export class GestureDetector {
     );
 
     const topCat = categories[0];
+    const rawGestureName = topCat?.categoryName ?? null;
     const gestureName: GestureName | null =
       topCat ? (MP_GESTURE_MAP[topCat.categoryName] ?? null) : null;
     const gestureConfidence = topCat?.score ?? 0;
 
     return {
       gestureName,
+      rawGestureName,
       gestureConfidence,
       thumbIndexDist,
       thumbMiddleDist,
@@ -179,6 +191,7 @@ export class GestureDetector {
       clap: false,
       twoHandDist: null,
       landmarks: null,
+      allLandmarks: null,
     };
   }
 

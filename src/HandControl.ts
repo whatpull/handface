@@ -12,6 +12,7 @@ import type {
   ClickEvent,
   GestureEvent,
   GestureName,
+  FrameProbe,
 } from './types';
 
 // ─── 상태 머신 상수 ───────────────────────────────
@@ -64,9 +65,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private rawHandX = 0.5;
   private rawHandY = 0.5;
   private _lastLandmarks: Array<{x:number; y:number; z:number}> | null = null;
+  private _lastLandmarksAll: Array<Array<{x:number; y:number; z:number}>> | null = null;
 
-  /** 현재 프레임의 21개 손 랜드마크 (3D 스켈레톤 표시용) */
+  /** 현재 프레임의 21개 손 랜드마크 (primary hand, 3D 스켈레톤 표시용) */
   get handLandmarks() { return this._lastLandmarks; }
+  /** 감지된 모든 손의 랜드마크 (양손 시각화용). null = 손 없음. */
+  get handLandmarksAll() { return this._lastLandmarksAll; }
 
   // ── hover 감지 ──
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -98,6 +102,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
   private readonly sensitivity: number;
   private readonly activeZone: [number, number, number, number];
   private readonly ownedVideo: boolean;
+  private readonly onFrameProbe: ((frame: FrameProbe) => void) | null;
+  private _frameCooldownPassed = false;
 
   readonly mapper = new GestureMapper();
 
@@ -133,6 +139,8 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     if (this.cursorSource === 'gaze') {
       this.gazeDetector = new GazeDetector(options.wasmPath);
     }
+
+    this.onFrameProbe = options.onFrameProbe ?? null;
   }
 
   async start(): Promise<void> {
@@ -193,12 +201,51 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
 
   private tick(): void {
     const now = performance.now();
+    this._frameCooldownPassed = false;
+    let probeResult: DetectionResult | null = null;
+    try {
+      probeResult = this._tickBody(now);
+    } finally {
+      if (this.onFrameProbe) {
+        this.onFrameProbe(this._buildProbe(now, probeResult));
+      }
+    }
+  }
 
+  private _buildProbe(now: number, result: DetectionResult | null): FrameProbe {
+    if (!result) {
+      return {
+        tPerf: now,
+        detectedGesture: null,
+        mappedGesture: null,
+        gestureConfidence: null,
+        handX: null, handY: null,
+        cooldownPassed: false,
+      };
+    }
+    const mapped = result.gestureName;
+    const raw    = result.rawGestureName;
+    // Hand was detected: keep confidence even if category is not one of our 4 aliases.
+    const conf = raw ? result.gestureConfidence : null;
+    const anchor = result.wrist;
+    return {
+      tPerf: now,
+      detectedGesture: raw,
+      mappedGesture: mapped,
+      gestureConfidence: conf,
+      handX: anchor ? (this.flipHorizontal ? 1 - anchor.x : anchor.x) : null,
+      handY: anchor?.y ?? null,
+      cooldownPassed: this._frameCooldownPassed,
+    };
+  }
+
+  private _tickBody(now: number): DetectionResult | null {
     // ── 제스처 감지 (항상 실행) ──
     const gestureResult = this.detector.detect(this.video, now);
 
     // ── landmarks 즉시 업데이트 (early return 이전 — 프리즈 방지) ──
-    this._lastLandmarks = gestureResult?.landmarks ?? null;
+    this._lastLandmarks    = gestureResult?.landmarks ?? null;
+    this._lastLandmarksAll = gestureResult?.allLandmarks ?? null;
 
     // ── 커서 소스 결정 ──
     let rawX: number;
@@ -208,12 +255,12 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       const gaze = this.gazeDetector.detect(this.video, now);
       if (!gaze) {
         if (gestureResult) this.processStateMachine(gestureResult, this.currentPos());
-        return;
+        return gestureResult;
       }
       rawX = this.flipHorizontal ? 1 - gaze.gazeX : gaze.gazeX;
       rawY = gaze.gazeY;
     } else {
-      if (!gestureResult) return;
+      if (!gestureResult) return null;
       const anchor =
         this.cursorAnchor === 'index' ? gestureResult.indexTip :
         this.cursorAnchor === 'palm'  ? gestureResult.palmCenter :
@@ -292,6 +339,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
     if (gestureResult) {
       this.processStateMachine(gestureResult, pos);
     }
+    return gestureResult;
   }
 
   private currentPos(): Pick<MoveEvent, 'x' | 'y' | 'screenX' | 'screenY'> {
@@ -411,6 +459,7 @@ export class HandControl extends EventEmitter<HandControlEventMap> {
       const lastFire = this.lastGestureMs.get(gestureName) ?? 0;
       if (now - lastFire > GESTURE_COOLDOWN_MS) {
         this.lastGestureMs.set(gestureName, now);
+        this._frameCooldownPassed = true;
         const gestureEvent: GestureEvent = {
           gesture: gestureName,
           ...pos,

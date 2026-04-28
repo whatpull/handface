@@ -6,13 +6,13 @@
  */
 
 // T5.2 2단계 (D29): disabled flag = 회로 INPUT 부재 GESTURE (M14 정합).
-// thumbsup → in_thumbsup, victory → in_victory mapping 이 server-side 에 박혀있으나
-// 회로 wiring (network.py:284) 의 6 INPUT 에 부재 → button click 차단 + opacity 약화.
+// D37 시점: thumbsup/victory = disabled (회로 INPUT 부재, M14).
+// D40 (δ-2 / M14 해소): network.py:284 에 in_thumbsup/in_victory 추가 → 4 GESTURE 모두 활성.
 const GESTURES = [
   { name: 'pointing', icon: '☝️', label: 'Point', disabled: false },
   { name: 'openpalm', icon: '🖐',  label: 'Open',  disabled: false },
-  { name: 'thumbsup', icon: '👍', label: 'Thumb', disabled: true  },
-  { name: 'victory',  icon: '✌️', label: 'Vict.', disabled: true  },
+  { name: 'thumbsup', icon: '👍', label: 'Thumb', disabled: false },
+  { name: 'victory',  icon: '✌️', label: 'Vict.', disabled: false },
 ];
 
 let icons = null;

@@ -23,13 +23,14 @@ const DEFAULT_ENDPOINT = 'https://whatpull-neuronface.hf.space';
 const STORAGE_KEY      = 'handface-neuronface-v1';
 
 // T5.2 2단계 (D29 multi-INPUT): handface gesture alias → 회로 INPUT name mapping.
-// server-side HANDFACE_INPUT_MAP 의 단방향 부분집합 (회로 INPUT 부재한 thumbsup/victory 제외).
-// M14 정합: thumbsup → in_thumbsup / victory → in_victory 가 server mapping 박혀있으나
-// 회로 wiring (network.py:284) 에 부재 → 활성 2 GESTURE 만 박음 (β-1 결정).
+// server-side HANDFACE_INPUT_MAP 와 정합 (4 GESTURE 모두 mapping).
+// D37 시점: thumbsup/victory = 회로 INPUT 부재 (M14, β-1 disabled UI).
+// D40 (δ-2 / M14 해소): network.py:284 에 in_thumbsup/in_victory 추가 → 4 GESTURE 모두 활성.
 export const HANDFACE_GESTURE_TO_INPUT = {
   pointing: 'in_point',
   openpalm: 'in_palm',
-  // thumbsup, victory: 회로 INPUT 부재 — disabled UI (gesture.js)
+  thumbsup: 'in_thumbsup',
+  victory: 'in_victory',
 };
 
 export class NeuronFaceBackend {

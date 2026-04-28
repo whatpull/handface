@@ -11,12 +11,13 @@ import { state, loadPositions } from './state.js';
 import { buildLayout } from './layout.js';
 import { mountHand } from './hand.js';
 import { mountGesture, highlightGesture } from './gesture.js';
-import { renderCircuit, flashRegion } from './circuit.js';
+import { renderCircuit, flashRegion, flashNeurons } from './circuit.js';
 import {
   mountSynapseLines,
   renderSynapseLines,
   redrawAll as redrawSynapseLines,
   highlightSynapsesFromRegion,
+  highlightSynapsesFromNeurons,
 } from './synapse-lines.js';
 
 export function initSnnViz({ control, backend }) {
@@ -88,21 +89,43 @@ export function initSnnViz({ control, backend }) {
         target:  event.response?.target,
         timestamp: performance.now(),
       };
-      // Sequential pulse + synapse glow
+      // D41 fix (T5.1-0-4): 회로 흐름 (region 박스 + arrow) = 항상 표시.
+      // 노드/시냅스 차등 = response-driven (top_active_neurons 의 rate>0 만 강조).
+      const r = event.response || {};
+      const topActive = Array.isArray(r.top_active_neurons) ? r.top_active_neurons : [];
+      const activeNames = topActive.filter(n => n && typeof n.rate === 'number' && n.rate > 0).map(n => n.name);
+      const inputNames = activeNames.filter(name => typeof name === 'string' && name.startsWith('in_'));
+      const v1Names = activeNames.filter(name => typeof name === 'string' && name.startsWith('v1_'));
+      const v2Names = activeNames.filter(name => typeof name === 'string' && name.startsWith('v2_'));
+      // INPUT
       flashRegion('INPUT');
-      highlightSynapsesFromRegion('INPUT');
+      if (inputNames.length > 0) {
+        flashNeurons('INPUT', inputNames);
+        highlightSynapsesFromNeurons(inputNames);
+      }
       flashArrow('arrow-input-v1', 100);
+      // V1
       setTimeout(() => {
         flashRegion('V1');
-        highlightSynapsesFromRegion('V1');
+        if (v1Names.length > 0) {
+          flashNeurons('V1', v1Names);
+          highlightSynapsesFromNeurons(v1Names);
+        }
       }, 200);
       flashArrow('arrow-v1-v2', 350);
+      // V2
       setTimeout(() => {
         flashRegion('V2');
-        highlightSynapsesFromRegion('V2');
+        if (v2Names.length > 0) {
+          flashNeurons('V2', v2Names);
+          highlightSynapsesFromNeurons(v2Names);
+        }
       }, 450);
       flashArrow('arrow-v2-out', 600);
-      setTimeout(() => flashRegion('OUT'), 700);
+      // OUT
+      setTimeout(() => {
+        flashRegion('OUT');
+      }, 700);
     }
   });
 

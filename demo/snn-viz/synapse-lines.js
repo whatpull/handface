@@ -154,3 +154,17 @@ export function highlightSynapsesFromRegion(region) {
     setTimeout(() => line.classList.remove('active'), 300);
   }
 }
+
+// D41 fix (T5.1-0-2-bis, β-1): 활성 neuron 의 outgoing line 만 .active 강조.
+// neuronNames = 활성 neuron name 배열 (예: top_active_neurons 의 rate>0 만).
+// highlightSynapsesFromRegion 와 분리: region 단위 일괄 → 노드별 차등.
+// dataset.pre 매칭 (synapse-lines.js:90 정합, lineMap key = "pre->post").
+export function highlightSynapsesFromNeurons(neuronNames) {
+  if (!Array.isArray(neuronNames) || neuronNames.length === 0) return;
+  const nameSet = new Set(neuronNames);
+  for (const [, line] of lineMap) {
+    if (!nameSet.has(line.dataset.pre)) continue;
+    line.classList.add('active');
+    setTimeout(() => line.classList.remove('active'), 300);
+  }
+}

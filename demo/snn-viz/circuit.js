@@ -158,6 +158,9 @@ function onDragEnd() {
   dragging = null;
 }
 
+// D41 fix (T5.1-0): region 박스 강조 (.region-active) 만 보존.
+// 직전 영역 (dots.forEach .fired) = 모든 노드 일괄 burst = flashNeurons 의 차등 효과 cancel = 결함.
+// 노드 단위 .fired = flashNeurons(region, names) 영역으로 분리 (response-driven 차등).
 export function flashRegion(region) {
   const layerId = REGION_TO_LAYER[region];
   if (!layerId) return;
@@ -165,11 +168,26 @@ export function flashRegion(region) {
   if (!container) return;
   container.classList.add('region-active');
   setTimeout(() => container.classList.remove('region-active'), 800);
-  const dots = container.querySelectorAll('.snn-node');
-  dots.forEach(dot => {
-    dot.classList.add('fired');
-    setTimeout(() => dot.classList.remove('fired'), 600);
-  });
+}
+
+// D41 fix (T5.1-0): response-driven 노드별 차등 .fired.
+// names = backend response 의 활성 neuron name 배열 (예: top_active_neurons 의 rate>0 만).
+// flashRegion 와 분리: flashRegion = region 박스 강조 (.region-active),
+// flashNeurons = 노드 단위 차등 (.fired). 함께 호출 시 region 강조 + 노드별 차등 동시 가능.
+// highlightInputs 패턴 일반화 (state.dotOverlays[layerId], 4 region 모두 지원).
+export function flashNeurons(region, names) {
+  const layerId = REGION_TO_LAYER[region];
+  if (!layerId) return;
+  const overlay = state.dotOverlays?.[layerId];
+  if (!overlay) return;
+  if (!Array.isArray(names) || names.length === 0) return;
+  for (const name of names) {
+    const dot = overlay.querySelector(`.snn-node[data-neuron="${name}"]`);
+    if (dot) {
+      dot.classList.add('fired');
+      setTimeout(() => dot.classList.remove('fired'), 600);
+    }
+  }
 }
 
 // T5.2 2단계 (D29 multi-INPUT): button-driven multi-select 시 INPUT 영역 dot 의 .selected

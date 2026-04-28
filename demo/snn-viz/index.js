@@ -89,14 +89,14 @@ export function initSnnViz({ control, backend }) {
         target:  event.response?.target,
         timestamp: performance.now(),
       };
-      // D41 fix (T5.1-0-4): 회로 흐름 (region 박스 + arrow) = 항상 표시.
-      // 노드/시냅스 차등 = response-driven (top_active_neurons 의 rate>0 만 강조).
+      // D41 본질 fix: backend 의 active_neurons_by_region 직접 사용.
+      // top_active_neurons 한도 (5) 회피, V1/V2/OUT 의 모든 활성 neuron 식별.
       const r = event.response || {};
-      const topActive = Array.isArray(r.top_active_neurons) ? r.top_active_neurons : [];
-      const activeNames = topActive.filter(n => n && typeof n.rate === 'number' && n.rate > 0).map(n => n.name);
-      const inputNames = activeNames.filter(name => typeof name === 'string' && name.startsWith('in_'));
-      const v1Names = activeNames.filter(name => typeof name === 'string' && name.startsWith('v1_'));
-      const v2Names = activeNames.filter(name => typeof name === 'string' && name.startsWith('v2_'));
+      const activeByRegion = r.active_neurons_by_region || {};
+      const inputNames = activeByRegion.INPUT || [];
+      const v1Names = activeByRegion.V1 || [];
+      const v2Names = activeByRegion.V2 || [];
+      const outNames = activeByRegion.OUT || [];
       // INPUT
       flashRegion('INPUT');
       if (inputNames.length > 0) {
@@ -125,6 +125,9 @@ export function initSnnViz({ control, backend }) {
       // OUT
       setTimeout(() => {
         flashRegion('OUT');
+        if (outNames.length > 0) {
+          flashNeurons('OUT', outNames);
+        }
       }, 700);
     }
   });

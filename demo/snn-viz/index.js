@@ -92,6 +92,7 @@ export function initSnnViz({ control, backend }) {
       // D41 본질 fix: backend 의 active_neurons_by_region 직접 사용.
       // top_active_neurons 한도 (5) 회피, V1/V2/OUT 의 모든 활성 neuron 식별.
       const r = event.response || {};
+      state.lastFireResponse = r;
       const activeByRegion = r.active_neurons_by_region || {};
       const inputNames = activeByRegion.INPUT || [];
       const v1Names = activeByRegion.V1 || [];

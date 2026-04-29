@@ -43,11 +43,16 @@ function getNodeRate(name) {
   return typeof v === 'number' ? v : null;
 }
 
-function isNodeActive(name, region) {
-  const r = state.lastFireResponse || {};
-  const byRegion = r.active_neurons_by_region || {};
-  const list = byRegion[region] || [];
-  return list.includes(name);
+// D44 (T5.1-1 fix): rate 기반 일관성 + timestamp 1000ms fade (transient).
+// - rate <= 0 또는 미정의 = idle (rate '—' 표시 시 항상 idle 정합)
+// - 직전 fire 1000ms 경과 후 자동 idle (deselect 후 stale active 표시 회피)
+const ACTIVE_FADE_MS = 1000;
+function isNodeActive(name) {
+  const rate = getNodeRate(name);
+  if (rate === null || rate <= 0) return false;
+  const ts = state.lastFire?.timestamp;
+  if (typeof ts !== 'number') return false;
+  return performance.now() - ts < ACTIVE_FADE_MS;
 }
 
 function positionFloating(el, anchorRect) {
@@ -101,7 +106,7 @@ function showPopover(dot) {
   const population = meta?.population || '?';
   const rate = getNodeRate(name);
   const rateStr = rate !== null ? rate.toFixed(3) : '—';
-  const active = isNodeActive(name, region);
+  const active = isNodeActive(name);
   const activeStr = active ? 'active' : 'idle';
   const activeClass = active ? 'snn-node-popover__active--on' : 'snn-node-popover__active--off';
   // D43: INPUT region 영역 노드 = handface gesture 매핑 표시 (미매핑 노드 = future channel).

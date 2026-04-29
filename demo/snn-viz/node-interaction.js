@@ -11,6 +11,8 @@ const INPUT_TO_HANDFACE_GESTURE = Object.fromEntries(
 
 let tooltipEl = null;
 let popoverEl = null;
+// D45: live refresh 영역. popover 열림 시 dot 보존, fire 시 동일 dot 으로 재렌더.
+let currentPopoverDot = null;
 
 function ensureTooltip() {
   if (tooltipEl) return tooltipEl;
@@ -126,6 +128,7 @@ function showPopover(dot) {
     ${gestureRow}
   `;
   pop.style.display = 'block';
+  currentPopoverDot = dot;
   positionFloating(pop, dot.getBoundingClientRect());
 
   const closeBtn = pop.querySelector('.snn-node-popover__close');
@@ -139,6 +142,14 @@ function showPopover(dot) {
 
 function hidePopover() {
   if (popoverEl) popoverEl.style.display = 'none';
+  currentPopoverDot = null;
+}
+
+// D45: fire 발생 시 popover 열려있으면 동일 dot 으로 재렌더 (rate / state 갱신).
+function refreshOpenPopover() {
+  if (currentPopoverDot && popoverEl && popoverEl.style.display === 'block') {
+    showPopover(currentPopoverDot);
+  }
 }
 
 function isInsidePopover(target) {
@@ -166,6 +177,9 @@ function ensureGlobalListeners() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hidePopover();
   });
+
+  // D45: snn-viz/index.js 의 neuron-firing 핸들러가 lastFireResponse 갱신 직후 dispatch.
+  window.addEventListener('snn-viz:fire-update', refreshOpenPopover);
 }
 
 export function attachNodeInteraction(dot) {

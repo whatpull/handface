@@ -11,7 +11,8 @@ const INPUT_TO_HANDFACE_GESTURE = Object.fromEntries(
 
 let tooltipEl = null;
 let popoverEl = null;
-// D45: live refresh 영역. popover 열림 시 dot 보존, fire 시 동일 dot 으로 재렌더.
+// D45 / D48: live refresh 영역. tooltip / popover 열림 시 dot 보존, fire 시 동일 dot 으로 재렌더.
+let currentTooltipDot = null;
 let currentPopoverDot = null;
 // D44/D47: rate + state 영역 통합 timestamp fade (transient).
 // flashNeurons 600ms + region pulse 800ms 영역 정합.
@@ -94,11 +95,20 @@ function showTooltip(dot) {
     <div class="snn-node-tooltip__rate">rate: ${rateStr}</div>
   `;
   tip.style.display = 'block';
+  currentTooltipDot = dot;
   positionFloating(tip, dot.getBoundingClientRect());
 }
 
 function hideTooltip() {
   if (tooltipEl) tooltipEl.style.display = 'none';
+  currentTooltipDot = null;
+}
+
+// D48: fire 시 tooltip 열려있으면 동일 dot 으로 재렌더 (rate 갱신).
+function refreshOpenTooltip() {
+  if (currentTooltipDot && tooltipEl && tooltipEl.style.display === 'block') {
+    showTooltip(currentTooltipDot);
+  }
 }
 
 function showPopover(dot) {
@@ -180,8 +190,10 @@ function ensureGlobalListeners() {
     if (e.key === 'Escape') hidePopover();
   });
 
-  // D45: snn-viz/index.js 의 neuron-firing 핸들러가 lastFireResponse 갱신 직후 dispatch.
+  // D45 / D48: snn-viz/index.js 의 neuron-firing 핸들러가 lastFireResponse 갱신 직후 dispatch.
+  // popover + tooltip 영역 동시 refresh.
   window.addEventListener('snn-viz:fire-update', refreshOpenPopover);
+  window.addEventListener('snn-viz:fire-update', refreshOpenTooltip);
 }
 
 export function attachNodeInteraction(dot) {

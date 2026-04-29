@@ -3,6 +3,11 @@
 // State source: window-scoped state passed via setup function.
 
 import { state } from './state.js';
+import { HANDFACE_GESTURE_TO_INPUT } from '../neuronface-backend.js';
+
+const INPUT_TO_HANDFACE_GESTURE = Object.fromEntries(
+  Object.entries(HANDFACE_GESTURE_TO_INPUT).map(([k, v]) => [v, k])
+);
 
 let tooltipEl = null;
 let popoverEl = null;
@@ -99,6 +104,10 @@ function showPopover(dot) {
   const active = isNodeActive(name, region);
   const activeStr = active ? 'active' : 'idle';
   const activeClass = active ? 'snn-node-popover__active--on' : 'snn-node-popover__active--off';
+  // D43: INPUT region 영역 노드 = handface gesture 매핑 표시 (미매핑 노드 = future channel).
+  const gestureRow = region === 'INPUT'
+    ? `<div class="snn-node-popover__row"><span>gesture</span><span>${INPUT_TO_HANDFACE_GESTURE[name] || '<em class="snn-node-popover__future">future channel</em>'}</span></div>`
+    : '';
 
   pop.innerHTML = `
     <div class="snn-node-popover__header">
@@ -109,6 +118,7 @@ function showPopover(dot) {
     <div class="snn-node-popover__row"><span>population</span><span>${population}</span></div>
     <div class="snn-node-popover__row"><span>rate</span><span>${rateStr}</span></div>
     <div class="snn-node-popover__row"><span>state</span><span class="${activeClass}">${activeStr}</span></div>
+    ${gestureRow}
   `;
   pop.style.display = 'block';
   positionFloating(pop, dot.getBoundingClientRect());

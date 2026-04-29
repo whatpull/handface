@@ -40,6 +40,8 @@ export const state = {
 
   // 최근 fire (neuron-firing event 시 갱신)
   lastFire: null,
+  // 최근 fire 의 full response (D42, T5.1-1: tooltip / popover 영역에서 rate 등 활용)
+  lastFireResponse: null,
 };
 
 const POSITIONS_KEY = 'snn-viz-positions';

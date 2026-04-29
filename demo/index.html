@@ -630,6 +630,105 @@
       }
       .snn-arrow { display: none; }
     }
+
+    /* D42 (T5.1-1): node hover tooltip + click detail popover */
+    .snn-node-tooltip {
+      position: fixed;
+      z-index: 100;
+      pointer-events: none;
+      background: rgba(12, 18, 32, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+      font-size: 11px;
+      color: #e0e0e0;
+      line-height: 1.4;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .snn-node-tooltip__name {
+      font-weight: 500;
+      color: #ffffff;
+    }
+
+    .snn-node-tooltip__rate {
+      color: #a0a0a0;
+      margin-top: 2px;
+    }
+
+    .snn-node-popover {
+      position: fixed;
+      z-index: 100;
+      background: rgba(12, 18, 32, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+      font-size: 11px;
+      color: #e0e0e0;
+      min-width: 180px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .snn-node-popover__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+
+    .snn-node-popover__name {
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 12px;
+    }
+
+    .snn-node-popover__close {
+      background: transparent;
+      border: none;
+      color: #a0a0a0;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    .snn-node-popover__close:hover {
+      color: #ffffff;
+    }
+
+    .snn-node-popover__row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      color: #a0a0a0;
+    }
+
+    .snn-node-popover__row > span:last-child {
+      color: #e0e0e0;
+    }
+
+    .snn-node-popover__active--on {
+      color: #4dd0e1 !important;
+      font-weight: 500;
+    }
+
+    .snn-node-popover__active--off {
+      color: #707070 !important;
+    }
+
+    .snn-node-popover__future {
+      color: #707070;
+      font-style: italic;
+      font-size: 10px;
+    }
   </style>
 </head>
 <body>

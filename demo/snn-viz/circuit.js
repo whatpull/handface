@@ -5,6 +5,7 @@
  *           없으면 grid layout 으로 자동 배치.
  */
 import { state, getNodePosition, setNodePosition, isEditMode } from './state.js';
+import { attachNodeInteraction } from './node-interaction.js';
 
 const REGION_TO_LAYER = {
   INPUT: 'input',
@@ -83,7 +84,6 @@ function layoutRegion(body, neurons, layerId) {
     const dot = document.createElement('div');
     dot.className = `snn-node ${layerId}`;
     dot.dataset.neuron = n.name;
-    dot.title = `${n.name}\n${n.region} / ${n.population}`;
     // Concentric SVG: filled center r=3 + ring r=6 stroke=1.5 opacity=0.6.
     // currentColor = region 색 (CSS .snn-node.{region} --node-color → color).
     dot.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' +
@@ -114,6 +114,7 @@ function layoutRegion(body, neurons, layerId) {
     dot.style.top  = `calc(${(pos.y * 100).toFixed(2)}% - 8px)`;
 
     attachDragHandlers(dot, body);
+    attachNodeInteraction(dot);
     body.appendChild(dot);
   }
 }

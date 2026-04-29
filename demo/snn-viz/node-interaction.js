@@ -13,6 +13,9 @@ let tooltipEl = null;
 let popoverEl = null;
 // D45: live refresh 영역. popover 열림 시 dot 보존, fire 시 동일 dot 으로 재렌더.
 let currentPopoverDot = null;
+// D44/D47: rate + state 영역 통합 timestamp fade (transient).
+// flashNeurons 600ms + region pulse 800ms 영역 정합.
+const ACTIVE_FADE_MS = 1000;
 
 function ensureTooltip() {
   if (tooltipEl) return tooltipEl;
@@ -38,23 +41,22 @@ function getNodeMeta(name) {
   return found || null;
 }
 
+// D47: rate 도 timestamp fade 적용 (직전 D44 = state 만 fade, rate stale 영역 결함 발견).
 function getNodeRate(name) {
   const r = state.lastFireResponse || {};
   const rates = r.rates || {};
   const v = rates[name];
-  return typeof v === 'number' ? v : null;
+  if (typeof v !== 'number') return null;
+  const ts = state.lastFire?.timestamp;
+  if (typeof ts !== 'number') return null;
+  if (performance.now() - ts >= ACTIVE_FADE_MS) return null;
+  return v;
 }
 
 // D44 (T5.1-1 fix): rate 기반 일관성 + timestamp 1000ms fade (transient).
-// - rate <= 0 또는 미정의 = idle (rate '—' 표시 시 항상 idle 정합)
-// - 직전 fire 1000ms 경과 후 자동 idle (deselect 후 stale active 표시 회피)
-const ACTIVE_FADE_MS = 1000;
 function isNodeActive(name) {
   const rate = getNodeRate(name);
-  if (rate === null || rate <= 0) return false;
-  const ts = state.lastFire?.timestamp;
-  if (typeof ts !== 'number') return false;
-  return performance.now() - ts < ACTIVE_FADE_MS;
+  return rate !== null && rate > 0;
 }
 
 function positionFloating(el, anchorRect) {

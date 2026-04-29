@@ -158,8 +158,8 @@ function showPopover(dot) {
     </div>
     <div class="snn-node-popover__row"><span>region</span><span>${region}</span></div>
     <div class="snn-node-popover__row"><span>population</span><span>${population}</span></div>
-    <div class="snn-node-popover__row"><span>rate</span><span>${rateStr}</span></div>
-    <div class="snn-node-popover__row"><span>state</span><span class="${activeClass}">${activeStr}</span></div>
+    <div class="snn-node-popover__row"><span>rate</span><span data-value="rate">${rateStr}</span></div>
+    <div class="snn-node-popover__row"><span>state</span><span data-value="state" class="${activeClass}">${activeStr}</span></div>
     ${gestureRow}
   `;
   pop.style.display = 'block';
@@ -181,10 +181,22 @@ function hidePopover() {
   currentPopoverDot = null;
 }
 
-// D45: fire 발생 시 popover 열려있으면 동일 dot 으로 재렌더 (rate / state 갱신).
+// D45 / D50: fire 발생 시 popover 열려있으면 row 영역만 surgical update (closeBtn DOM 영역 안정 영역 정합).
 function refreshOpenPopover() {
-  if (currentPopoverDot && popoverEl && popoverEl.style.display === 'block') {
-    showPopover(currentPopoverDot);
+  if (!currentPopoverDot || !popoverEl || popoverEl.style.display !== 'block') return;
+  const name = currentPopoverDot.dataset.neuron;
+  if (!name) return;
+  const rate = getNodeRate(name);
+  const rateStr = rate !== null ? rate.toFixed(3) : '—';
+  const active = isNodeActive(name);
+  const activeStr = active ? 'active' : 'idle';
+  const activeClass = active ? 'snn-node-popover__active--on' : 'snn-node-popover__active--off';
+  const rateEl = popoverEl.querySelector('[data-value="rate"]');
+  if (rateEl) rateEl.textContent = rateStr;
+  const stateEl = popoverEl.querySelector('[data-value="state"]');
+  if (stateEl) {
+    stateEl.textContent = activeStr;
+    stateEl.className = activeClass;
   }
 }
 

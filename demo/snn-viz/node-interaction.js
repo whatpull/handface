@@ -17,6 +17,9 @@ let currentPopoverDot = null;
 // D44/D47: rate + state 영역 통합 timestamp fade (transient).
 // flashNeurons 600ms + region pulse 800ms 영역 정합.
 const ACTIVE_FADE_MS = 1000;
+// D49: tooltip / popover 표시 시점 영역 timer 기반 자동 refresh (fade 자연 휘발).
+const REFRESH_TICK_MS = 200;
+let refreshTimerId = null;
 
 function ensureTooltip() {
   if (tooltipEl) return tooltipEl;
@@ -97,6 +100,7 @@ function showTooltip(dot) {
   tip.style.display = 'block';
   currentTooltipDot = dot;
   positionFloating(tip, dot.getBoundingClientRect());
+  startRefreshTimer();
 }
 
 function hideTooltip() {
@@ -108,6 +112,25 @@ function hideTooltip() {
 function refreshOpenTooltip() {
   if (currentTooltipDot && tooltipEl && tooltipEl.style.display === 'block') {
     showTooltip(currentTooltipDot);
+  }
+}
+
+// D49: 표시 시점 영역 200ms interval 영역 자동 refresh — fade 자연 휘발 (timer trigger).
+function startRefreshTimer() {
+  if (refreshTimerId) return;
+  refreshTimerId = setInterval(() => {
+    refreshOpenTooltip();
+    refreshOpenPopover();
+    const tipOpen = currentTooltipDot && tooltipEl?.style.display === 'block';
+    const popOpen = currentPopoverDot && popoverEl?.style.display === 'block';
+    if (!tipOpen && !popOpen) stopRefreshTimer();
+  }, REFRESH_TICK_MS);
+}
+
+function stopRefreshTimer() {
+  if (refreshTimerId) {
+    clearInterval(refreshTimerId);
+    refreshTimerId = null;
   }
 }
 
@@ -142,6 +165,7 @@ function showPopover(dot) {
   pop.style.display = 'block';
   currentPopoverDot = dot;
   positionFloating(pop, dot.getBoundingClientRect());
+  startRefreshTimer();
 
   const closeBtn = pop.querySelector('.snn-node-popover__close');
   if (closeBtn) {

@@ -362,6 +362,168 @@ function renderWeightHistorySection(nodeName, incomingSyns) {
   `;
 }
 
+// Phase 8: cascade weight history multi-line chart + CSV export.
+const CASCADE_PREFIXES = [
+  ['v1_L4_E',  'v1_L23_E'],
+  ['v1_L23_E', 'v2_L4_E'],
+  ['v2_L4_E',  'v2_L23_E'],
+  ['v2_L23_E', 'v2_L5_E'],
+  ['v2_L5_E',  'out_'],
+];
+
+const CASCADE_STAGE_COLORS = [
+  '#5b9bd5',  // V1 L4_E → V1 L23_E
+  '#b794f4',  // V1 L23_E → V2 L4_E
+  '#f4a261',  // V2 L4_E → V2 L23_E
+  '#2a9d8f',  // V2 L23_E → V2 L5_E
+  '#e76f6f',  // V2 L5_E → OUT
+];
+
+const CASCADE_CHART_W = 560;
+const CASCADE_CHART_H = 280;
+const CASCADE_PAD_L = 48;
+const CASCADE_PAD_R = 12;
+const CASCADE_PAD_T = 12;
+const CASCADE_PAD_B = 32;
+
+function isCascadeSyn(pre, post) {
+  return CASCADE_PREFIXES.some(([p, q]) => pre.startsWith(p) && post.startsWith(q));
+}
+
+function cascadeStageIndex(pre, post) {
+  return CASCADE_PREFIXES.findIndex(([p, q]) => pre.startsWith(p) && post.startsWith(q));
+}
+
+export function renderCascadeWeightHistory() {
+  // 모든 cascade syn 영역 history series 수집.
+  const series = [];
+  for (const [key, entries] of Object.entries(state.weightHistory)) {
+    if (!entries.length) continue;
+    const [pre, post] = key.split('__');
+    if (!isCascadeSyn(pre, post)) continue;
+    series.push({ pre, post, key, entries, stageIdx: cascadeStageIndex(pre, post) });
+  }
+
+  if (series.length === 0) {
+    return `<div class="nf-cascade-empty">no induce yet — induce 진행 후 cascade weight chart 표시.</div>`;
+  }
+
+  // Auto y axis = max weight × round to next 20.
+  let maxW = 0;
+  for (const ser of series) {
+    for (const e of ser.entries) {
+      if (e.weight > maxW) maxW = e.weight;
+    }
+  }
+  const yMax = Math.max(20, Math.ceil(maxW / 20) * 20);
+  const xMax = Math.max(1, state.induceCount);
+
+  const xToPx = (x) => CASCADE_PAD_L + (CASCADE_CHART_W - CASCADE_PAD_L - CASCADE_PAD_R) * (xMax === 1 ? 0.5 : (x - 1) / (xMax - 1));
+  const yToPx = (w) => CASCADE_PAD_T + (CASCADE_CHART_H - CASCADE_PAD_T - CASCADE_PAD_B) * (1 - Math.max(0, Math.min(yMax, w)) / yMax);
+
+  // Y grid (5 ticks).
+  const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax].map(v => Math.round(v * 10) / 10);
+  const gridSvg = yTicks.map(w => `
+    <line x1="${CASCADE_PAD_L}" y1="${yToPx(w)}" x2="${CASCADE_CHART_W - CASCADE_PAD_R}" y2="${yToPx(w)}"
+          stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+    <text x="${CASCADE_PAD_L - 6}" y="${yToPx(w) + 3}" text-anchor="end"
+          fill="#707070" font-size="9" font-family="monospace">${w}</text>
+  `).join('');
+
+  // X axis labels.
+  const xLabels = `
+    <text x="${xToPx(1)}" y="${CASCADE_CHART_H - 12}" text-anchor="middle"
+          fill="#707070" font-size="9" font-family="monospace">1</text>
+    <text x="${xToPx(xMax)}" y="${CASCADE_CHART_H - 12}" text-anchor="middle"
+          fill="#707070" font-size="9" font-family="monospace">${xMax}</text>
+    <text x="${(CASCADE_PAD_L + CASCADE_CHART_W - CASCADE_PAD_R) / 2}" y="${CASCADE_CHART_H - 4}"
+          text-anchor="middle" fill="#a0a0a0" font-size="10" font-family="monospace">induce #</text>
+  `;
+
+  // Series — group by stage, color per stage.
+  // 각 stage 영역 다 syn 가능 (한 stage 영역 색 = 다 polyline).
+  const seriesSvg = series.map(ser => {
+    const color = CASCADE_STAGE_COLORS[ser.stageIdx] || '#888';
+    const points = ser.entries.map(e => `${xToPx(e.induceCount)},${yToPx(e.weight)}`).join(' ');
+    const polyline = `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.85" />`;
+    const circles = ser.entries.map(e => `
+      <circle cx="${xToPx(e.induceCount)}" cy="${yToPx(e.weight)}" r="2.2"
+              fill="${color}" stroke="rgba(0,0,0,0.4)" stroke-width="0.5">
+        <title>${escapeHtml(ser.pre)} → ${escapeHtml(ser.post)}: w=${e.weight.toFixed(3)} @ #${e.induceCount} (${e.stdpEnabled ? e.stdpMode : 'OFF'})</title>
+      </circle>
+    `).join('');
+    return polyline + circles;
+  }).join('');
+
+  // Stage legend (5 colors).
+  const stageLabels = [
+    'V1 L4_E → V1 L23_E',
+    'V1 L23_E → V2 L4_E',
+    'V2 L4_E → V2 L23_E',
+    'V2 L23_E → V2 L5_E',
+    'V2 L5_E → OUT',
+  ];
+  const legend = `
+    <div class="nf-cascade-legend">
+      ${stageLabels.map((label, i) => `
+        <span class="nf-cascade-legend-item">
+          <span class="nf-cascade-legend-swatch" style="background:${CASCADE_STAGE_COLORS[i]}"></span>
+          ${label}
+        </span>
+      `).join('')}
+    </div>
+  `;
+
+  const totalPoints = series.reduce((sum, ser) => sum + ser.entries.length, 0);
+  const summary = `<div class="nf-cascade-summary">cascade syn = ${series.length}, total points = ${totalPoints}, induceCount = ${state.induceCount}, yMax = ${yMax}</div>`;
+
+  return `
+    ${summary}
+    <svg class="nf-cascade-chart" viewBox="0 0 ${CASCADE_CHART_W} ${CASCADE_CHART_H}"
+         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      ${gridSvg}
+      ${xLabels}
+      ${seriesSvg}
+    </svg>
+    ${legend}
+  `;
+}
+
+export function exportCascadeWeightHistoryCsv() {
+  const rows = [];
+  rows.push('stage_idx,pre,post,induce_count,weight,stdp_enabled,stdp_mode,timestamp');
+  for (const [key, entries] of Object.entries(state.weightHistory)) {
+    if (!entries.length) continue;
+    const [pre, post] = key.split('__');
+    if (!isCascadeSyn(pre, post)) continue;
+    const stageIdx = cascadeStageIndex(pre, post);
+    for (const e of entries) {
+      rows.push([
+        stageIdx,
+        pre,
+        post,
+        e.induceCount,
+        e.weight,
+        e.stdpEnabled ? 'true' : 'false',
+        e.stdpMode,
+        e.timestamp,
+      ].join(','));
+    }
+  }
+  if (rows.length === 1) return false;
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cascade_weight_history_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 function exportWeightHistoryCsv(nodeName, incomingSyns) {
   const rows = [];
   rows.push('pre,post,induce_count,weight,stdp_enabled,stdp_mode,timestamp');

@@ -925,6 +925,126 @@
       height: 7px;
       border-radius: 50%;
     }
+
+    /* Phase 8: cascade weight history modal + multi-line chart. */
+    .nf-cascade-history-section {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .nf-cascade-history-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .nf-cascade-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nf-cascade-modal--hidden {
+      display: none;
+    }
+    .nf-cascade-modal-content {
+      background: rgba(12, 18, 32, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 480px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: auto;
+      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+      color: #e0e0e0;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    }
+    .nf-cascade-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+    .nf-cascade-modal-title {
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 13px;
+      flex: 1;
+    }
+    .nf-cascade-modal-btn {
+      background: transparent;
+      border: 1px solid rgba(91, 155, 213, 0.35);
+      color: #5b9bd5;
+      cursor: pointer;
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-family: inherit;
+    }
+    .nf-cascade-modal-btn:hover {
+      background: rgba(91, 155, 213, 0.15);
+    }
+    .nf-cascade-modal-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nf-cascade-modal-close {
+      background: transparent;
+      border: none;
+      color: #a0a0a0;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .nf-cascade-modal-close:hover {
+      color: #ffffff;
+    }
+    .nf-cascade-modal-body {
+      min-height: 200px;
+    }
+    .nf-cascade-chart {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 4px;
+    }
+    .nf-cascade-summary {
+      font-size: 10px;
+      color: #a0a0a0;
+      margin: 6px 0;
+    }
+    .nf-cascade-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 10px;
+      color: #c0c0c0;
+    }
+    .nf-cascade-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .nf-cascade-legend-swatch {
+      display: inline-block;
+      width: 18px;
+      height: 2px;
+    }
+    .nf-cascade-empty {
+      color: #707070;
+      font-style: italic;
+      padding: 24px 0;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -988,12 +1108,32 @@
     </div>
 
     <div class="nf-section nf-induce-multi-section">
-      <label class="nf-section-label">Multi-neuron Induce (Phase 6.3 BCM)</label>
+      <label class="nf-section-label">Multi-neuron Induce (Phase 6.3 BCM + Phase 8 D80)</label>
       <div class="nf-induce-multi-buttons">
-        <button id="nf-induce-multi-v1v2"  type="button" class="nf-induce-multi-btn">V1 + V2</button>
-        <button id="nf-induce-multi-chain" type="button" class="nf-induce-multi-btn">V1 + V2 + OUT</button>
+        <button id="nf-induce-multi-v1v2"      type="button" class="nf-induce-multi-btn">V1 + V2</button>
+        <button id="nf-induce-multi-chain"     type="button" class="nf-induce-multi-btn">V1 + V2 + OUT</button>
+        <button id="nf-induce-cascade-8inputs" type="button" class="nf-induce-multi-btn">8 INPUTS (Cascade)</button>
       </div>
-      <div class="nf-mode-hint">V1 + V2 동시 induce = Triplet LTP 발동 (BCM 자동 균형 검증). STDP=ON + Triplet mode 정합.</div>
+      <div class="nf-mode-hint">V1 + V2 동시 induce = Triplet LTP 발동 (BCM 자동 균형 검증). 8 INPUTS (Cascade) = D80 anchor cascade induce (8 INPUT 동시 → 7 region cascade fire).</div>
+    </div>
+
+    <div class="nf-section nf-cascade-history-section">
+      <label class="nf-section-label">Cascade Weight History (Phase 8)</label>
+      <div class="nf-cascade-history-buttons">
+        <button id="nf-cascade-history-open" type="button" class="nf-induce-multi-btn">Open Chart</button>
+      </div>
+      <div class="nf-mode-hint">Cascade 5 stages weight history chart. Each stage uses a different color.</div>
+    </div>
+  </div>
+
+  <div id="nf-cascade-modal" class="nf-cascade-modal nf-cascade-modal--hidden">
+    <div class="nf-cascade-modal-content">
+      <div class="nf-cascade-modal-header">
+        <span class="nf-cascade-modal-title">Cascade Weight History</span>
+        <button id="nf-cascade-modal-export" type="button" class="nf-cascade-modal-btn">CSV</button>
+        <button id="nf-cascade-modal-close" type="button" class="nf-cascade-modal-close">×</button>
+      </div>
+      <div id="nf-cascade-modal-body" class="nf-cascade-modal-body"></div>
     </div>
   </div>
 

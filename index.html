@@ -390,6 +390,14 @@
       filter: drop-shadow(0 0 4px var(--line-color, #4dd0e1));
     }
 
+    /* T5.1-2b ext: popover click 영역 본 노드 incoming + outgoing line persistent 영역 강조.
+       .active (D41 fire transient, 1.5px / 0.9 / 4px) 영역 영역 강한 영역 (2px / 1 / 6px). */
+    .snn-synapse-line.popover-active {
+      stroke-width: 2px !important;
+      stroke-opacity: 1 !important;
+      filter: drop-shadow(0 0 6px var(--line-color, #4dd0e1));
+    }
+
     /* Synapse SVG overlay — panel 위로 (z-index 5), panel 경계에서 line 끊김 방지 */
     .snn-synapse-svg {
       position: absolute;
@@ -704,6 +712,24 @@
       color: #ffffff;
     }
 
+    /* T5.1-2c-2: induce fire button (popover header) */
+    .snn-node-popover__induce {
+      background: transparent;
+      border: 1px solid rgba(183, 148, 244, 0.3);
+      color: #b794f4;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 6px;
+      margin-right: 4px;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+    }
+
+    .snn-node-popover__induce:hover {
+      background: rgba(183, 148, 244, 0.15);
+      border-color: rgba(183, 148, 244, 0.6);
+    }
+
     .snn-node-popover__row {
       display: flex;
       justify-content: space-between;
@@ -729,8 +755,80 @@
       font-style: italic;
       font-size: 10px;
     }
+
+    /* T5.1-2b β: incoming syn weights section */
+    .snn-popover-syn-section {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .snn-popover-syn-label {
+      color: #a0a0a0;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .snn-popover-syn-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+      font-size: 10px;
+    }
+
+    .snn-popover-syn-from {
+      color: #c0c0c0;
+    }
+
+    .snn-popover-syn-arrow {
+      color: #606060;
+      margin: 0 6px;
+    }
+
+    .snn-popover-syn-weight {
+      color: #4dd0e1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .snn-popover-syn-empty {
+      color: #707070;
+      font-style: italic;
+      font-size: 10px;
+    }
+
+    /* T5.1-2b γ: Triplet STDP trace section (popover) */
+    .snn-popover-trace-section {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .snn-popover-trace-label {
+      color: #a0a0a0;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .snn-popover-trace-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+      font-size: 10px;
+    }
+
+    .snn-popover-trace-key {
+      color: #c0c0c0;
+      font-family: monospace;
+    }
+
+    .snn-popover-trace-value {
+      color: #b794f4;
+      font-variant-numeric: tabular-nums;
+    }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-nrlfetXh.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BvL_pFZx.js"></script>
 </head>
 <body>
   <div id="snn-viz-root"></div>
@@ -781,6 +879,15 @@
         <button id="nf-stdp-on"  type="button" class="nf-mode-btn">ON</button>
       </div>
       <div class="nf-mode-hint">OFF: anchor path (default). ON: STDP weight update on each gesture.</div>
+    </div>
+
+    <div class="nf-section nf-stdp-mode-section">
+      <label class="nf-section-label">STDP Mode (T5.1-2a)</label>
+      <div class="nf-mode-toggle">
+        <button id="nf-stdp-mode-pair"    type="button" class="nf-mode-btn active">Pair</button>
+        <button id="nf-stdp-mode-triplet" type="button" class="nf-mode-btn">Triplet</button>
+      </div>
+      <div class="nf-mode-hint">Pair: D9 (A_LTD &gt; A_LTP). Triplet: Pfister-Gerstner 2006 (BCM property, anti-Hebbian LTD-bias 자동 균형).</div>
     </div>
   </div>
 

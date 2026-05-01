@@ -11,6 +11,11 @@ import { onGestureToggle } from './snn-viz/gesture.js';
 import { highlightInputs } from './snn-viz/circuit.js';
 import { state } from './snn-viz/state.js';
 import { renderCascadeWeightHistory, exportCascadeWeightHistoryCsv } from './snn-viz/node-interaction.js';
+import {
+  renderAnchorVerification,
+  runAnchorVerification,
+  exportAnchorVerificationCsv,
+} from './snn-viz/anchor-verification.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -160,6 +165,57 @@ function setupSettingsUI() {
       cascadeBody.innerHTML = renderCascadeWeightHistory();
     }
   });
+
+  // Phase 8 anchor verification modal.
+  const anchorRunBtn  = document.getElementById('nf-anchor-verify-run');
+  const anchorOpenBtn = document.getElementById('nf-anchor-verify-open');
+  const anchorModal   = document.getElementById('nf-anchor-modal');
+  const anchorClose   = document.getElementById('nf-anchor-modal-close');
+  const anchorExport  = document.getElementById('nf-anchor-modal-export');
+  const anchorBody    = document.getElementById('nf-anchor-modal-body');
+  let anchorResult = null;
+
+  async function runAnchorVerify() {
+    if (!anchorBody || !anchorModal) return;
+    anchorBody.innerHTML = '<div class="nf-anchor-loading">Running verification (10 induce, ~5-10s)...</div>';
+    anchorModal.classList.remove('nf-anchor-modal--hidden');
+    try {
+      anchorResult = await runAnchorVerification(backend);
+      anchorBody.innerHTML = renderAnchorVerification(anchorResult);
+    } catch (err) {
+      anchorBody.innerHTML = `<div class="nf-anchor-empty">Verification error: ${err.message}</div>`;
+    }
+  }
+
+  function showAnchorModal() {
+    if (!anchorBody || !anchorModal) return;
+    anchorBody.innerHTML = anchorResult
+      ? renderAnchorVerification(anchorResult)
+      : '<div class="nf-anchor-empty">No verification yet — click Run Verification.</div>';
+    anchorModal.classList.remove('nf-anchor-modal--hidden');
+  }
+
+  function hideAnchorModal() {
+    if (anchorModal) anchorModal.classList.add('nf-anchor-modal--hidden');
+  }
+
+  if (anchorRunBtn)  anchorRunBtn.addEventListener('click', runAnchorVerify);
+  if (anchorOpenBtn) anchorOpenBtn.addEventListener('click', showAnchorModal);
+  if (anchorClose)   anchorClose.addEventListener('click', hideAnchorModal);
+  if (anchorExport) {
+    anchorExport.addEventListener('click', () => {
+      if (!anchorResult) {
+        console.warn('[anchor-verify] no result to export');
+        return;
+      }
+      exportAnchorVerificationCsv(anchorResult);
+    });
+  }
+  if (anchorModal) {
+    anchorModal.addEventListener('click', (e) => {
+      if (e.target === anchorModal) hideAnchorModal();
+    });
+  }
 }
 setupSettingsUI();
 

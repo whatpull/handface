@@ -1045,6 +1045,146 @@
       padding: 24px 0;
       text-align: center;
     }
+
+    /* Phase 8 anchor verification modal + table. */
+    .nf-anchor-verification-section {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .nf-anchor-verify-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .nf-anchor-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nf-anchor-modal--hidden {
+      display: none;
+    }
+    .nf-anchor-modal-content {
+      background: rgba(12, 18, 32, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 540px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: auto;
+      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+      color: #e0e0e0;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    }
+    .nf-anchor-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+    .nf-anchor-modal-title {
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 13px;
+      flex: 1;
+    }
+    .nf-anchor-modal-btn {
+      background: transparent;
+      border: 1px solid rgba(91, 155, 213, 0.35);
+      color: #5b9bd5;
+      cursor: pointer;
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-family: inherit;
+    }
+    .nf-anchor-modal-btn:hover {
+      background: rgba(91, 155, 213, 0.15);
+    }
+    .nf-anchor-modal-close {
+      background: transparent;
+      border: none;
+      color: #a0a0a0;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .nf-anchor-modal-close:hover {
+      color: #ffffff;
+    }
+    .nf-anchor-modal-body {
+      min-height: 200px;
+    }
+    .nf-anchor-summary {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .nf-anchor-meta {
+      font-size: 10px;
+      color: #909090;
+      margin-bottom: 12px;
+    }
+    .nf-anchor-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #c0c0c0;
+      margin: 12px 0 6px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .nf-anchor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+    .nf-anchor-table th,
+    .nf-anchor-table td {
+      padding: 4px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .nf-anchor-table th {
+      color: #909090;
+      font-weight: 500;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .nf-anchor-pass {
+      color: #4dd07e;
+      background: rgba(77, 208, 126, 0.10);
+      font-weight: 500;
+    }
+    .nf-anchor-fail {
+      color: #e76f6f;
+      background: rgba(231, 111, 111, 0.10);
+      font-weight: 500;
+    }
+    .nf-anchor-na {
+      color: #707070;
+    }
+    .nf-anchor-empty,
+    .nf-anchor-loading {
+      color: #909090;
+      font-style: italic;
+      padding: 24px 0;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -1123,6 +1263,26 @@
         <button id="nf-cascade-history-open" type="button" class="nf-induce-multi-btn">Open Chart</button>
       </div>
       <div class="nf-mode-hint">Cascade 5 stages weight history chart. Each stage uses a different color.</div>
+    </div>
+
+    <div class="nf-section nf-anchor-verification-section">
+      <label class="nf-section-label">ANCHOR VERIFICATION (D80)</label>
+      <div class="nf-anchor-verify-buttons">
+        <button id="nf-anchor-verify-run"  type="button" class="nf-induce-multi-btn">Run Verification</button>
+        <button id="nf-anchor-verify-open" type="button" class="nf-induce-multi-btn">Open Result</button>
+      </div>
+      <div class="nf-mode-hint">D80 anchor (cascade 7/7 + STDP learning) frozen verification panel.</div>
+    </div>
+  </div>
+
+  <div id="nf-anchor-modal" class="nf-anchor-modal nf-anchor-modal--hidden">
+    <div class="nf-anchor-modal-content">
+      <div class="nf-anchor-modal-header">
+        <span class="nf-anchor-modal-title">D80 Anchor Verification</span>
+        <button id="nf-anchor-modal-export" type="button" class="nf-anchor-modal-btn">CSV</button>
+        <button id="nf-anchor-modal-close" type="button" class="nf-anchor-modal-close">×</button>
+      </div>
+      <div id="nf-anchor-modal-body" class="nf-anchor-modal-body"></div>
     </div>
   </div>
 

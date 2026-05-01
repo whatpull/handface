@@ -77,6 +77,19 @@ function setupSettingsUI() {
   if (stdpOffBtn) stdpOffBtn.addEventListener('click', () => applyStdp(false));
   if (stdpOnBtn)  stdpOnBtn.addEventListener('click',  () => applyStdp(true));
   applyStdp(false);  // initial = OFF (anchor-equivalent)
+
+  // T5.1-2b α: STDP Mode toggle (Pair / Triplet). default Pair = D9 정합 / anchor 보존.
+  const stdpModePairBtn    = document.getElementById('nf-stdp-mode-pair');
+  const stdpModeTripletBtn = document.getElementById('nf-stdp-mode-triplet');
+  function applyStdpMode(mode) {
+    backend.setStdpMode(mode);
+    if (stdpModePairBtn)    stdpModePairBtn.classList.toggle('active',    mode === 'pair');
+    if (stdpModeTripletBtn) stdpModeTripletBtn.classList.toggle('active', mode === 'triplet');
+    console.info(`[neuronface] STDP Mode = ${mode} -> sendGesture body.stdp_mode=${mode}`);
+  }
+  if (stdpModePairBtn)    stdpModePairBtn.addEventListener('click',    () => applyStdpMode('pair'));
+  if (stdpModeTripletBtn) stdpModeTripletBtn.addEventListener('click', () => applyStdpMode('triplet'));
+  applyStdpMode('pair');  // initial = pair (D9 default, anchor 정합)
 }
 setupSettingsUI();
 

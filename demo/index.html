@@ -781,6 +781,15 @@
       </div>
       <div class="nf-mode-hint">OFF: anchor path (default). ON: STDP weight update on each gesture.</div>
     </div>
+
+    <div class="nf-section nf-stdp-mode-section">
+      <label class="nf-section-label">STDP Mode (T5.1-2a)</label>
+      <div class="nf-mode-toggle">
+        <button id="nf-stdp-mode-pair"    type="button" class="nf-mode-btn active">Pair</button>
+        <button id="nf-stdp-mode-triplet" type="button" class="nf-mode-btn">Triplet</button>
+      </div>
+      <div class="nf-mode-hint">Pair: D9 (A_LTD &gt; A_LTP). Triplet: Pfister-Gerstner 2006 (BCM property, anti-Hebbian LTD-bias 자동 균형).</div>
+    </div>
   </div>
 
   <script type="module" src="./scene.js"></script>

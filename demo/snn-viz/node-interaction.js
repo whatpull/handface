@@ -151,6 +151,25 @@ function showPopover(dot) {
     ? `<div class="snn-node-popover__row"><span>gesture</span><span>${INPUT_TO_HANDFACE_GESTURE[name] || '<em class="snn-node-popover__future">future channel</em>'}</span></div>`
     : '';
 
+  // T5.1-2b β: incoming syn weights (LTP source for post-fire learning).
+  const synapses = (state.lastFireResponse && state.lastFireResponse.synapses) || [];
+  const incomingSyns = synapses
+    .filter(s => s.post === name)
+    .sort((a, b) => b.weight - a.weight);
+  const incomingHtml = incomingSyns.length > 0
+    ? incomingSyns.map(s => `<div class="snn-popover-syn-row">
+        <span class="snn-popover-syn-from">${s.pre}</span>
+        <span class="snn-popover-syn-arrow">→</span>
+        <span class="snn-popover-syn-weight" data-syn-key="${s.pre}__${s.post}">${s.weight.toFixed(3)}</span>
+      </div>`).join('')
+    : '<div class="snn-popover-syn-empty">no incoming</div>';
+  const incomingSection = `
+    <div class="snn-popover-syn-section">
+      <div class="snn-popover-syn-label">incoming weights</div>
+      ${incomingHtml}
+    </div>
+  `;
+
   pop.innerHTML = `
     <div class="snn-node-popover__header">
       <span class="snn-node-popover__name">${name}</span>
@@ -161,6 +180,7 @@ function showPopover(dot) {
     <div class="snn-node-popover__row"><span>rate</span><span data-value="rate">${rateStr}</span></div>
     <div class="snn-node-popover__row"><span>state</span><span data-value="state" class="${activeClass}">${activeStr}</span></div>
     ${gestureRow}
+    ${incomingSection}
   `;
   pop.style.display = 'block';
   currentPopoverDot = dot;
@@ -198,6 +218,14 @@ function refreshOpenPopover() {
     stateEl.textContent = activeStr;
     stateEl.className = activeClass;
   }
+  // T5.1-2b β: surgical update incoming syn weights (D50 패턴 정합, closeBtn DOM 안정).
+  const synapses = (state.lastFireResponse && state.lastFireResponse.synapses) || [];
+  synapses.forEach(s => {
+    if (s.post !== name) return;
+    const synKey = `${s.pre}__${s.post}`;
+    const synEl = popoverEl.querySelector(`[data-syn-key="${synKey}"]`);
+    if (synEl) synEl.textContent = s.weight.toFixed(3);
+  });
 }
 
 function isInsidePopover(target) {

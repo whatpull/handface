@@ -390,6 +390,14 @@
       filter: drop-shadow(0 0 4px var(--line-color, #4dd0e1));
     }
 
+    /* T5.1-2b ext: popover click 영역 본 노드 incoming + outgoing line persistent 영역 강조.
+       .active (D41 fire transient, 1.5px / 0.9 / 4px) 영역 영역 강한 영역 (2px / 1 / 6px). */
+    .snn-synapse-line.popover-active {
+      stroke-width: 2px !important;
+      stroke-opacity: 1 !important;
+      filter: drop-shadow(0 0 6px var(--line-color, #4dd0e1));
+    }
+
     /* Synapse SVG overlay — panel 위로 (z-index 5), panel 경계에서 line 끊김 방지 */
     .snn-synapse-svg {
       position: absolute;

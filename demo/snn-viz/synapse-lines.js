@@ -168,3 +168,20 @@ export function highlightSynapsesFromNeurons(neuronNames) {
     setTimeout(() => line.classList.remove('active'), 300);
   }
 }
+
+// T5.1-2b ext: popover click 영역 본 노드 incoming + outgoing line .popover-active.
+// highlightSynapsesFromNeurons (D41 fire transient) 영역 분리 영역 persistent 영역.
+// neuronName = popover 영역 본 노드 name (showPopover 영역) 또는 null (hidePopover 영역 = clear).
+export function setPopoverActiveSynapses(neuronName) {
+  // 모든 line 영역 .popover-active 제거 (clear 영역).
+  for (const [, line] of lineMap) {
+    line.classList.remove('popover-active');
+  }
+  if (!neuronName) return;
+  // 본 노드 영역 incoming (post === name) + outgoing (pre === name) line 영역만 추가 (persistent).
+  for (const [, line] of lineMap) {
+    if (line.dataset.pre === neuronName || line.dataset.post === neuronName) {
+      line.classList.add('popover-active');
+    }
+  }
+}

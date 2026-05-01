@@ -95,6 +95,13 @@ function setupSettingsUI() {
 }
 setupSettingsUI();
 
+// T5.1-2c-2: popover induce fire button → window event → backend.induceFire 호출.
+window.addEventListener('induce-fire-request', (ev) => {
+  const neuronName = ev.detail?.neuronName;
+  if (!neuronName) return;
+  backend.induceFire(neuronName);
+});
+
 // ─────────────────────────────────────────
 // Backend event router (NeuronFace)
 // ─────────────────────────────────────────

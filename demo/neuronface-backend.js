@@ -227,6 +227,53 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * T5.1-2c: 임의 neuron 직접 자극 + STDP + observe.
+   * handface_train 영역 정합 패턴 다만 INPUT 매핑 영역 본 직접 inject.
+   * @param {string} neuronName - target neuron name (e.g. 'v1_L4_E_8')
+   * @returns {Promise<{ok: boolean, response?: any, reason?: string}>}
+   */
+  async induceFire(neuronName) {
+    if (!this._connected || !this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      neuron_name:          neuronName,
+      weight:               25.0,
+      stimulus_duration_ms: 15.0,
+      observe_ms:           50.0,
+      stdp:                 this._stdpEnabled,
+      stdp_mode:            this._stdpMode,
+    };
+    console.log(
+      `[neuronface] calling /induce_fire with stdp=${this._stdpEnabled} mode=${this._stdpMode} ` +
+      `(neuron=${neuronName})`,
+    );
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/induce_fire`,
+        { method: 'POST', body },
+      );
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `induce:${neuronName}`,
+        intensity: 1.0,
+        response:  resp,
+      });
+      return { ok: true, response: resp };
+    } catch (err) {
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `induce:${neuronName}`,
+        intensity: 1.0,
+        response:  null,
+        error:     err.message,
+      });
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * T5.2 2단계 (D29 multi-INPUT): button-driven multi-select dispatch.
    * gesture name list 를 받아 backend HANDFACE_INPUT_MAP 으로 INPUT 매핑됨 (server-side).
    * body.inputs = list[str] → handler 분기 (D29 spec). intensity/duration/observe 는

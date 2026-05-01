@@ -199,6 +199,7 @@ function showPopover(dot) {
   pop.innerHTML = `
     <div class="snn-node-popover__header">
       <span class="snn-node-popover__name">${name}</span>
+      <button class="snn-node-popover__induce" aria-label="induce fire" title="induce fire">⚡</button>
       <button class="snn-node-popover__close" aria-label="close">×</button>
     </div>
     <div class="snn-node-popover__row"><span>region</span><span>${region}</span></div>
@@ -219,6 +220,16 @@ function showPopover(dot) {
     closeBtn.onclick = (e) => {
       e.stopPropagation();
       hidePopover();
+    };
+  }
+  // T5.1-2c-2: induce fire button → window event dispatch → scene.js listener → backend.induceFire.
+  const induceBtn = pop.querySelector('.snn-node-popover__induce');
+  if (induceBtn) {
+    induceBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.dispatchEvent(new CustomEvent('induce-fire-request', {
+        detail: { neuronName: name },
+      }));
     };
   }
   // T5.1-2b ext: popover 영역 본 노드 incoming + outgoing line persistent highlight.

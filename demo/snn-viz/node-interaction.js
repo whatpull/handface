@@ -171,6 +171,31 @@ function showPopover(dot) {
     </div>
   `;
 
+  // T5.1-2b γ: Triplet STDP traces (r1/r2/o1/o2) — stdp_mode='triplet' 영역만 표시.
+  const traces = (state.lastFireResponse && state.lastFireResponse.traces) || {};
+  const neuronTraces = traces[name] || { r1: 0, r2: 0, o1: 0, o2: 0 };
+  const traceSection = state.stdpMode === 'triplet' ? `
+    <div class="snn-popover-trace-section">
+      <div class="snn-popover-trace-label">triplet traces</div>
+      <div class="snn-popover-trace-row">
+        <span class="snn-popover-trace-key">r1</span>
+        <span class="snn-popover-trace-value" data-trace-key="${name}__r1">${neuronTraces.r1.toFixed(3)}</span>
+      </div>
+      <div class="snn-popover-trace-row">
+        <span class="snn-popover-trace-key">r2</span>
+        <span class="snn-popover-trace-value" data-trace-key="${name}__r2">${neuronTraces.r2.toFixed(3)}</span>
+      </div>
+      <div class="snn-popover-trace-row">
+        <span class="snn-popover-trace-key">o1</span>
+        <span class="snn-popover-trace-value" data-trace-key="${name}__o1">${neuronTraces.o1.toFixed(3)}</span>
+      </div>
+      <div class="snn-popover-trace-row">
+        <span class="snn-popover-trace-key">o2</span>
+        <span class="snn-popover-trace-value" data-trace-key="${name}__o2">${neuronTraces.o2.toFixed(3)}</span>
+      </div>
+    </div>
+  ` : '';
+
   pop.innerHTML = `
     <div class="snn-node-popover__header">
       <span class="snn-node-popover__name">${name}</span>
@@ -182,6 +207,7 @@ function showPopover(dot) {
     <div class="snn-node-popover__row"><span>state</span><span data-value="state" class="${activeClass}">${activeStr}</span></div>
     ${gestureRow}
     ${incomingSection}
+    ${traceSection}
   `;
   pop.style.display = 'block';
   currentPopoverDot = dot;
@@ -231,6 +257,15 @@ function refreshOpenPopover() {
     const synEl = popoverEl.querySelector(`[data-syn-key="${synKey}"]`);
     if (synEl) synEl.textContent = s.weight.toFixed(3);
   });
+  // T5.1-2b γ: surgical update Triplet STDP traces (mode='triplet' 영역만).
+  if (state.stdpMode === 'triplet') {
+    const traces = (state.lastFireResponse && state.lastFireResponse.traces) || {};
+    const neuronTraces = traces[name] || { r1: 0, r2: 0, o1: 0, o2: 0 };
+    ['r1', 'r2', 'o1', 'o2'].forEach(key => {
+      const traceEl = popoverEl.querySelector(`[data-trace-key="${name}__${key}"]`);
+      if (traceEl) traceEl.textContent = neuronTraces[key].toFixed(3);
+    });
+  }
 }
 
 function isInsidePopover(target) {

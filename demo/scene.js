@@ -9,6 +9,7 @@ import { initSnnViz } from './snn-viz/index.js';
 import { initAsciiCamera } from './snn-viz/ascii-camera.js';
 import { onGestureToggle } from './snn-viz/gesture.js';
 import { highlightInputs } from './snn-viz/circuit.js';
+import { state } from './snn-viz/state.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -83,6 +84,7 @@ function setupSettingsUI() {
   const stdpModeTripletBtn = document.getElementById('nf-stdp-mode-triplet');
   function applyStdpMode(mode) {
     backend.setStdpMode(mode);
+    state.stdpMode = mode;  // T5.1-2b γ: popover trace section 영역 mode 분기
     if (stdpModePairBtn)    stdpModePairBtn.classList.toggle('active',    mode === 'pair');
     if (stdpModeTripletBtn) stdpModeTripletBtn.classList.toggle('active', mode === 'triplet');
     console.info(`[neuronface] STDP Mode = ${mode} -> sendGesture body.stdp_mode=${mode}`);

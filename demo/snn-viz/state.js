@@ -42,6 +42,9 @@ export const state = {
   lastFire: null,
   // 최근 fire 의 full response (D42, T5.1-1: tooltip / popover 영역에서 rate 등 활용)
   lastFireResponse: null,
+
+  // T5.1-2b γ: backend stdpMode 영역 동기 (scene.js applyStdpMode), popover trace section 영역 mode 분기.
+  stdpMode: 'pair',
 };
 
 const POSITIONS_KEY = 'snn-viz-positions';

@@ -44,6 +44,8 @@ export class NeuronFaceBackend {
     // T5.2 1단계 (D14/D9 surface): /handface_train + stdp:bool body field.
     // default false → anchor-equivalent path. UI toggle 가 setStdpEnabled() 통해 갱신.
     this._stdpEnabled  = false;
+    // T5.1-2b: stdp_mode field. 'pair' (D9 default, anchor 정합) | 'triplet' (Pfister-Gerstner 2006).
+    this._stdpMode     = 'pair';
   }
 
   setStdpEnabled(enabled) {
@@ -52,6 +54,18 @@ export class NeuronFaceBackend {
 
   get stdpEnabled() {
     return this._stdpEnabled;
+  }
+
+  setStdpMode(mode) {
+    if (mode !== 'pair' && mode !== 'triplet') {
+      console.warn(`[neuronface] invalid stdp_mode: ${mode}, ignoring`);
+      return;
+    }
+    this._stdpMode = mode;
+  }
+
+  get stdpMode() {
+    return this._stdpMode;
   }
 
   // ─── event bus ───
@@ -181,9 +195,10 @@ export class NeuronFaceBackend {
       observe_ms:           50.0,
       detail:               'summary',
       stdp:                 this._stdpEnabled,
+      stdp_mode:            this._stdpMode,
     };
     console.log(
-      `[neuronface] calling /handface_train with stdp=${this._stdpEnabled} ` +
+      `[neuronface] calling /handface_train with stdp=${this._stdpEnabled} mode=${this._stdpMode} ` +
       `(name=${name}, intensity=${intensity})`,
     );
     try {
@@ -247,9 +262,10 @@ export class NeuronFaceBackend {
       observe_ms:           50.0,
       detail:               'summary',
       stdp:                 this._stdpEnabled,
+      stdp_mode:            this._stdpMode,
     };
     console.log(
-      `[neuronface] calling /handface_train (multi) with stdp=${this._stdpEnabled} ` +
+      `[neuronface] calling /handface_train (multi) with stdp=${this._stdpEnabled} mode=${this._stdpMode} ` +
       `(gestures=[${names.join(',')}] -> inputs=[${mappedInputs.join(',')}], intensity=${clampedIntensity})`,
     );
     try {

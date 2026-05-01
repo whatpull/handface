@@ -4,6 +4,7 @@
 
 import { state } from './state.js';
 import { HANDFACE_GESTURE_TO_INPUT } from '../neuronface-backend.js';
+import { setPopoverActiveSynapses } from './synapse-lines.js';
 
 const INPUT_TO_HANDFACE_GESTURE = Object.fromEntries(
   Object.entries(HANDFACE_GESTURE_TO_INPUT).map(([k, v]) => [v, k])
@@ -194,11 +195,15 @@ function showPopover(dot) {
       hidePopover();
     };
   }
+  // T5.1-2b ext: popover 영역 본 노드 incoming + outgoing line persistent highlight.
+  setPopoverActiveSynapses(name);
 }
 
 function hidePopover() {
   if (popoverEl) popoverEl.style.display = 'none';
   currentPopoverDot = null;
+  // T5.1-2b ext: popover 닫힘 영역 line .popover-active 자동 clear.
+  setPopoverActiveSynapses(null);
 }
 
 // D45 / D50: fire 발생 시 popover 열려있으면 row 영역만 surgical update (closeBtn DOM 영역 안정 영역 정합).

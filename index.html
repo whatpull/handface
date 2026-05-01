@@ -855,8 +855,78 @@
       color: #b794f4;
       font-variant-numeric: tabular-nums;
     }
+
+    /* Phase 6.5: weight history panel (popover 영역). */
+    .nf-weight-history-section {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .nf-weight-history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .nf-weight-history-label {
+      color: #a0a0a0;
+      font-size: 10px;
+    }
+    .nf-weight-history-export-btn {
+      background: transparent;
+      border: 1px solid rgba(91, 155, 213, 0.3);
+      color: #5b9bd5;
+      cursor: pointer;
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .nf-weight-history-export-btn:hover:not(:disabled) {
+      background: rgba(91, 155, 213, 0.15);
+      border-color: rgba(91, 155, 213, 0.6);
+    }
+    .nf-weight-history-export-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nf-weight-history-chart {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 3px;
+    }
+    .nf-weight-history-empty {
+      color: #707070;
+      font-style: italic;
+      font-size: 10px;
+      padding: 8px 0;
+      text-align: center;
+    }
+    .nf-weight-history-legend {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 4px;
+      font-size: 9px;
+      color: #a0a0a0;
+      font-family: monospace;
+    }
+    .nf-weight-history-legend > span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .nf-wh-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-YS6pidPq.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-em2hedl8.js"></script>
 </head>
 <body>
   <div id="snn-viz-root"></div>

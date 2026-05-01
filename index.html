@@ -576,6 +576,34 @@
       margin-top: 6px;
     }
 
+    /* Phase 6.3: multi-neuron induce buttons (settings section 5) */
+    .nf-induce-multi-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nf-induce-multi-btn {
+      background: transparent;
+      border: 1px solid rgba(183, 148, 244, 0.3);
+      color: #b794f4;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .nf-induce-multi-btn:hover {
+      background: rgba(183, 148, 244, 0.15);
+      border-color: rgba(183, 148, 244, 0.6);
+    }
+
+    .nf-induce-multi-btn:active {
+      background: rgba(183, 148, 244, 0.25);
+    }
+
     /* 모바일 반응형 — width ≤ 768px OR 세로 우세 (aspect ≤ 4/5).
        OR 조건 통합 (DRY): width 작은 phone + tablet portrait + 세로 모니터 모두 동일 layout. */
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
@@ -828,7 +856,7 @@
       font-variant-numeric: tabular-nums;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BvL_pFZx.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-YS6pidPq.js"></script>
 </head>
 <body>
   <div id="snn-viz-root"></div>
@@ -888,6 +916,15 @@
         <button id="nf-stdp-mode-triplet" type="button" class="nf-mode-btn">Triplet</button>
       </div>
       <div class="nf-mode-hint">Pair: D9 (A_LTD &gt; A_LTP). Triplet: Pfister-Gerstner 2006 (BCM property, anti-Hebbian LTD-bias 자동 균형).</div>
+    </div>
+
+    <div class="nf-section nf-induce-multi-section">
+      <label class="nf-section-label">Multi-neuron Induce (Phase 6.3 BCM)</label>
+      <div class="nf-induce-multi-buttons">
+        <button id="nf-induce-multi-v1v2"  type="button" class="nf-induce-multi-btn">V1 + V2</button>
+        <button id="nf-induce-multi-chain" type="button" class="nf-induce-multi-btn">V1 + V2 + OUT</button>
+      </div>
+      <div class="nf-mode-hint">V1 + V2 동시 induce = Triplet LTP 발동 (BCM 자동 균형 검증). STDP=ON + Triplet mode 정합.</div>
     </div>
   </div>
 

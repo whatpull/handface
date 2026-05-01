@@ -45,6 +45,12 @@ export const state = {
 
   // T5.1-2b γ: backend stdpMode 영역 동기 (scene.js applyStdpMode), popover trace section 영역 mode 분기.
   stdpMode: 'pair',
+
+  // Phase 6.5: weight history (client-only capture, backend 변경 0).
+  // key = `${pre}__${post}`, value = [{ induceCount, weight, stdpEnabled, stdpMode, timestamp }]
+  weightHistory: {},
+  // induce_fire response 누적 카운터 (chart x축).
+  induceCount: 0,
 };
 
 const POSITIONS_KEY = 'snn-viz-positions';

@@ -171,6 +171,9 @@ function showPopover(dot) {
     </div>
   `;
 
+  // Phase 6.5: weight history chart + CSV export (incoming synapses 영역 시간 축 영역).
+  const historySection = renderWeightHistorySection(name, incomingSyns);
+
   // T5.1-2b γ: Triplet STDP traces (r1/r2/o1/o2) — stdp_mode='triplet' 영역만 표시.
   const traces = (state.lastFireResponse && state.lastFireResponse.traces) || {};
   const neuronTraces = traces[name] || { r1: 0, r2: 0, o1: 0, o2: 0 };
@@ -208,6 +211,7 @@ function showPopover(dot) {
     <div class="snn-node-popover__row"><span>state</span><span data-value="state" class="${activeClass}">${activeStr}</span></div>
     ${gestureRow}
     ${incomingSection}
+    ${historySection}
     ${traceSection}
   `;
   pop.style.display = 'block';
@@ -232,8 +236,160 @@ function showPopover(dot) {
       }));
     };
   }
+  // Phase 6.5: CSV export button (weight history section).
+  const exportBtn = pop.querySelector('.nf-weight-history-export-btn');
+  if (exportBtn) {
+    exportBtn.onclick = (e) => {
+      e.stopPropagation();
+      exportWeightHistoryCsv(name, incomingSyns);
+    };
+  }
   // T5.1-2b ext: popover 영역 본 노드 incoming + outgoing line persistent highlight.
   setPopoverActiveSynapses(name);
+}
+
+// Phase 6.5: weight history chart (SVG) + CSV export button.
+const HISTORY_CHART_W = 300;
+const HISTORY_CHART_H = 150;
+const HISTORY_PAD_L = 32;
+const HISTORY_PAD_R = 8;
+const HISTORY_PAD_T = 8;
+const HISTORY_PAD_B = 22;
+const HISTORY_W_MAX = 16;  // STDP_W_MAX (modules/neuron.py:62)
+
+// condition 영역 색 (사용자 설계 정합).
+const HISTORY_COLOR = {
+  off:       '#888888',
+  pair:      '#5b9bd5',
+  triplet:   '#b794f4',
+};
+
+function pointColor(entry) {
+  if (!entry.stdpEnabled) return HISTORY_COLOR.off;
+  return entry.stdpMode === 'triplet' ? HISTORY_COLOR.triplet : HISTORY_COLOR.pair;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function renderWeightHistorySection(nodeName, incomingSyns) {
+  // 본 노드 영역 incoming syn 영역 history series 영역 수집.
+  const series = incomingSyns
+    .map(s => {
+      const key = `${s.pre}__${s.post}`;
+      const entries = state.weightHistory[key] || [];
+      return { pre: s.pre, post: s.post, key, entries };
+    })
+    .filter(ser => ser.entries.length > 0);
+
+  if (series.length === 0) {
+    return `
+      <div class="nf-weight-history-section">
+        <div class="nf-weight-history-header">
+          <span class="nf-weight-history-label">weight history</span>
+          <button class="nf-weight-history-export-btn" type="button" disabled title="no data">CSV</button>
+        </div>
+        <div class="nf-weight-history-empty">no induce yet</div>
+      </div>
+    `;
+  }
+
+  // x축 영역 = induce_count (1 ~ state.induceCount). y축 영역 = 0 ~ STDP_W_MAX (16).
+  const xMax = Math.max(1, state.induceCount);
+  const xToPx = (x) => HISTORY_PAD_L + (HISTORY_CHART_W - HISTORY_PAD_L - HISTORY_PAD_R) * (xMax === 1 ? 0.5 : (x - 1) / (xMax - 1));
+  const yToPx = (w) => HISTORY_PAD_T + (HISTORY_CHART_H - HISTORY_PAD_T - HISTORY_PAD_B) * (1 - Math.max(0, Math.min(HISTORY_W_MAX, w)) / HISTORY_W_MAX);
+
+  // grid lines (y: 0, 4, 8, 12, 16).
+  const yTicks = [0, 4, 8, 12, 16];
+  const gridLines = yTicks.map(w => `
+    <line x1="${HISTORY_PAD_L}" y1="${yToPx(w)}" x2="${HISTORY_CHART_W - HISTORY_PAD_R}" y2="${yToPx(w)}"
+          stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+    <text x="${HISTORY_PAD_L - 4}" y="${yToPx(w) + 3}" text-anchor="end"
+          fill="#707070" font-size="9" font-family="monospace">${w}</text>
+  `).join('');
+
+  // x축 label (1, xMax).
+  const xLabels = `
+    <text x="${xToPx(1)}" y="${HISTORY_CHART_H - 6}" text-anchor="middle"
+          fill="#707070" font-size="9" font-family="monospace">1</text>
+    <text x="${xToPx(xMax)}" y="${HISTORY_CHART_H - 6}" text-anchor="middle"
+          fill="#707070" font-size="9" font-family="monospace">${xMax}</text>
+    <text x="${(HISTORY_PAD_L + HISTORY_CHART_W - HISTORY_PAD_R) / 2}" y="${HISTORY_CHART_H - 6}"
+          text-anchor="middle" fill="#a0a0a0" font-size="9" font-family="monospace">induce #</text>
+  `;
+
+  // 각 series 영역 polyline + 각 point 영역 condition 색 circle.
+  const seriesSvg = series.map(ser => {
+    const points = ser.entries.map(e => `${xToPx(e.induceCount)},${yToPx(e.weight)}`).join(' ');
+    const polyline = `<polyline points="${points}" fill="none" stroke="rgba(150,170,200,0.35)" stroke-width="1" />`;
+    const circles = ser.entries.map(e => {
+      return `<circle cx="${xToPx(e.induceCount)}" cy="${yToPx(e.weight)}" r="2.2"
+                       fill="${pointColor(e)}" stroke="rgba(0,0,0,0.4)" stroke-width="0.5">
+                <title>${escapeHtml(ser.pre)} → ${escapeHtml(ser.post)}: w=${e.weight.toFixed(3)} @ #${e.induceCount}</title>
+              </circle>`;
+    }).join('');
+    return polyline + circles;
+  }).join('');
+
+  // 범례 (condition 색 영역).
+  const legend = `
+    <div class="nf-weight-history-legend">
+      <span><span class="nf-wh-dot" style="background:${HISTORY_COLOR.off}"></span>OFF</span>
+      <span><span class="nf-wh-dot" style="background:${HISTORY_COLOR.pair}"></span>Pair</span>
+      <span><span class="nf-wh-dot" style="background:${HISTORY_COLOR.triplet}"></span>Triplet</span>
+    </div>
+  `;
+
+  const totalPoints = series.reduce((sum, ser) => sum + ser.entries.length, 0);
+
+  return `
+    <div class="nf-weight-history-section">
+      <div class="nf-weight-history-header">
+        <span class="nf-weight-history-label">weight history (${series.length} syn × ${totalPoints} pts)</span>
+        <button class="nf-weight-history-export-btn" type="button" title="export CSV">CSV</button>
+      </div>
+      <svg class="nf-weight-history-chart" viewBox="0 0 ${HISTORY_CHART_W} ${HISTORY_CHART_H}"
+           xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        ${gridLines}
+        ${xLabels}
+        ${seriesSvg}
+      </svg>
+      ${legend}
+    </div>
+  `;
+}
+
+function exportWeightHistoryCsv(nodeName, incomingSyns) {
+  const rows = [];
+  rows.push('pre,post,induce_count,weight,stdp_enabled,stdp_mode,timestamp');
+  for (const s of incomingSyns) {
+    const key = `${s.pre}__${s.post}`;
+    const entries = state.weightHistory[key] || [];
+    for (const e of entries) {
+      rows.push([
+        s.pre,
+        s.post,
+        e.induceCount,
+        e.weight,
+        e.stdpEnabled ? 'true' : 'false',
+        e.stdpMode,
+        e.timestamp,
+      ].join(','));
+    }
+  }
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `weight_history_${nodeName}_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function hidePopover() {
@@ -276,6 +432,22 @@ function refreshOpenPopover() {
       const traceEl = popoverEl.querySelector(`[data-trace-key="${name}__${key}"]`);
       if (traceEl) traceEl.textContent = neuronTraces[key].toFixed(3);
     });
+  }
+  // Phase 6.5: weight history chart 영역 = 매 induce 영역 신규 point + axis 영역 재계산 영역
+  // → 본 section 영역 innerHTML 영역 재구축 (CSV button click handler 영역 재바인딩 mandatory).
+  const historyHost = popoverEl.querySelector('.nf-weight-history-section');
+  if (historyHost) {
+    const incomingSyns = synapses
+      .filter(s => s.post === name)
+      .sort((a, b) => b.weight - a.weight);
+    historyHost.outerHTML = renderWeightHistorySection(name, incomingSyns);
+    const exportBtn = popoverEl.querySelector('.nf-weight-history-export-btn');
+    if (exportBtn) {
+      exportBtn.onclick = (e) => {
+        e.stopPropagation();
+        exportWeightHistoryCsv(name, incomingSyns);
+      };
+    }
   }
 }
 

@@ -92,6 +92,27 @@ function setupSettingsUI() {
   if (stdpModePairBtn)    stdpModePairBtn.addEventListener('click',    () => applyStdpMode('pair'));
   if (stdpModeTripletBtn) stdpModeTripletBtn.addEventListener('click', () => applyStdpMode('triplet'));
   applyStdpMode('pair');  // initial = pair (D9 default, anchor 정합)
+
+  // Phase 6.3: multi-neuron induce preset buttons.
+  const induceMultiV1V2Btn = document.getElementById('nf-induce-multi-v1v2');
+  const induceMultiChainBtn = document.getElementById('nf-induce-multi-chain');
+
+  function dispatchInduceMulti(neuronNames) {
+    window.dispatchEvent(new CustomEvent('induce-fire-multi-request', {
+      detail: { neuronNames },
+    }));
+  }
+
+  if (induceMultiV1V2Btn) {
+    induceMultiV1V2Btn.addEventListener('click', () => {
+      dispatchInduceMulti(['v1_L4_E_8', 'v2_L4_E_5']);
+    });
+  }
+  if (induceMultiChainBtn) {
+    induceMultiChainBtn.addEventListener('click', () => {
+      dispatchInduceMulti(['v1_L4_E_8', 'v2_L4_E_5', 'out_1']);
+    });
+  }
 }
 setupSettingsUI();
 
@@ -100,6 +121,13 @@ window.addEventListener('induce-fire-request', (ev) => {
   const neuronName = ev.detail?.neuronName;
   if (!neuronName) return;
   backend.induceFire(neuronName);
+});
+
+// Phase 6.3: settings panel multi-neuron induce → backend.induceFireMulti 호출.
+window.addEventListener('induce-fire-multi-request', (ev) => {
+  const neuronNames = ev.detail?.neuronNames;
+  if (!Array.isArray(neuronNames) || neuronNames.length === 0) return;
+  backend.induceFireMulti(neuronNames);
 });
 
 // ─────────────────────────────────────────

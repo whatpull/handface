@@ -274,6 +274,56 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Phase 6.3: 다 noeurons 동시 직접 자극 (V1 + V2 동시 fire = LTP 발동, BCM 검증).
+   * backend Phase 6.2 정합 (POST /induce_fire body.neuron_names list).
+   * @param {string[]} neuronNames - target neurons (e.g., ['v1_L4_E_8', 'v2_L4_E_5'])
+   * @returns {Promise<{ok: boolean, response?: any, reason?: string}>}
+   */
+  async induceFireMulti(neuronNames) {
+    if (!Array.isArray(neuronNames) || neuronNames.length === 0) {
+      return { ok: false, reason: 'neuronNames must be non-empty array' };
+    }
+    if (!this._connected || !this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      neuron_names:         neuronNames,
+      weight:               25.0,
+      stimulus_duration_ms: 15.0,
+      observe_ms:           50.0,
+      stdp:                 this._stdpEnabled,
+      stdp_mode:            this._stdpMode,
+    };
+    console.log(
+      `[neuronface] calling /induce_fire (multi) with stdp=${this._stdpEnabled} mode=${this._stdpMode} ` +
+      `(neurons=[${neuronNames.join(',')}])`,
+    );
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/induce_fire`,
+        { method: 'POST', body },
+      );
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `induce-multi:${neuronNames.join(',')}`,
+        intensity: 1.0,
+        response:  resp,
+      });
+      return { ok: true, response: resp };
+    } catch (err) {
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `induce-multi:${neuronNames.join(',')}`,
+        intensity: 1.0,
+        response:  null,
+        error:     err.message,
+      });
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * T5.2 2단계 (D29 multi-INPUT): button-driven multi-select dispatch.
    * gesture name list 를 받아 backend HANDFACE_INPUT_MAP 으로 INPUT 매핑됨 (server-side).
    * body.inputs = list[str] → handler 분기 (D29 spec). intensity/duration/observe 는

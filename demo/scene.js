@@ -10,6 +10,7 @@ import { initAsciiCamera } from './snn-viz/ascii-camera.js';
 import { onGestureToggle } from './snn-viz/gesture.js';
 import { highlightInputs } from './snn-viz/circuit.js';
 import { state } from './snn-viz/state.js';
+import { renderCascadeWeightHistory, exportCascadeWeightHistoryCsv } from './snn-viz/node-interaction.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -96,6 +97,7 @@ function setupSettingsUI() {
   // Phase 6.3: multi-neuron induce preset buttons.
   const induceMultiV1V2Btn = document.getElementById('nf-induce-multi-v1v2');
   const induceMultiChainBtn = document.getElementById('nf-induce-multi-chain');
+  const induceCascade8InputsBtn = document.getElementById('nf-induce-cascade-8inputs');
 
   function dispatchInduceMulti(neuronNames) {
     window.dispatchEvent(new CustomEvent('induce-fire-multi-request', {
@@ -113,6 +115,51 @@ function setupSettingsUI() {
       dispatchInduceMulti(['v1_L4_E_8', 'v2_L4_E_5', 'out_1']);
     });
   }
+  // Phase 8: D80 anchor cascade induce (8 INPUT 동시 → 7 region cascade fire).
+  if (induceCascade8InputsBtn) {
+    induceCascade8InputsBtn.addEventListener('click', () => {
+      dispatchInduceMulti([
+        'in_pinch', 'in_fist', 'in_palm', 'in_point',
+        'in_gaze', 'in_blink', 'in_thumbsup', 'in_victory',
+      ]);
+    });
+  }
+
+  // Phase 8: cascade weight history modal.
+  const cascadeOpenBtn = document.getElementById('nf-cascade-history-open');
+  const cascadeModal   = document.getElementById('nf-cascade-modal');
+  const cascadeClose   = document.getElementById('nf-cascade-modal-close');
+  const cascadeExport  = document.getElementById('nf-cascade-modal-export');
+  const cascadeBody    = document.getElementById('nf-cascade-modal-body');
+
+  function showCascadeModal() {
+    if (!cascadeModal || !cascadeBody) return;
+    cascadeBody.innerHTML = renderCascadeWeightHistory();
+    cascadeModal.classList.remove('nf-cascade-modal--hidden');
+  }
+  function hideCascadeModal() {
+    if (cascadeModal) cascadeModal.classList.add('nf-cascade-modal--hidden');
+  }
+
+  if (cascadeOpenBtn) cascadeOpenBtn.addEventListener('click', showCascadeModal);
+  if (cascadeClose)   cascadeClose.addEventListener('click', hideCascadeModal);
+  if (cascadeExport) {
+    cascadeExport.addEventListener('click', () => {
+      const ok = exportCascadeWeightHistoryCsv();
+      if (!ok) console.warn('[cascade-history] no data to export');
+    });
+  }
+  if (cascadeModal) {
+    cascadeModal.addEventListener('click', (e) => {
+      if (e.target === cascadeModal) hideCascadeModal();
+    });
+  }
+  // Live refresh — fire 시점 modal 열려있으면 chart 갱신.
+  window.addEventListener('snn-viz:fire-update', () => {
+    if (cascadeModal && !cascadeModal.classList.contains('nf-cascade-modal--hidden') && cascadeBody) {
+      cascadeBody.innerHTML = renderCascadeWeightHistory();
+    }
+  });
 }
 setupSettingsUI();
 

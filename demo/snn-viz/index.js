@@ -93,6 +93,24 @@ export function initSnnViz({ control, backend }) {
       // top_active_neurons 한도 (5) 회피, V1/V2/OUT 의 모든 활성 neuron 식별.
       const r = event.response || {};
       state.lastFireResponse = r;
+      // Phase 6.5: client-only weight history capture (induce_fire response 영역 synapses 영역 누적).
+      if (Array.isArray(r.synapses) && r.synapses.length > 0) {
+        state.induceCount += 1;
+        const stdpEnabled = backend.stdpEnabled;
+        const stdpMode = backend.stdpMode;
+        const ts = Date.now();
+        for (const s of r.synapses) {
+          const key = `${s.pre}__${s.post}`;
+          if (!state.weightHistory[key]) state.weightHistory[key] = [];
+          state.weightHistory[key].push({
+            induceCount: state.induceCount,
+            weight:      s.weight,
+            stdpEnabled,
+            stdpMode,
+            timestamp:   ts,
+          });
+        }
+      }
       // D45: popover 가 열려있으면 live refresh (rate / state row 갱신).
       window.dispatchEvent(new CustomEvent('snn-viz:fire-update'));
       const activeByRegion = r.active_neurons_by_region || {};

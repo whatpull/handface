@@ -756,6 +756,73 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 7 통합 데모 시나리오: 성장 + 학습 + 디코드 + 벤치마크.
+  const demoLargeTrainBtn = document.getElementById('nf-demo-large-train');
+  const demoStatus        = document.getElementById('nf-demo-status');
+  if (demoLargeTrainBtn) {
+    demoLargeTrainBtn.addEventListener('click', async () => {
+      if (demoLargeTrainBtn.disabled) return;
+      demoLargeTrainBtn.disabled = true;
+      const orig = demoLargeTrainBtn.textContent;
+      const t0 = performance.now();
+      try {
+        // 1) Grow.
+        demoLargeTrainBtn.textContent = '1/4 회로 성장...';
+        for (const region of ['V1', 'V2']) {
+          for (const pop of ['L4_E', 'L23_E']) {
+            const r = await backend.growRegion(region, pop, 100, { connectDensity: 0.2 });
+            if (!r.ok) throw new Error(`grow ${region}/${pop} 실패: ${r.reason}`);
+          }
+        }
+        const totalNeurons = (await backend.getTrainingSnapshot()).response?.synapses?.length || 0;
+        // 2) Supervised RL 5 round (벡터화 ON).
+        demoLargeTrainBtn.textContent = '2/4 학습 (벡터화)...';
+        backend.setUseVectorized(true);
+        const G2T = [['pointing','out_0'],['openpalm','out_1'],['thumbsup','out_2'],['victory','out_3']];
+        const trainStart = performance.now();
+        for (let round = 0; round < 5; round += 1) {
+          for (const [g, target] of G2T) {
+            const r = await backend.trainSupervised(g, target, { multiInput: true });
+            if (!r.ok) throw new Error(`train ${g}→${target} 실패`);
+          }
+        }
+        const trainMs = performance.now() - trainStart;
+        // 3) Decode 검증 (단일 INPUT, no STDP).
+        demoLargeTrainBtn.textContent = '3/4 디코드 검증...';
+        let correct = 0;
+        const SINGLE = { pointing:'in_point', openpalm:'in_palm', thumbsup:'in_thumbsup', victory:'in_victory' };
+        for (const [g, target] of G2T) {
+          const r = await backend.injectPattern(
+            ['in_pinch','in_fist','in_palm','in_point','in_gaze','in_blink','in_thumbsup','in_victory']
+              .map(n => n === SINGLE[g] ? 1.0 : 0.0),
+            { modality: 'gesture' },
+          );
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          if (winner === target) correct += 1;
+        }
+        // 4) NN vs Vec 시간 비교 (1 trial 각).
+        demoLargeTrainBtn.textContent = '4/4 벤치마크...';
+        backend.setUseVectorized(false);
+        const nnT0 = performance.now();
+        await backend.sendGestures(['pointing']);
+        const nnMs = performance.now() - nnT0;
+        backend.setUseVectorized(true);
+        const vecT0 = performance.now();
+        await backend.sendGestures(['pointing']);
+        const vecMs = performance.now() - vecT0;
+        const totalMs = performance.now() - t0;
+        if (demoStatus) {
+          demoStatus.textContent = `✓ 완료 (${(totalMs/1000).toFixed(1)}s) | 학습: ${(trainMs/1000).toFixed(1)}s × 20 trial | decode ${correct}/4 | NN ${nnMs.toFixed(0)}ms vs Vec ${vecMs.toFixed(0)}ms (${(nnMs/vecMs).toFixed(2)}x)`;
+        }
+        demoLargeTrainBtn.textContent = `Done ✓ (${correct}/4 decode, ${(nnMs/vecMs).toFixed(1)}x speedup)`;
+      } catch (err) {
+        demoLargeTrainBtn.textContent = `실패: ${err.message}`;
+      }
+      setTimeout(() => { demoLargeTrainBtn.textContent = orig; demoLargeTrainBtn.disabled = false; }, 5000);
+    });
+  }
+
   // Phase 7: Grow network handler.
   const growRegion     = document.getElementById('nf-grow-region');
   const growPopulation = document.getElementById('nf-grow-population');

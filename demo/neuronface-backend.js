@@ -437,6 +437,39 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 5: POST /networks/{id}/neuromodulator — 신경조절 영역 set.
+   * @param {object} mods - { dopamine?, acetylcholine?, serotonin? }
+   */
+  async setNeuromodulator(mods) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/neuromodulator`, {
+        method: 'POST',
+        body: mods,
+      });
+      return { ok: true, response: data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 37 Phase 5: GET /networks/{id}/neuromodulator — 영역 read.
+   */
+  async getNeuromodulator() {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/neuromodulator`);
+      return { ok: true, response: data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 36: GET /networks/{id}/training/snapshot — 모든 synapse weight snapshot 반환.
    * 사용자 학습 결과 영역 localStorage 보존 사용.
    */

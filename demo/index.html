@@ -672,6 +672,35 @@
       color: #5eead4;
     }
 
+    /* Session 37 Phase 5: Neuromodulator panel. */
+    .nf-neuromod-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .nf-neuromod-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 36px;
+      align-items: center;
+      gap: 6px;
+    }
+    .nf-neuromod-label {
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: monospace;
+    }
+    .nf-neuromod-val {
+      font-size: 10px;
+      color: #f5b842;
+      font-family: monospace;
+      text-align: right;
+    }
+    .nf-neuromod-row input[type="range"] {
+      accent-color: #f5b842;
+      height: 16px;
+    }
+
     /* 모바일 반응형 — width ≤ 768px OR 세로 우세 (aspect ≤ 4/5).
        OR 조건 통합 (DRY): width 작은 phone + tablet portrait + 세로 모니터 모두 동일 layout. */
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
@@ -1684,6 +1713,29 @@
       </div>
       <button id="nf-supervised-batch" type="button" class="nf-induce-multi-btn">Batch (4 gestures × 5 trials)</button>
       <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
+    </div>
+
+    <div class="nf-section nf-neuromod-section">
+      <label class="nf-section-label">NEUROMODULATORS (Phase 5)</label>
+      <div class="nf-neuromod-grid">
+        <div class="nf-neuromod-row">
+          <span class="nf-neuromod-label">Dopamine (STDP gain)</span>
+          <input id="nf-nm-dopamine" type="range" min="-1" max="5" step="0.1" value="0">
+          <span id="nf-nm-dopamine-val" class="nf-neuromod-val">0.0</span>
+        </div>
+        <div class="nf-neuromod-row">
+          <span class="nf-neuromod-label">ACh (V_th lower)</span>
+          <input id="nf-nm-ach" type="range" min="0" max="1" step="0.05" value="0">
+          <span id="nf-nm-ach-val" class="nf-neuromod-val">0.0</span>
+        </div>
+        <div class="nf-neuromod-row">
+          <span class="nf-neuromod-label">Serotonin (inhibitory)</span>
+          <input id="nf-nm-serotonin" type="range" min="0" max="1" step="0.05" value="0">
+          <span id="nf-nm-serotonin-val" class="nf-neuromod-val">0.0</span>
+        </div>
+      </div>
+      <button id="nf-nm-reset" type="button" class="nf-induce-multi-btn">Reset all to 0</button>
+      <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor 영역.</div>
     </div>
 
     <div class="nf-section nf-decode-section">

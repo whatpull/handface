@@ -8,6 +8,7 @@ import {
   CASCADE_EDGES,
   NEURON_NODES,
   SOURCE_EDGES,
+  DECODE_EDGES,
   weightColor,
 } from './data.js';
 import { regionNodeHtml } from './nodes.js';
@@ -117,9 +118,10 @@ export function initCanvasNeuron(containerId, synapses) {
     if (el) nodeRefMap[neuron.id] = el;
   }
 
-  // synapse edge (backend response 사용 + SOURCE 영역 frontend fixed).
+  // synapse edge (backend response 사용 + SOURCE + DECODE pathway 영역 frontend fixed).
+  // Session 37 Phase 4: DECODE_EDGES = 직접 INPUT → OUT 영역 (D120 backend 영역 영역).
   const backendSyn = Array.isArray(synapses) ? synapses : [];
-  const allSyn = [...SOURCE_EDGES, ...backendSyn];
+  const allSyn = [...SOURCE_EDGES, ...backendSyn, ...DECODE_EDGES];
   for (const syn of allSyn) {
     const fromId = nodeIdMap[syn.pre];
     const toId = nodeIdMap[syn.post];

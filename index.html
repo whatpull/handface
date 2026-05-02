@@ -880,6 +880,45 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Session 38 PR-I: Node Library catalog */
+    .nf-node-library {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .nf-node-lib-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 8px 4px;
+      background: rgba(167, 139, 250, 0.08);
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      font-size: 9px;
+      transition: all 0.15s;
+    }
+    .nf-node-lib-btn:hover:not(:disabled) {
+      background: rgba(167, 139, 250, 0.18);
+      border-color: rgba(167, 139, 250, 0.5);
+      color: #c4b5fd;
+    }
+    .nf-node-lib-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .nf-node-lib-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .nf-node-lib-label {
+      letter-spacing: 0.04em;
+    }
+
     /* Session 38 USER INPUT panel */
     .nf-user-input-add { margin-bottom: 8px; }
     .nf-user-input-tune {
@@ -2154,8 +2193,8 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DoBQTaQq.js"></script>
-  <link rel="stylesheet" crossorigin href="/handface/assets/index-Pe2JlH2s.css">
+  <script type="module" crossorigin src="/handface/assets/index-jDvLc7fp.js"></script>
+  <link rel="stylesheet" crossorigin href="/handface/assets/index-CmK5a9Bs.css">
 </head>
 <body>
   <header class="nf-app-header">
@@ -2416,27 +2455,33 @@
     </div>
 
     <div class="nf-section nf-user-input-section" data-cat="input">
-      <label class="nf-section-label">USER INPUT (사용자 추가 노드)</label>
-      <div class="nf-user-input-add">
-        <input id="nf-ui-label" type="text" placeholder="라벨 (예: Slack alert)" maxlength="64" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
-        <div class="nf-user-input-tune">
-          <label class="nf-ui-tune-label">fanout density
-            <input id="nf-ui-density" type="range" min="0.1" max="1.0" step="0.05" value="0.5">
-            <span id="nf-ui-density-val" class="nf-ui-tune-val">0.50</span>
-          </label>
-          <label class="nf-ui-tune-label">fanout weight
-            <input id="nf-ui-weight" type="range" min="4" max="40" step="1" value="16">
-            <span id="nf-ui-weight-val" class="nf-ui-tune-val">16</span>
-          </label>
-        </div>
-        <button id="nf-ui-add" type="button" class="nf-induce-multi-btn">+ Add USER INPUT</button>
+      <label class="nf-section-label">NODE LIBRARY (사용자 INPUT 노드 추가)</label>
+      <div class="nf-node-library">
+        <button class="nf-node-lib-btn" data-kind="audio"    type="button"><span class="nf-node-lib-icon">🎤</span><span class="nf-node-lib-label">Audio</span></button>
+        <button class="nf-node-lib-btn" data-kind="text"     type="button"><span class="nf-node-lib-icon">📝</span><span class="nf-node-lib-label">Text</span></button>
+        <button class="nf-node-lib-btn" data-kind="image"    type="button" disabled title="Session 39"><span class="nf-node-lib-icon">🖼️</span><span class="nf-node-lib-label">Image</span></button>
+        <button class="nf-node-lib-btn" data-kind="motion"   type="button" disabled title="Session 39"><span class="nf-node-lib-icon">📱</span><span class="nf-node-lib-label">Motion</span></button>
+        <button class="nf-node-lib-btn" data-kind="keyboard" type="button" disabled title="Session 39"><span class="nf-node-lib-icon">⌨️</span><span class="nf-node-lib-label">Keyboard</span></button>
+        <button class="nf-node-lib-btn" data-kind="mouse"    type="button" disabled title="Session 39"><span class="nf-node-lib-icon">🖱️</span><span class="nf-node-lib-label">Mouse</span></button>
+        <button class="nf-node-lib-btn" data-kind="geo"      type="button" disabled title="Session 39"><span class="nf-node-lib-icon">📍</span><span class="nf-node-lib-label">Geo</span></button>
+        <button class="nf-node-lib-btn" data-kind="custom"   type="button"><span class="nf-node-lib-icon">⚙️</span><span class="nf-node-lib-label">Custom</span></button>
+      </div>
+      <div class="nf-user-input-tune">
+        <label class="nf-ui-tune-label">fanout density
+          <input id="nf-ui-density" type="range" min="0.1" max="1.0" step="0.05" value="0.5">
+          <span id="nf-ui-density-val" class="nf-ui-tune-val">0.50</span>
+        </label>
+        <label class="nf-ui-tune-label">fanout weight
+          <input id="nf-ui-weight" type="range" min="4" max="40" step="1" value="16">
+          <span id="nf-ui-weight-val" class="nf-ui-tune-val">16</span>
+        </label>
       </div>
       <div id="nf-ui-list" class="nf-user-input-list"></div>
-      <div id="nf-ui-status" class="nf-mode-hint">사용자 정의 INPUT 노드 추가 — V1 L4_E에 자동 sparse wiring (D200 cortical 정합). 시스템 노드 (in_*, v1_*, v2_*, out_*) 는 변경되지 않음 — 자기가 추가한 노드만 삭제 가능.</div>
+      <div id="nf-ui-status" class="nf-mode-hint">위 라이브러리에서 modality 노드 타입을 클릭 → 노드 자동 추가 (V1 L4_E에 sparse wiring). 추가된 노드는 캔버스에 자기 widget을 보유 (Audio: mic capture, Text: 입력 + Encode 등). 시스템 노드 (in_*, v1_*, v2_*, out_*) 는 변경되지 않음.</div>
     </div>
 
     <div class="nf-section nf-user-input-inject-section" data-cat="input">
-      <label class="nf-section-label">USER INPUT INJECT</label>
+      <label class="nf-section-label">USER INPUT INJECT (단일 자극)</label>
       <div class="nf-multimodal-row">
         <span class="nf-multimodal-label">Target</span>
         <select id="nf-ui-inject-target" class="nf-multimodal-select">
@@ -2462,7 +2507,7 @@
           <option value="out_3">out_3 (Victory)</option>
         </select>
       </div>
-      <div id="nf-ui-inject-status" class="nf-mode-hint">선택한 사용자 INPUT 노드에 직접 자극 주입 → cascade를 통해 OUT decode. Inject + train: supervised RL (target OUT 학습).</div>
+      <div id="nf-ui-inject-status" class="nf-mode-hint">선택한 사용자 INPUT 노드에 직접 자극 (단일). modality 인코딩이 필요한 경우 캔버스의 노드 자체 widget 사용 (Audio/Text 노드는 자기 자체 encoder를 보유).</div>
     </div>
 
     <div class="nf-section nf-multimodal-section" data-cat="input">

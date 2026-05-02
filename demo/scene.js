@@ -1891,6 +1891,63 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 keyboard modality: 직전 1초 keystroke timestamp 분포 → 8-bin.
+  const kbdInput  = document.getElementById('nf-kbd-input');
+  const kbdStream = document.getElementById('nf-kbd-stream');
+  const kbdStatus = document.getElementById('nf-kbd-status');
+  const kbdTimestamps = [];
+  if (kbdInput) {
+    kbdInput.addEventListener('keydown', () => {
+      kbdTimestamps.push(performance.now());
+      // 1초 보다 오래된 것 제거.
+      const cutoff = performance.now() - 1000;
+      while (kbdTimestamps.length > 0 && kbdTimestamps[0] < cutoff) {
+        kbdTimestamps.shift();
+      }
+    });
+  }
+  let kbdStreamCtx = null;
+  if (kbdStream) {
+    kbdStream.addEventListener('click', async () => {
+      if (kbdStreamCtx) {
+        kbdStreamCtx.running = false;
+        kbdStreamCtx = null;
+        kbdStream.textContent = 'Streaming start';
+        if (kbdStatus) kbdStatus.textContent = 'Streaming stopped.';
+        return;
+      }
+      kbdStreamCtx = { running: true };
+      kbdStream.textContent = 'Streaming stop';
+      let tick = 0;
+      while (kbdStreamCtx && kbdStreamCtx.running) {
+        await new Promise(r => setTimeout(r, 1000));
+        tick += 1;
+        const now = performance.now();
+        const cutoff = now - 1000;
+        // 직전 1초 timestamps 8 bins (125ms씩).
+        const bins = new Array(8).fill(0);
+        for (const ts of kbdTimestamps) {
+          if (ts < cutoff) continue;
+          const bi = Math.min(7, Math.floor((ts - cutoff) / 125));
+          bins[bi] += 1;
+        }
+        const total = bins.reduce((a, b) => a + b, 0);
+        if (total === 0) {
+          if (kbdStatus) kbdStatus.textContent = `[stream tick ${tick}] 키 입력 없음 — 타이핑하세요`;
+          continue;
+        }
+        const m = Math.max(...bins);
+        const pattern = bins.map(b => m > 0 ? b / m : 0);
+        const r = await backend.injectPattern(pattern, { modality: 'custom' });
+        if (kbdStatus && r.ok) {
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          kbdStatus.textContent = `[stream tick ${tick}] keystrokes=${total} → winner=${winner || '없음'}`;
+        }
+      }
+    });
+  }
+
   // Phase 2 mouse modality: drag pad → angle 8-bin histogram.
   const mousePad     = document.getElementById('nf-mouse-pad');
   const mouseInject  = document.getElementById('nf-mouse-inject');

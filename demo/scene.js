@@ -913,6 +913,26 @@ window.addEventListener('DOMContentLoaded', () => {
   const nmSeroVal     = document.getElementById('nf-nm-serotonin-val');
   const nmReset       = document.getElementById('nf-nm-reset');
 
+  // 신경조절 인디케이터 dots.
+  const nmIndicator = document.getElementById('nf-neuromod-indicator');
+  function updateNeuromodIndicator(d, a, s) {
+    if (!nmIndicator) return;
+    const dots = nmIndicator.querySelectorAll('.nf-nm-dot');
+    dots.forEach(dot => {
+      const k = dot.dataset.nm;
+      const v = k === 'dopamine' ? d : k === 'ach' ? a : s;
+      dot.classList.toggle('active', Math.abs(v) >= 0.1);
+    });
+    const state = nmIndicator.querySelector('.nf-nm-state');
+    if (state) {
+      const labels = [];
+      if (d >= 0.1) labels.push(`D${d.toFixed(1)}`);
+      if (a >= 0.1) labels.push(`A${a.toFixed(1)}`);
+      if (s >= 0.1) labels.push(`S${s.toFixed(1)}`);
+      state.textContent = labels.length ? labels.join(' · ') : '중립 (anchor)';
+    }
+  }
+
   let nmDebounce = null;
   function flushNeuromodulator() {
     if (nmDebounce) clearTimeout(nmDebounce);
@@ -922,6 +942,7 @@ window.addEventListener('DOMContentLoaded', () => {
         acetylcholine: parseFloat(nmAch.value),
         serotonin:     parseFloat(nmSero.value),
       };
+      updateNeuromodIndicator(mods.dopamine, mods.acetylcholine, mods.serotonin);
       const r = await backend.setNeuromodulator(mods);
       if (!r.ok) console.warn('[neuromod] set failed:', r.reason);
     }, 150);
@@ -978,6 +999,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (nmDopamine) { nmDopamine.value = dopamine.toFixed(2); nmDopamineVal.textContent = dopamine.toFixed(1); }
         if (nmAch)      { nmAch.value      = ach.toFixed(2);      nmAchVal.textContent      = ach.toFixed(1); }
         if (nmSero)     { nmSero.value     = serotonin.toFixed(2); nmSeroVal.textContent    = serotonin.toFixed(1); }
+        updateNeuromodIndicator(dopamine, ach, serotonin);
         // backend 적용.
         await backend.setNeuromodulator({ dopamine, acetylcholine: ach, serotonin });
         // 매 4 step마다 1번 inject (uniform pattern) — region bars / decode 영역 갱신 시각화.
@@ -991,6 +1013,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (nmDopamine) { nmDopamine.value = 0; nmDopamineVal.textContent = '0.0'; }
       if (nmAch)      { nmAch.value = 0;      nmAchVal.textContent = '0.0'; }
       if (nmSero)     { nmSero.value = 0;     nmSeroVal.textContent = '0.0'; }
+      updateNeuromodIndicator(0, 0, 0);
       await backend.setNeuromodulator({ dopamine: 0, acetylcholine: 0, serotonin: 0 });
     });
   }

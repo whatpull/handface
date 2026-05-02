@@ -196,11 +196,18 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
   }
   if (!popKey) return null;
   const xKey = POP_TO_REGION_X_KEY[popKey];
-  const x = REGION_X[xKey];
-  if (x === undefined) return null;
-  // y 좌표: 기존 preset population 아래로 stack (간격 80).
-  const baseY = 1080;  // preset 아래 영역 (CANVAS_CENTER_Y 약 630, base column 길이 4-10 cells × 110 + 80 padding).
-  const y = baseY + stackOffset * 90;
+  const baseX = REGION_X[xKey];
+  if (baseX === undefined) return null;
+  // 2D grid layout: per_col=8 (column당 최대 8 행), 그 다음 옆 column으로 wrap.
+  // x: base_x + col * 90 (column 간격), y: base_y + row * 90 (row 간격).
+  const PER_COL = 8;
+  const COL_GAP = 90;
+  const ROW_GAP = 90;
+  const baseY = 1080;
+  const col = Math.floor(stackOffset / PER_COL);
+  const row = stackOffset % PER_COL;
+  const x = baseX + col * COL_GAP;
+  const y = baseY + row * ROW_GAP;
   // color: region 기준.
   const colorMap = { V1: '#4dd0e1', V2: '#b794f4' };
   return {

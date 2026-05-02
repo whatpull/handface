@@ -389,6 +389,40 @@ export class NeuronFaceBackend {
     }
   }
 
+  /**
+   * Session 36: GET /networks/{id}/training/snapshot — 모든 synapse weight snapshot 반환.
+   * 사용자 학습 결과 영역 localStorage 보존 사용.
+   */
+  async getTrainingSnapshot() {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/training/snapshot`);
+      return { ok: true, response: data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 36: POST /networks/{id}/training/load — bulk weight 갱신.
+   * synapses = [{pre, post, weight}] array.
+   */
+  async loadTrainingSnapshot(synapses) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!Array.isArray(synapses) || synapses.length === 0) {
+      return { ok: false, reason: 'empty synapses' };
+    }
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/training/load`, {
+        method: 'POST',
+        body: { synapses },
+      });
+      return { ok: true, response: data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
   /** GET /health — public, no auth required. Used by Settings Test button. */
   async testConnection() {
     try {

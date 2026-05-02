@@ -1722,7 +1722,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-D9P2tT2S.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DTfQus6e.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1885,7 +1885,10 @@
     <div class="nf-section nf-text-modality-section">
       <label class="nf-section-label">TEXT 입력 데모 (Phase 2 multi-modal)</label>
       <input id="nf-text-input" type="text" placeholder="문자열 입력 (예: hello)" maxlength="32" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
-      <button id="nf-text-inject" type="button" class="nf-induce-multi-btn">Encode + inject (ASCII 8-bin 히스토그램)</button>
+      <div class="nf-supervised-grid">
+        <button id="nf-text-inject" type="button" class="nf-induce-multi-btn">Encode + inject (1회)</button>
+        <button id="nf-text-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
+      </div>
       <div id="nf-text-status" class="nf-mode-hint">텍스트 → 각 문자 ASCII 코드 → 8 bin 정규화 히스토그램 → 8-dim pattern → SNN 주입. modality=text. 디코드 결과는 OUT DECODE 패널 참조.</div>
     </div>
     </details>

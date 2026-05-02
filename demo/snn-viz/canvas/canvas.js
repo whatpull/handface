@@ -224,7 +224,8 @@ function attachManualPan(container) {
   let pinchStartZoom = 1;
 
   function isInteractive(target) {
-    return !!target.closest('.input, .output, button, input, textarea, select');
+    // input port + button + form control + Camera/Gesture source mount (enableCamera click 영역).
+    return !!target.closest('.input, .output, button, input, textarea, select, .snn-canvas-source-mount, .snn-canvas-source-card');
   }
 
   function isMenuTarget(target) {

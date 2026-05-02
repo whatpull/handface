@@ -672,6 +672,33 @@
       color: #5eead4;
     }
 
+    /* Decode headline (Session 37). */
+    .nf-decode-headline {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: monospace;
+      text-align: center;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(94, 234, 212, 0.3);
+      border-radius: 4px;
+      color: #94a3b8;
+      background: rgba(94, 234, 212, 0.04);
+      transition: all 0.25s ease;
+    }
+    .nf-decode-headline.active {
+      color: #5eead4;
+      border-color: #5eead4;
+      background: rgba(94, 234, 212, 0.18);
+      box-shadow: 0 0 16px rgba(94, 234, 212, 0.5);
+      animation: nf-decode-pulse 0.4s ease;
+    }
+    @keyframes nf-decode-pulse {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
     /* Session 37 Phase 5: Neuromodulator panel. */
     .nf-neuromod-grid {
       display: flex;
@@ -1722,7 +1749,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DTfQus6e.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-bok-J90V.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1980,6 +2007,7 @@
           <span id="nf-vectorized-state">OFF (NeuralNetwork)</span>
         </label>
       </div>
+      <div id="nf-decode-headline" class="nf-decode-headline">—</div>
       <div class="nf-decode-grid">
         <div class="nf-decode-cell" data-out="out_0"><span class="nf-decode-label">Pointing</span><span class="nf-decode-rate">—</span></div>
         <div class="nf-decode-cell" data-out="out_1"><span class="nf-decode-label">Open palm</span><span class="nf-decode-rate">—</span></div>

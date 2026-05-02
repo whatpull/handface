@@ -16,6 +16,11 @@ import {
   runAnchorVerification,
   exportAnchorVerificationCsv,
 } from './snn-viz/anchor-verification.js';
+import {
+  renderCascadeFire,
+  runCascadeFire,
+  exportCascadeFireCsv,
+} from './snn-viz/cascade-fire-panel.js';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -214,6 +219,57 @@ function setupSettingsUI() {
   if (anchorModal) {
     anchorModal.addEventListener('click', (e) => {
       if (e.target === anchorModal) hideAnchorModal();
+    });
+  }
+
+  // Session 33: cascade fire panel modal.
+  const cfRunBtn   = document.getElementById('nf-cascade-fire-run');
+  const cfOpenBtn  = document.getElementById('nf-cascade-fire-open');
+  const cfModal    = document.getElementById('nf-cascade-fire-modal');
+  const cfClose    = document.getElementById('nf-cascade-fire-modal-close');
+  const cfExport   = document.getElementById('nf-cascade-fire-modal-export');
+  const cfBody     = document.getElementById('nf-cascade-fire-modal-body');
+  let cfResult = null;
+
+  async function runCfMap() {
+    if (!cfBody || !cfModal) return;
+    cfBody.innerHTML = '<div class="nf-cf-loading">Running cascade fire (1 induce, ~1-2s)...</div>';
+    cfModal.classList.remove('nf-cascade-fire-modal--hidden');
+    try {
+      cfResult = await runCascadeFire(backend);
+      cfBody.innerHTML = renderCascadeFire(cfResult);
+    } catch (err) {
+      cfBody.innerHTML = `<div class="nf-cf-empty">Run error: ${err.message}</div>`;
+    }
+  }
+
+  function showCfMap() {
+    if (!cfBody || !cfModal) return;
+    cfBody.innerHTML = cfResult
+      ? renderCascadeFire(cfResult)
+      : '<div class="nf-cf-empty">No result yet — click Run Cascade Fire.</div>';
+    cfModal.classList.remove('nf-cascade-fire-modal--hidden');
+  }
+
+  function hideCfMap() {
+    if (cfModal) cfModal.classList.add('nf-cascade-fire-modal--hidden');
+  }
+
+  if (cfRunBtn)  cfRunBtn.addEventListener('click', runCfMap);
+  if (cfOpenBtn) cfOpenBtn.addEventListener('click', showCfMap);
+  if (cfClose)   cfClose.addEventListener('click', hideCfMap);
+  if (cfExport) {
+    cfExport.addEventListener('click', () => {
+      if (!cfResult) {
+        console.warn('[cascade-fire] no result to export');
+        return;
+      }
+      exportCascadeFireCsv(cfResult);
+    });
+  }
+  if (cfModal) {
+    cfModal.addEventListener('click', (e) => {
+      if (e.target === cfModal) hideCfMap();
     });
   }
 }

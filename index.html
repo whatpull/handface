@@ -1689,7 +1689,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-C0Grvjvs.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BwQT3xns.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1941,6 +1941,16 @@
         <div class="nf-decode-cell" data-out="out_3"><span class="nf-decode-label">Victory</span><span class="nf-decode-rate">—</span></div>
       </div>
       <div class="nf-mode-hint">최근 cascade 의 OUT 발화율 (Hz). 가장 높은 OUT = decoded gesture (winner highlight).</div>
+    </div>
+
+    <div class="nf-section nf-export-section">
+      <label class="nf-section-label">CIRCUIT EXPORT / IMPORT (JSON)</label>
+      <div class="nf-supervised-grid">
+        <button id="nf-circuit-export" type="button" class="nf-induce-multi-btn">Export JSON 다운로드</button>
+        <button id="nf-circuit-import" type="button" class="nf-induce-multi-btn">Import JSON 업로드</button>
+      </div>
+      <input id="nf-circuit-import-file" type="file" accept=".json,application/json" style="display:none;">
+      <div id="nf-circuit-export-status" class="nf-mode-hint">현재 회로 (neurons + synapses + 신경조절) 전체를 JSON으로 다운로드/업로드. 다른 사용자에게 회로 사양 공유 가능.</div>
     </div>
 
     <div class="nf-section nf-training-save-section">

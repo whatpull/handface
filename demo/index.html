@@ -838,6 +838,47 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Region 활성도 미니 bar (대시보드) */
+    .nf-region-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 6px;
+    }
+    .nf-region-bar {
+      display: grid;
+      grid-template-columns: 50px 1fr 50px;
+      align-items: center;
+      gap: 6px;
+    }
+    .nf-region-label {
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: monospace;
+      text-align: right;
+    }
+    .nf-region-track {
+      height: 8px;
+      background: rgba(167, 139, 250, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .nf-region-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+    .nf-region-bar[data-region="INPUT"] .nf-region-fill { background: #f5b842; }
+    .nf-region-bar[data-region="V1"]    .nf-region-fill { background: #4dd0e1; }
+    .nf-region-bar[data-region="V2"]    .nf-region-fill { background: #b794f4; }
+    .nf-region-bar[data-region="OUT"]   .nf-region-fill { background: #5eead4; }
+    .nf-region-val {
+      font-size: 9px;
+      color: #cbd5e1;
+      font-family: monospace;
+      text-align: right;
+    }
+
     /* 대시보드 KPI 카드 */
     .nf-dashboard-grid {
       display: grid;
@@ -1918,6 +1959,12 @@
         <div class="nf-kpi-card"><div class="nf-kpi-label">Total +Δw</div><div id="nf-kpi-totalw" class="nf-kpi-value">—</div></div>
         <div class="nf-kpi-card"><div class="nf-kpi-label">Saturation</div><div id="nf-kpi-sat" class="nf-kpi-value">—</div></div>
         <div class="nf-kpi-card"><div class="nf-kpi-label">Updated</div><div id="nf-kpi-updated" class="nf-kpi-value">—</div></div>
+      </div>
+      <div class="nf-region-bars" id="nf-region-bars">
+        <div class="nf-region-bar" data-region="INPUT"><span class="nf-region-label">INPUT</span><div class="nf-region-track"><div id="nf-region-bar-INPUT" class="nf-region-fill"></div></div><span id="nf-region-val-INPUT" class="nf-region-val">—</span></div>
+        <div class="nf-region-bar" data-region="V1"><span class="nf-region-label">V1</span><div class="nf-region-track"><div id="nf-region-bar-V1" class="nf-region-fill"></div></div><span id="nf-region-val-V1" class="nf-region-val">—</span></div>
+        <div class="nf-region-bar" data-region="V2"><span class="nf-region-label">V2</span><div class="nf-region-track"><div id="nf-region-bar-V2" class="nf-region-fill"></div></div><span id="nf-region-val-V2" class="nf-region-val">—</span></div>
+        <div class="nf-region-bar" data-region="OUT"><span class="nf-region-label">OUT</span><div class="nf-region-track"><div id="nf-region-bar-OUT" class="nf-region-fill"></div></div><span id="nf-region-val-OUT" class="nf-region-val">—</span></div>
       </div>
       <button id="nf-dashboard-refresh" type="button" class="nf-induce-multi-btn">대시보드 새로고침</button>
     </div>

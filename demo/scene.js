@@ -1551,6 +1551,57 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // PATTERN 라이브러리 자동 학습 + 평가.
+  const presetAutoTrainBtn = document.getElementById('nf-preset-auto-train');
+  if (presetAutoTrainBtn) {
+    presetAutoTrainBtn.addEventListener('click', async () => {
+      presetAutoTrainBtn.disabled = true;
+      const orig = presetAutoTrainBtn.textContent;
+      const PAIRS = [
+        { name: 'left',    pattern: PRESET_PATTERNS.left,    target: 'out_0' },
+        { name: 'right',   pattern: PRESET_PATTERNS.right,   target: 'out_1' },
+        { name: 'center',  pattern: PRESET_PATTERNS.center,  target: 'out_2' },
+        { name: 'uniform', pattern: PRESET_PATTERNS.uniform, target: 'out_3' },
+      ];
+      const N_ROUNDS = 5;
+      // 1) Train.
+      for (let round = 1; round <= N_ROUNDS; round += 1) {
+        for (const p of PAIRS) {
+          presetAutoTrainBtn.textContent = `Train ${round}/${N_ROUNDS}: ${p.name}→${p.target}`;
+          const r = await backend.injectPattern(p.pattern, {
+            modality: 'custom',
+            targetOut: p.target,
+            stdp: true,
+          });
+          if (!r.ok) {
+            presetAutoTrainBtn.textContent = `Train failed: ${r.reason || ''}`;
+            setTimeout(() => { presetAutoTrainBtn.textContent = orig; presetAutoTrainBtn.disabled = false; }, 3000);
+            return;
+          }
+        }
+      }
+      // 2) Eval.
+      let correct = 0;
+      const detail = [];
+      for (const p of PAIRS) {
+        presetAutoTrainBtn.textContent = `Eval ${p.name}`;
+        const r = await backend.injectPattern(p.pattern, { modality: 'custom' });
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        const ok = winner === p.target;
+        if (ok) correct += 1;
+        detail.push(`${p.name}=${winner}${ok ? '✓' : '✗'}`);
+      }
+      const pct = (correct / PAIRS.length * 100).toFixed(0);
+      presetAutoTrainBtn.textContent = `Done: ${correct}/${PAIRS.length} = ${pct}%`;
+      if (presetStatus) {
+        presetStatus.textContent = `Auto-train 결과: ${correct}/${PAIRS.length} = ${pct}% | ${detail.join(', ')}`;
+      }
+      await saveTrainingState();
+      setTimeout(() => { presetAutoTrainBtn.textContent = orig; presetAutoTrainBtn.disabled = false; }, 3500);
+    });
+  }
+
   // Phase 2 motion modality: DeviceMotionEvent → 8-bin → injectPattern.
   const motionStream = document.getElementById('nf-motion-stream');
   const motionStatus = document.getElementById('nf-motion-status');

@@ -1982,7 +1982,8 @@
         <button data-pattern="ramp"     type="button" class="nf-supervised-btn">상승</button>
         <button data-pattern="random"   type="button" class="nf-supervised-btn">랜덤</button>
       </div>
-      <div id="nf-preset-status" class="nf-mode-hint">사전 정의 8-dim 패턴 1-click inject (modality=preset). 학습/디코드 차이 확인.</div>
+      <button id="nf-preset-auto-train" type="button" class="nf-induce-multi-btn">Auto-train 4 patterns (5 round) + 평가</button>
+      <div id="nf-preset-status" class="nf-mode-hint">사전 정의 8-dim 패턴 1-click inject. Auto-train: left→out_0, right→out_1, center→out_2, uniform→out_3 학습 후 정확도 자동 측정.</div>
     </div>
 
     <div class="nf-section nf-motion-modality-section">

@@ -1514,6 +1514,89 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 mouse modality: drag pad → angle 8-bin histogram.
+  const mousePad     = document.getElementById('nf-mouse-pad');
+  const mouseInject  = document.getElementById('nf-mouse-inject');
+  const mouseClear   = document.getElementById('nf-mouse-clear');
+  const mouseStatus  = document.getElementById('nf-mouse-status');
+  const mouseBins    = new Array(8).fill(0);
+  if (mousePad) {
+    let dragging = false;
+    let lastX = null, lastY = null;
+    function onDown(e) {
+      const r = mousePad.getBoundingClientRect();
+      const x = (e.touches?.[0]?.clientX ?? e.clientX) - r.left;
+      const y = (e.touches?.[0]?.clientY ?? e.clientY) - r.top;
+      dragging = true;
+      lastX = x; lastY = y;
+      mousePad.classList.add('dragging');
+      e.preventDefault?.();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      const r = mousePad.getBoundingClientRect();
+      const x = (e.touches?.[0]?.clientX ?? e.clientX) - r.left;
+      const y = (e.touches?.[0]?.clientY ?? e.clientY) - r.top;
+      if (lastX !== null && lastY !== null) {
+        const dx = x - lastX, dy = y - lastY;
+        if (dx * dx + dy * dy >= 4) { // 최소 2px 이동
+          let angle = Math.atan2(-dy, dx); // y 반전 (UI 좌표계)
+          if (angle < 0) angle += Math.PI * 2;
+          const bi = Math.min(7, Math.floor(angle / (Math.PI / 4)));
+          mouseBins[bi] += 1;
+          if (mouseStatus) {
+            mouseStatus.textContent = `bins=[${mouseBins.join(',')}]`;
+          }
+          lastX = x; lastY = y;
+        }
+      }
+      e.preventDefault?.();
+    }
+    function onUp() {
+      dragging = false;
+      lastX = null; lastY = null;
+      mousePad.classList.remove('dragging');
+    }
+    mousePad.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    mousePad.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }
+  if (mouseClear) {
+    mouseClear.addEventListener('click', () => {
+      for (let i = 0; i < 8; i += 1) mouseBins[i] = 0;
+      if (mouseStatus) mouseStatus.textContent = 'Reset.';
+    });
+  }
+  if (mouseInject) {
+    mouseInject.addEventListener('click', async () => {
+      const total = mouseBins.reduce((a, b) => a + b, 0);
+      if (total === 0) {
+        if (mouseStatus) mouseStatus.textContent = '먼저 패드를 드래그.';
+        return;
+      }
+      const m = Math.max(...mouseBins);
+      const pattern = mouseBins.map(b => m > 0 ? b / m : 0);
+      mouseInject.disabled = true;
+      const orig = mouseInject.textContent;
+      mouseInject.textContent = 'Injecting...';
+      const r = await backend.injectPattern(pattern, { modality: 'custom' });
+      if (r.ok) {
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        if (mouseStatus) {
+          mouseStatus.textContent = `pattern=[${pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+        }
+        mouseInject.textContent = 'Injected ✓';
+      } else {
+        mouseInject.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { mouseInject.textContent = orig; mouseInject.disabled = false; }, 2000);
+    });
+  }
+
   // Phase 2 text modality: ASCII → 8-bin histogram → injectPattern.
   const textInput  = document.getElementById('nf-text-input');
   const textInject = document.getElementById('nf-text-inject');

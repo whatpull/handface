@@ -725,6 +725,24 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 4: Direct decode pathway toggle.
+  const decodePathwayToggle = document.getElementById('nf-decode-pathway-toggle');
+  const decodePathwayState  = document.getElementById('nf-decode-pathway-state');
+  if (decodePathwayToggle) {
+    decodePathwayToggle.addEventListener('change', async () => {
+      const on = decodePathwayToggle.checked;
+      const r = await backend.setDecodePathway(on);
+      if (r.ok) {
+        if (decodePathwayState) {
+          decodePathwayState.textContent = on ? 'ON (단축 decode)' : 'OFF (cascade only)';
+        }
+      } else {
+        decodePathwayToggle.checked = !on;
+        console.warn('[decode_pathway] failed:', r.reason);
+      }
+    });
+  }
+
   // Phase 7: Grow network handler.
   const growRegion     = document.getElementById('nf-grow-region');
   const growPopulation = document.getElementById('nf-grow-population');

@@ -1238,6 +1238,38 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Synapse weight 직접 편집.
+  const synEditBtn   = document.getElementById('nf-syn-edit-btn');
+  const synEditPre   = document.getElementById('nf-syn-pre');
+  const synEditPost  = document.getElementById('nf-syn-post');
+  const synEditW     = document.getElementById('nf-syn-weight');
+  const synEditStatus = document.getElementById('nf-syn-edit-status');
+  if (synEditBtn) {
+    synEditBtn.addEventListener('click', async () => {
+      const pre  = (synEditPre?.value || '').trim();
+      const post = (synEditPost?.value || '').trim();
+      const w    = parseFloat(synEditW?.value);
+      if (!pre || !post || isNaN(w)) {
+        if (synEditStatus) synEditStatus.textContent = 'pre / post / weight 모두 필요.';
+        return;
+      }
+      synEditBtn.disabled = true;
+      const orig = synEditBtn.textContent;
+      synEditBtn.textContent = 'Updating...';
+      // 기존 시냅스 weight 업데이트는 backend.loadTrainingSnapshot ([{pre, post, weight}]) 사용.
+      const r = await backend.loadTrainingSnapshot([{ pre, post, weight: w }]);
+      if (r.ok) {
+        synEditBtn.textContent = `✓ updated (${r.response?.updated || 1})`;
+        if (synEditStatus) synEditStatus.textContent = `${pre}→${post} weight=${w} 적용됨.`;
+        // 대시보드 + 통계 갱신.
+        if (window.__nfRefreshDashboard) window.__nfRefreshDashboard().catch(() => {});
+      } else {
+        synEditBtn.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { synEditBtn.textContent = orig; synEditBtn.disabled = false; }, 2000);
+    });
+  }
+
   // History CSV 다운로드.
   const statsExportCsvBtn = document.getElementById('nf-stats-export-csv');
   if (statsExportCsvBtn) {

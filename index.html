@@ -1876,7 +1876,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DVn-VRHj.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DPhr7hoU.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -2091,6 +2091,12 @@
       <label class="nf-section-label">MOTION 입력 데모 (Phase 2 multi-modal, 모바일 권장)</label>
       <button id="nf-motion-stream" type="button" class="nf-induce-multi-btn">Motion streaming start</button>
       <div id="nf-motion-status" class="nf-mode-hint">DeviceMotionEvent (가속도 센서) → 1초마다 |x|,|y|,|z|,x±,y±,magnitude 8-bin → SNN 주입. iOS는 권한 요청. 모바일에서 디바이스 흔들면 winner 변화.</div>
+    </div>
+
+    <div class="nf-section nf-geo-modality-section">
+      <label class="nf-section-label">GEOLOCATION 입력 데모 (Phase 2 multi-modal)</label>
+      <button id="nf-geo-inject" type="button" class="nf-induce-multi-btn">현재 위치 inject (1회)</button>
+      <div id="nf-geo-status" class="nf-mode-hint">위치 권한 → 위도/경도/정확도/속도/heading/altitude를 8-dim pattern으로 정규화 → SNN 주입. modality=custom. 권한 거부 시 fallback.</div>
     </div>
 
     <div class="nf-section nf-keyboard-modality-section">

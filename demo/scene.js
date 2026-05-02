@@ -868,6 +868,65 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 image modality: 4×4 grid → 8-bin brightness → injectPattern.
+  const imageGridEl  = document.getElementById('nf-image-grid');
+  const imageInject  = document.getElementById('nf-image-inject');
+  const imageClear   = document.getElementById('nf-image-clear');
+  const imageStatus  = document.getElementById('nf-image-status');
+  const imageCells   = new Array(16).fill(0);
+  if (imageGridEl) {
+    for (let i = 0; i < 16; i += 1) {
+      const cell = document.createElement('div');
+      cell.className = 'nf-image-cell';
+      cell.dataset.idx = String(i);
+      cell.addEventListener('click', () => {
+        const idx = parseInt(cell.dataset.idx, 10);
+        imageCells[idx] = imageCells[idx] ? 0 : 1;
+        cell.classList.toggle('on', imageCells[idx] === 1);
+      });
+      imageGridEl.appendChild(cell);
+    }
+  }
+  if (imageClear) {
+    imageClear.addEventListener('click', () => {
+      for (let i = 0; i < 16; i += 1) {
+        imageCells[i] = 0;
+        const cell = imageGridEl.children[i];
+        if (cell) cell.classList.remove('on');
+      }
+      if (imageStatus) imageStatus.textContent = 'Cleared.';
+    });
+  }
+  if (imageInject) {
+    imageInject.addEventListener('click', async () => {
+      // 16 cells → 8 bins (2 cells per bin, 평균).
+      const pattern = new Array(8).fill(0);
+      for (let b = 0; b < 8; b += 1) {
+        pattern[b] = (imageCells[b * 2] + imageCells[b * 2 + 1]) / 2.0;
+      }
+      const total = imageCells.reduce((a, b) => a + b, 0);
+      if (total === 0) {
+        if (imageStatus) imageStatus.textContent = '셀을 클릭하여 패턴 만들기.';
+        return;
+      }
+      imageInject.disabled = true;
+      const orig = imageInject.textContent;
+      imageInject.textContent = 'Injecting...';
+      const r = await backend.injectPattern(pattern, { modality: 'image' });
+      if (r.ok) {
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        if (imageStatus) {
+          imageStatus.textContent = `pattern=[${pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+        }
+        imageInject.textContent = 'Injected ✓';
+      } else {
+        imageInject.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { imageInject.textContent = orig; imageInject.disabled = false; }, 2000);
+    });
+  }
+
   // Phase 2 text modality: ASCII → 8-bin histogram → injectPattern.
   const textInput  = document.getElementById('nf-text-input');
   const textInject = document.getElementById('nf-text-inject');

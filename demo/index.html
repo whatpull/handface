@@ -832,6 +832,14 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* PATTERN 라이브러리 grid */
+    .nf-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
     /* MOUSE modality drag pad */
     .nf-mouse-pad {
       width: 100%;
@@ -1960,6 +1968,21 @@
       </div>
       <button id="nf-image-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
       <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
+    </div>
+
+    <div class="nf-section nf-preset-pattern-section">
+      <label class="nf-section-label">PATTERN 라이브러리 (사전 정의)</label>
+      <div class="nf-preset-grid">
+        <button data-pattern="uniform"  type="button" class="nf-supervised-btn">균등</button>
+        <button data-pattern="left"     type="button" class="nf-supervised-btn">왼쪽</button>
+        <button data-pattern="right"    type="button" class="nf-supervised-btn">오른쪽</button>
+        <button data-pattern="center"   type="button" class="nf-supervised-btn">중심</button>
+        <button data-pattern="check"    type="button" class="nf-supervised-btn">체크</button>
+        <button data-pattern="invcheck" type="button" class="nf-supervised-btn">역체크</button>
+        <button data-pattern="ramp"     type="button" class="nf-supervised-btn">상승</button>
+        <button data-pattern="random"   type="button" class="nf-supervised-btn">랜덤</button>
+      </div>
+      <div id="nf-preset-status" class="nf-mode-hint">사전 정의 8-dim 패턴 1-click inject (modality=preset). 학습/디코드 차이 확인.</div>
     </div>
 
     <div class="nf-section nf-motion-modality-section">

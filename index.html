@@ -701,6 +701,51 @@
       height: 16px;
     }
 
+    /* 최종 GUI: Multi-modal input panel. */
+    .nf-multimodal-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .nf-multimodal-label {
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: monospace;
+    }
+    .nf-multimodal-select {
+      background: #1a1f2e;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      color: #e2e8f0;
+      padding: 3px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: monospace;
+    }
+    .nf-multimodal-pattern {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .nf-mm-cell {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      align-items: center;
+      gap: 4px;
+    }
+    .nf-mm-cell span {
+      font-size: 9px;
+      color: #94a3b8;
+      font-family: monospace;
+      text-align: right;
+    }
+    .nf-mm-cell input[type="range"] {
+      accent-color: #a78bfa;
+      height: 14px;
+    }
+
     /* 모바일 반응형 — width ≤ 768px OR 세로 우세 (aspect ≤ 4/5).
        OR 조건 통합 (DRY): width 작은 phone + tablet portrait + 세로 모니터 모두 동일 layout. */
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
@@ -1621,7 +1666,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BjW1PHKL.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CmqdmVMK.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1715,6 +1760,45 @@
       </div>
       <button id="nf-supervised-batch" type="button" class="nf-induce-multi-btn">Batch (4 gestures × 5 trials)</button>
       <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
+    </div>
+
+    <div class="nf-section nf-multimodal-section">
+      <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Modality</span>
+        <select id="nf-mm-modality" class="nf-multimodal-select">
+          <option value="custom">custom</option>
+          <option value="image">image</option>
+          <option value="text">text</option>
+          <option value="audio">audio</option>
+          <option value="gesture">gesture</option>
+        </select>
+      </div>
+      <div id="nf-mm-pattern" class="nf-multimodal-pattern">
+        <div class="nf-mm-cell" data-idx="0"><span>pinch</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="1"><span>fist</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="2"><span>palm</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="3"><span>point</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="4"><span>gaze</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="5"><span>blink</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="6"><span>thumbs</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+        <div class="nf-mm-cell" data-idx="7"><span>victory</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Train target</span>
+        <select id="nf-mm-target" class="nf-multimodal-select">
+          <option value="">(none — inject only)</option>
+          <option value="out_0">out_0 (Pointing)</option>
+          <option value="out_1">out_1 (Open palm)</option>
+          <option value="out_2">out_2 (Thumbs up)</option>
+          <option value="out_3">out_3 (Victory)</option>
+        </select>
+      </div>
+      <div class="nf-supervised-grid">
+        <button id="nf-mm-inject" type="button" class="nf-induce-multi-btn">Inject (1×)</button>
+        <button id="nf-mm-train"  type="button" class="nf-induce-multi-btn">Train (10×)</button>
+      </div>
+      <div class="nf-mode-hint">8-dim pattern 영역 INPUT 영역 → cascade → OUT decode (좌하 panel). target 영역 시 supervised RL (10x trial). Phase 1~5 통합 framework.</div>
     </div>
 
     <div class="nf-section nf-neuromod-section">

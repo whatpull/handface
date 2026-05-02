@@ -1666,7 +1666,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-CmqdmVMK.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-vJ4XzVkI.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1760,6 +1760,35 @@
       </div>
       <button id="nf-supervised-batch" type="button" class="nf-induce-multi-btn">Batch (4 gestures × 5 trials)</button>
       <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
+    </div>
+
+    <div class="nf-section nf-grow-section">
+      <label class="nf-section-label">GROW NETWORK (Phase 7 — 성장하는 뉴런)</label>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Region</span>
+        <select id="nf-grow-region" class="nf-multimodal-select">
+          <option value="V1">V1</option>
+          <option value="V2">V2</option>
+        </select>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Population</span>
+        <select id="nf-grow-population" class="nf-multimodal-select">
+          <option value="L4_E">L4_E</option>
+          <option value="L23_E">L23_E</option>
+          <option value="L5_E">L5_E</option>
+        </select>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Count</span>
+        <select id="nf-grow-count" class="nf-multimodal-select">
+          <option value="2">+2</option>
+          <option value="5">+5</option>
+          <option value="10">+10</option>
+        </select>
+      </div>
+      <button id="nf-grow-btn" type="button" class="nf-induce-multi-btn">Grow + reload canvas</button>
+      <div id="nf-grow-status" class="nf-mode-hint">동적 영역 영역 — 영역 region 영역 population 영역 영역 영역 추가 + 영역 영역. canvas 영역 영역 영역.</div>
     </div>
 
     <div class="nf-section nf-multimodal-section">

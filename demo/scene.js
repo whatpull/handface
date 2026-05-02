@@ -1117,10 +1117,6 @@ function disableCamera() {
   if (cameraMountEl) {
     cameraMountEl.innerHTML = `
       <div class="snn-canvas-source-empty">
-        <svg class="snn-canvas-source-empty-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
         <div>Camera disabled</div>
         <div class="snn-canvas-source-empty-hint">Enable from left sidebar</div>
       </div>
@@ -1129,12 +1125,6 @@ function disableCamera() {
   if (gestureMountEl) {
     gestureMountEl.innerHTML = `
       <div class="snn-canvas-source-empty">
-        <svg class="snn-canvas-source-empty-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
-          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
-          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
-        </svg>
         <div>Hand detection disabled</div>
         <div class="snn-canvas-source-empty-hint">Enable camera first</div>
       </div>

@@ -1371,6 +1371,18 @@ window.addEventListener('DOMContentLoaded', () => {
       const saturated = pos.filter(w => w >= 250).length;
       lines.push(`  saturated (>=250): ${saturated}/${pos.length} = ${(saturated/pos.length*100).toFixed(1)}%`);
       lines.push(``);
+      // Modality 사용 빈도.
+      const modCounts = loadModalityCount();
+      if (Object.keys(modCounts).length > 0) {
+        lines.push(``);
+        lines.push(`# Modality 사용 (이 브라우저 누적)`);
+        const total = Object.values(modCounts).reduce((a, b) => a + b, 0);
+        const sorted = Object.entries(modCounts).sort((a, b) => b[1] - a[1]);
+        for (const [m, n] of sorted) {
+          lines.push(`  ${m.padEnd(10)} ${n.toString().padStart(4)} (${(n/total*100).toFixed(0)}%)`);
+        }
+      }
+      lines.push(``);
       lines.push(`# 신경조절 (Phase 5)`);
       if (nm) {
         lines.push(`  dopamine:      ${nm.dopamine}    (STDP gain ${nm.stdp_gain})`);
@@ -2338,10 +2350,25 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Per-modality 사용 카운터 (localStorage).
+  const MODALITY_COUNT_KEY = 'handface.modality_count.v1';
+  function loadModalityCount() {
+    try { return JSON.parse(localStorage.getItem(MODALITY_COUNT_KEY) || '{}'); }
+    catch (_) { return {}; }
+  }
+  function saveModalityCount(obj) {
+    try { localStorage.setItem(MODALITY_COUNT_KEY, JSON.stringify(obj)); } catch (_) {}
+  }
   // Decode panel + Region bars listen — 모든 backend train/induce response 자동 갱신.
   backend.onEvent((evt) => {
     const r = evt?.response;
     if (!r) return;
+    // Modality 카운트.
+    if (r.modality) {
+      const counts = loadModalityCount();
+      counts[r.modality] = (counts[r.modality] || 0) + 1;
+      saveModalityCount(counts);
+    }
     // Region 활성도 갱신.
     if (r.rates_by_region) {
       updateRegionBars(r.rates_by_region);

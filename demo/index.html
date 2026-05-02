@@ -832,6 +832,23 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* MOUSE modality drag pad */
+    .nf-mouse-pad {
+      width: 100%;
+      max-width: 200px;
+      height: 100px;
+      background: #1a1f2e;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      border-radius: 4px;
+      cursor: crosshair;
+      position: relative;
+      touch-action: none;
+      margin-bottom: 6px;
+    }
+    .nf-mouse-pad.dragging {
+      border-color: #a78bfa;
+    }
+
     /* Image modality 4×4 grid */
     .nf-image-grid {
       display: grid;
@@ -1943,6 +1960,16 @@
       </div>
       <button id="nf-image-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
       <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
+    </div>
+
+    <div class="nf-section nf-mouse-modality-section">
+      <label class="nf-section-label">MOUSE 입력 데모 (Phase 2 multi-modal)</label>
+      <div class="nf-mouse-pad" id="nf-mouse-pad"></div>
+      <div class="nf-supervised-grid">
+        <button id="nf-mouse-clear" type="button" class="nf-induce-multi-btn">Reset</button>
+        <button id="nf-mouse-inject" type="button" class="nf-induce-multi-btn">Encode + inject</button>
+      </div>
+      <div id="nf-mouse-status" class="nf-mode-hint">패드를 드래그 → 이동 방향 angle을 8 bin (E, NE, N, NW, W, SW, S, SE)으로 누적 → 정규화 → 8-dim pattern → SNN 주입. modality=custom.</div>
     </div>
 
     <div class="nf-section nf-text-modality-section">

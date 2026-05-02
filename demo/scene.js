@@ -547,6 +547,8 @@ async function saveTrainingState() {
     console.info(`[neuronface] training snapshot saved (${payload.synapse_count} synapses)`);
     // Phase 2: D1 mirror (best-effort, non-blocking on UI).
     mirrorToD1(payload.synapses, 'D100').catch(() => {});
+    // 대시보드 자동 갱신.
+    if (window.__nfRefreshDashboard) window.__nfRefreshDashboard().catch(() => {});
     return true;
   } catch (err) {
     console.error('[neuronface] localStorage save failed:', err);
@@ -933,6 +935,9 @@ window.addEventListener('DOMContentLoaded', () => {
           .join(', ');
         decodeEvalResult.textContent = `정확도: ${correct}/${total} = ${pct}% | ${detail}`;
       }
+      // KPI 자동 갱신.
+      if (window.__nfSetKpiAccuracy) window.__nfSetKpiAccuracy(correct, total);
+      if (window.__nfRefreshDashboard) window.__nfRefreshDashboard().catch(() => {});
       setTimeout(() => { decodeEvalBtn.textContent = orig; decodeEvalBtn.disabled = false; }, 3000);
     });
   }
@@ -959,8 +964,38 @@ window.addEventListener('DOMContentLoaded', () => {
   const dashboardRefreshBtn = document.getElementById('nf-dashboard-refresh');
   const kpiNeurons  = document.getElementById('nf-kpi-neurons');
   const kpiSynapses = document.getElementById('nf-kpi-synapses');
+  const kpiAccuracy = document.getElementById('nf-kpi-accuracy');
   const kpiTotalW   = document.getElementById('nf-kpi-totalw');
   const kpiSat      = document.getElementById('nf-kpi-sat');
+  const kpiUpdated  = document.getElementById('nf-kpi-updated');
+  let lastDecodeAccuracy = null; // {correct, total, ts}
+
+  function setKpiAccuracy(correct, total) {
+    lastDecodeAccuracy = { correct, total, ts: Date.now() };
+    if (kpiAccuracy) {
+      const pct = total > 0 ? (correct / total * 100).toFixed(0) : '—';
+      kpiAccuracy.textContent = `${correct}/${total} (${pct}%)`;
+    }
+    try {
+      localStorage.setItem('handface.last_accuracy.v1', JSON.stringify(lastDecodeAccuracy));
+    } catch (_) {}
+  }
+
+  // 페이지 로드 시 localStorage 복원.
+  try {
+    const raw = localStorage.getItem('handface.last_accuracy.v1');
+    if (raw) {
+      const cached = JSON.parse(raw);
+      if (cached && typeof cached.correct === 'number') {
+        lastDecodeAccuracy = cached;
+        if (kpiAccuracy) {
+          const pct = cached.total > 0 ? (cached.correct / cached.total * 100).toFixed(0) : '—';
+          kpiAccuracy.textContent = `${cached.correct}/${cached.total} (${pct}%)`;
+        }
+      }
+    }
+  } catch (_) {}
+
   async function refreshDashboard() {
     const snap = await backend.getTrainingSnapshot();
     const exp  = await backend.exportTopology();
@@ -973,8 +1008,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (kpiSynapses) kpiSynapses.textContent = synapses.length;
     if (kpiTotalW)   kpiTotalW.textContent = pos.reduce((a, b) => a + b, 0).toFixed(0);
     if (kpiSat)      kpiSat.textContent = pos.length ? `${(sat / pos.length * 100).toFixed(0)}%` : '—';
+    if (kpiUpdated)  kpiUpdated.textContent = new Date().toLocaleTimeString();
   }
   if (dashboardRefreshBtn) dashboardRefreshBtn.addEventListener('click', refreshDashboard);
+  // 외부 export — auto-train / accuracy 측정 후 호출 가능.
+  window.__nfRefreshDashboard = refreshDashboard;
+  window.__nfSetKpiAccuracy   = setKpiAccuracy;
   // 초기 1회 (지연 — backend ready 후).
   setTimeout(() => { refreshDashboard().catch(() => {}); }, 1500);
 
@@ -1620,6 +1659,9 @@ window.addEventListener('DOMContentLoaded', () => {
       if (presetStatus) {
         presetStatus.textContent = `Auto-train 결과: ${correct}/${PAIRS.length} = ${pct}% | ${detail.join(', ')}`;
       }
+      // KPI 자동 갱신.
+      if (window.__nfSetKpiAccuracy) window.__nfSetKpiAccuracy(correct, PAIRS.length);
+      if (window.__nfRefreshDashboard) window.__nfRefreshDashboard().catch(() => {});
       await saveTrainingState();
       setTimeout(() => { presetAutoTrainBtn.textContent = orig; presetAutoTrainBtn.disabled = false; }, 3500);
     });

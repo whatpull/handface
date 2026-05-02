@@ -745,8 +745,22 @@ window.addEventListener('DOMContentLoaded', () => {
       );
       if (r.ok) {
         const j = r.response;
+        // Phase 7 canvas refresh: fetch updated synapses + remount canvas (existing nodes).
+        // 신규 추가 영역 NEURON_NODES 영역 영역 영역 영역 영역 안 영역, 영역 영역 영역 영역 영역.
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) {
+            lastFireResponse.synapses = snap.response.synapses;
+          } else {
+            lastFireResponse = { synapses: snap.response.synapses };
+          }
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') {
+            mountCanvasForMode();
+          }
+        }
         if (growStatus) {
-          growStatus.textContent = `+${j.added_neurons.length} neurons / +${j.added_synapses_count} synapses (total ${j.total_neurons}/${j.total_synapses}). Canvas reload 영역 영역 영역.`;
+          growStatus.textContent = `+${j.added_neurons.length} neurons / +${j.added_synapses_count} synapses (total ${j.total_neurons}/${j.total_synapses}). Canvas refreshed.`;
         }
         growBtn.textContent = `Grew +${j.added_neurons.length} ✓`;
       } else {

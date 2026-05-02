@@ -1876,7 +1876,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-CB1kFxIj.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-C0cNktpU.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -2090,6 +2090,13 @@
       <label class="nf-section-label">MOTION 입력 데모 (Phase 2 multi-modal, 모바일 권장)</label>
       <button id="nf-motion-stream" type="button" class="nf-induce-multi-btn">Motion streaming start</button>
       <div id="nf-motion-status" class="nf-mode-hint">DeviceMotionEvent (가속도 센서) → 1초마다 |x|,|y|,|z|,x±,y±,magnitude 8-bin → SNN 주입. iOS는 권한 요청. 모바일에서 디바이스 흔들면 winner 변화.</div>
+    </div>
+
+    <div class="nf-section nf-keyboard-modality-section">
+      <label class="nf-section-label">KEYBOARD 입력 데모 (Phase 2 multi-modal)</label>
+      <input id="nf-kbd-input" type="text" placeholder="아무거나 타이핑 (스트리밍 중)" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
+      <button id="nf-kbd-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
+      <div id="nf-kbd-status" class="nf-mode-hint">텍스트 box에 타이핑 → 직전 1초간 keystroke timestamp를 8 슬롯 (125ms씩) 분포로 변환 → 8-dim pattern → injectPattern. modality=custom. 타이핑 속도/리듬에 따라 winner 변화.</div>
     </div>
 
     <div class="nf-section nf-mouse-modality-section">

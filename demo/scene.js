@@ -1570,6 +1570,10 @@ window.addEventListener('DOMContentLoaded', () => {
       if (mouseStatus) mouseStatus.textContent = 'Reset.';
     });
   }
+  function patternFromMouseBins() {
+    const m = Math.max(...mouseBins);
+    return mouseBins.map(b => m > 0 ? b / m : 0);
+  }
   if (mouseInject) {
     mouseInject.addEventListener('click', async () => {
       const total = mouseBins.reduce((a, b) => a + b, 0);
@@ -1577,8 +1581,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (mouseStatus) mouseStatus.textContent = '먼저 패드를 드래그.';
         return;
       }
-      const m = Math.max(...mouseBins);
-      const pattern = mouseBins.map(b => m > 0 ? b / m : 0);
+      const pattern = patternFromMouseBins();
       mouseInject.disabled = true;
       const orig = mouseInject.textContent;
       mouseInject.textContent = 'Injecting...';
@@ -1594,6 +1597,42 @@ window.addEventListener('DOMContentLoaded', () => {
         mouseInject.textContent = `Failed: ${r.reason || ''}`;
       }
       setTimeout(() => { mouseInject.textContent = orig; mouseInject.disabled = false; }, 2000);
+    });
+  }
+
+  // MOUSE streaming 모드: 1초 주기 누적 bins inject + 자동 reset (다음 tick은 새 누적).
+  const mouseStream = document.getElementById('nf-mouse-stream');
+  let mouseStreamCtx = null;
+  if (mouseStream) {
+    mouseStream.addEventListener('click', async () => {
+      if (mouseStreamCtx) {
+        mouseStreamCtx.running = false;
+        mouseStreamCtx = null;
+        mouseStream.textContent = 'Streaming start';
+        if (mouseStatus) mouseStatus.textContent = 'Streaming stopped.';
+        return;
+      }
+      mouseStreamCtx = { running: true };
+      mouseStream.textContent = 'Streaming stop';
+      let tick = 0;
+      while (mouseStreamCtx && mouseStreamCtx.running) {
+        tick += 1;
+        const total = mouseBins.reduce((a, b) => a + b, 0);
+        if (total > 0) {
+          const pattern = patternFromMouseBins();
+          // bins reset (다음 1초에 새로 누적).
+          for (let i = 0; i < 8; i += 1) mouseBins[i] = 0;
+          const r = await backend.injectPattern(pattern, { modality: 'custom' });
+          if (mouseStatus && r.ok) {
+            const out = r.response?.out_rates || {};
+            const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+            mouseStatus.textContent = `[stream tick ${tick}] motion=${total} → winner=${winner || '없음'}`;
+          }
+        } else {
+          if (mouseStatus) mouseStatus.textContent = `[stream tick ${tick}] motion 없음 — 패드 드래그`;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
     });
   }
 

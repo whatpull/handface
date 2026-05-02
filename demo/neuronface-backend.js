@@ -508,6 +508,65 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 7: 전체 회로 사양 export — neurons + synapses + 신경조절 상태.
+   * JSON 파일로 다운로드 / 외부 공유용. importCircuit으로 복원 가능.
+   */
+  async exportCircuit() {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}`);
+      let nm = null;
+      try {
+        nm = await this._fetch(`/networks/${this._networkId}/neuromodulator`);
+      } catch (_) {}
+      return {
+        ok: true,
+        spec: {
+          version: 1,
+          exported_at: new Date().toISOString(),
+          neurons: (data.neurons || []).map(n => ({
+            name: n.name, region: n.region, population: n.population,
+            v_threshold: n.v_threshold, v_rest: n.v_rest, v_reset: n.v_reset,
+            tau_m: n.tau_m, refractory: n.refractory,
+          })),
+          synapses: (data.synapses || []).map(s => ({
+            pre: s.pre, post: s.post, weight: s.weight, delay: s.delay,
+          })),
+          neuromodulator: nm ? {
+            dopamine: nm.dopamine, acetylcholine: nm.acetylcholine, serotonin: nm.serotonin,
+          } : null,
+        },
+      };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 37 Phase 7: JSON 사양 객체로 회로 import.
+   * importTopology + 신경조절 복원.
+   */
+  async importCircuit(spec) {
+    if (!spec || !Array.isArray(spec.neurons) || !Array.isArray(spec.synapses)) {
+      return { ok: false, reason: 'invalid spec' };
+    }
+    const r = await this.importTopology(spec.neurons, spec.synapses);
+    if (!r.ok) return r;
+    if (spec.neuromodulator) {
+      try {
+        await this.setNeuromodulator(spec.neuromodulator);
+      } catch (_) {}
+    }
+    // weights 복원 (synapse import 후 weight overwrite).
+    if (spec.synapses && spec.synapses.length > 0) {
+      try {
+        await this.loadTrainingSnapshot(spec.synapses);
+      } catch (_) {}
+    }
+    return r;
+  }
+
+  /**
    * Session 37 Phase 7 topology: 현재 회로 신경세포 + 시냅스 export.
    * neurons는 기본 preset 외 grown 뉴런만 (region/population/v_threshold 포함).
    * synapses는 모든 시냅스 (pre/post/weight/delay).

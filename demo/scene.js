@@ -630,6 +630,77 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { trainBtn.textContent = orig; trainBtn.disabled = false; }, 2000);
   });
 
+  // Phase 7 회로 사양 JSON export/import.
+  const circuitExportBtn = document.getElementById('nf-circuit-export');
+  const circuitImportBtn = document.getElementById('nf-circuit-import');
+  const circuitImportFile = document.getElementById('nf-circuit-import-file');
+  const circuitExportStatus = document.getElementById('nf-circuit-export-status');
+
+  if (circuitExportBtn) {
+    circuitExportBtn.addEventListener('click', async () => {
+      circuitExportBtn.disabled = true;
+      const orig = circuitExportBtn.textContent;
+      circuitExportBtn.textContent = 'Exporting...';
+      const r = await backend.exportCircuit();
+      if (!r.ok) {
+        circuitExportBtn.textContent = `Failed: ${r.reason || ''}`;
+        setTimeout(() => { circuitExportBtn.textContent = orig; circuitExportBtn.disabled = false; }, 2000);
+        return;
+      }
+      const json = JSON.stringify(r.spec, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `handface-circuit-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      circuitExportBtn.textContent = `Downloaded ✓ (${r.spec.neurons.length}n / ${r.spec.synapses.length}s)`;
+      if (circuitExportStatus) {
+        circuitExportStatus.textContent = `Exported: ${r.spec.neurons.length} neurons, ${r.spec.synapses.length} synapses, neuromod=${r.spec.neuromodulator ? 'yes' : 'no'}`;
+      }
+      setTimeout(() => { circuitExportBtn.textContent = orig; circuitExportBtn.disabled = false; }, 2500);
+    });
+  }
+  if (circuitImportBtn && circuitImportFile) {
+    circuitImportBtn.addEventListener('click', () => circuitImportFile.click());
+    circuitImportFile.addEventListener('change', async () => {
+      const file = circuitImportFile.files?.[0];
+      if (!file) return;
+      circuitImportBtn.disabled = true;
+      const orig = circuitImportBtn.textContent;
+      circuitImportBtn.textContent = `Loading ${file.name}...`;
+      try {
+        const text = await file.text();
+        const spec = JSON.parse(text);
+        circuitImportBtn.textContent = 'Importing to backend...';
+        const r = await backend.importCircuit(spec);
+        if (r.ok) {
+          circuitImportBtn.textContent = `Imported ✓ (+${r.addedNeurons} neurons / +${r.addedSynapses} synapses)`;
+          // Canvas 재로드.
+          const snap = await backend.getTrainingSnapshot();
+          if (snap.ok && snap.response?.synapses) {
+            if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+            else lastFireResponse = { synapses: snap.response.synapses };
+            state.synapses = snap.response.synapses;
+            if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+          }
+          if (circuitExportStatus) {
+            circuitExportStatus.textContent = `Imported from ${file.name}: +${r.addedNeurons}n / +${r.addedSynapses}s`;
+          }
+        } else {
+          circuitImportBtn.textContent = `Import failed: ${r.reason || ''}`;
+        }
+      } catch (err) {
+        circuitImportBtn.textContent = `Parse error: ${err.message}`;
+      }
+      circuitImportFile.value = '';
+      setTimeout(() => { circuitImportBtn.textContent = orig; circuitImportBtn.disabled = false; }, 3000);
+    });
+  }
+
   // Session 36: Save / Load / Clear training button handler.
   const saveBtn  = document.getElementById('nf-training-save');
   const loadBtn  = document.getElementById('nf-training-load');

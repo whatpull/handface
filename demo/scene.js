@@ -947,6 +947,54 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Day cycle 시뮬레이션: 30초 sine wave로 dopamine/ACh/serotonin 변화 + 자동 inject.
+  const nmCycle = document.getElementById('nf-nm-cycle');
+  let nmCycleCtx = null;
+  if (nmCycle) {
+    nmCycle.addEventListener('click', async () => {
+      if (nmCycleCtx) {
+        nmCycleCtx.running = false;
+        nmCycleCtx = null;
+        nmCycle.textContent = 'Day cycle 시뮬레이션';
+        return;
+      }
+      nmCycleCtx = { running: true };
+      nmCycle.textContent = 'Day cycle stop';
+      const PERIOD_MS = 30000;
+      const STEP_MS = 500;
+      const start = performance.now();
+      let tick = 0;
+      while (nmCycleCtx && nmCycleCtx.running) {
+        const t = (performance.now() - start) / PERIOD_MS;
+        // 0 ≤ t — 1 cycle = 1.
+        const phase = (t % 1) * 2 * Math.PI;
+        // 낮 (sin > 0): ACh + dopamine 양 / 밤 (sin < 0): serotonin.
+        const day  = Math.max(0, Math.sin(phase));
+        const night = Math.max(0, -Math.sin(phase));
+        const dopamine = day * 1.0;        // [0, 1]
+        const ach      = day * 0.6;        // [0, 0.6]
+        const serotonin = night * 1.0;     // [0, 1]
+        // 슬라이더 + 카드 동기.
+        if (nmDopamine) { nmDopamine.value = dopamine.toFixed(2); nmDopamineVal.textContent = dopamine.toFixed(1); }
+        if (nmAch)      { nmAch.value      = ach.toFixed(2);      nmAchVal.textContent      = ach.toFixed(1); }
+        if (nmSero)     { nmSero.value     = serotonin.toFixed(2); nmSeroVal.textContent    = serotonin.toFixed(1); }
+        // backend 적용.
+        await backend.setNeuromodulator({ dopamine, acetylcholine: ach, serotonin });
+        // 매 4 step마다 1번 inject (uniform pattern) — region bars / decode 영역 갱신 시각화.
+        tick += 1;
+        if (tick % 2 === 0) {
+          await backend.injectPattern([1,1,1,1,1,1,1,1], { modality: 'custom' });
+        }
+        await new Promise(r => setTimeout(r, STEP_MS));
+      }
+      // 정지 시점 reset.
+      if (nmDopamine) { nmDopamine.value = 0; nmDopamineVal.textContent = '0.0'; }
+      if (nmAch)      { nmAch.value = 0;      nmAchVal.textContent = '0.0'; }
+      if (nmSero)     { nmSero.value = 0;     nmSeroVal.textContent = '0.0'; }
+      await backend.setNeuromodulator({ dopamine: 0, acetylcholine: 0, serotonin: 0 });
+    });
+  }
+
   // Session 37 Phase 7: Vectorized backend toggle.
   const vecToggle = document.getElementById('nf-vectorized-toggle');
   const vecState  = document.getElementById('nf-vectorized-state');

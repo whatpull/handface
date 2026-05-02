@@ -1514,6 +1514,43 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // PATTERN 라이브러리: 사전 정의 8-dim 패턴 1-click inject.
+  const PRESET_PATTERNS = {
+    uniform:  [1, 1, 1, 1, 1, 1, 1, 1],
+    left:     [1, 1, 1, 1, 0, 0, 0, 0],
+    right:    [0, 0, 0, 0, 1, 1, 1, 1],
+    center:   [0, 0, 1, 1, 1, 1, 0, 0],
+    check:    [1, 0, 1, 0, 1, 0, 1, 0],
+    invcheck: [0, 1, 0, 1, 0, 1, 0, 1],
+    ramp:     [0, 0.14, 0.29, 0.43, 0.57, 0.71, 0.86, 1],
+    random:   null, // 클릭 시 매번 새로 생성.
+  };
+  const presetButtons = Array.from(document.querySelectorAll('.nf-preset-grid button[data-pattern]'));
+  const presetStatus  = document.getElementById('nf-preset-status');
+  presetButtons.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.pattern;
+      const pattern = key === 'random'
+        ? Array.from({ length: 8 }, () => Math.random())
+        : PRESET_PATTERNS[key].slice();
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = '...';
+      const r = await backend.injectPattern(pattern, { modality: 'custom' });
+      if (r.ok) {
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        if (presetStatus) {
+          presetStatus.textContent = `${key}: pattern=[${pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+        }
+        btn.textContent = '✓';
+      } else {
+        btn.textContent = '✗';
+      }
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
+    });
+  });
+
   // Phase 2 motion modality: DeviceMotionEvent → 8-bin → injectPattern.
   const motionStream = document.getElementById('nf-motion-stream');
   const motionStatus = document.getElementById('nf-motion-status');

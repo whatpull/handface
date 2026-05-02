@@ -21,6 +21,8 @@ import {
   runCascadeFire,
   exportCascadeFireCsv,
 } from './snn-viz/cascade-fire-panel.js';
+import { initCanvas, updateCanvasFire, destroyCanvas } from './snn-viz/canvas/index.js';
+import './snn-viz/canvas/style.css';
 
 // ─────────────────────────────────────────
 // Neural backend — NeuronFace (real HTTP)
@@ -403,5 +405,42 @@ async function autoStart() {
     console.error('[handface] autoStart failed:', err);
   }
 }
+
+// ─── Session 33 drawflow PoC: canvas toggle handler ───
+const canvasToggleBtn = document.getElementById('nf-canvas-toggle');
+const canvasContainer = document.getElementById('nf-snn-canvas');
+
+let canvasMode = false;
+let lastFireResponse = null;
+
+function toggleCanvasView() {
+  canvasMode = !canvasMode;
+  const snnFlowContainer = document.querySelector('.snn-flow');
+
+  if (canvasMode) {
+    if (snnFlowContainer) snnFlowContainer.style.display = 'none';
+    canvasContainer?.classList.add('snn-canvas--visible');
+    initCanvas('nf-snn-canvas');
+    if (lastFireResponse?.active_neurons_by_region) {
+      updateCanvasFire(lastFireResponse.active_neurons_by_region);
+    }
+  } else {
+    destroyCanvas();
+    canvasContainer?.classList.remove('snn-canvas--visible');
+    if (snnFlowContainer) snnFlowContainer.style.display = '';
+  }
+}
+
+if (canvasToggleBtn) {
+  canvasToggleBtn.addEventListener('click', toggleCanvasView);
+}
+
+window.addEventListener('snn-viz:fire-update', (e) => {
+  const r = e.detail?.response || window.__lastFireResponse || state.lastFireResponse || {};
+  lastFireResponse = r;
+  if (canvasMode && r.active_neurons_by_region) {
+    updateCanvasFire(r.active_neurons_by_region);
+  }
+});
 
 autoStart();

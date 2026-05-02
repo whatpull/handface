@@ -112,7 +112,8 @@ export function initSnnViz({ control, backend }) {
         }
       }
       // D45: popover 가 열려있으면 live refresh (rate / state row 갱신).
-      window.dispatchEvent(new CustomEvent('snn-viz:fire-update'));
+      // Session 33: drawflow canvas (PoC) 영역 detail.response 추가 — 기존 listener 영향 0.
+      window.dispatchEvent(new CustomEvent('snn-viz:fire-update', { detail: { response: r } }));
       const activeByRegion = r.active_neurons_by_region || {};
       const inputNames = activeByRegion.INPUT || [];
       const v1Names = activeByRegion.V1 || [];

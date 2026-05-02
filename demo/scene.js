@@ -538,6 +538,111 @@ window.addEventListener('DOMContentLoaded', () => {
     clearBtn.disabled = true;
     setTimeout(() => { clearBtn.textContent = orig; clearBtn.disabled = false; }, 1500);
   });
+
+  // Session 37 Phase 4 본격: supervised RL handler.
+  const supervisedStatus = document.getElementById('nf-supervised-status');
+  const supervisedBtns = Array.from(document.querySelectorAll('.nf-supervised-btn'));
+  const supervisedBatchBtn = document.getElementById('nf-supervised-batch');
+
+  function updateDecodePanel(outRates) {
+    if (!outRates) return;
+    const cells = Array.from(document.querySelectorAll('.nf-decode-cell'));
+    let maxRate = -1;
+    let winner = null;
+    for (const cell of cells) {
+      const out = cell.dataset.out;
+      const rate = outRates[out] ?? 0;
+      cell.querySelector('.nf-decode-rate').textContent = `${rate.toFixed(1)} Hz`;
+      cell.classList.remove('winner');
+      if (rate > maxRate) { maxRate = rate; winner = cell; }
+    }
+    if (winner && maxRate > 0) winner.classList.add('winner');
+  }
+
+  async function runSingleSupervised(gesture, target, trials = 5) {
+    backend.setStdpMode('pair');
+    let last = null;
+    for (let i = 1; i <= trials; i += 1) {
+      const r = await backend.trainSupervised(gesture, target, { multiInput: true });
+      if (!r.ok) {
+        console.error('[supervised]', r.reason);
+        return { ok: false, reason: r.reason };
+      }
+      last = r.response;
+      if (supervisedStatus) {
+        supervisedStatus.textContent = `${gesture} → ${target} (${i}/${trials})`;
+      }
+    }
+    if (last?.out_rates) updateDecodePanel(last.out_rates);
+    return { ok: true, last };
+  }
+
+  supervisedBtns.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const gesture = btn.dataset.gesture;
+      const target  = btn.dataset.target;
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = `Training ${gesture}...`;
+      const r = await runSingleSupervised(gesture, target, 5);
+      btn.textContent = r.ok ? `${orig} ✓` : `${orig} ✗`;
+      await saveTrainingState();
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+    });
+  });
+
+  if (supervisedBatchBtn) {
+    supervisedBatchBtn.addEventListener('click', async () => {
+      if (supervisedBatchBtn.disabled) return;
+      supervisedBatchBtn.disabled = true;
+      const orig = supervisedBatchBtn.textContent;
+      const pairs = [
+        ['pointing', 'out_0'],
+        ['openpalm', 'out_1'],
+        ['thumbsup', 'out_2'],
+        ['victory',  'out_3'],
+      ];
+      backend.setStdpMode('pair');
+      for (let round = 1; round <= 5; round += 1) {
+        for (const [gesture, target] of pairs) {
+          supervisedBatchBtn.textContent = `Batch ${round}/5: ${gesture}→${target}`;
+          const r = await backend.trainSupervised(gesture, target, { multiInput: true });
+          if (!r.ok) {
+            console.error('[supervised batch]', r.reason);
+            supervisedBatchBtn.textContent = `Batch failed: ${r.reason}`;
+            supervisedBatchBtn.disabled = false;
+            return;
+          }
+          if (r.response?.out_rates) updateDecodePanel(r.response.out_rates);
+        }
+      }
+      supervisedBatchBtn.textContent = 'Batch done ✓';
+      await saveTrainingState();
+      setTimeout(() => {
+        supervisedBatchBtn.textContent = orig;
+        supervisedBatchBtn.disabled = false;
+      }, 2000);
+    });
+  }
+
+  // Decode panel 영역 listen — 모든 backend train/induce response 영역 OUT rate 영역 갱신.
+  backend.onEvent((evt) => {
+    const r = evt?.response;
+    if (!r) return;
+    // out_rates field (handface_train_supervised) 영역 우선, 영역 rates field 영역 폴백.
+    if (r.out_rates) {
+      updateDecodePanel(r.out_rates);
+      return;
+    }
+    if (r.rates) {
+      const out = {};
+      for (const k of ['out_0','out_1','out_2','out_3']) {
+        out[k] = r.rates[k] ?? 0;
+      }
+      updateDecodePanel(out);
+    }
+  });
 });
 
 // Session 36 정정: 단일 gesture click → 단일 INPUT 영역만 active 영역 정합.

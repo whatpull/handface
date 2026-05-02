@@ -390,6 +390,53 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 4 본격: POST /handface_train_supervised — supervised RL.
+   * gesture INPUT + target OUT 동시 자극 + STDP 영역 INPUT→V1→V2→OUT_n path 강화.
+   * @param {string} gestureName  - 'pointing' | 'openpalm' | 'thumbsup' | 'victory'
+   * @param {string} targetOut    - 'out_0' | 'out_1' | 'out_2' | 'out_3'
+   * @param {object} [opts]       - { multiInput: bool, intensity, supervisorWeight, supervisorDelayMs }
+   */
+  async trainSupervised(gestureName, targetOut, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const intensity = opts.intensity ?? 1.0;
+    const body = {
+      type:                 'gesture',
+      name:                 gestureName,
+      target_out:           targetOut,
+      intensity,
+      stimulus_duration_ms: 15.0,
+      observe_ms:           50.0,
+      stdp:                 true,
+      stdp_mode:            this._stdpMode,
+    };
+    if (opts.multiInput) {
+      // multi-INPUT 8 (TRAIN CASCADE 정합 패턴) — supervised RL 학습 안정 영역.
+      body.inputs = ['in_pinch', 'in_fist', 'in_palm', 'in_point',
+                     'in_gaze', 'in_blink', 'in_thumbsup', 'in_victory'];
+    }
+    if (opts.supervisorWeight !== undefined) body.supervisor_weight = opts.supervisorWeight;
+    if (opts.supervisorDelayMs !== undefined) body.supervisor_delay_ms = opts.supervisorDelayMs;
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/handface_train_supervised`,
+        { method: 'POST', body },
+      );
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `supervised:${gestureName}->${targetOut}`,
+        intensity,
+        response:  resp,
+      });
+      return { ok: true, response: resp };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 36: GET /networks/{id}/training/snapshot — 모든 synapse weight snapshot 반환.
    * 사용자 학습 결과 영역 localStorage 보존 사용.
    */

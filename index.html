@@ -2193,7 +2193,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-jDvLc7fp.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BT_WleXL.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-CmK5a9Bs.css">
 </head>
 <body>
@@ -2377,82 +2377,6 @@
       <div id="nf-grow-status" class="nf-mode-hint">동적 성장 — 선택한 region/population에 N 뉴런 추가 + 시냅스 연결. canvas 자동 새로고침. Topology Save/Load: 성장된 회로 전체를 D1에 영구 저장 / 복원.</div>
     </div>
 
-    <div class="nf-section nf-audio-modality-section" data-cat="input">
-      <label class="nf-section-label">AUDIO 입력 데모 (Phase 2 multi-modal)</label>
-      <div class="nf-supervised-grid">
-        <button id="nf-audio-capture" type="button" class="nf-induce-multi-btn">마이크 capture + inject (1초)</button>
-        <button id="nf-audio-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
-      </div>
-      <div id="nf-audio-status" class="nf-mode-hint">마이크 권한 → FFT 32 bin → 8 bin 평균 → 8-dim pattern → SNN 주입. modality=audio. Streaming: 1초 간격 자동 반복 (continuous SNN feed).</div>
-    </div>
-
-    <div class="nf-section nf-image-modality-section" data-cat="input">
-      <label class="nf-section-label">IMAGE 입력 데모 (Phase 2 multi-modal)</label>
-      <div id="nf-image-grid" class="nf-image-grid"></div>
-      <div class="nf-supervised-grid">
-        <button id="nf-image-clear"  type="button" class="nf-induce-multi-btn">Clear</button>
-        <button id="nf-image-inject" type="button" class="nf-induce-multi-btn">Encode + inject</button>
-      </div>
-      <button id="nf-image-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
-      <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
-    </div>
-
-    <div class="nf-section nf-preset-pattern-section" data-cat="input">
-      <label class="nf-section-label">PATTERN 라이브러리 (사전 정의)</label>
-      <div class="nf-preset-grid">
-        <button data-pattern="uniform"  type="button" class="nf-supervised-btn">균등</button>
-        <button data-pattern="left"     type="button" class="nf-supervised-btn">왼쪽</button>
-        <button data-pattern="right"    type="button" class="nf-supervised-btn">오른쪽</button>
-        <button data-pattern="center"   type="button" class="nf-supervised-btn">중심</button>
-        <button data-pattern="check"    type="button" class="nf-supervised-btn">체크</button>
-        <button data-pattern="invcheck" type="button" class="nf-supervised-btn">역체크</button>
-        <button data-pattern="ramp"     type="button" class="nf-supervised-btn">상승</button>
-        <button data-pattern="random"   type="button" class="nf-supervised-btn">랜덤</button>
-      </div>
-      <button id="nf-preset-auto-train" type="button" class="nf-induce-multi-btn">Auto-train 4 patterns (5 round) + 평가</button>
-      <div id="nf-preset-status" class="nf-mode-hint">사전 정의 8-dim 패턴 1-click inject. Auto-train: left→out_0, right→out_1, center→out_2, uniform→out_3 학습 후 정확도 자동 측정.</div>
-    </div>
-
-    <div class="nf-section nf-motion-modality-section" data-cat="input">
-      <label class="nf-section-label">MOTION 입력 데모 (Phase 2 multi-modal, 모바일 권장)</label>
-      <button id="nf-motion-stream" type="button" class="nf-induce-multi-btn">Motion streaming start</button>
-      <div id="nf-motion-status" class="nf-mode-hint">DeviceMotionEvent (가속도 센서) → 1초마다 |x|,|y|,|z|,x±,y±,magnitude 8-bin → SNN 주입. iOS는 권한 요청. 모바일에서 디바이스 흔들면 winner 변화.</div>
-    </div>
-
-    <div class="nf-section nf-geo-modality-section" data-cat="input">
-      <label class="nf-section-label">GEOLOCATION 입력 데모 (Phase 2 multi-modal)</label>
-      <button id="nf-geo-inject" type="button" class="nf-induce-multi-btn">현재 위치 inject (1회)</button>
-      <div id="nf-geo-status" class="nf-mode-hint">위치 권한 → 위도/경도/정확도/속도/heading/altitude를 8-dim pattern으로 정규화 → SNN 주입. modality=custom. 권한 거부 시 fallback.</div>
-    </div>
-
-    <div class="nf-section nf-keyboard-modality-section" data-cat="input">
-      <label class="nf-section-label">KEYBOARD 입력 데모 (Phase 2 multi-modal)</label>
-      <input id="nf-kbd-input" type="text" placeholder="아무거나 타이핑 (스트리밍 중)" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
-      <button id="nf-kbd-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
-      <div id="nf-kbd-status" class="nf-mode-hint">텍스트 box에 타이핑 → 직전 1초간 keystroke timestamp를 8 슬롯 (125ms씩) 분포로 변환 → 8-dim pattern → injectPattern. modality=custom. 타이핑 속도/리듬에 따라 winner 변화.</div>
-    </div>
-
-    <div class="nf-section nf-mouse-modality-section" data-cat="input">
-      <label class="nf-section-label">MOUSE 입력 데모 (Phase 2 multi-modal)</label>
-      <div class="nf-mouse-pad" id="nf-mouse-pad"></div>
-      <div class="nf-supervised-grid">
-        <button id="nf-mouse-clear" type="button" class="nf-induce-multi-btn">Reset</button>
-        <button id="nf-mouse-inject" type="button" class="nf-induce-multi-btn">Encode + inject</button>
-      </div>
-      <button id="nf-mouse-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
-      <div id="nf-mouse-status" class="nf-mode-hint">패드를 드래그 → 이동 방향 angle을 8 bin (E, NE, N, NW, W, SW, S, SE)으로 누적 → 정규화 → 8-dim pattern → SNN 주입. modality=custom.</div>
-    </div>
-
-    <div class="nf-section nf-text-modality-section" data-cat="input">
-      <label class="nf-section-label">TEXT 입력 데모 (Phase 2 multi-modal)</label>
-      <input id="nf-text-input" type="text" placeholder="문자열 입력 (예: hello)" maxlength="32" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
-      <div class="nf-supervised-grid">
-        <button id="nf-text-inject" type="button" class="nf-induce-multi-btn">Encode + inject (1회)</button>
-        <button id="nf-text-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
-      </div>
-      <div id="nf-text-status" class="nf-mode-hint">텍스트 → 각 문자 ASCII 코드 → 8 bin 정규화 히스토그램 → 8-dim pattern → SNN 주입. modality=text. 디코드 결과는 OUT DECODE 패널 참조.</div>
-    </div>
-
     <div class="nf-section nf-user-input-section" data-cat="input">
       <label class="nf-section-label">NODE LIBRARY (사용자 INPUT 노드 추가)</label>
       <div class="nf-node-library">
@@ -2507,54 +2431,6 @@
         </select>
       </div>
       <div id="nf-ui-inject-status" class="nf-mode-hint">선택한 사용자 INPUT 노드에 직접 자극 (단일). modality 인코딩이 필요한 경우 캔버스의 노드 자체 widget 사용 (Audio/Text 노드는 자기 자체 encoder를 보유).</div>
-    </div>
-
-    <div class="nf-section nf-multimodal-section" data-cat="input">
-      <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">Modality</span>
-        <select id="nf-mm-modality" class="nf-multimodal-select">
-          <option value="custom">custom</option>
-          <option value="image">image</option>
-          <option value="text">text</option>
-          <option value="audio">audio</option>
-          <option value="gesture">gesture</option>
-        </select>
-      </div>
-      <div id="nf-mm-pattern" class="nf-multimodal-pattern">
-        <div class="nf-mm-cell" data-idx="0"><span>pinch</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="1"><span>fist</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="2"><span>palm</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="3"><span>point</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="4"><span>gaze</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="5"><span>blink</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="6"><span>thumbs</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-        <div class="nf-mm-cell" data-idx="7"><span>victory</span><input type="range" min="0" max="1" step="0.05" value="0"></div>
-      </div>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">Train target</span>
-        <select id="nf-mm-target" class="nf-multimodal-select">
-          <option value="">(none — inject only)</option>
-          <option value="out_0">out_0 (Pointing)</option>
-          <option value="out_1">out_1 (Open palm)</option>
-          <option value="out_2">out_2 (Thumbs up)</option>
-          <option value="out_3">out_3 (Victory)</option>
-        </select>
-      </div>
-      <div class="nf-supervised-grid">
-        <button id="nf-mm-inject" type="button" class="nf-induce-multi-btn">Inject (1×)</button>
-        <button id="nf-mm-train"  type="button" class="nf-induce-multi-btn">Train (10×)</button>
-      </div>
-      <div class="nf-supervised-grid" style="margin-top:6px;">
-        <button id="nf-mm-add-sample"   type="button" class="nf-induce-multi-btn">+ Dataset에 추가</button>
-        <button id="nf-mm-clear-dataset" type="button" class="nf-induce-multi-btn">Clear dataset</button>
-      </div>
-      <div class="nf-supervised-grid" style="margin-top:6px;">
-        <button id="nf-mm-save-ds" type="button" class="nf-induce-multi-btn">Save dataset (D1)</button>
-        <button id="nf-mm-load-ds" type="button" class="nf-induce-multi-btn">Load dataset (D1)</button>
-      </div>
-      <button id="nf-mm-train-batch" type="button" class="nf-induce-multi-btn">Batch train (dataset 5 round)</button>
-      <div id="nf-mm-status" class="nf-mode-hint">현재 pattern + target → Inject/Train 또는 Dataset에 추가. Dataset → D1 저장/복원. Batch train: 저장된 sample 5 round 일괄 supervised RL. Phase 1~7 통합.</div>
     </div>
 
     <div class="nf-section nf-neuromod-section" data-cat="learn">

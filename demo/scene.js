@@ -740,7 +740,52 @@ window.addEventListener('DOMContentLoaded', () => {
   const supervisedBatchBtn = document.getElementById('nf-supervised-batch');
 
   const decodeHeadline = document.getElementById('nf-decode-headline');
+  const decodeSparkline = document.getElementById('nf-decode-sparkline');
   let decodeHeadlinePrev = '';
+  // OUT 발화율 history buffer (max 30 entries).
+  const OUT_RATE_HISTORY_MAX = 30;
+  const outRateHistory = { out_0: [], out_1: [], out_2: [], out_3: [] };
+  const OUT_COLORS = { out_0: '#5eead4', out_1: '#f5b842', out_2: '#a78bfa', out_3: '#fb7185' };
+
+  function pushOutRateHistory(outRates) {
+    for (const k of ['out_0','out_1','out_2','out_3']) {
+      const v = outRates[k] ?? 0;
+      outRateHistory[k].push(v);
+      if (outRateHistory[k].length > OUT_RATE_HISTORY_MAX) outRateHistory[k].shift();
+    }
+  }
+
+  function renderOutRateSparkline() {
+    if (!decodeSparkline) return;
+    const N = outRateHistory.out_0.length;
+    if (N < 2) {
+      decodeSparkline.innerHTML = '<text x="100" y="32" font-size="9" font-family="monospace" fill="#94a3b8" text-anchor="middle">history (entries: ' + N + ')</text>';
+      return;
+    }
+    const w = 200, h = 60, padTop = 6, padBot = 12, padX = 4;
+    const drawW = w - padX * 2;
+    const drawH = h - padTop - padBot;
+    const allMax = Math.max(
+      ...outRateHistory.out_0, ...outRateHistory.out_1,
+      ...outRateHistory.out_2, ...outRateHistory.out_3, 1,
+    );
+    const parts = [];
+    for (const k of ['out_0','out_1','out_2','out_3']) {
+      const arr = outRateHistory[k];
+      const points = arr.map((v, i) => {
+        const x = padX + (i / (N - 1)) * drawW;
+        const y = padTop + drawH - (v / allMax) * drawH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      });
+      parts.push(`<polyline points="${points.join(' ')}" fill="none" stroke="${OUT_COLORS[k]}" stroke-width="1.2"/>`);
+      // 라벨.
+      const last = arr[arr.length - 1];
+      const ly = padTop + drawH - (last / allMax) * drawH;
+      parts.push(`<text x="${w - padX}" y="${ly + 2.5}" font-size="6" font-family="monospace" fill="${OUT_COLORS[k]}" text-anchor="end">${k.slice(-1)}</text>`);
+    }
+    parts.push(`<text x="${padX}" y="${h - 3}" font-size="6" font-family="monospace" fill="#94a3b8">${N} entries (max ${allMax.toFixed(0)} Hz)</text>`);
+    decodeSparkline.innerHTML = parts.join('');
+  }
   function updateDecodePanel(outRates) {
     if (!outRates) return;
     const cells = Array.from(document.querySelectorAll('.nf-decode-cell'));
@@ -754,6 +799,9 @@ window.addEventListener('DOMContentLoaded', () => {
       if (rate > maxRate) { maxRate = rate; winner = cell; }
     }
     if (winner && maxRate > 0) winner.classList.add('winner');
+    // OUT 발화율 history 누적 + sparkline.
+    pushOutRateHistory(outRates);
+    renderOutRateSparkline();
     // Decode headline (Session 37): 큰 글씨로 winner 라벨 + 변경 시 pulse 애니메이션.
     if (decodeHeadline) {
       if (winner && maxRate > 0) {

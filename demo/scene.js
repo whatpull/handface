@@ -427,7 +427,43 @@ for (const g of GESTURES) {
 // 2) backend.sendGestures (multi-INPUT body.inputs) dispatch
 // mediapipe single-path (위의 control.on) 와 공존 (d-3 결정).
 // Session 36: 학습 결과 (synapse weight) save / load — backend snapshot + localStorage.
+// Session 37 Phase 2: Cloudflare D1 mirror (handface-training.whatpull.workers.dev) 영역 영역 영역.
 const TRAINING_STORAGE_KEY = 'handface.training.snapshot.v1';
+const D1_WORKER_ENDPOINT  = 'https://handface-training.whatpull.workers.dev';
+const D1_NETWORK_ID       = 'handface-default';
+
+async function mirrorToD1(synapses, anchor) {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/training/snapshot`, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    JSON.stringify({ weights: synapses, meta: { anchor, savedAt: Date.now() } }),
+    });
+    if (!r.ok) {
+      console.warn('[d1] mirror failed:', r.status);
+      return false;
+    }
+    const data = await r.json();
+    console.info(`[d1] mirrored ${data.count} synapses (updated_at ${data.updated_at})`);
+    return true;
+  } catch (err) {
+    console.warn('[d1] mirror error:', err.message);
+    return false;
+  }
+}
+
+async function loadFromD1() {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/training/snapshot`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!Array.isArray(data.weights) || data.weights.length === 0) return null;
+    return { synapses: data.weights, savedAt: data.updated_at, meta: data.meta };
+  } catch (err) {
+    console.warn('[d1] load error:', err.message);
+    return null;
+  }
+}
 
 async function saveTrainingState() {
   const result = await backend.getTrainingSnapshot();
@@ -443,6 +479,8 @@ async function saveTrainingState() {
     };
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(payload));
     console.info(`[neuronface] training snapshot saved (${payload.synapse_count} synapses)`);
+    // Phase 2: D1 mirror (best-effort, non-blocking on UI).
+    mirrorToD1(payload.synapses, 'D100').catch(() => {});
     return true;
   } catch (err) {
     console.error('[neuronface] localStorage save failed:', err);
@@ -452,16 +490,34 @@ async function saveTrainingState() {
 
 async function loadTrainingState() {
   try {
+    let synapses = null;
+    let savedAt  = null;
+    let source   = 'localStorage';
     const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
-    if (!raw) return false;
-    const payload = JSON.parse(raw);
-    if (!Array.isArray(payload.synapses) || payload.synapses.length === 0) return false;
-    const result = await backend.loadTrainingSnapshot(payload.synapses);
+    if (raw) {
+      const payload = JSON.parse(raw);
+      if (Array.isArray(payload.synapses) && payload.synapses.length > 0) {
+        synapses = payload.synapses;
+        savedAt  = payload.saved_at;
+      }
+    }
+    if (!synapses) {
+      // Phase 2: localStorage empty → D1 fallback.
+      const d1 = await loadFromD1();
+      if (d1) {
+        synapses = d1.synapses;
+        savedAt  = d1.savedAt * 1000;  // sec → ms
+        source   = 'D1';
+      }
+    }
+    if (!synapses) return false;
+    const result = await backend.loadTrainingSnapshot(synapses);
     if (!result.ok) {
       console.warn('[neuronface] training load failed:', result.reason);
       return false;
     }
-    console.info(`[neuronface] training restored: ${result.response.updated} synapses (saved ${new Date(payload.saved_at).toLocaleString()})`);
+    const dateStr = savedAt ? new Date(savedAt).toLocaleString() : '?';
+    console.info(`[neuronface] training restored from ${source}: ${result.response.updated} synapses (saved ${dateStr})`);
     return true;
   } catch (err) {
     console.error('[neuronface] training load error:', err);

@@ -115,6 +115,27 @@
       height: calc(100vh - 56px);
       overflow-y: auto;
       box-sizing: border-box;
+      /* Custom scrollbar — dark theme + violet accent */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(167, 139, 250, 0.3) transparent;
+    }
+    #neuronface-settings::-webkit-scrollbar {
+      width: 8px;
+    }
+    #neuronface-settings::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #neuronface-settings::-webkit-scrollbar-thumb {
+      background: rgba(167, 139, 250, 0.25);
+      border-radius: 4px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      transition: background 0.2s;
+    }
+    #neuronface-settings::-webkit-scrollbar-thumb:hover {
+      background: rgba(167, 139, 250, 0.55);
+      background-clip: padding-box;
+      border: 2px solid transparent;
     }
     #neuronface-settings.open { display: block; }
 
@@ -859,35 +880,57 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
-    /* Settings 카테고리 탭 (Session 37 reorganization). */
+    /* Settings 카테고리 탭 (Session 37 reorganization).
+       탭처럼 보이도록: 하단 경계선 공유 + 활성 탭만 컬러 underline indicator. */
     .nf-tab-bar {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 3px;
-      margin-bottom: 8px;
+      gap: 0;
+      margin: 0 -16px 12px -16px;
+      padding: 0 16px;
       position: sticky;
-      top: 0;
+      top: -16px;
       z-index: 10;
-      background: #0f1729;
-      padding: 4px 0;
+      background: rgba(15, 15, 18, 0.98);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(167, 139, 250, 0.18);
     }
     .nf-tab-btn {
+      position: relative;
       background: transparent;
-      border: 1px solid rgba(167, 139, 250, 0.25);
-      color: #94a3b8;
-      padding: 6px 4px;
-      border-radius: 4px;
+      border: none;
+      color: rgba(255, 255, 255, 0.45);
+      padding: 10px 4px 9px;
       font-family: monospace;
       font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.08em;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: color 0.15s ease;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
     }
-    .nf-tab-btn:hover { border-color: #a78bfa; color: #c4b5fd; }
+    .nf-tab-btn::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -1px;
+      width: 0;
+      height: 2px;
+      background: #a78bfa;
+      transition: width 0.18s ease, left 0.18s ease;
+      box-shadow: 0 0 8px rgba(167, 139, 250, 0.6);
+    }
+    .nf-tab-btn:hover {
+      color: #c4b5fd;
+    }
     .nf-tab-btn.active {
-      background: rgba(167, 139, 250, 0.15);
-      border-color: #a78bfa;
       color: #a78bfa;
+    }
+    .nf-tab-btn.active::after {
+      width: 70%;
+      left: 15%;
     }
     /* 활성 탭 외 카테고리 hide. */
     #neuronface-settings[data-active-cat="core"]  .nf-section[data-cat]:not([data-cat="core"]),

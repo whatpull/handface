@@ -66,6 +66,8 @@ function setupSettingsUI() {
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       settingsPanel.classList.remove('open');
+      // Session 36: settings panel close → sidebar ⚙ button active 영역.
+      document.getElementById('nf-sidebar-settings')?.classList.remove('active');
     });
   }
 
@@ -751,6 +753,7 @@ let handNodeMounted = false;
 // Session 36: 사용자 명시 camera permission request (lazy init, 보안/법규 정합).
 let cameraEnabled = false;
 let cameraEnabling = false;
+
 async function enableCamera() {
   if (cameraEnabled || cameraEnabling) return;
   cameraEnabling = true;
@@ -763,6 +766,8 @@ async function enableCamera() {
         console.warn('[handface] cam-preview play() rejected:', e?.message ?? e);
       }
       cameraEnabled = true;
+      cameraNodeMounted = false;
+      handNodeMounted = false;
       tryMountAsciiCamera();
       tryMountHand();
     }
@@ -773,14 +778,60 @@ async function enableCamera() {
   }
 }
 
-// Camera/Gesture 노드 click → camera permission request.
-window.addEventListener('click', (e) => {
-  if (cameraEnabled || cameraEnabling) return;
-  const sourceMount = e.target.closest('.snn-canvas-source-mount, .snn-canvas-source-card');
-  if (sourceMount) {
-    enableCamera();
+function disableCamera() {
+  if (!cameraEnabled) return;
+  // mediaStream tracks stop → 카메라 LED off.
+  try {
+    if (control.mediaStream) {
+      control.mediaStream.getTracks().forEach((t) => { try { t.stop(); } catch (_) { /* noop */ } });
+    }
+    if (typeof control.stop === 'function') {
+      try { control.stop(); } catch (_) { /* noop */ }
+    }
+  } catch (err) {
+    console.warn('[handface] disableCamera tracks stop failed:', err);
   }
-});
+  const camPreview = document.getElementById('cam-preview');
+  if (camPreview) {
+    try { camPreview.pause(); } catch (_) { /* noop */ }
+    camPreview.srcObject = null;
+  }
+  // Camera/Gesture mount container 영역 placeholder restore.
+  const cameraMountEl  = document.getElementById('snn-canvas-camera-mount');
+  const gestureMountEl = document.getElementById('snn-canvas-gesture-mount');
+  if (cameraMountEl) {
+    cameraMountEl.innerHTML = `
+      <div class="snn-canvas-source-empty">
+        <svg class="snn-canvas-source-empty-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <div>Camera disabled</div>
+        <div class="snn-canvas-source-empty-hint">Enable from left sidebar</div>
+      </div>
+    `;
+  }
+  if (gestureMountEl) {
+    gestureMountEl.innerHTML = `
+      <div class="snn-canvas-source-empty">
+        <svg class="snn-canvas-source-empty-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>
+        <div>Hand detection disabled</div>
+        <div class="snn-canvas-source-empty-hint">Enable camera first</div>
+      </div>
+    `;
+  }
+  cameraEnabled = false;
+  cameraNodeMounted = false;
+  handNodeMounted = false;
+}
+
+// Session 36 정정: Camera/Gesture 노드 click handler 영역 (drawflow 'view' mode preventDefault catch).
+// 사용자 영역 = sidebar 📷 button 영역 enableCamera 호출 (가장 안전 영역).
 
 function tryMountAsciiCamera() {
   if (cameraNodeMounted) return;
@@ -863,31 +914,48 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('snn-canvas:zoom-changed', syncInput);
 });
 
-// Session 36: sidebar ⚙ icon click → settings panel toggle (FAB hide 영역 영역).
+// Session 36: sidebar 영역 (camera + edit + ⚙) click handler.
 window.addEventListener('DOMContentLoaded', () => {
-  const sidebarSettingsBtn = document.querySelector('.nf-sidebar-icon[title="Settings"]');
+  // ⚙ → settings panel toggle.
+  const sidebarSettingsBtn = document.getElementById('nf-sidebar-settings');
   const settingsPanel = document.getElementById('neuronface-settings');
   if (sidebarSettingsBtn && settingsPanel) {
     sidebarSettingsBtn.addEventListener('click', () => {
       settingsPanel.classList.toggle('open');
+      sidebarSettingsBtn.classList.toggle('active', settingsPanel.classList.contains('open'));
     });
   }
 
-  // Session 36: Mode toggle (Normal/Edit) 영역 drawflow editor_mode 영역 영역.
-  const modeNormalBtn = document.getElementById('nf-mode-normal');
-  const modeEditBtn   = document.getElementById('nf-mode-edit');
-  if (modeNormalBtn) {
-    modeNormalBtn.addEventListener('click', () => {
-      setEditorMode('view');
-      modeNormalBtn.classList.add('active');
-      modeEditBtn?.classList.remove('active');
+  // 📷 → enableCamera / disableCamera 토글.
+  const sidebarCameraBtn = document.getElementById('nf-sidebar-camera');
+  if (sidebarCameraBtn) {
+    sidebarCameraBtn.addEventListener('click', async () => {
+      if (cameraEnabling) return;
+      sidebarCameraBtn.disabled = true;
+      if (cameraEnabled) {
+        disableCamera();
+        sidebarCameraBtn.classList.remove('active');
+        sidebarCameraBtn.title = 'Enable camera';
+      } else {
+        await enableCamera();
+        if (cameraEnabled) {
+          sidebarCameraBtn.classList.add('active');
+          sidebarCameraBtn.title = 'Disable camera';
+        }
+      }
+      sidebarCameraBtn.disabled = false;
     });
   }
-  if (modeEditBtn) {
-    modeEditBtn.addEventListener('click', () => {
-      setEditorMode('edit');
-      modeEditBtn.classList.add('active');
-      modeNormalBtn?.classList.remove('active');
+
+  // ✎ → editor mode toggle (view ↔ edit).
+  const sidebarEditBtn = document.getElementById('nf-sidebar-edit');
+  if (sidebarEditBtn) {
+    let editMode = false;
+    sidebarEditBtn.addEventListener('click', () => {
+      editMode = !editMode;
+      setEditorMode(editMode ? 'edit' : 'view');
+      sidebarEditBtn.classList.toggle('active', editMode);
+      sidebarEditBtn.title = editMode ? 'Edit mode (drag nodes)' : 'Toggle edit mode';
     });
   }
 });

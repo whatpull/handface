@@ -955,6 +955,68 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 회로 통계 패널.
+  const statsRefreshBtn = document.getElementById('nf-stats-refresh');
+  const statsOutput     = document.getElementById('nf-stats-output');
+  if (statsRefreshBtn) {
+    statsRefreshBtn.addEventListener('click', async () => {
+      statsRefreshBtn.disabled = true;
+      const orig = statsRefreshBtn.textContent;
+      statsRefreshBtn.textContent = 'Loading...';
+      const snap = await backend.getTrainingSnapshot();
+      const exp  = await backend.exportTopology();
+      let nm = null;
+      try {
+        const r = await backend.getNeuromodulator();
+        if (r.ok) nm = r.response;
+      } catch (_) {}
+      statsRefreshBtn.textContent = orig;
+      statsRefreshBtn.disabled = false;
+      if (!snap.ok || !exp.ok) {
+        if (statsOutput) statsOutput.textContent = '백엔드 통신 실패.';
+        return;
+      }
+      const synapses = snap.response.synapses || [];
+      const weights = synapses.map(s => s.weight);
+      const pos = weights.filter(w => w > 0);
+      const neg = weights.filter(w => w < 0);
+      const sum = a => a.reduce((x, y) => x + y, 0);
+      const meanOf = a => a.length ? sum(a) / a.length : 0;
+      const lines = [];
+      lines.push(`# 뉴런 / 시냅스`);
+      lines.push(`  neurons:  ${exp.neurons.length}`);
+      lines.push(`  synapses: ${synapses.length}`);
+      // population 분포.
+      const popCount = {};
+      for (const n of exp.neurons) {
+        const k = `${n.region || '?'}/${n.population || '?'}`;
+        popCount[k] = (popCount[k] || 0) + 1;
+      }
+      lines.push(`  populations: ${Object.entries(popCount).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+      lines.push(``);
+      lines.push(`# Weight 분포`);
+      lines.push(`  excitatory (>0): ${pos.length}, mean=${meanOf(pos).toFixed(2)}, max=${Math.max(...pos, 0).toFixed(2)}, sum=${sum(pos).toFixed(1)}`);
+      if (neg.length > 0) {
+        lines.push(`  inhibitory (<0): ${neg.length}, mean=${meanOf(neg).toFixed(2)}, min=${Math.min(...neg).toFixed(2)}, sum=${sum(neg).toFixed(1)}`);
+      } else {
+        lines.push(`  inhibitory (<0): 0`);
+      }
+      // weight saturation: STDP_W_MAX=320 근처 비율.
+      const saturated = pos.filter(w => w >= 250).length;
+      lines.push(`  saturated (>=250): ${saturated}/${pos.length} = ${(saturated/pos.length*100).toFixed(1)}%`);
+      lines.push(``);
+      lines.push(`# 신경조절 (Phase 5)`);
+      if (nm) {
+        lines.push(`  dopamine:      ${nm.dopamine}    (STDP gain ${nm.stdp_gain})`);
+        lines.push(`  acetylcholine: ${nm.acetylcholine}`);
+        lines.push(`  serotonin:     ${nm.serotonin}`);
+      } else {
+        lines.push(`  (조회 실패)`);
+      }
+      if (statsOutput) statsOutput.textContent = lines.join('\n');
+    });
+  }
+
   // Phase 7 통합 데모 시나리오: 성장 + 학습 + 디코드 + 벤치마크.
   const demoLargeTrainBtn = document.getElementById('nf-demo-large-train');
   const demoStatus        = document.getElementById('nf-demo-status');

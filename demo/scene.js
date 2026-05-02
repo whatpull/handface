@@ -2465,7 +2465,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let initialTab = 'core';
   try {
     const saved = localStorage.getItem(TAB_KEY);
-    if (saved && ['core','learn','input','tools'].includes(saved)) initialTab = saved;
+    if (saved && ['core','learn','input','tools','all'].includes(saved)) initialTab = saved;
   } catch (_) {}
   setActiveTab(initialTab);
 

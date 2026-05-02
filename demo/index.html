@@ -746,6 +746,29 @@
       height: 14px;
     }
 
+    /* Image modality 4×4 grid */
+    .nf-image-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin-bottom: 6px;
+      max-width: 160px;
+    }
+    .nf-image-cell {
+      aspect-ratio: 1;
+      background: #1a1f2e;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .nf-image-cell.on {
+      background: #a78bfa;
+      border-color: #c4b5fd;
+    }
+    .nf-image-cell:hover {
+      border-color: rgba(167, 139, 250, 0.6);
+    }
+
     /* 모바일 반응형 — width ≤ 768px OR 세로 우세 (aspect ≤ 4/5).
        OR 조건 통합 (DRY): width 작은 phone + tablet portrait + 세로 모니터 모두 동일 layout. */
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
@@ -1793,6 +1816,16 @@
       </div>
       <button id="nf-grow-btn" type="button" class="nf-induce-multi-btn">Grow + reload canvas</button>
       <div id="nf-grow-status" class="nf-mode-hint">동적 영역 영역 — 영역 region 영역 population 영역 영역 영역 추가 + 영역 영역. canvas 영역 영역 영역.</div>
+    </div>
+
+    <div class="nf-section nf-image-modality-section">
+      <label class="nf-section-label">IMAGE 입력 데모 (Phase 2 multi-modal)</label>
+      <div id="nf-image-grid" class="nf-image-grid"></div>
+      <div class="nf-supervised-grid">
+        <button id="nf-image-clear"  type="button" class="nf-induce-multi-btn">Clear</button>
+        <button id="nf-image-inject" type="button" class="nf-induce-multi-btn">Encode + inject</button>
+      </div>
+      <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
     </div>
 
     <div class="nf-section nf-text-modality-section">

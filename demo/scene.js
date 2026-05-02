@@ -955,6 +955,29 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 대시보드 KPI 카드.
+  const dashboardRefreshBtn = document.getElementById('nf-dashboard-refresh');
+  const kpiNeurons  = document.getElementById('nf-kpi-neurons');
+  const kpiSynapses = document.getElementById('nf-kpi-synapses');
+  const kpiTotalW   = document.getElementById('nf-kpi-totalw');
+  const kpiSat      = document.getElementById('nf-kpi-sat');
+  async function refreshDashboard() {
+    const snap = await backend.getTrainingSnapshot();
+    const exp  = await backend.exportTopology();
+    if (!snap.ok || !exp.ok) return;
+    const synapses = snap.response.synapses || [];
+    const weights = synapses.map(s => s.weight);
+    const pos = weights.filter(w => w > 0);
+    const sat = pos.filter(w => w >= 250).length;
+    if (kpiNeurons)  kpiNeurons.textContent = exp.neurons.length;
+    if (kpiSynapses) kpiSynapses.textContent = synapses.length;
+    if (kpiTotalW)   kpiTotalW.textContent = pos.reduce((a, b) => a + b, 0).toFixed(0);
+    if (kpiSat)      kpiSat.textContent = pos.length ? `${(sat / pos.length * 100).toFixed(0)}%` : '—';
+  }
+  if (dashboardRefreshBtn) dashboardRefreshBtn.addEventListener('click', refreshDashboard);
+  // 초기 1회 (지연 — backend ready 후).
+  setTimeout(() => { refreshDashboard().catch(() => {}); }, 1500);
+
   // 회로 통계 패널.
   const statsRefreshBtn = document.getElementById('nf-stats-refresh');
   const statsOutput     = document.getElementById('nf-stats-output');

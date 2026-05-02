@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.82",
+    "drawflow": "^0.0.60",
     "three": "^0.183.2"
   }
 }

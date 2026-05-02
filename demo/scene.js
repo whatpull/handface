@@ -725,6 +725,72 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 최종 GUI: Multi-modal input panel.
+  const mmModality = document.getElementById('nf-mm-modality');
+  const mmTarget   = document.getElementById('nf-mm-target');
+  const mmInject   = document.getElementById('nf-mm-inject');
+  const mmTrain    = document.getElementById('nf-mm-train');
+  const mmCells    = Array.from(document.querySelectorAll('.nf-mm-cell input[type="range"]'));
+
+  function readPattern() {
+    const p = new Array(8).fill(0);
+    for (const input of mmCells) {
+      const cell = input.closest('.nf-mm-cell');
+      const idx = parseInt(cell.dataset.idx, 10);
+      p[idx] = parseFloat(input.value);
+    }
+    return p;
+  }
+
+  if (mmInject) {
+    mmInject.addEventListener('click', async () => {
+      if (mmInject.disabled) return;
+      mmInject.disabled = true;
+      const orig = mmInject.textContent;
+      mmInject.textContent = 'Injecting...';
+      const pattern = readPattern();
+      const r = await backend.injectPattern(pattern, {
+        modality: mmModality.value,
+        targetOut: mmTarget.value || undefined,
+        stdp: !!mmTarget.value,
+      });
+      mmInject.textContent = r.ok ? 'Injected ✓' : 'Failed';
+      setTimeout(() => { mmInject.textContent = orig; mmInject.disabled = false; }, 1200);
+    });
+  }
+
+  if (mmTrain) {
+    mmTrain.addEventListener('click', async () => {
+      if (mmTrain.disabled) return;
+      const target = mmTarget.value;
+      if (!target) {
+        const orig = mmTrain.textContent;
+        mmTrain.textContent = 'Need target';
+        setTimeout(() => { mmTrain.textContent = orig; }, 1500);
+        return;
+      }
+      mmTrain.disabled = true;
+      const orig = mmTrain.textContent;
+      const pattern = readPattern();
+      for (let i = 1; i <= 10; i += 1) {
+        mmTrain.textContent = `Training (${i}/10)`;
+        const r = await backend.injectPattern(pattern, {
+          modality: mmModality.value,
+          targetOut: target,
+          stdp: true,
+        });
+        if (!r.ok) {
+          mmTrain.textContent = 'Failed';
+          mmTrain.disabled = false;
+          return;
+        }
+      }
+      await saveTrainingState();
+      mmTrain.textContent = 'Trained ✓';
+      setTimeout(() => { mmTrain.textContent = orig; mmTrain.disabled = false; }, 2000);
+    });
+  }
+
   // Decode panel 영역 listen — 모든 backend train/induce response 영역 OUT rate 영역 갱신.
   backend.onEvent((evt) => {
     const r = evt?.response;

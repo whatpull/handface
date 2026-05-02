@@ -74,6 +74,48 @@ async function handleTopologyGet(env, networkId) {
   }, 200, env);
 }
 
+// Phase 7 datasets endpoints (Session 37).
+async function handleDatasetGet(env, networkId, datasetId) {
+  const row = await env.DB.prepare(
+    'SELECT samples, updated_at, meta FROM datasets WHERE network_id = ? AND dataset_id = ?'
+  ).bind(networkId, datasetId).first();
+  if (!row) {
+    return json({ network_id: networkId, dataset_id: datasetId, samples: [], updated_at: null, meta: null }, 200, env);
+  }
+  return json({
+    network_id: networkId,
+    dataset_id: datasetId,
+    samples: JSON.parse(row.samples),
+    updated_at: row.updated_at,
+    meta: row.meta ? JSON.parse(row.meta) : null,
+  }, 200, env);
+}
+
+async function handleDatasetPost(request, env, networkId, datasetId) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'invalid json' }, 400, env); }
+  const { samples } = body;
+  if (!Array.isArray(samples)) {
+    return json({ error: 'samples must be array' }, 400, env);
+  }
+  const updatedAt = Math.floor(Date.now() / 1000);
+  const meta = body.meta ? JSON.stringify(body.meta) : null;
+  await env.DB.prepare(
+    `INSERT INTO datasets (network_id, dataset_id, samples, updated_at, meta)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(network_id, dataset_id) DO UPDATE SET
+       samples = excluded.samples,
+       updated_at = excluded.updated_at,
+       meta = excluded.meta`
+  ).bind(networkId, datasetId, JSON.stringify(samples), updatedAt, meta).run();
+  return json({
+    network_id: networkId,
+    dataset_id: datasetId,
+    updated_at: updatedAt,
+    sample_count: samples.length,
+  }, 200, env);
+}
+
 async function handleTopologyPost(request, env, networkId) {
   let body;
   try {
@@ -124,6 +166,15 @@ export default {
       const networkId = decodeURIComponent(mTopo[1]);
       if (request.method === 'GET')  return handleTopologyGet(env, networkId);
       if (request.method === 'POST') return handleTopologyPost(request, env, networkId);
+      return json({ error: 'method not allowed' }, 405, env);
+    }
+    // Phase 7 datasets.
+    const mDs = url.pathname.match(/^\/networks\/([^/]+)\/datasets\/([^/]+)\/?$/);
+    if (mDs) {
+      const networkId = decodeURIComponent(mDs[1]);
+      const datasetId = decodeURIComponent(mDs[2]);
+      if (request.method === 'GET')  return handleDatasetGet(env, networkId, datasetId);
+      if (request.method === 'POST') return handleDatasetPost(request, env, networkId, datasetId);
       return json({ error: 'method not allowed' }, 405, env);
     }
     return json({ error: 'not found' }, 404, env);

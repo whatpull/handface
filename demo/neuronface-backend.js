@@ -470,7 +470,7 @@ export class NeuronFaceBackend {
     if (opts.supervisorDelayMs !== undefined) body.supervisor_delay_ms = opts.supervisorDelayMs;
     try {
       const resp = await this._fetch(
-        `/networks/${this._networkId}/inject_pattern`,
+        `/networks/${this._networkId}/${this._useVectorized ? 'inject_pattern_vectorized' : 'inject_pattern'}`,
         { method: 'POST', body },
       );
       this.emit({

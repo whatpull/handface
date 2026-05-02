@@ -1792,7 +1792,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DKP5I4D1.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DpIutvhz.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1962,6 +1962,12 @@
       </div>
       <button id="nf-image-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
       <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
+    </div>
+
+    <div class="nf-section nf-motion-modality-section">
+      <label class="nf-section-label">MOTION 입력 데모 (Phase 2 multi-modal, 모바일 권장)</label>
+      <button id="nf-motion-stream" type="button" class="nf-induce-multi-btn">Motion streaming start</button>
+      <div id="nf-motion-status" class="nf-mode-hint">DeviceMotionEvent (가속도 센서) → 1초마다 |x|,|y|,|z|,x±,y±,magnitude 8-bin → SNN 주입. iOS는 권한 요청. 모바일에서 디바이스 흔들면 winner 변화.</div>
     </div>
 
     <div class="nf-section nf-mouse-modality-section">

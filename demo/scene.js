@@ -1937,6 +1937,49 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 geolocation modality: 위/경도/정확도/heading/속도/고도 → 8-bin.
+  const geoInject = document.getElementById('nf-geo-inject');
+  const geoStatus = document.getElementById('nf-geo-status');
+  if (geoInject) {
+    geoInject.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        if (geoStatus) geoStatus.textContent = 'geolocation 미지원 브라우저.';
+        return;
+      }
+      geoInject.disabled = true;
+      const orig = geoInject.textContent;
+      geoInject.textContent = '위치 요청...';
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const c = pos.coords;
+        // 정규화 (각 차원 적당한 범위로 [0, 1] 매핑).
+        const lat   = ((c.latitude  + 90) / 180);
+        const lon   = ((c.longitude + 180) / 360);
+        const acc   = Math.min(1, (c.accuracy || 1000) / 1000);
+        const alt   = c.altitude != null ? Math.min(1, Math.max(0, (c.altitude + 500) / 9000)) : 0.5;
+        const altA  = c.altitudeAccuracy != null ? Math.min(1, c.altitudeAccuracy / 100) : 0;
+        const head  = c.heading != null && !isNaN(c.heading) ? c.heading / 360 : 0;
+        const speed = c.speed != null && !isNaN(c.speed) ? Math.min(1, c.speed / 30) : 0;
+        const ts    = (pos.timestamp % 86400000) / 86400000; // 시간 of day [0, 1].
+        const pattern = [lat, lon, acc, alt, altA, head, speed, ts];
+        geoInject.textContent = 'Injecting...';
+        const r = await backend.injectPattern(pattern, { modality: 'custom' });
+        if (r.ok) {
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          if (geoStatus) geoStatus.textContent = `pattern=[${pattern.map(p=>p.toFixed(2)).join(',')}] → winner=${winner||'없음'}`;
+          geoInject.textContent = 'Injected ✓';
+        } else {
+          geoInject.textContent = `Failed: ${r.reason||''}`;
+        }
+        setTimeout(() => { geoInject.textContent = orig; geoInject.disabled = false; }, 2500);
+      }, (err) => {
+        if (geoStatus) geoStatus.textContent = `위치 거부: ${err.message}`;
+        geoInject.textContent = orig;
+        geoInject.disabled = false;
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+  }
+
   // Phase 2 keyboard modality: 직전 1초 keystroke timestamp 분포 → 8-bin.
   const kbdInput  = document.getElementById('nf-kbd-input');
   const kbdStream = document.getElementById('nf-kbd-stream');

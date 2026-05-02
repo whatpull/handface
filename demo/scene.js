@@ -78,7 +78,15 @@ function setupSettingsUI() {
       endpoint: endpointInput.value.trim(),
       apiKey:   apiKeyInput.value.trim(),
     });
-    statusEl.textContent = ok ? 'saved (reload page to apply)' : 'save failed';
+    if (ok) {
+      // Session 36: Save 통과 후 자동 reload (사용자 catch 정합).
+      statusEl.textContent = 'saved — reloading...';
+      saveBtn.disabled = true;
+      testBtn.disabled = true;
+      setTimeout(() => window.location.reload(), 600);
+    } else {
+      statusEl.textContent = 'save failed';
+    }
   });
 
   testBtn.addEventListener('click', async () => {

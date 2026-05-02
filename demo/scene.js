@@ -15,6 +15,9 @@ import {
   renderAnchorVerification,
   runAnchorVerification,
   exportAnchorVerificationCsv,
+  runD85Verification,
+  renderD85Verification,
+  exportD85VerificationCsv,
 } from './snn-viz/anchor-verification.js';
 import {
   renderCascadeFire,
@@ -227,6 +230,57 @@ function setupSettingsUI() {
   if (anchorModal) {
     anchorModal.addEventListener('click', (e) => {
       if (e.target === anchorModal) hideAnchorModal();
+    });
+  }
+
+  // Session 35: D85 anchor verification modal (D80 패턴 정합).
+  const d85RunBtn  = document.getElementById('nf-d85-run');
+  const d85OpenBtn = document.getElementById('nf-d85-open');
+  const d85Modal   = document.getElementById('nf-d85-modal');
+  const d85Close   = document.getElementById('nf-d85-modal-close');
+  const d85Export  = document.getElementById('nf-d85-modal-export');
+  const d85Body    = document.getElementById('nf-d85-modal-body');
+  let d85Result = null;
+
+  async function runD85Verify() {
+    if (!d85Body || !d85Modal) return;
+    d85Body.innerHTML = '<div class="nf-anchor-loading">Running D85 verification (10 induce, ~5-10s)...</div>';
+    d85Modal.classList.remove('nf-anchor-modal--hidden');
+    try {
+      d85Result = await runD85Verification(backend);
+      d85Body.innerHTML = renderD85Verification(d85Result);
+    } catch (err) {
+      d85Body.innerHTML = `<div class="nf-anchor-empty">D85 verification error: ${err.message}</div>`;
+    }
+  }
+
+  function showD85Modal() {
+    if (!d85Body || !d85Modal) return;
+    d85Body.innerHTML = d85Result
+      ? renderD85Verification(d85Result)
+      : '<div class="nf-anchor-empty">No D85 verification yet — click Run D85 Verification.</div>';
+    d85Modal.classList.remove('nf-anchor-modal--hidden');
+  }
+
+  function hideD85Modal() {
+    if (d85Modal) d85Modal.classList.add('nf-anchor-modal--hidden');
+  }
+
+  if (d85RunBtn)  d85RunBtn.addEventListener('click', runD85Verify);
+  if (d85OpenBtn) d85OpenBtn.addEventListener('click', showD85Modal);
+  if (d85Close)   d85Close.addEventListener('click', hideD85Modal);
+  if (d85Export) {
+    d85Export.addEventListener('click', () => {
+      if (!d85Result) {
+        console.warn('[d85-verify] no result to export');
+        return;
+      }
+      exportD85VerificationCsv(d85Result);
+    });
+  }
+  if (d85Modal) {
+    d85Modal.addEventListener('click', (e) => {
+      if (e.target === d85Modal) hideD85Modal();
     });
   }
 

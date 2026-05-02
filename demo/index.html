@@ -1394,6 +1394,15 @@
       <div class="nf-mode-hint">D80 anchor (cascade 7/7 + STDP learning) frozen verification panel.</div>
     </div>
 
+    <div class="nf-section nf-d85-verification-section">
+      <label class="nf-section-label">D85 ANCHOR VERIFICATION (cortical AMPA fast 정합)</label>
+      <div class="nf-anchor-verify-buttons">
+        <button id="nf-d85-run"  type="button" class="nf-induce-multi-btn">Run D85 Verification</button>
+        <button id="nf-d85-open" type="button" class="nf-induce-multi-btn">Open Result</button>
+      </div>
+      <div class="nf-mode-hint">D85 baseline (LIF psp_dur 4.0 + 회로 weight main 보존). 분기 γ 영역 첫 anchor milestone (M71 정합, neuronface main 14a66a8).</div>
+    </div>
+
     <div class="nf-section nf-cascade-fire-section">
       <label class="nf-section-label">CASCADE FIRE MAP (D80)</label>
       <div class="nf-cascade-fire-buttons">
@@ -1433,6 +1442,17 @@
         <button id="nf-anchor-modal-close" type="button" class="nf-anchor-modal-close">×</button>
       </div>
       <div id="nf-anchor-modal-body" class="nf-anchor-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="nf-d85-modal" class="nf-anchor-modal nf-anchor-modal--hidden">
+    <div class="nf-anchor-modal-content">
+      <div class="nf-anchor-modal-header">
+        <span class="nf-anchor-modal-title">D85 Anchor Verification (cortical AMPA fast)</span>
+        <button id="nf-d85-modal-export" type="button" class="nf-anchor-modal-btn">CSV</button>
+        <button id="nf-d85-modal-close" type="button" class="nf-anchor-modal-close">×</button>
+      </div>
+      <div id="nf-d85-modal-body" class="nf-anchor-modal-body"></div>
     </div>
   </div>
 

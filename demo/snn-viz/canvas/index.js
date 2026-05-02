@@ -10,3 +10,4 @@ export {
   getCanvasZoom,
   fitCanvasToNodes,
 } from './canvas.js';
+export { buildGrownNeuronNode } from './data.js';

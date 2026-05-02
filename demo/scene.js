@@ -416,7 +416,60 @@ for (const g of GESTURES) {
 // 1) INPUT 영역 dot .selected (persistent) 갱신
 // 2) backend.sendGestures (multi-INPUT body.inputs) dispatch
 // mediapipe single-path (위의 control.on) 와 공존 (d-3 결정).
-// Session 36: Train Cascade button handler — STDP on + 10 induce 영역 학습 발동.
+// Session 36: 학습 결과 (synapse weight) save / load — backend snapshot + localStorage.
+const TRAINING_STORAGE_KEY = 'handface.training.snapshot.v1';
+
+async function saveTrainingState() {
+  const result = await backend.getTrainingSnapshot();
+  if (!result.ok || !result.response?.synapses) {
+    console.warn('[neuronface] save snapshot failed:', result.reason);
+    return false;
+  }
+  try {
+    const payload = {
+      saved_at: Date.now(),
+      synapse_count: result.response.synapse_count,
+      synapses: result.response.synapses,
+    };
+    localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(payload));
+    console.info(`[neuronface] training snapshot saved (${payload.synapse_count} synapses)`);
+    return true;
+  } catch (err) {
+    console.error('[neuronface] localStorage save failed:', err);
+    return false;
+  }
+}
+
+async function loadTrainingState() {
+  try {
+    const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!Array.isArray(payload.synapses) || payload.synapses.length === 0) return false;
+    const result = await backend.loadTrainingSnapshot(payload.synapses);
+    if (!result.ok) {
+      console.warn('[neuronface] training load failed:', result.reason);
+      return false;
+    }
+    console.info(`[neuronface] training restored: ${result.response.updated} synapses (saved ${new Date(payload.saved_at).toLocaleString()})`);
+    return true;
+  } catch (err) {
+    console.error('[neuronface] training load error:', err);
+    return false;
+  }
+}
+
+function clearTrainingState() {
+  try {
+    localStorage.removeItem(TRAINING_STORAGE_KEY);
+    console.info('[neuronface] training snapshot cleared');
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Session 36: Train Cascade button handler — STDP on + 20 induce 영역 학습 발동.
 const TRAIN_ALL_8_INPUTS = [
   'in_pinch', 'in_fist', 'in_palm', 'in_point',
   'in_gaze', 'in_blink', 'in_thumbsup', 'in_victory',
@@ -430,8 +483,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const orig = trainBtn.textContent;
     backend.setStdpEnabled(true);
     backend.setStdpMode('pair');
-    for (let i = 1; i <= 10; i += 1) {
-      trainBtn.textContent = `Training... (${i}/10)`;
+    for (let i = 1; i <= 20; i += 1) {
+      trainBtn.textContent = `Training... (${i}/20)`;
       try {
         await backend.induceFireMulti(TRAIN_ALL_8_INPUTS);
       } catch (err) {
@@ -440,7 +493,40 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
     trainBtn.textContent = 'Trained ✓ (재학습 click)';
+    // Session 36: 학습 통과 후 자동 save (localStorage + backend snapshot).
+    await saveTrainingState();
     setTimeout(() => { trainBtn.textContent = orig; trainBtn.disabled = false; }, 2000);
+  });
+
+  // Session 36: Save / Load / Clear training button handler.
+  const saveBtn  = document.getElementById('nf-training-save');
+  const loadBtn  = document.getElementById('nf-training-load');
+  const clearBtn = document.getElementById('nf-training-clear');
+
+  saveBtn?.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    const orig = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    const ok = await saveTrainingState();
+    saveBtn.textContent = ok ? 'Saved ✓' : 'Save failed';
+    setTimeout(() => { saveBtn.textContent = orig; saveBtn.disabled = false; }, 1500);
+  });
+
+  loadBtn?.addEventListener('click', async () => {
+    loadBtn.disabled = true;
+    const orig = loadBtn.textContent;
+    loadBtn.textContent = 'Loading...';
+    const ok = await loadTrainingState();
+    loadBtn.textContent = ok ? 'Loaded ✓' : 'No snapshot';
+    setTimeout(() => { loadBtn.textContent = orig; loadBtn.disabled = false; }, 1500);
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    clearTrainingState();
+    const orig = clearBtn.textContent;
+    clearBtn.textContent = 'Cleared ✓';
+    clearBtn.disabled = true;
+    setTimeout(() => { clearBtn.textContent = orig; clearBtn.disabled = false; }, 1500);
   });
 });
 
@@ -612,11 +698,12 @@ async function autoTrainCascade() {
 }
 
 let canvasAutoMounted = false;
-function autoMountWhenReady() {
+async function autoMountWhenReady() {
   if (canvasAutoMounted) return;
-  // state.synapses 영역 영역 영역 = backend connection-status event 통과 영역.
   if (Array.isArray(state.synapses) && state.synapses.length > 0) {
     canvasAutoMounted = true;
+    // Session 36: backend ready 통과 직후 학습 결과 자동 복원 (localStorage → backend).
+    await loadTrainingState();
     autoMountCanvas();
   }
 }

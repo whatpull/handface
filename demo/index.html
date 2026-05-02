@@ -782,15 +782,20 @@
     /* Synapse 편집 row */
     .nf-syn-edit-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 80px;
+      grid-template-columns: 1fr 1fr;
       gap: 4px;
       margin-top: 6px;
     }
     .nf-syn-edit-row .nf-syn-edit-input {
       padding: 4px 6px;
       font-size: 11px;
+      min-width: 0;
+      width: 100%;
     }
-    .nf-syn-edit-row button {
+    .nf-syn-edit-row #nf-syn-weight {
+      grid-column: 1 / -1;
+    }
+    .nf-syn-edit-row #nf-syn-edit-btn {
       grid-column: 1 / -1;
       margin-top: 2px;
     }
@@ -853,6 +858,46 @@
       transform: rotate(90deg);
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
+
+    /* Settings 카테고리 탭 (Session 37 reorganization). */
+    .nf-tab-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0f1729;
+      padding: 4px 0;
+    }
+    .nf-tab-btn {
+      background: transparent;
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      color: #94a3b8;
+      padding: 6px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nf-tab-btn:hover { border-color: #a78bfa; color: #c4b5fd; }
+    .nf-tab-btn.active {
+      background: rgba(167, 139, 250, 0.15);
+      border-color: #a78bfa;
+      color: #a78bfa;
+    }
+    /* 활성 탭 외 카테고리 hide. */
+    #neuronface-settings[data-active-cat="core"]  .nf-section[data-cat]:not([data-cat="core"]),
+    #neuronface-settings[data-active-cat="core"]  .nf-section-group[data-cat]:not([data-cat="core"]) { display: none; }
+    #neuronface-settings[data-active-cat="learn"] .nf-section[data-cat]:not([data-cat="learn"]),
+    #neuronface-settings[data-active-cat="learn"] .nf-section-group[data-cat]:not([data-cat="learn"]) { display: none; }
+    #neuronface-settings[data-active-cat="input"] .nf-section[data-cat]:not([data-cat="input"]),
+    #neuronface-settings[data-active-cat="input"] .nf-section-group[data-cat]:not([data-cat="input"]) { display: none; }
+    #neuronface-settings[data-active-cat="tools"] .nf-section[data-cat]:not([data-cat="tools"]),
+    #neuronface-settings[data-active-cat="tools"] .nf-section-group[data-cat]:not([data-cat="tools"]) { display: none; }
 
     /* 신경조절 인디케이터 (대시보드 상단) */
     .nf-neuromod-indicator {
@@ -2002,7 +2047,14 @@
     </div>
     <div id="nf-status">not tested</div>
 
-    <div class="nf-section nf-dashboard-section">
+    <div class="nf-tab-bar">
+      <button data-cat="core"  class="nf-tab-btn active" type="button">CORE</button>
+      <button data-cat="learn" class="nf-tab-btn" type="button">LEARN</button>
+      <button data-cat="input" class="nf-tab-btn" type="button">INPUT</button>
+      <button data-cat="tools" class="nf-tab-btn" type="button">TOOLS</button>
+    </div>
+
+    <div class="nf-section nf-dashboard-section" data-cat="core">
       <label class="nf-section-label">대시보드 (KPI)</label>
       <div id="nf-neuromod-indicator" class="nf-neuromod-indicator"><span data-nm="dopamine" class="nf-nm-dot">D</span><span data-nm="ach" class="nf-nm-dot">A</span><span data-nm="serotonin" class="nf-nm-dot">S</span><span class="nf-nm-state">중립 (anchor)</span></div>
       <div class="nf-dashboard-grid nf-dashboard-grid-3">
@@ -2025,7 +2077,7 @@
       </div>
     </div>
 
-    <div class="nf-section nf-train-cascade-section">
+    <div class="nf-section nf-train-cascade-section" data-cat="learn">
       <label class="nf-section-label">TRAIN CASCADE (학습 발동)</label>
       <div class="nf-anchor-verify-buttons">
         <button id="nf-train-cascade" type="button" class="nf-induce-multi-btn">Run Training (20 induce + STDP)</button>
@@ -2033,7 +2085,7 @@
       <div class="nf-mode-hint">STDP on + 8 INPUT 동시 induce × 20회 → weight LTP 발동 → 단일 gesture click → cascade fire OUT 도달.</div>
     </div>
 
-    <div class="nf-section nf-supervised-rl-section">
+    <div class="nf-section nf-supervised-rl-section" data-cat="learn">
       <label class="nf-section-label">SUPERVISED RL (Phase 4 본격)</label>
       <div class="nf-supervised-grid">
         <button data-gesture="pointing" data-target="out_0" type="button" class="nf-supervised-btn">Pointing → out_0</button>
@@ -2045,7 +2097,7 @@
       <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
     </div>
 
-    <div class="nf-section nf-stats-section">
+    <div class="nf-section nf-stats-section" data-cat="core">
       <label class="nf-section-label">회로 통계 (CIRCUIT STATS)</label>
       <div class="nf-supervised-grid">
         <button id="nf-stats-refresh" type="button" class="nf-induce-multi-btn">통계 새로고침</button>
@@ -2064,7 +2116,7 @@
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>
     </div>
 
-    <details class="nf-section-group">
+    <details class="nf-section-group" data-cat="tools">
       <summary class="nf-section-group-summary">고급 (DEMO / GROW / EXPORT / TRAINING SAVE)</summary>
 
     <div class="nf-section nf-demo-section">
@@ -2106,7 +2158,7 @@
       <div id="nf-grow-status" class="nf-mode-hint">동적 성장 — 선택한 region/population에 N 뉴런 추가 + 시냅스 연결. canvas 자동 새로고침. Topology Save/Load: 성장된 회로 전체를 D1에 영구 저장 / 복원.</div>
     </div>
 
-    <details class="nf-section-group">
+    <details class="nf-section-group" data-cat="input">
       <summary class="nf-section-group-summary">입력 데모 (TEXT / IMAGE / AUDIO)</summary>
 
     <div class="nf-section nf-audio-modality-section">
@@ -2129,7 +2181,7 @@
       <div id="nf-image-status" class="nf-mode-hint">4×4 픽셀 그리드 클릭 → 셀 토글 (흑/백). 16 셀을 8 bin (2 셀씩 묶음)으로 평균 → 8-dim pattern → SNN 주입. modality=image.</div>
     </div>
 
-    <div class="nf-section nf-preset-pattern-section">
+    <div class="nf-section nf-preset-pattern-section" data-cat="input">
       <label class="nf-section-label">PATTERN 라이브러리 (사전 정의)</label>
       <div class="nf-preset-grid">
         <button data-pattern="uniform"  type="button" class="nf-supervised-btn">균등</button>
@@ -2145,26 +2197,26 @@
       <div id="nf-preset-status" class="nf-mode-hint">사전 정의 8-dim 패턴 1-click inject. Auto-train: left→out_0, right→out_1, center→out_2, uniform→out_3 학습 후 정확도 자동 측정.</div>
     </div>
 
-    <div class="nf-section nf-motion-modality-section">
+    <div class="nf-section nf-motion-modality-section" data-cat="input">
       <label class="nf-section-label">MOTION 입력 데모 (Phase 2 multi-modal, 모바일 권장)</label>
       <button id="nf-motion-stream" type="button" class="nf-induce-multi-btn">Motion streaming start</button>
       <div id="nf-motion-status" class="nf-mode-hint">DeviceMotionEvent (가속도 센서) → 1초마다 |x|,|y|,|z|,x±,y±,magnitude 8-bin → SNN 주입. iOS는 권한 요청. 모바일에서 디바이스 흔들면 winner 변화.</div>
     </div>
 
-    <div class="nf-section nf-geo-modality-section">
+    <div class="nf-section nf-geo-modality-section" data-cat="input">
       <label class="nf-section-label">GEOLOCATION 입력 데모 (Phase 2 multi-modal)</label>
       <button id="nf-geo-inject" type="button" class="nf-induce-multi-btn">현재 위치 inject (1회)</button>
       <div id="nf-geo-status" class="nf-mode-hint">위치 권한 → 위도/경도/정확도/속도/heading/altitude를 8-dim pattern으로 정규화 → SNN 주입. modality=custom. 권한 거부 시 fallback.</div>
     </div>
 
-    <div class="nf-section nf-keyboard-modality-section">
+    <div class="nf-section nf-keyboard-modality-section" data-cat="input">
       <label class="nf-section-label">KEYBOARD 입력 데모 (Phase 2 multi-modal)</label>
       <input id="nf-kbd-input" type="text" placeholder="아무거나 타이핑 (스트리밍 중)" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
       <button id="nf-kbd-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
       <div id="nf-kbd-status" class="nf-mode-hint">텍스트 box에 타이핑 → 직전 1초간 keystroke timestamp를 8 슬롯 (125ms씩) 분포로 변환 → 8-dim pattern → injectPattern. modality=custom. 타이핑 속도/리듬에 따라 winner 변화.</div>
     </div>
 
-    <div class="nf-section nf-mouse-modality-section">
+    <div class="nf-section nf-mouse-modality-section" data-cat="input">
       <label class="nf-section-label">MOUSE 입력 데모 (Phase 2 multi-modal)</label>
       <div class="nf-mouse-pad" id="nf-mouse-pad"></div>
       <div class="nf-supervised-grid">
@@ -2186,7 +2238,7 @@
     </div>
     </details>
 
-    <div class="nf-section nf-multimodal-section">
+    <div class="nf-section nf-multimodal-section" data-cat="input">
       <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
       <div class="nf-multimodal-row">
         <span class="nf-multimodal-label">Modality</span>
@@ -2234,7 +2286,7 @@
       <div id="nf-mm-status" class="nf-mode-hint">현재 pattern + target → Inject/Train 또는 Dataset에 추가. Dataset → D1 저장/복원. Batch train: 저장된 sample 5 round 일괄 supervised RL. Phase 1~7 통합.</div>
     </div>
 
-    <div class="nf-section nf-neuromod-section">
+    <div class="nf-section nf-neuromod-section" data-cat="learn">
       <label class="nf-section-label">NEUROMODULATORS (Phase 5)</label>
       <div class="nf-neuromod-grid">
         <div class="nf-neuromod-row">
@@ -2260,7 +2312,7 @@
       <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor 영역. Day cycle: 30초 주기로 sine wave 변화 (낮=ACh+dopamine 활성, 밤=serotonin 활성).</div>
     </div>
 
-    <div class="nf-section nf-decode-section">
+    <div class="nf-section nf-decode-section" data-cat="learn">
       <label class="nf-section-label">OUT DECODE (Phase 4)</label>
       <div class="nf-multimodal-row" style="margin-bottom: 6px;">
         <span class="nf-multimodal-label">Direct pathway</span>
@@ -2289,7 +2341,7 @@
       <div class="nf-mode-hint">최근 cascade 의 OUT 발화율 (Hz). 가장 높은 OUT = decoded gesture (winner highlight).</div>
     </div>
 
-    <div class="nf-section nf-export-section">
+    <div class="nf-section nf-export-section" data-cat="tools">
       <label class="nf-section-label">CIRCUIT EXPORT / IMPORT (JSON)</label>
       <div class="nf-supervised-grid">
         <button id="nf-circuit-export" type="button" class="nf-induce-multi-btn">Export JSON 다운로드</button>
@@ -2310,7 +2362,7 @@
     </div>
     </details>
 
-    <div class="nf-section nf-canvas-toggle-section">
+    <div class="nf-section nf-canvas-toggle-section" data-cat="tools">
       <label class="nf-section-label">CIRCUIT CANVAS (drawflow)</label>
       <div class="nf-canvas-mode-buttons">
         <button id="nf-canvas-toggle"      type="button" class="nf-induce-multi-btn">Toggle Canvas View</button>

@@ -2448,6 +2448,27 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Settings 카테고리 탭 (Session 37 reorganization).
+  const TAB_KEY = 'handface.settings.active_cat.v1';
+  const settingsRoot = document.getElementById('neuronface-settings');
+  const tabBtns = Array.from(document.querySelectorAll('.nf-tab-btn'));
+  function setActiveTab(cat) {
+    if (!settingsRoot) return;
+    settingsRoot.dataset.activeCat = cat;
+    tabBtns.forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+    try { localStorage.setItem(TAB_KEY, cat); } catch (_) {}
+  }
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.cat));
+  });
+  // 초기 탭 (localStorage 또는 'core' 기본).
+  let initialTab = 'core';
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (saved && ['core','learn','input','tools'].includes(saved)) initialTab = saved;
+  } catch (_) {}
+  setActiveTab(initialTab);
+
   // Per-modality 사용 카운터 (localStorage).
   const MODALITY_COUNT_KEY = 'handface.modality_count.v1';
   function loadModalityCount() {

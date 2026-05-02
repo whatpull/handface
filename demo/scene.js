@@ -896,6 +896,47 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 4 decode accuracy 자동 측정 패널.
+  const decodeEvalBtn    = document.getElementById('nf-decode-eval');
+  const decodeEvalResult = document.getElementById('nf-decode-eval-result');
+  if (decodeEvalBtn) {
+    decodeEvalBtn.addEventListener('click', async () => {
+      decodeEvalBtn.disabled = true;
+      const orig = decodeEvalBtn.textContent;
+      const G2T = [['pointing','out_0'],['openpalm','out_1'],['thumbsup','out_2'],['victory','out_3']];
+      const SINGLE = { pointing:'in_point', openpalm:'in_palm', thumbsup:'in_thumbsup', victory:'in_victory' };
+      const N_TRIALS = 5;
+      let correct = 0;
+      const total = G2T.length * N_TRIALS;
+      const perGesture = {};
+      for (const [g, target] of G2T) {
+        perGesture[g] = { correct: 0, total: N_TRIALS };
+        for (let t = 0; t < N_TRIALS; t += 1) {
+          decodeEvalBtn.textContent = `Eval ${g} ${t+1}/${N_TRIALS}`;
+          const pat = ['in_pinch','in_fist','in_palm','in_point','in_gaze','in_blink','in_thumbsup','in_victory']
+            .map(n => n === SINGLE[g] ? 1.0 : 0.0);
+          const r = await backend.injectPattern(pat, { modality: 'gesture' });
+          if (!r.ok) continue;
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          if (winner === target) {
+            correct += 1;
+            perGesture[g].correct += 1;
+          }
+        }
+      }
+      const pct = (correct / total * 100).toFixed(1);
+      decodeEvalBtn.textContent = `Done: ${correct}/${total} = ${pct}%`;
+      if (decodeEvalResult) {
+        const detail = Object.entries(perGesture)
+          .map(([g, s]) => `${g}: ${s.correct}/${s.total}`)
+          .join(', ');
+        decodeEvalResult.textContent = `정확도: ${correct}/${total} = ${pct}% | ${detail}`;
+      }
+      setTimeout(() => { decodeEvalBtn.textContent = orig; decodeEvalBtn.disabled = false; }, 3000);
+    });
+  }
+
   // Phase 4: Direct decode pathway toggle.
   const decodePathwayToggle = document.getElementById('nf-decode-pathway-toggle');
   const decodePathwayState  = document.getElementById('nf-decode-pathway-state');

@@ -1775,7 +1775,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-Xe4HOVK-.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-DBrz3KPe.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1873,8 +1873,12 @@
 
     <div class="nf-section nf-stats-section">
       <label class="nf-section-label">회로 통계 (CIRCUIT STATS)</label>
-      <button id="nf-stats-refresh" type="button" class="nf-induce-multi-btn">통계 새로고침</button>
+      <div class="nf-supervised-grid">
+        <button id="nf-stats-refresh" type="button" class="nf-induce-multi-btn">통계 새로고침</button>
+        <button id="nf-stats-clear-history" type="button" class="nf-induce-multi-btn">History 초기화</button>
+      </div>
       <svg id="nf-stats-histogram" class="nf-stats-histogram" viewBox="0 0 200 80" preserveAspectRatio="none"></svg>
+      <svg id="nf-stats-history" class="nf-stats-histogram" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>
     </div>
 

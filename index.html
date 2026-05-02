@@ -1722,7 +1722,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BwQT3xns.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-D9P2tT2S.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1865,8 +1865,11 @@
 
     <div class="nf-section nf-audio-modality-section">
       <label class="nf-section-label">AUDIO 입력 데모 (Phase 2 multi-modal)</label>
-      <button id="nf-audio-capture" type="button" class="nf-induce-multi-btn">마이크 capture + inject (1초)</button>
-      <div id="nf-audio-status" class="nf-mode-hint">마이크 권한 → 1초 audio 캡처 → FFT 32 bin → 8 bin 평균 (frequency low→high) → 8-dim pattern → SNN 주입. modality=audio.</div>
+      <div class="nf-supervised-grid">
+        <button id="nf-audio-capture" type="button" class="nf-induce-multi-btn">마이크 capture + inject (1초)</button>
+        <button id="nf-audio-stream" type="button" class="nf-induce-multi-btn">Streaming start</button>
+      </div>
+      <div id="nf-audio-status" class="nf-mode-hint">마이크 권한 → FFT 32 bin → 8 bin 평균 → 8-dim pattern → SNN 주입. modality=audio. Streaming: 1초 간격 자동 반복 (continuous SNN feed).</div>
     </div>
 
     <div class="nf-section nf-image-modality-section">

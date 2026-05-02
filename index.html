@@ -773,6 +773,17 @@
       height: 14px;
     }
 
+    /* 회로 통계 — weight 히스토그램 */
+    .nf-stats-histogram {
+      width: 100%;
+      height: 80px;
+      margin-top: 6px;
+      background: rgba(167, 139, 250, 0.05);
+      border: 1px solid rgba(167, 139, 250, 0.2);
+      border-radius: 4px;
+      display: block;
+    }
+
     /* 회로 통계 출력 */
     .nf-stats-output {
       font-family: monospace;
@@ -1764,7 +1775,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BoNM_NK2.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-a-2vKggR.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1863,6 +1874,7 @@
     <div class="nf-section nf-stats-section">
       <label class="nf-section-label">회로 통계 (CIRCUIT STATS)</label>
       <button id="nf-stats-refresh" type="button" class="nf-induce-multi-btn">통계 새로고침</button>
+      <svg id="nf-stats-histogram" class="nf-stats-histogram" viewBox="0 0 200 80" preserveAspectRatio="none"></svg>
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>
     </div>
 

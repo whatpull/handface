@@ -1404,9 +1404,13 @@
     </div>
 
     <div class="nf-section nf-canvas-toggle-section">
-      <label class="nf-section-label">CIRCUIT CANVAS (drawflow PoC)</label>
-      <button id="nf-canvas-toggle" type="button" class="nf-induce-multi-btn">Toggle Canvas View</button>
-      <div class="nf-mode-hint">drawflow 기반 4 region canvas (PoC). drag pan + scroll zoom + active count badge. self-loop = PoC 영역 0 (V1/V2 internal cascade). 본격 결정 = 사용자 검증 후.</div>
+      <label class="nf-section-label">CIRCUIT CANVAS (drawflow)</label>
+      <div class="nf-canvas-mode-buttons">
+        <button id="nf-canvas-toggle"      type="button" class="nf-induce-multi-btn">Toggle Canvas View</button>
+        <button id="nf-canvas-mode-region" type="button" class="nf-induce-multi-btn active">Region (4)</button>
+        <button id="nf-canvas-mode-neuron" type="button" class="nf-induce-multi-btn">Neuron (52)</button>
+      </div>
+      <div class="nf-mode-hint">drawflow 기반 SNN canvas. Region (4 노드) 또는 Neuron (52 노드 + ~120 synapse). weight 색: red inhibitory / cyan 약 / yellow 중 / purple 강. Neuron mode 영역 = induce 통과 후 synapse weight + fire rate 갱신.</div>
     </div>
   </div>
 

@@ -1,1 +1,8 @@
-export { initCanvas, updateCanvasFire, destroyCanvas } from './canvas.js';
+export {
+  initCanvas,
+  initCanvasNeuron,
+  updateCanvasFire,
+  updateCanvasFireNeuron,
+  destroyCanvas,
+  getCanvasMode,
+} from './canvas.js';

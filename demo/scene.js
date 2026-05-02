@@ -959,6 +959,71 @@ window.addEventListener('DOMContentLoaded', () => {
   const statsRefreshBtn = document.getElementById('nf-stats-refresh');
   const statsOutput     = document.getElementById('nf-stats-output');
   const statsHistogram  = document.getElementById('nf-stats-histogram');
+  const statsHistory    = document.getElementById('nf-stats-history');
+  const statsClearHistBtn = document.getElementById('nf-stats-clear-history');
+
+  // Training history (localStorage 영구).
+  const STATS_HISTORY_KEY = 'handface.stats.history.v1';
+  function loadStatsHistory() {
+    try {
+      const raw = localStorage.getItem(STATS_HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) { return []; }
+  }
+  function saveStatsHistory(arr) {
+    try {
+      localStorage.setItem(STATS_HISTORY_KEY, JSON.stringify(arr.slice(-50)));
+    } catch (_) {}
+  }
+  function pushStatsHistory(entry) {
+    const arr = loadStatsHistory();
+    arr.push({ ts: Date.now(), ...entry });
+    saveStatsHistory(arr);
+    return arr;
+  }
+
+  function renderStatsHistory(arr) {
+    if (!statsHistory) return;
+    if (!arr || arr.length < 2) { statsHistory.innerHTML = '<text x="100" y="32" font-size="9" font-family="monospace" fill="#94a3b8" text-anchor="middle">history (entries: ' + (arr ? arr.length : 0) + ')</text>'; return; }
+    const w = 200, h = 60, padTop = 6, padBot = 14, padX = 4;
+    const drawH = h - padTop - padBot;
+    const drawW = w - padX * 2;
+    const totalPos = arr.map(e => e.total_pos);
+    const max = Math.max(...totalPos, 1);
+    const points = arr.map((e, i) => {
+      const x = padX + (i / (arr.length - 1)) * drawW;
+      const y = padTop + drawH - (e.total_pos / max) * drawH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const sat = arr.map(e => e.sat_ratio);
+    const satMax = Math.max(...sat, 0.01);
+    const satPoints = arr.map((e, i) => {
+      const x = padX + (i / (arr.length - 1)) * drawW;
+      const y = padTop + drawH - (e.sat_ratio / satMax) * drawH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const parts = [];
+    parts.push(`<polyline points="${points.join(' ')}" fill="none" stroke="#a78bfa" stroke-width="1.4"/>`);
+    parts.push(`<polyline points="${satPoints.join(' ')}" fill="none" stroke="#f5b842" stroke-width="1.2" stroke-dasharray="3,2"/>`);
+    // 가장 최근 점 강조.
+    const last = arr[arr.length - 1];
+    const lx = padX + drawW;
+    const ly = padTop + drawH - (last.total_pos / max) * drawH;
+    parts.push(`<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.5" fill="#a78bfa"/>`);
+    parts.push(`<text x="${padX}" y="${h - 3}" font-size="6" font-family="monospace" fill="#a78bfa">total_pos (purple)</text>`);
+    parts.push(`<text x="${w - padX}" y="${h - 3}" font-size="6" font-family="monospace" fill="#f5b842" text-anchor="end">saturation (yellow dash)</text>`);
+    parts.push(`<text x="${padX}" y="${padTop + 5}" font-size="6" font-family="monospace" fill="#94a3b8">${arr.length} entries</text>`);
+    statsHistory.innerHTML = parts.join('');
+  }
+
+  if (statsClearHistBtn) {
+    statsClearHistBtn.addEventListener('click', () => {
+      saveStatsHistory([]);
+      renderStatsHistory([]);
+    });
+  }
+  // 초기 history 렌더.
+  renderStatsHistory(loadStatsHistory());
 
   function renderWeightHistogram(weights) {
     if (!statsHistogram) return;
@@ -1018,6 +1083,18 @@ window.addEventListener('DOMContentLoaded', () => {
       const synapses = snap.response.synapses || [];
       const weights = synapses.map(s => s.weight);
       renderWeightHistogram(weights);
+      // History 기록 (변수명 충돌 회피: posAll, satCount).
+      const posAll = weights.filter(w => w > 0);
+      const totalPos = posAll.reduce((x, y) => x + y, 0);
+      const satCount = posAll.filter(w => w >= 250).length;
+      const satRatio = posAll.length > 0 ? satCount / posAll.length : 0;
+      const arr = pushStatsHistory({
+        syn_count: synapses.length,
+        total_pos: totalPos,
+        sat_ratio: satRatio,
+        neuron_count: exp.neurons.length,
+      });
+      renderStatsHistory(arr);
       const pos = weights.filter(w => w > 0);
       const neg = weights.filter(w => w < 0);
       const sum = a => a.reduce((x, y) => x + y, 0);

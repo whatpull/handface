@@ -51,6 +51,9 @@ export const state = {
   weightHistory: {},
   // induce_fire response 누적 카운터 (chart x축).
   induceCount: 0,
+
+  // Session 38: 사용자 추가 INPUT 노드 (canvas + 패널 sync).
+  userInputs: [],
 };
 
 const POSITIONS_KEY = 'snn-viz-positions';

@@ -300,8 +300,46 @@
   letter-spacing: 1px;
 }
 
+/* Session 38: 시스템 노드 잠금 + USER INPUT badge */
+.snn-canvas-neuron-lock {
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.65;
+  filter: grayscale(0.3);
+}
+.snn-canvas-neuron-user-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  margin-left: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(167, 139, 250, 0.25);
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  border-radius: 2px;
+}
+/* 시스템 노드: 약간 desaturated + opacity (편집 불가 시각 신호). */
+.snn-canvas-neuron--locked .snn-canvas-neuron-card {
+  filter: saturate(0.85);
+}
+.snn-canvas-neuron--locked .snn-canvas-neuron-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.05);
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* 사용자 INPUT 노드: violet glow (강조). */
+.snn-canvas-neuron--user-input .snn-canvas-neuron-card {
+  --neuron-color: #a78bfa;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 0 12px rgba(167, 139, 250, 0.25);
+}
+
 .snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
 .snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
+.snn-canvas-neuron--user_input .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
 
 /* OUT 노드 영역 status / rate row — fired 시점 영역 영역 영역 영역. */
 .snn-canvas-out-card {

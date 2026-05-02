@@ -746,6 +746,39 @@
       height: 14px;
     }
 
+    /* Collapsible 패널 그룹 (Session 37 UI 정리). */
+    .nf-section-group {
+      margin-bottom: 8px;
+      border: 1px solid rgba(167, 139, 250, 0.2);
+      border-radius: 4px;
+      padding: 0;
+    }
+    .nf-section-group[open] {
+      padding: 6px 6px 0;
+    }
+    .nf-section-group-summary {
+      cursor: pointer;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a78bfa;
+      font-family: monospace;
+      list-style: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .nf-section-group-summary::-webkit-details-marker { display: none; }
+    .nf-section-group-summary::before {
+      content: '▶ ';
+      display: inline-block;
+      transition: transform 0.15s ease;
+      margin-right: 4px;
+    }
+    .nf-section-group[open] .nf-section-group-summary::before {
+      transform: rotate(90deg);
+    }
+    .nf-section-group-summary:hover { color: #c4b5fd; }
+
     /* Image modality 4×4 grid */
     .nf-image-grid {
       display: grid;
@@ -1785,6 +1818,9 @@
       <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
     </div>
 
+    <details class="nf-section-group">
+      <summary class="nf-section-group-summary">고급 (DEMO / GROW / EXPORT / TRAINING SAVE)</summary>
+
     <div class="nf-section nf-demo-section">
       <label class="nf-section-label">DEMO 시나리오 (Phase 7 통합)</label>
       <button id="nf-demo-large-train" type="button" class="nf-induce-multi-btn">시연: 회로 성장 → 학습 → 디코드 (벡터화)</button>
@@ -1824,6 +1860,9 @@
       <div id="nf-grow-status" class="nf-mode-hint">동적 성장 — 선택한 region/population에 N 뉴런 추가 + 시냅스 연결. canvas 자동 새로고침. Topology Save/Load: 성장된 회로 전체를 D1에 영구 저장 / 복원.</div>
     </div>
 
+    <details class="nf-section-group">
+      <summary class="nf-section-group-summary">입력 데모 (TEXT / IMAGE / AUDIO)</summary>
+
     <div class="nf-section nf-audio-modality-section">
       <label class="nf-section-label">AUDIO 입력 데모 (Phase 2 multi-modal)</label>
       <button id="nf-audio-capture" type="button" class="nf-induce-multi-btn">마이크 capture + inject (1초)</button>
@@ -1846,6 +1885,7 @@
       <button id="nf-text-inject" type="button" class="nf-induce-multi-btn">Encode + inject (ASCII 8-bin 히스토그램)</button>
       <div id="nf-text-status" class="nf-mode-hint">텍스트 → 각 문자 ASCII 코드 → 8 bin 정규화 히스토그램 → 8-dim pattern → SNN 주입. modality=text. 디코드 결과는 OUT DECODE 패널 참조.</div>
     </div>
+    </details>
 
     <div class="nf-section nf-multimodal-section">
       <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
@@ -1962,6 +2002,7 @@
       </div>
       <div class="nf-mode-hint">학습 결과 (synapse weight) localStorage 보존. 페이지 reload 시 자동 복원. Save = 즉시 저장, Load = 강제 복원, Clear = 보존 삭제.</div>
     </div>
+    </details>
 
     <div class="nf-section nf-canvas-toggle-section">
       <label class="nf-section-label">CIRCUIT CANVAS (drawflow)</label>

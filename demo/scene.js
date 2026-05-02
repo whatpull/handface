@@ -21,7 +21,13 @@ import {
   runCascadeFire,
   exportCascadeFireCsv,
 } from './snn-viz/cascade-fire-panel.js';
-import { initCanvas, updateCanvasFire, destroyCanvas } from './snn-viz/canvas/index.js';
+import {
+  initCanvas,
+  initCanvasNeuron,
+  updateCanvasFire,
+  updateCanvasFireNeuron,
+  destroyCanvas,
+} from './snn-viz/canvas/index.js';
 import './snn-viz/canvas/style.css';
 
 // ─────────────────────────────────────────
@@ -406,24 +412,43 @@ async function autoStart() {
   }
 }
 
-// ─── Session 33 drawflow PoC: canvas toggle handler ───
-const canvasToggleBtn = document.getElementById('nf-canvas-toggle');
-const canvasContainer = document.getElementById('nf-snn-canvas');
+// ─── Session 33 drawflow PoC + Session 34 neuron mode: canvas handler ───
+const canvasToggleBtn     = document.getElementById('nf-canvas-toggle');
+const canvasModeRegionBtn = document.getElementById('nf-canvas-mode-region');
+const canvasModeNeuronBtn = document.getElementById('nf-canvas-mode-neuron');
+const canvasContainer     = document.getElementById('nf-snn-canvas');
 
-let canvasMode = false;
+let canvasShown = false;             // canvas 표시 여부
+let canvasMode  = 'region';          // 'region' | 'neuron'
 let lastFireResponse = null;
 
+function applyFireToCanvas() {
+  if (!canvasShown || !lastFireResponse) return;
+  if (canvasMode === 'region' && lastFireResponse.active_neurons_by_region) {
+    updateCanvasFire(lastFireResponse.active_neurons_by_region);
+  } else if (canvasMode === 'neuron' && lastFireResponse.rates) {
+    updateCanvasFireNeuron(lastFireResponse.rates);
+  }
+}
+
+function mountCanvasForMode() {
+  if (canvasMode === 'region') {
+    initCanvas('nf-snn-canvas');
+  } else {
+    const synapses = lastFireResponse?.synapses || [];
+    initCanvasNeuron('nf-snn-canvas', synapses);
+  }
+  applyFireToCanvas();
+}
+
 function toggleCanvasView() {
-  canvasMode = !canvasMode;
+  canvasShown = !canvasShown;
   const snnFlowContainer = document.querySelector('.snn-flow');
 
-  if (canvasMode) {
+  if (canvasShown) {
     if (snnFlowContainer) snnFlowContainer.style.display = 'none';
     canvasContainer?.classList.add('snn-canvas--visible');
-    initCanvas('nf-snn-canvas');
-    if (lastFireResponse?.active_neurons_by_region) {
-      updateCanvasFire(lastFireResponse.active_neurons_by_region);
-    }
+    mountCanvasForMode();
   } else {
     destroyCanvas();
     canvasContainer?.classList.remove('snn-canvas--visible');
@@ -431,16 +456,24 @@ function toggleCanvasView() {
   }
 }
 
-if (canvasToggleBtn) {
-  canvasToggleBtn.addEventListener('click', toggleCanvasView);
+function switchCanvasMode(newMode) {
+  if (newMode === canvasMode) return;
+  canvasMode = newMode;
+  canvasModeRegionBtn?.classList.toggle('active', newMode === 'region');
+  canvasModeNeuronBtn?.classList.toggle('active', newMode === 'neuron');
+  if (canvasShown) {
+    mountCanvasForMode();
+  }
 }
+
+if (canvasToggleBtn)     canvasToggleBtn.addEventListener('click', toggleCanvasView);
+if (canvasModeRegionBtn) canvasModeRegionBtn.addEventListener('click', () => switchCanvasMode('region'));
+if (canvasModeNeuronBtn) canvasModeNeuronBtn.addEventListener('click', () => switchCanvasMode('neuron'));
 
 window.addEventListener('snn-viz:fire-update', (e) => {
   const r = e.detail?.response || window.__lastFireResponse || state.lastFireResponse || {};
   lastFireResponse = r;
-  if (canvasMode && r.active_neurons_by_region) {
-    updateCanvasFire(r.active_neurons_by_region);
-  }
+  applyFireToCanvas();
 });
 
 autoStart();

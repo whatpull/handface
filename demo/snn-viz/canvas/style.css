@@ -103,3 +103,61 @@
   background: var(--region-color, #4dd0e1);
   border: 2px solid #0a0e1a;
 }
+
+/* Session 34 neuron mode: 52 neuron card + population color + fired highlight. */
+.snn-canvas-neuron-card {
+  background: rgba(20, 28, 45, 0.95);
+  border: 1px solid var(--neuron-color, #4dd0e1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  min-width: 60px;
+  color: #e1e8f5;
+  font-family: ui-monospace, monospace;
+  text-align: center;
+  transition: box-shadow 200ms, background 200ms;
+}
+
+.snn-canvas-neuron--input  .snn-canvas-neuron-card { --neuron-color: #f5b842; }
+.snn-canvas-neuron--l4_e   .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
+.snn-canvas-neuron--l4_i   .snn-canvas-neuron-card { --neuron-color: #e76f6f; }
+.snn-canvas-neuron--l23_e  .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
+.snn-canvas-neuron--l5_e   .snn-canvas-neuron-card { --neuron-color: #b794f4; }
+.snn-canvas-neuron--output .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+
+.snn-canvas-neuron-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--neuron-color);
+}
+
+.snn-canvas-neuron-pop {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.snn-canvas-neuron--fired .snn-canvas-neuron-card {
+  box-shadow: 0 0 12px var(--neuron-color);
+  background: rgba(40, 50, 70, 0.95);
+}
+
+#nf-snn-canvas .snn-canvas-neuron .input,
+#nf-snn-canvas .snn-canvas-neuron .output {
+  background: var(--neuron-color, #4dd0e1);
+  border: 2px solid #0a0e1a;
+}
+
+/* Mode toggle buttons (region / neuron). */
+.nf-canvas-mode-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.nf-canvas-mode-buttons button.active {
+  background: rgba(94, 234, 212, 0.2);
+  border-color: #5eead4;
+  color: #5eead4;
+}

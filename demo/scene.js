@@ -725,6 +725,37 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 7: Grow network handler.
+  const growRegion     = document.getElementById('nf-grow-region');
+  const growPopulation = document.getElementById('nf-grow-population');
+  const growCount      = document.getElementById('nf-grow-count');
+  const growBtn        = document.getElementById('nf-grow-btn');
+  const growStatus     = document.getElementById('nf-grow-status');
+
+  if (growBtn) {
+    growBtn.addEventListener('click', async () => {
+      if (growBtn.disabled) return;
+      growBtn.disabled = true;
+      const orig = growBtn.textContent;
+      growBtn.textContent = 'Growing...';
+      const r = await backend.growRegion(
+        growRegion.value,
+        growPopulation.value,
+        parseInt(growCount.value, 10),
+      );
+      if (r.ok) {
+        const j = r.response;
+        if (growStatus) {
+          growStatus.textContent = `+${j.added_neurons.length} neurons / +${j.added_synapses_count} synapses (total ${j.total_neurons}/${j.total_synapses}). Canvas reload 영역 영역 영역.`;
+        }
+        growBtn.textContent = `Grew +${j.added_neurons.length} ✓`;
+      } else {
+        growBtn.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { growBtn.textContent = orig; growBtn.disabled = false; }, 2500);
+    });
+  }
+
   // 최종 GUI: Multi-modal input panel.
   const mmModality = document.getElementById('nf-mm-modality');
   const mmTarget   = document.getElementById('nf-mm-target');

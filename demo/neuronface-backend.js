@@ -477,6 +477,36 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 7: POST /networks/{id}/grow_region — 동적 영역 영역.
+   * @param {string} region     - 'V1' | 'V2'
+   * @param {string} population - 'L4_E' | 'L23_E' | 'L5_E'
+   * @param {number} count      - 1-20
+   * @param {object} [opts]     - { connectDensity, weight }
+   */
+  async growRegion(region, population, count, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      region,
+      population,
+      count,
+      connect_density: opts.connectDensity ?? 0.3,
+      weight:          opts.weight         ?? 8.0,
+    };
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/grow_region`,
+        { method: 'POST', body },
+      );
+      return { ok: true, response: resp };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 37 Phase 5: POST /networks/{id}/neuromodulator — 신경조절 영역 set.
    * @param {object} mods - { dopamine?, acetylcholine?, serotonin? }
    */

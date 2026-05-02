@@ -779,6 +779,22 @@
       min-width: 0;
     }
 
+    /* Synapse 편집 row */
+    .nf-syn-edit-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 80px;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .nf-syn-edit-row .nf-syn-edit-input {
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+    .nf-syn-edit-row button {
+      grid-column: 1 / -1;
+      margin-top: 2px;
+    }
+
     /* 회로 통계 — weight 히스토그램 */
     .nf-stats-histogram {
       width: 100%;
@@ -1876,7 +1892,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DPhr7hoU.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-D0Bc0Cca.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -2001,6 +2017,13 @@
         <button id="nf-stats-clear-history" type="button" class="nf-induce-multi-btn">History 초기화</button>
       </div>
       <button id="nf-stats-export-csv" type="button" class="nf-induce-multi-btn">History CSV 다운로드</button>
+      <div class="nf-syn-edit-row">
+        <input id="nf-syn-pre"  type="text" placeholder="pre 이름"  class="nf-multimodal-select nf-syn-edit-input">
+        <input id="nf-syn-post" type="text" placeholder="post 이름" class="nf-multimodal-select nf-syn-edit-input">
+        <input id="nf-syn-weight" type="number" step="0.5" placeholder="weight" class="nf-multimodal-select nf-syn-edit-input">
+        <button id="nf-syn-edit-btn" type="button" class="nf-induce-multi-btn">Synapse 편집</button>
+      </div>
+      <div id="nf-syn-edit-status" class="nf-mode-hint">특정 시냅스 weight 직접 편집. pre/post 뉴런 이름 + 새 weight 입력.</div>
       <svg id="nf-stats-histogram" class="nf-stats-histogram" viewBox="0 0 200 80" preserveAspectRatio="none"></svg>
       <svg id="nf-stats-history" class="nf-stats-histogram" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>

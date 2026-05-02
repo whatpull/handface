@@ -1,151 +1,496 @@
-/* Session 33 drawflow PoC styles. */
+/* Session 33 drawflow PoC styles + Session 36 ComfyUI/Weavy 정합 redesign. */
 
 #nf-snn-canvas {
   position: relative;
   width: 100%;
+  height: 100%;
   min-height: 480px;
-  background: #0a0e1a;
-  border: 1px solid rgba(77, 208, 225, 0.15);
-  border-radius: 8px;
+  background: #0a0a0a;
   overflow: hidden;
-  display: none;
-}
-
-#nf-snn-canvas.snn-canvas--visible {
   display: block;
 }
 
-#nf-snn-canvas .drawflow {
+.snn-canvas-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 40px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  text-align: center;
+  font-family: 'Inter', system-ui, sans-serif;
+  max-width: 360px;
+}
+
+.snn-canvas-empty-icon {
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.snn-canvas-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e1e8f5;
+}
+
+.snn-canvas-empty-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+}
+
+#nf-snn-canvas .drawflow,
+#nf-snn-canvas .parent-drawflow {
   width: 100%;
   height: 100%;
   min-height: 480px;
+  background: #0a0a0a;
+  cursor: grab;
 }
 
+#nf-snn-canvas .drawflow:active,
+#nf-snn-canvas .parent-drawflow:active {
+  cursor: grabbing;
+}
+
+/* Region card (4 노드, ComfyUI/Weavy 정합). */
 .snn-canvas-region {
-  background: rgba(20, 28, 45, 0.95);
-  border: 1px solid var(--region-color, #4dd0e1);
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 12px 16px;
-  min-width: 140px;
+  min-width: 160px;
   color: #e1e8f5;
-  font-family: ui-monospace, monospace;
-  box-shadow: 0 0 12px var(--region-color-glow, rgba(77, 208, 225, 0.3));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
-
-.snn-canvas-region--input  { --region-color: #f5b842; --region-color-glow: rgba(245, 184, 66, 0.3); }
-.snn-canvas-region--v1     { --region-color: #4dd0e1; --region-color-glow: rgba(77, 208, 225, 0.3); }
-.snn-canvas-region--v2     { --region-color: #b794f4; --region-color-glow: rgba(183, 148, 244, 0.3); }
-.snn-canvas-region--out    { --region-color: #5eead4; --region-color-glow: rgba(94, 234, 212, 0.3); }
 
 .snn-canvas-region-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 6px;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(30, 30, 35, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.snn-canvas-region-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--region-color, #4dd0e1);
+  flex-shrink: 0;
 }
 
 .snn-canvas-region-label {
-  font-size: 13px;
+  flex: 1;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--region-color);
+  color: #e1e8f5;
 }
 
-.snn-canvas-region-total {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+.snn-canvas-region-menu {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
 }
+
+.snn-canvas-region--input  { --region-color: #f5b842; }
+.snn-canvas-region--v1     { --region-color: #4dd0e1; }
+.snn-canvas-region--v2     { --region-color: #b794f4; }
+.snn-canvas-region--out    { --region-color: #5eead4; }
 
 .snn-canvas-region-body {
+  padding: 8px 12px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.snn-canvas-region-active {
-  font-size: 24px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
-  transition: color 200ms;
+.snn-canvas-region-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.snn-canvas-region-row-label {
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+}
+
+.snn-canvas-region-row-value {
+  color: #e1e8f5;
+  font-family: ui-monospace, monospace;
 }
 
 .snn-canvas-region-active--fired {
   color: var(--region-color);
-  text-shadow: 0 0 8px var(--region-color-glow);
+  text-shadow: 0 0 6px var(--region-color);
 }
 
-.snn-canvas-region-active-label {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
+/* drawflow connection bezier — 영역 영역 영역 visible (visual noise 영역, fired 영역만 영역 visible). */
 #nf-snn-canvas .drawflow .connection .main-path {
-  stroke: rgba(94, 234, 212, 0.6);
-  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 0.5;
+  stroke-linecap: round;
   fill: none;
+  transition: stroke 200ms, stroke-width 200ms, stroke-opacity 200ms, filter 200ms;
 }
 
 #nf-snn-canvas .drawflow .connection .main-path:hover {
-  stroke: rgba(94, 234, 212, 1);
+  stroke: rgba(94, 234, 212, 0.9);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 3px rgba(94, 234, 212, 0.5));
 }
 
+/* fired connection (pre fired) — bright color + glow + subtle animation. */
+#nf-snn-canvas .drawflow .connection.fired .main-path {
+  stroke: #5eead4 !important;
+  stroke-width: 1.5;
+  stroke-opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.85));
+  animation: snn-fire-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes snn-fire-pulse {
+  0%, 100% { stroke-opacity: 1;   stroke-width: 1.5; }
+  50%      { stroke-opacity: 0.7; stroke-width: 2.0; }
+}
+
+/* drawflow node wrapper (영역 transparent). */
 #nf-snn-canvas .drawflow-node {
   background: transparent;
   border: none;
   padding: 0;
+  min-width: 0;
 }
 
+/* view mode 영역 = node card click 영역 영역 → drawflow click target 영역 .drawflow / .parent-drawflow 영역 → pan 영역 영역. */
+/* port + drawflow-node hover/select 영역 영역 영역 영역. */
+#nf-snn-canvas .drawflow-node .drawflow_content_node {
+  pointer-events: none;
+}
 #nf-snn-canvas .drawflow-node .input,
 #nf-snn-canvas .drawflow-node .output {
-  background: var(--region-color, #4dd0e1);
-  border: 2px solid #0a0e1a;
+  pointer-events: auto;
+}
+#nf-snn-canvas .drawflow-node {
+  pointer-events: auto;
+}
+#nf-snn-canvas .drawflow-node:hover {
+  cursor: grab;
 }
 
-/* Session 34 neuron mode: 52 neuron card + population color + fired highlight. */
+/* Edit mode 영역만 = node drag 영역 → content node click 영역 영역. */
+#nf-snn-canvas.snn-canvas-edit .drawflow-node .drawflow_content_node {
+  pointer-events: auto;
+}
+#nf-snn-canvas.snn-canvas-edit .drawflow-node:hover {
+  cursor: move;
+}
+
+/* port dot 영역 노드 box 영역 정합 (default subtle dark — 노드 통합 + ring 영역 영역). */
+#nf-snn-canvas .drawflow-node .input,
+#nf-snn-canvas .drawflow-node .output {
+  background: rgba(40, 40, 48, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  box-shadow:
+    0 0 0 3px rgba(20, 20, 24, 0.95),
+    0 0 0 4px rgba(255, 255, 255, 0.08);
+  transition: box-shadow 200ms, background 200ms, border-color 200ms;
+}
+
+#nf-snn-canvas .drawflow-node .input {
+  left: -5px;
+}
+
+#nf-snn-canvas .drawflow-node .output {
+  right: -5px;
+}
+
+#nf-snn-canvas .drawflow-node .input:hover,
+#nf-snn-canvas .drawflow-node .output:hover {
+  background: var(--neuron-color, var(--region-color, #5eead4));
+  border-color: var(--neuron-color, var(--region-color, #5eead4));
+  box-shadow:
+    0 0 0 3px rgba(20, 20, 24, 0.95),
+    0 0 0 5px var(--neuron-color, var(--region-color, #5eead4)),
+    0 0 8px var(--neuron-color, var(--region-color, #5eead4));
+}
+
+/* fired neuron port — neuron color (영역 영역 영역). */
+#nf-snn-canvas .snn-canvas-neuron--fired .input,
+#nf-snn-canvas .snn-canvas-neuron--fired .output {
+  background: var(--neuron-color, #5eead4);
+  border-color: var(--neuron-color, #5eead4);
+  box-shadow:
+    0 0 0 3px rgba(20, 20, 24, 0.95),
+    0 0 0 5px var(--neuron-color, #5eead4),
+    0 0 10px var(--neuron-color, #5eead4);
+}
+
+/* region card port (cascade fire run 시점 영역) — region color. */
+#nf-snn-canvas .snn-canvas-region-active--fired ~ * .input,
+#nf-snn-canvas .snn-canvas-region .input,
+#nf-snn-canvas .snn-canvas-region .output {
+  background: rgba(40, 40, 48, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Neuron card (52 노드, ComfyUI/Weavy 정합). */
 .snn-canvas-neuron-card {
-  background: rgba(20, 28, 45, 0.95);
-  border: 1px solid var(--neuron-color, #4dd0e1);
-  border-radius: 4px;
-  padding: 4px 8px;
-  min-width: 60px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  min-width: 120px;
   color: #e1e8f5;
-  font-family: ui-monospace, monospace;
-  text-align: center;
-  transition: box-shadow 200ms, background 200ms;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  transition: box-shadow 200ms, border-color 200ms;
 }
 
-.snn-canvas-neuron--input  .snn-canvas-neuron-card { --neuron-color: #f5b842; }
-.snn-canvas-neuron--l4_e   .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
-.snn-canvas-neuron--l4_i   .snn-canvas-neuron-card { --neuron-color: #e76f6f; }
-.snn-canvas-neuron--l23_e  .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
-.snn-canvas-neuron--l5_e   .snn-canvas-neuron-card { --neuron-color: #b794f4; }
-.snn-canvas-neuron--output .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+.snn-canvas-neuron-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(30, 30, 35, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.snn-canvas-neuron-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neuron-color, #4dd0e1);
+  flex-shrink: 0;
+}
 
 .snn-canvas-neuron-label {
-  font-size: 10px;
+  flex: 1;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--neuron-color);
+  color: #e1e8f5;
 }
 
-.snn-canvas-neuron-pop {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
+.snn-canvas-neuron-menu {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+.snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
+.snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
+
+/* OUT 노드 영역 status / rate row — fired 시점 영역 영역 영역 영역. */
+.snn-canvas-out-card {
+  min-width: 130px;
+}
+
+.snn-canvas-out-status {
+  font-weight: 600;
   letter-spacing: 0.05em;
 }
 
-.snn-canvas-neuron--fired .snn-canvas-neuron-card {
-  box-shadow: 0 0 12px var(--neuron-color);
-  background: rgba(40, 50, 70, 0.95);
+.snn-canvas-out-status--active {
+  color: #5eead4;
+  text-shadow: 0 0 6px rgba(94, 234, 212, 0.6);
 }
 
-#nf-snn-canvas .snn-canvas-neuron .input,
-#nf-snn-canvas .snn-canvas-neuron .output {
-  background: var(--neuron-color, #4dd0e1);
-  border: 2px solid #0a0e1a;
+.snn-canvas-out-rate {
+  font-family: ui-monospace, monospace;
+}
+
+/* SOURCE 노드 (Camera + Gesture) — mount container 영역 크기 영역 영역. */
+.snn-canvas-source-card {
+  min-width: 160px;
+}
+
+.snn-canvas-source-mount {
+  width: 100%;
+  height: 120px;
+  background: rgba(10, 10, 12, 0.6);
+  border-radius: 4px;
+  margin: 6px 0 2px 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.snn-canvas-source-mount > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.snn-canvas-source-mount canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.snn-canvas-source-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-align: center;
+  padding: 8px;
+  transition: color 150ms, background 150ms;
+}
+
+.snn-canvas-source-card:hover .snn-canvas-source-empty {
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.05);
+}
+
+.snn-canvas-source-empty-icon {
+  font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.snn-canvas-source-empty-hint {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.05em;
+}
+.snn-canvas-neuron--input   .snn-canvas-neuron-card { --neuron-color: #f5b842; }
+.snn-canvas-neuron--l4_e    .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
+.snn-canvas-neuron--l4_i    .snn-canvas-neuron-card { --neuron-color: #e76f6f; }
+.snn-canvas-neuron--l23_e   .snn-canvas-neuron-card { --neuron-color: #4dd0e1; }
+.snn-canvas-neuron--l5_e    .snn-canvas-neuron-card { --neuron-color: #b794f4; }
+.snn-canvas-neuron--output  .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+
+.snn-canvas-neuron-body {
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.snn-canvas-neuron-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+}
+
+.snn-canvas-neuron-row-label {
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 9px;
+}
+
+.snn-canvas-neuron-row-value {
+  color: rgba(225, 232, 245, 0.85);
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+}
+
+.snn-canvas-neuron--fired .snn-canvas-neuron-card {
+  border-color: var(--neuron-color);
+  box-shadow: 0 0 12px var(--neuron-color), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* neuron card port — 영역 .drawflow-node .input/.output 영역 통합 정합 (line 167 영역 영역). */
+
+/* drawflow default delete button (X icon, top-right floating) hide — submenu 영역 정정 통과. */
+#nf-snn-canvas .drawflow-delete {
+  display: none !important;
+}
+
+/* node menu (... button) — clickable + hover + submenu anchor. */
+.snn-canvas-region-menu,
+.snn-canvas-neuron-menu {
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 0 4px;
+  border-radius: 3px;
+  transition: background 150ms, color 150ms;
+  position: relative; /* submenu (position: absolute) anchor */
+}
+
+.snn-canvas-region-menu:hover,
+.snn-canvas-neuron-menu:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e1e8f5;
+}
+
+/* node submenu — ... menu button 영역 영역 dropdown 영역 (drawflow zoom 영역 영역). */
+.snn-canvas-node-submenu {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 100;
+  min-width: 100px;
+  background: rgba(20, 20, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  padding: 2px 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  color: #e1e8f5;
+  pointer-events: auto;
+}
+
+.snn-canvas-node-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  white-space: nowrap;
+}
+
+.snn-canvas-node-submenu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.snn-canvas-node-submenu-item--delete {
+  color: #e76f6f;
+}
+
+.snn-canvas-node-submenu-item--delete:hover {
+  background: rgba(231, 111, 111, 0.12);
+}
+
+.snn-canvas-node-submenu-icon {
+  width: 10px;
+  font-size: 10px;
+  text-align: center;
+}
+
+/* drawflow node hover/select. */
+#nf-snn-canvas .drawflow-node.selected .snn-canvas-region,
+#nf-snn-canvas .drawflow-node.selected .snn-canvas-neuron-card {
+  border-color: rgba(94, 234, 212, 0.8);
+  box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.2);
 }
 
 /* Mode toggle buttons (region / neuron). */

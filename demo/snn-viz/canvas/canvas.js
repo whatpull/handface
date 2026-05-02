@@ -102,14 +102,21 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   setTimeout(() => fitCanvasToNodes(0.9), 200);
 
   // 52 preset neuron + dynamic grown neurons.
-  const allNeurons = [...NEURON_NODES, ...dynamicNeurons];
+  // Session 38: NEURON_NODES (preset) 모두 isSystem=true 로 마크 → 잠금 표시.
+  // dynamicNeurons 중 isSystem 명시 안 된 grown 뉴런도 isSystem=true (시스템이 추가).
+  const allNeurons = [
+    ...NEURON_NODES.map(n => ({ ...n, isSystem: true })),
+    ...dynamicNeurons.map(n => ({ ...n, isSystem: n.isSystem !== false })),
+  ];
   for (const neuron of allNeurons) {
+    const lockClass = neuron.isSystem ? ' snn-canvas-neuron--locked' : '';
+    const userInputClass = neuron.isUserInput ? ' snn-canvas-neuron--user-input' : '';
     const id = editor.addNode(
       neuron.id,
       1, 1,
       neuron.x, neuron.y,
-      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()} snn-canvas-node-${neuron.id}`,
-      { neuron: neuron.id, region: neuron.region, population: neuron.population },
+      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()} snn-canvas-node-${neuron.id}${lockClass}${userInputClass}`,
+      { neuron: neuron.id, region: neuron.region, population: neuron.population, system: neuron.isSystem ? '1' : '0' },
       neuronNodeHtml(neuron),
       false,
     );
@@ -497,11 +504,16 @@ function neuronNodeHtml(neuron) {
       </div>
     `;
   }
+  // Session 38: 시스템 노드 잠금 아이콘 + USER INPUT 노드 별도 표시.
+  const lockIcon = neuron.isSystem ? '<span class="snn-canvas-neuron-lock" title="시스템 노드 (편집 불가)">🔒</span>' : '';
+  const userBadge = neuron.isUserInput ? '<span class="snn-canvas-neuron-user-badge" title="사용자 추가">USR</span>' : '';
   return `
     <div class="snn-canvas-neuron-card">
       <div class="snn-canvas-neuron-header">
         <span class="snn-canvas-neuron-dot"></span>
         <span class="snn-canvas-neuron-label">${neuron.label}</span>
+        ${userBadge}
+        ${lockIcon}
         <span class="snn-canvas-neuron-menu">···</span>
       </div>
       <div class="snn-canvas-neuron-body">

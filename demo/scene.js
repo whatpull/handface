@@ -29,6 +29,7 @@ import {
   initCanvas,
   initCanvasNeuron,
   buildGrownNeuronNode,
+  buildUserInputNode,
   updateCanvasFire,
   updateCanvasFireNeuron,
   destroyCanvas,
@@ -1612,6 +1613,262 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ────────────────────────────────────────────────────────
+  // Session 38: USER INPUT panel (사용자 추가 노드, 시스템 노드 보호)
+  // ────────────────────────────────────────────────────────
+  const uiLabel       = document.getElementById('nf-ui-label');
+  const uiDensity     = document.getElementById('nf-ui-density');
+  const uiDensityVal  = document.getElementById('nf-ui-density-val');
+  const uiWeight      = document.getElementById('nf-ui-weight');
+  const uiWeightVal   = document.getElementById('nf-ui-weight-val');
+  const uiAdd         = document.getElementById('nf-ui-add');
+  const uiList        = document.getElementById('nf-ui-list');
+  const uiStatus      = document.getElementById('nf-ui-status');
+
+  const uiInjectTarget   = document.getElementById('nf-ui-inject-target');
+  const uiInjectWeight   = document.getElementById('nf-ui-inject-weight');
+  const uiInjectWeightVal= document.getElementById('nf-ui-inject-weight-val');
+  const uiInjectBtn      = document.getElementById('nf-ui-inject');
+  const uiInjectTrainBtn = document.getElementById('nf-ui-inject-train');
+  const uiTrainTarget    = document.getElementById('nf-ui-train-target');
+  const uiInjectStatus   = document.getElementById('nf-ui-inject-status');
+
+  const uiConfirmModal  = document.getElementById('nf-ui-confirm');
+  const uiConfirmMsg    = document.getElementById('nf-ui-confirm-msg');
+  const uiConfirmCancel = document.getElementById('nf-ui-confirm-cancel');
+  const uiConfirmOk     = document.getElementById('nf-ui-confirm-ok');
+  let uiPendingDelete = null; // {name, label}
+
+  if (uiDensity && uiDensityVal) {
+    uiDensity.addEventListener('input', () => {
+      uiDensityVal.textContent = parseFloat(uiDensity.value).toFixed(2);
+    });
+  }
+  if (uiWeight && uiWeightVal) {
+    uiWeight.addEventListener('input', () => {
+      uiWeightVal.textContent = uiWeight.value;
+    });
+  }
+  if (uiInjectWeight && uiInjectWeightVal) {
+    uiInjectWeight.addEventListener('input', () => {
+      uiInjectWeightVal.textContent = uiInjectWeight.value;
+    });
+  }
+
+  async function refreshUserInputList() {
+    if (!uiList) return;
+    const r = await backend.listUserInputs();
+    if (!r.ok) {
+      uiList.innerHTML = `<div class="nf-user-input-empty">로드 실패: ${r.reason || ''}</div>`;
+      if (uiInjectTarget) uiInjectTarget.innerHTML = '<option value="">(USER INPUT 노드 선택)</option>';
+      state.userInputs = [];
+      return;
+    }
+    const inputs = r.userInputs || [];
+    state.userInputs = inputs;
+    if (inputs.length === 0) {
+      uiList.innerHTML = '<div class="nf-user-input-empty">추가된 사용자 INPUT 없음</div>';
+    } else {
+      uiList.innerHTML = inputs.map(ui => `
+        <div class="nf-user-input-row" data-name="${ui.name}">
+          <span class="nf-ui-label" title="${ui.label}">${ui.label}</span>
+          <span class="nf-ui-fanout">→V1 ${ui.fanout}</span>
+          <button type="button" class="nf-ui-del" data-del="${ui.name}" data-label="${ui.label}" title="삭제">×</button>
+        </div>
+      `).join('');
+      uiList.querySelectorAll('.nf-ui-del').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          const name  = ev.currentTarget.getAttribute('data-del');
+          const label = ev.currentTarget.getAttribute('data-label');
+          uiPendingDelete = { name, label };
+          if (uiConfirmMsg) uiConfirmMsg.textContent = `'${label}' (${name}) 노드를 삭제할까요? 연결된 시냅스도 함께 제거됩니다 (시스템 노드는 영향 없음).`;
+          if (uiConfirmModal) uiConfirmModal.classList.add('open');
+        });
+      });
+    }
+    // Inject target dropdown 갱신.
+    if (uiInjectTarget) {
+      uiInjectTarget.innerHTML = '<option value="">(USER INPUT 노드 선택)</option>'
+        + inputs.map(ui => `<option value="${ui.name}">${ui.label} (${ui.name})</option>`).join('');
+    }
+  }
+
+  if (uiAdd) {
+    uiAdd.addEventListener('click', async () => {
+      const label = (uiLabel?.value || '').trim();
+      if (!label) {
+        if (uiStatus) uiStatus.textContent = '라벨을 입력하세요.';
+        return;
+      }
+      uiAdd.disabled = true;
+      const orig = uiAdd.textContent;
+      uiAdd.textContent = 'Adding...';
+      const r = await backend.addUserInput(label, {
+        fanoutDensity: parseFloat(uiDensity.value),
+        fanoutWeight:  parseFloat(uiWeight.value),
+      });
+      if (r.ok) {
+        if (uiStatus) uiStatus.textContent = `+ ${r.label} (${r.name}) — V1 fanout ${r.synapses_added}.`;
+        if (uiLabel) uiLabel.value = '';
+        await refreshUserInputList();
+        // canvas 갱신 (PR-E에서 USER_INPUT column 표시).
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+      } else {
+        if (uiStatus) uiStatus.textContent = `실패: ${r.reason || ''}`;
+      }
+      setTimeout(() => { uiAdd.textContent = orig; uiAdd.disabled = false; }, 1500);
+    });
+  }
+
+  if (uiConfirmCancel) {
+    uiConfirmCancel.addEventListener('click', () => {
+      uiPendingDelete = null;
+      if (uiConfirmModal) uiConfirmModal.classList.remove('open');
+    });
+  }
+  if (uiConfirmOk) {
+    uiConfirmOk.addEventListener('click', async () => {
+      if (!uiPendingDelete) {
+        uiConfirmModal?.classList.remove('open');
+        return;
+      }
+      const { name, label } = uiPendingDelete;
+      uiConfirmOk.disabled = true;
+      const r = await backend.deleteUserInput(name);
+      uiConfirmOk.disabled = false;
+      uiConfirmModal?.classList.remove('open');
+      uiPendingDelete = null;
+      if (r.ok) {
+        if (uiStatus) uiStatus.textContent = `- ${label} 삭제 완료 (시냅스 ${r.synapses_removed} 제거).`;
+        await refreshUserInputList();
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+      } else {
+        if (uiStatus) uiStatus.textContent = `삭제 실패: ${r.reason || ''}`;
+      }
+    });
+  }
+
+  if (uiInjectBtn) {
+    uiInjectBtn.addEventListener('click', async () => {
+      const target = uiInjectTarget?.value;
+      if (!target) {
+        if (uiInjectStatus) uiInjectStatus.textContent = 'USER INPUT 노드를 선택하세요.';
+        return;
+      }
+      const w = parseFloat(uiInjectWeight?.value || '50');
+      uiInjectBtn.disabled = true;
+      const orig = uiInjectBtn.textContent;
+      uiInjectBtn.textContent = 'Injecting...';
+      const r = await backend.injectUserInput(target, { weight: w, durationMs: 5.0 });
+      if (r.ok) {
+        const rr = r.rates_by_region || {};
+        const out = r.out_rates || {};
+        const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+        const winnerStr = winner ? `${winner[0]}=${winner[1]}Hz` : '—';
+        if (uiInjectStatus) uiInjectStatus.textContent = `Inject ${target} (w=${w}) → V1 ${rr.V1 || 0}Hz / V2 ${rr.V2 || 0}Hz / OUT ${rr.OUT || 0}Hz. winner: ${winnerStr}`;
+      } else {
+        if (uiInjectStatus) uiInjectStatus.textContent = `실패: ${r.reason || ''}`;
+      }
+      setTimeout(() => { uiInjectBtn.textContent = orig; uiInjectBtn.disabled = false; }, 2500);
+    });
+  }
+
+  if (uiInjectTrainBtn) {
+    uiInjectTrainBtn.addEventListener('click', async () => {
+      const target = uiInjectTarget?.value;
+      const trainTarget = uiTrainTarget?.value;
+      if (!target) {
+        if (uiInjectStatus) uiInjectStatus.textContent = 'USER INPUT 노드를 선택하세요.';
+        return;
+      }
+      if (!trainTarget) {
+        if (uiInjectStatus) uiInjectStatus.textContent = 'Train target OUT 을 선택하세요.';
+        return;
+      }
+      const w = parseFloat(uiInjectWeight?.value || '50');
+      uiInjectTrainBtn.disabled = true;
+      const orig = uiInjectTrainBtn.textContent;
+      uiInjectTrainBtn.textContent = 'Training...';
+      let okCount = 0;
+      for (let i = 0; i < 10; i++) {
+        const r = await backend.injectUserInput(target, {
+          weight: w, durationMs: 5.0, stdp: true, targetOut: trainTarget,
+        });
+        if (r.ok) okCount++;
+      }
+      if (uiInjectStatus) uiInjectStatus.textContent = `Trained ${okCount}/10 rounds — ${target} → ${trainTarget}. OUT DECODE 패널 참조.`;
+      setTimeout(() => { uiInjectTrainBtn.textContent = orig; uiInjectTrainBtn.disabled = false; }, 2500);
+    });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Session 38 PR-F: USER INPUT localStorage persistence
+  // ────────────────────────────────────────────────────────
+  // user_inputs 는 backend in-memory에만 저장 → 새 session 시작 시 backend 비어있음.
+  // localStorage 에 {label, fanout_density, fanout_weight} 배열 저장 → 자동 복원.
+  const USER_INPUTS_LS_KEY = 'handface.user_inputs.v1';
+
+  function saveUserInputsLocal() {
+    try {
+      const raw = state.userInputs.map(ui => ({
+        label: ui.label,
+        // 현재는 fanout만 보존 (density/weight 는 add 시점 default 사용 — backend 결정론).
+      }));
+      localStorage.setItem(USER_INPUTS_LS_KEY, JSON.stringify(raw));
+    } catch (e) {
+      console.warn('[user_inputs] save failed:', e);
+    }
+  }
+
+  async function restoreUserInputsLocal() {
+    try {
+      const raw = localStorage.getItem(USER_INPUTS_LS_KEY);
+      if (!raw) return false;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      // backend의 현재 user_inputs 확인 — 이미 있으면 skip (서버 재시작 후 빈 상태일 때만 restore).
+      const r = await backend.listUserInputs();
+      if (r.ok && r.userInputs.length > 0) return false;
+      for (const item of arr) {
+        if (!item.label) continue;
+        await backend.addUserInput(item.label);
+      }
+      return true;
+    } catch (e) {
+      console.warn('[user_inputs] restore failed:', e);
+      return false;
+    }
+  }
+
+  // 초기 로드: localStorage restore → backend 동기 → 패널 + canvas 갱신.
+  (async () => {
+    const restored = await restoreUserInputsLocal();
+    await refreshUserInputList();
+    if (restored && uiStatus) {
+      uiStatus.textContent = `${state.userInputs.length}개 사용자 INPUT 노드 복원됨 (localStorage).`;
+    }
+    // 추가/삭제 후 자동 LS 저장 hook — refreshUserInputList 이후 호출.
+  })();
+
+  // refreshUserInputList wrap — 호출 후 LS 저장 보장.
+  const _origRefresh = refreshUserInputList;
+  // (refreshUserInputList 는 위에서 정의됨 — 호출 위치에서 saveUserInputsLocal 추가 호출 패턴.)
+  // add/delete 핸들러에서 refreshUserInputList 직후 saveUserInputsLocal 호출 추가.
+  if (uiAdd) {
+    uiAdd.addEventListener('click', () => setTimeout(saveUserInputsLocal, 200));
+  }
+  if (uiConfirmOk) {
+    uiConfirmOk.addEventListener('click', () => setTimeout(saveUserInputsLocal, 200));
+  }
+
   // Phase 2 audio modality: 마이크 → FFT 32 bin → 8 bin 평균 → injectPattern.
   const audioCapture = document.getElementById('nf-audio-capture');
   const audioStream  = document.getElementById('nf-audio-stream');
@@ -2624,7 +2881,10 @@ function mountCanvasForMode() {
       || [];
     // Phase 7: synapse 리스트에서 grown 뉴런 추출 + 시각화.
     const dynamicNeurons = buildDynamicNeuronsFromSynapses(synapses);
-    initCanvasNeuron('nf-snn-canvas', synapses, dynamicNeurons);
+    // Session 38: 사용자 추가 INPUT 노드를 canvas에 추가.
+    const userInputs = state.userInputs || [];
+    const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx));
+    initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes]);
   }
   applyFireToCanvas();
 }

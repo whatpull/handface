@@ -18,17 +18,19 @@ export const CASCADE_EDGES = [
 
 // Neuron 단위 layout (4 region column + SOURCE column, 좌→우. region 내부 population sub-column).
 // Session 36: SOURCE column 신규 (Camera + Gesture 영역 input 전 영역).
+// Session 38: USER_INPUT column 신규 (사용자 추가 노드, Gesture와 INPUT 사이).
 export const REGION_X = {
   SOURCE_CAMERA:  80,
   SOURCE_GESTURE: 240,
-  INPUT:    440,    // gap 200 (Gesture → INPUT)
-  V1_L4_E:  740,    // gap 300 (region boundary)
-  V1_L4_I:  940,    // gap 200 (V1 sub-column)
-  V1_L23_E: 1140,   // gap 200
-  V2_L4_E:  1440,   // gap 300 (region boundary)
-  V2_L23_E: 1640,   // gap 200
-  V2_L5_E:  1840,   // gap 200
-  OUT:      2140,   // gap 300 (region boundary)
+  USER_INPUT:     360,    // Gesture(240) ↔ INPUT(440) 사이 — 사용자 추가 노드 column
+  INPUT:          440,
+  V1_L4_E:        740,
+  V1_L4_I:        940,
+  V1_L23_E:      1140,
+  V2_L4_E:       1440,
+  V2_L23_E:      1640,
+  V2_L5_E:       1840,
+  OUT:           2140,
 };
 
 const ROW_HEIGHT = 110;     // 80 → 110 (vertical 영역 영역 영역)
@@ -218,6 +220,29 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
     color: colorMap[n.region] || '#94a3b8',
     x,
     y,
+  };
+}
+
+/**
+ * Session 38: 사용자 추가 INPUT 노드 (user_in_<idx>) → NEURON_NODES 동일 형식 변환.
+ * USER_INPUT column에 세로 stacking (idx 0이 가장 위, 아래로).
+ * @param {object} ui - { name, label, fanout } from /user_inputs API
+ * @param {number} stackIdx - 0-based 표시 순서.
+ * @returns {object} { id, label, region, population, color, x, y, isUserInput, isSystem }
+ */
+export function buildUserInputNode(ui, stackIdx = 0) {
+  const ROW_GAP = 90;
+  const TOP_Y = 120;
+  return {
+    id: ui.name,
+    label: ui.label || ui.name.replace('user_in_', 'U'),
+    region: 'USER_INPUT',
+    population: 'user_input',
+    color: '#a78bfa',
+    x: REGION_X.USER_INPUT,
+    y: TOP_Y + stackIdx * ROW_GAP,
+    isUserInput: true,
+    isSystem: false,
   };
 }
 

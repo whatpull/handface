@@ -708,6 +708,109 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 38: GET /networks/{id}/user_inputs — 사용자 추가 INPUT 노드 목록.
+   * @returns { ok, user_inputs: [{ name, label, fanout }] }
+   */
+  async listUserInputs() {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/user_inputs`);
+      return { ok: true, userInputs: data.user_inputs || [] };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 38: POST /networks/{id}/user_inputs — 사용자 INPUT 노드 추가.
+   * D200 cortical preset cascade에 자동 sparse wiring (V1 L4_E).
+   * @param {string} label - 사람이 읽는 라벨 (max 64).
+   * @param {object} opts - { fanoutDensity=0.5, fanoutWeight=16.0 }
+   * @returns { ok, name, label, synapses_added, fanout_density, fanout_weight }
+   */
+  async addUserInput(label, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      label,
+      fanout_density: opts.fanoutDensity ?? 0.5,
+      fanout_weight:  opts.fanoutWeight  ?? 16.0,
+    };
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs`,
+        { method: 'POST', body },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 38: POST /networks/{id}/user_inputs/inject — 사용자 INPUT 단일 자극
+   * (cascade 진입) + 옵션 supervised RL.
+   * @param {string} name - user_in_<idx>
+   * @param {object} opts - { weight=50, durationMs=5, observeMs=50, stdp=false,
+   *                          targetOut, supervisorWeight=80, supervisorDelayMs=20 }
+   */
+  async injectUserInput(name, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    if (!name || !name.startsWith('user_in_')) {
+      return { ok: false, reason: 'not a user input node' };
+    }
+    const body = {
+      name,
+      weight:        opts.weight        ?? 50.0,
+      duration_ms:   opts.durationMs    ?? 5.0,
+      observe_ms:    opts.observeMs     ?? 50.0,
+      stdp:          !!opts.stdp,
+    };
+    if (opts.targetOut)             body.target_out          = opts.targetOut;
+    if (opts.supervisorWeight)      body.supervisor_weight   = opts.supervisorWeight;
+    if (opts.supervisorDelayMs !== undefined)
+                                     body.supervisor_delay_ms = opts.supervisorDelayMs;
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs/inject`,
+        { method: 'POST', body },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 38: DELETE /networks/{id}/user_inputs/{name} — 사용자 INPUT 삭제.
+   * 시스템 노드는 백엔드에서 403. name prefix `user_in_` 강제.
+   * @param {string} name - user_in_<idx>
+   */
+  async deleteUserInput(name) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_in_')) {
+      return { ok: false, reason: 'not a user input node' };
+    }
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs/${encodeURIComponent(name)}`,
+        { method: 'DELETE' },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 37 Phase 5: POST /networks/{id}/neuromodulator — 신경조절 영역 set.
    * @param {object} mods - { dopamine?, acetylcholine?, serotonin? }
    */

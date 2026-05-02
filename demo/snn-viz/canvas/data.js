@@ -226,12 +226,12 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
 /**
  * Session 38: 사용자 추가 INPUT 노드 (user_in_<idx>) → NEURON_NODES 동일 형식 변환.
  * USER_INPUT column에 세로 stacking (idx 0이 가장 위, 아래로).
- * @param {object} ui - { name, label, fanout } from /user_inputs API
+ * @param {object} ui - { name, label, kind, fanout } from /user_inputs API
  * @param {number} stackIdx - 0-based 표시 순서.
- * @returns {object} { id, label, region, population, color, x, y, isUserInput, isSystem }
+ * @returns {object} { id, label, region, population, color, x, y, kind, isUserInput, isSystem }
  */
 export function buildUserInputNode(ui, stackIdx = 0) {
-  const ROW_GAP = 90;
+  const ROW_GAP = 110;  // PR-J: 노드별 inline widget 위해 row gap 확장.
   const TOP_Y = 120;
   return {
     id: ui.name,
@@ -241,6 +241,7 @@ export function buildUserInputNode(ui, stackIdx = 0) {
     color: '#a78bfa',
     x: REGION_X.USER_INPUT,
     y: TOP_Y + stackIdx * ROW_GAP,
+    kind: ui.kind || 'custom',
     isUserInput: true,
     isSystem: false,
   };

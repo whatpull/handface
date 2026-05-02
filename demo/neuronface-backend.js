@@ -728,8 +728,9 @@ export class NeuronFaceBackend {
    * Session 38: POST /networks/{id}/user_inputs — 사용자 INPUT 노드 추가.
    * D200 cortical preset cascade에 자동 sparse wiring (V1 L4_E).
    * @param {string} label - 사람이 읽는 라벨 (max 64).
-   * @param {object} opts - { fanoutDensity=0.5, fanoutWeight=16.0 }
-   * @returns { ok, name, label, synapses_added, fanout_density, fanout_weight }
+   * @param {object} opts - { kind='custom', fanoutDensity=0.5, fanoutWeight=16.0 }
+   *   kind: 'custom' | 'audio' | 'text' | 'image' | 'motion' | 'keyboard' | 'mouse' | 'geo'
+   * @returns { ok, name, label, kind, synapses_added, fanout_density, fanout_weight }
    */
   async addUserInput(label, opts = {}) {
     if (!this._networkId) {
@@ -738,12 +739,55 @@ export class NeuronFaceBackend {
     }
     const body = {
       label,
+      kind:           opts.kind          ?? 'custom',
       fanout_density: opts.fanoutDensity ?? 0.5,
       fanout_weight:  opts.fanoutWeight  ?? 16.0,
     };
     try {
       const data = await this._fetch(
         `/networks/${this._networkId}/user_inputs`,
+        { method: 'POST', body },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 38 PR-H: POST /networks/{id}/user_inputs/inject_pattern — 8-dim pattern
+   * 가중 sum 으로 사용자 노드 1뉴런에 inject (modality encoder 결과).
+   * @param {string} name - user_in_<idx>
+   * @param {number[]} pattern - 8 floats [0,1]
+   * @param {object} opts - { intensity=1.0, durationMs=5, observeMs=50, stdp=false,
+   *                          targetOut, supervisorWeight=80, supervisorDelayMs=20 }
+   */
+  async injectUserInputPattern(name, pattern, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    if (!name || !name.startsWith('user_in_')) {
+      return { ok: false, reason: 'not a user input node' };
+    }
+    if (!Array.isArray(pattern) || pattern.length !== 8) {
+      return { ok: false, reason: 'pattern must be 8-dim array' };
+    }
+    const body = {
+      name,
+      pattern,
+      intensity:    opts.intensity    ?? 1.0,
+      duration_ms:  opts.durationMs   ?? 5.0,
+      observe_ms:   opts.observeMs    ?? 50.0,
+      stdp:         !!opts.stdp,
+    };
+    if (opts.targetOut)             body.target_out          = opts.targetOut;
+    if (opts.supervisorWeight)      body.supervisor_weight   = opts.supervisorWeight;
+    if (opts.supervisorDelayMs !== undefined)
+                                     body.supervisor_delay_ms = opts.supervisorDelayMs;
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs/inject_pattern`,
         { method: 'POST', body },
       );
       return { ok: true, ...data };

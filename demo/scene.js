@@ -682,6 +682,49 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Session 37 Phase 5: Neuromodulator slider handlers.
+  const nmDopamine = document.getElementById('nf-nm-dopamine');
+  const nmAch      = document.getElementById('nf-nm-ach');
+  const nmSero     = document.getElementById('nf-nm-serotonin');
+  const nmDopamineVal = document.getElementById('nf-nm-dopamine-val');
+  const nmAchVal      = document.getElementById('nf-nm-ach-val');
+  const nmSeroVal     = document.getElementById('nf-nm-serotonin-val');
+  const nmReset       = document.getElementById('nf-nm-reset');
+
+  let nmDebounce = null;
+  function flushNeuromodulator() {
+    if (nmDebounce) clearTimeout(nmDebounce);
+    nmDebounce = setTimeout(async () => {
+      const mods = {
+        dopamine:      parseFloat(nmDopamine.value),
+        acetylcholine: parseFloat(nmAch.value),
+        serotonin:     parseFloat(nmSero.value),
+      };
+      const r = await backend.setNeuromodulator(mods);
+      if (!r.ok) console.warn('[neuromod] set failed:', r.reason);
+    }, 150);
+  }
+
+  function bindSlider(el, valEl) {
+    if (!el || !valEl) return;
+    el.addEventListener('input', () => {
+      valEl.textContent = parseFloat(el.value).toFixed(1);
+      flushNeuromodulator();
+    });
+  }
+  bindSlider(nmDopamine, nmDopamineVal);
+  bindSlider(nmAch,      nmAchVal);
+  bindSlider(nmSero,     nmSeroVal);
+
+  if (nmReset) {
+    nmReset.addEventListener('click', () => {
+      nmDopamine.value = 0; nmDopamineVal.textContent = '0.0';
+      nmAch.value = 0;      nmAchVal.textContent      = '0.0';
+      nmSero.value = 0;     nmSeroVal.textContent     = '0.0';
+      flushNeuromodulator();
+    });
+  }
+
   // Decode panel 영역 listen — 모든 backend train/induce response 영역 OUT rate 영역 갱신.
   backend.onEvent((evt) => {
     const r = evt?.response;

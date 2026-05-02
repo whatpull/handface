@@ -159,6 +159,16 @@ export const SOURCE_EDGES = [
   { pre: 'src_gesture', post: 'in_victory',  weight: 50 },
 ];
 
+// Session 37 Phase 4: 직접 INPUT → OUT pathway (subcortical fast pathway 영역).
+// neuronface backend D120 anchor 영역 4 직접 synapse 영역 (in_point→out_0 등, weight 30).
+// 본 영역 frontend canvas 영역만 — backend 영역 영역 영역 영역.
+export const DECODE_EDGES = [
+  { pre: 'in_point',    post: 'out_0', weight: 30 }, // pointing → out_0
+  { pre: 'in_palm',     post: 'out_1', weight: 30 }, // openpalm → out_1
+  { pre: 'in_thumbsup', post: 'out_2', weight: 30 }, // thumbsup → out_2
+  { pre: 'in_victory',  post: 'out_3', weight: 30 }, // victory → out_3
+];
+
 // Synapse weight gradient color mapping (3A spec).
 //   inhibitory (w<0): red       — V1 L4_I → V1 L4_E (w=-48)
 //   weak (0~50):      cyan      — V1 L4_E → V1 L23_E (w=40)

@@ -437,6 +437,46 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 2 multi-modal: POST /networks/{id}/inject_pattern.
+   * 영역 modality 8-dim pattern 영역 INPUT 영역.
+   * @param {number[]} pattern - 8 floats [0,1].
+   * @param {object} [opts]    - { modality, targetOut, intensity, stdp, supervisorWeight, supervisorDelayMs }
+   */
+  async injectPattern(pattern, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      pattern,
+      modality:             opts.modality   ?? 'custom',
+      intensity:            opts.intensity  ?? 1.0,
+      stimulus_duration_ms: 15.0,
+      observe_ms:           50.0,
+      stdp:                 opts.stdp        ?? false,
+      stdp_mode:            this._stdpMode,
+    };
+    if (opts.targetOut)         body.target_out          = opts.targetOut;
+    if (opts.supervisorWeight !== undefined) body.supervisor_weight = opts.supervisorWeight;
+    if (opts.supervisorDelayMs !== undefined) body.supervisor_delay_ms = opts.supervisorDelayMs;
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/inject_pattern`,
+        { method: 'POST', body },
+      );
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `pattern:${body.modality}`,
+        intensity: body.intensity,
+        response:  resp,
+      });
+      return { ok: true, response: resp };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 37 Phase 5: POST /networks/{id}/neuromodulator — 신경조절 영역 set.
    * @param {object} mods - { dopamine?, acetylcholine?, serotonin? }
    */

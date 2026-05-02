@@ -3,7 +3,7 @@
 
 export const REGION_NODES = [
   { id: 'INPUT', label: 'INPUT', color: '#f5b842', total: 8,  x: 80,  y: 200 },
-  { id: 'V1',    label: 'V1',    color: '#4dd0e1', total: 16, x: 320, y: 200 },
+  { id: 'V1',    label: 'V1',    color: '#4dd0e1', total: 20, x: 320, y: 200 },
   { id: 'V2',    label: 'V2',    color: '#b794f4', total: 20, x: 560, y: 200 },
   { id: 'OUT',   label: 'OUT',   color: '#5eead4', total: 4,  x: 800, y: 200 },
 ];

@@ -752,25 +752,31 @@
     }
     .nf-multimodal-pattern {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px;
+      grid-template-columns: 1fr;
+      gap: 3px;
       margin-bottom: 6px;
     }
     .nf-mm-cell {
       display: grid;
-      grid-template-columns: 50px 1fr;
+      grid-template-columns: 60px 1fr;
       align-items: center;
-      gap: 4px;
+      gap: 8px;
+      min-width: 0;
     }
     .nf-mm-cell span {
-      font-size: 9px;
+      font-size: 10px;
       color: #94a3b8;
       font-family: monospace;
       text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .nf-mm-cell input[type="range"] {
       accent-color: #a78bfa;
       height: 14px;
+      width: 100%;
+      min-width: 0;
     }
 
     /* 회로 통계 — weight 히스토그램 */

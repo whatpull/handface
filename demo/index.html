@@ -1881,7 +1881,16 @@
         <button id="nf-mm-inject" type="button" class="nf-induce-multi-btn">Inject (1×)</button>
         <button id="nf-mm-train"  type="button" class="nf-induce-multi-btn">Train (10×)</button>
       </div>
-      <div class="nf-mode-hint">8-dim pattern 영역 INPUT 영역 → cascade → OUT decode (좌하 panel). target 영역 시 supervised RL (10x trial). Phase 1~5 통합 framework.</div>
+      <div class="nf-supervised-grid" style="margin-top:6px;">
+        <button id="nf-mm-add-sample"   type="button" class="nf-induce-multi-btn">+ Dataset에 추가</button>
+        <button id="nf-mm-clear-dataset" type="button" class="nf-induce-multi-btn">Clear dataset</button>
+      </div>
+      <div class="nf-supervised-grid" style="margin-top:6px;">
+        <button id="nf-mm-save-ds" type="button" class="nf-induce-multi-btn">Save dataset (D1)</button>
+        <button id="nf-mm-load-ds" type="button" class="nf-induce-multi-btn">Load dataset (D1)</button>
+      </div>
+      <button id="nf-mm-train-batch" type="button" class="nf-induce-multi-btn">Batch train (dataset 5 round)</button>
+      <div id="nf-mm-status" class="nf-mode-hint">현재 pattern + target → Inject/Train 또는 Dataset에 추가. Dataset → D1 저장/복원. Batch train: 저장된 sample 5 round 일괄 supervised RL. Phase 1~7 통합.</div>
     </div>
 
     <div class="nf-section nf-neuromod-section">

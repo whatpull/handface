@@ -486,6 +486,38 @@ async function loadTopologyFromD1() {
   }
 }
 
+// Phase 7 학습 데이터셋 D1 sync.
+const D1_DATASET_ID = 'main';
+
+async function saveDatasetToD1(samples) {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/datasets/${D1_DATASET_ID}`, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    JSON.stringify({ samples, meta: { savedAt: Date.now() } }),
+    });
+    if (!r.ok) return false;
+    const data = await r.json();
+    console.info(`[d1 dataset] saved ${data.sample_count} samples`);
+    return true;
+  } catch (err) {
+    console.warn('[d1 dataset] save error:', err.message);
+    return false;
+  }
+}
+
+async function loadDatasetFromD1() {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/datasets/${D1_DATASET_ID}`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!Array.isArray(data.samples) || data.samples.length === 0) return null;
+    return { samples: data.samples, savedAt: data.updated_at };
+  } catch (err) {
+    return null;
+  }
+}
+
 async function loadFromD1() {
   try {
     const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/training/snapshot`);
@@ -1150,6 +1182,89 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => { mmInject.textContent = orig; mmInject.disabled = false; }, 1200);
     });
   }
+
+  // Phase 7 dataset 패널.
+  const mmAddSample      = document.getElementById('nf-mm-add-sample');
+  const mmClearDataset   = document.getElementById('nf-mm-clear-dataset');
+  const mmSaveDs         = document.getElementById('nf-mm-save-ds');
+  const mmLoadDs         = document.getElementById('nf-mm-load-ds');
+  const mmTrainBatch     = document.getElementById('nf-mm-train-batch');
+  const mmStatus         = document.getElementById('nf-mm-status');
+  const dataset          = [];
+  function updateMmStatus(extra) {
+    if (mmStatus) {
+      mmStatus.textContent = `Dataset: ${dataset.length} samples${extra ? ' | ' + extra : ''}`;
+    }
+  }
+  if (mmAddSample) {
+    mmAddSample.addEventListener('click', () => {
+      const target = mmTarget.value;
+      if (!target) {
+        updateMmStatus('target 필요');
+        return;
+      }
+      dataset.push({
+        pattern: readPattern(),
+        target_out: target,
+        modality: mmModality.value,
+      });
+      updateMmStatus(`+ ${target}`);
+    });
+  }
+  if (mmClearDataset) {
+    mmClearDataset.addEventListener('click', () => {
+      dataset.length = 0;
+      updateMmStatus('cleared');
+    });
+  }
+  if (mmSaveDs) {
+    mmSaveDs.addEventListener('click', async () => {
+      if (dataset.length === 0) { updateMmStatus('비어있음'); return; }
+      mmSaveDs.disabled = true;
+      const ok = await saveDatasetToD1(dataset);
+      mmSaveDs.disabled = false;
+      updateMmStatus(ok ? `Saved ${dataset.length} → D1` : 'D1 저장 실패');
+    });
+  }
+  if (mmLoadDs) {
+    mmLoadDs.addEventListener('click', async () => {
+      mmLoadDs.disabled = true;
+      const data = await loadDatasetFromD1();
+      mmLoadDs.disabled = false;
+      if (!data) { updateMmStatus('D1 비어있음'); return; }
+      dataset.length = 0;
+      for (const s of data.samples) dataset.push(s);
+      updateMmStatus(`Loaded ${dataset.length} ← D1`);
+    });
+  }
+  if (mmTrainBatch) {
+    mmTrainBatch.addEventListener('click', async () => {
+      if (dataset.length === 0) { updateMmStatus('Dataset 비어있음 - 먼저 추가'); return; }
+      mmTrainBatch.disabled = true;
+      const orig = mmTrainBatch.textContent;
+      const N_ROUNDS = 5;
+      for (let round = 1; round <= N_ROUNDS; round += 1) {
+        for (let i = 0; i < dataset.length; i += 1) {
+          mmTrainBatch.textContent = `Round ${round}/${N_ROUNDS} sample ${i+1}/${dataset.length}`;
+          const s = dataset[i];
+          const r = await backend.injectPattern(s.pattern, {
+            modality: s.modality || 'custom',
+            targetOut: s.target_out,
+            stdp: true,
+          });
+          if (!r.ok) {
+            mmTrainBatch.textContent = `Failed: ${r.reason || ''}`;
+            mmTrainBatch.disabled = false;
+            return;
+          }
+        }
+      }
+      mmTrainBatch.textContent = `Batch done ✓ (${N_ROUNDS} round × ${dataset.length})`;
+      await saveTrainingState();
+      setTimeout(() => { mmTrainBatch.textContent = orig; mmTrainBatch.disabled = false; }, 2500);
+    });
+  }
+  updateMmStatus();
 
   if (mmTrain) {
     mmTrain.addEventListener('click', async () => {

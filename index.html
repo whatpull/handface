@@ -1508,7 +1508,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DlsM_HKe.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BgMZj9Q3.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-DYq9ImU0.css">
 </head>
 <body>
@@ -1578,9 +1578,19 @@
     <div class="nf-section nf-train-cascade-section">
       <label class="nf-section-label">TRAIN CASCADE (학습 발동)</label>
       <div class="nf-anchor-verify-buttons">
-        <button id="nf-train-cascade" type="button" class="nf-induce-multi-btn">Run Training (10 induce + STDP)</button>
+        <button id="nf-train-cascade" type="button" class="nf-induce-multi-btn">Run Training (20 induce + STDP)</button>
       </div>
-      <div class="nf-mode-hint">STDP on + 8 INPUT 동시 induce × 10회 → weight LTP 발동 → 단일 gesture click 영역 cascade fire 영역.</div>
+      <div class="nf-mode-hint">STDP on + 8 INPUT 동시 induce × 20회 → weight LTP 발동 → 단일 gesture click → cascade fire OUT 도달.</div>
+    </div>
+
+    <div class="nf-section nf-training-save-section">
+      <label class="nf-section-label">TRAINING SAVE / LOAD</label>
+      <div class="nf-anchor-verify-buttons">
+        <button id="nf-training-save"  type="button" class="nf-induce-multi-btn">Save</button>
+        <button id="nf-training-load"  type="button" class="nf-induce-multi-btn">Load</button>
+        <button id="nf-training-clear" type="button" class="nf-induce-multi-btn">Clear</button>
+      </div>
+      <div class="nf-mode-hint">학습 결과 (synapse weight) localStorage 보존. 페이지 reload 시 자동 복원. Save = 즉시 저장, Load = 강제 복원, Clear = 보존 삭제.</div>
     </div>
 
     <div class="nf-section nf-canvas-toggle-section">

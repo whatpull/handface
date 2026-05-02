@@ -207,51 +207,51 @@ window.addEventListener('click', (e) => {
   }
 });
 
-// Session 36: 본격 manual pan handler — drawflow 'view' mode pan catch 회피.
-// drawflow editor.canvas_x / canvas_y + editor.precanvas transform 직접 영역 영역.
+// Session 36: manual pan handler — drawflow 'view' mode pan catch 회피.
+// pointer event 영역 mouse + touch 통합 (모바일 영역 영역).
+// + pinch zoom (2 finger 영역) 영역 영역.
 function attachManualPan(container) {
   if (!container || !editor) return;
 
   let panning = false;
-  let startMouseX = 0;
-  let startMouseY = 0;
+  let startX = 0;
+  let startY = 0;
   let startCanvasX = 0;
   let startCanvasY = 0;
+  // pinch zoom state (touch 영역 영역).
+  let pinching = false;
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
 
-  function onMouseDown(e) {
-    // 영역 영역 영역 영역 = submenu close (영역 영역 영역 0).
-    if (e.target.closest('.snn-canvas-region-menu, .snn-canvas-neuron-menu, .snn-canvas-node-submenu')) return;
+  function isInteractive(target) {
+    return !!target.closest('.input, .output, button, input, textarea, select');
+  }
+
+  function isMenuTarget(target) {
+    return !!target.closest('.snn-canvas-region-menu, .snn-canvas-neuron-menu, .snn-canvas-node-submenu');
+  }
+
+  function onPointerDown(e) {
+    if (isMenuTarget(e.target)) return;
     closeSubmenu();
-    // Edit mode 영역 = drawflow 자체 영역 → 본 handler 영역 0.
     if (editor.editor_mode === 'edit') return;
-    // port / button 영역 click 영역 = pan 영역 (port hover / connection 영역 영역).
-    if (e.target.closest('.input, .output, button, input, textarea, select')) return;
+    if (isInteractive(e.target)) return;
     panning = true;
-    startMouseX = e.clientX;
-    startMouseY = e.clientY;
+    startX = e.clientX;
+    startY = e.clientY;
     startCanvasX = editor.canvas_x || 0;
     startCanvasY = editor.canvas_y || 0;
     container.style.cursor = 'grabbing';
+    if (e.pointerId !== undefined) {
+      try { container.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
+    }
     e.preventDefault();
   }
 
-  function onWheel() {
-    // zoom 시점 영역 submenu 영역 영역 영역 → close.
-    closeSubmenu();
-    // header zoom % 영역 갱신 영역 → zoom-changed event dispatch (drawflow native zoom_in/out 영역 영역).
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', {
-        detail: { zoom: editor?.zoom || 1 },
-      }));
-      applyStepPaths();
-    }, 0);
-  }
-  container.addEventListener('wheel', onWheel, { passive: true });
-
-  function onMouseMove(e) {
+  function onPointerMove(e) {
     if (!panning) return;
-    const dx = e.clientX - startMouseX;
-    const dy = e.clientY - startMouseY;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
     editor.canvas_x = startCanvasX + dx;
     editor.canvas_y = startCanvasY + dy;
     if (editor.precanvas) {
@@ -260,17 +260,81 @@ function attachManualPan(container) {
     }
   }
 
-  function onMouseUp() {
+  function onPointerUp() {
     if (!panning) return;
     panning = false;
     container.style.cursor = 'grab';
   }
 
-  container.addEventListener('mousedown', onMouseDown);
-  window.addEventListener('mousemove', onMouseMove);
-  window.addEventListener('mouseup', onMouseUp);
+  // touchstart — 2 finger pinch zoom + 1 finger pan (pointer event 영역 영역 다중 finger 영역 영역).
+  function getTouchDist(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.hypot(dx, dy);
+  }
 
-  // wheel zoom 영역 영역 영역 = drawflow 자체 영역 (영역 영역 영역).
+  function onTouchStart(e) {
+    if (e.touches.length === 2) {
+      pinching = true;
+      panning = false;
+      pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
+      pinchStartZoom = editor.zoom || 1;
+      e.preventDefault();
+    }
+  }
+
+  function onTouchMove(e) {
+    if (!pinching || e.touches.length !== 2) return;
+    const dist = getTouchDist(e.touches[0], e.touches[1]);
+    const ratio = dist / (pinchStartDist || 1);
+    const newZoom = Math.max(
+      editor.zoom_min || 0.2,
+      Math.min(editor.zoom_max || 2.5, pinchStartZoom * ratio),
+    );
+    editor.zoom = newZoom;
+    if (editor.precanvas) {
+      editor.precanvas.style.transform =
+        `translate(${editor.canvas_x || 0}px, ${editor.canvas_y || 0}px) scale(${newZoom})`;
+    }
+    applyStepPaths();
+    window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', { detail: { zoom: newZoom } }));
+    e.preventDefault();
+  }
+
+  function onTouchEnd(e) {
+    if (e.touches.length < 2) {
+      pinching = false;
+    }
+  }
+
+  function onWheel() {
+    closeSubmenu();
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', {
+        detail: { zoom: editor?.zoom || 1 },
+      }));
+      applyStepPaths();
+    }, 0);
+  }
+
+  // pointer events (mouse + touch 통합).
+  container.addEventListener('pointerdown', onPointerDown);
+  container.addEventListener('pointermove', onPointerMove);
+  container.addEventListener('pointerup', onPointerUp);
+  container.addEventListener('pointercancel', onPointerUp);
+  container.addEventListener('pointerleave', onPointerUp);
+
+  // touch events (pinch zoom 영역).
+  container.addEventListener('touchstart', onTouchStart, { passive: false });
+  container.addEventListener('touchmove', onTouchMove, { passive: false });
+  container.addEventListener('touchend', onTouchEnd);
+  container.addEventListener('touchcancel', onTouchEnd);
+
+  // wheel zoom (desktop).
+  container.addEventListener('wheel', onWheel, { passive: true });
+
+  // touch-action 영역 = 영역 영역 영역 0 (browser native scroll/zoom 영역 영역).
+  container.style.touchAction = 'none';
 }
 
 // Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.

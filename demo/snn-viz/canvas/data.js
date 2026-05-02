@@ -132,8 +132,10 @@ export const NEURON_NODES = [
     ...gridPos(REGION_X.V2_L5_E, i, 4),
   })),
 
-  // OUT (4 노드, decoded label 영역 영역 — 학습 영역 영역 영역).
-  ...['Decode #0', 'Decode #1', 'Decode #2', 'Decode #3'].map((label, i) => ({
+  // OUT (4 노드, decoded gesture label — Phase 4 OUT decode mapping).
+  // OUT index → gesture mapping (HANDFACE_GESTURE_TO_INPUT 정합):
+  //   out_0 = pointing  / out_1 = openpalm / out_2 = thumbsup / out_3 = victory.
+  ...['Pointing', 'Open palm', 'Thumbs up', 'Victory'].map((label, i) => ({
     id: `out_${i}`,
     label,
     region: 'OUT',

@@ -46,7 +46,15 @@ export class NeuronFaceBackend {
     this._stdpEnabled  = false;
     // T5.1-2b: stdp_mode field. 'pair' (D9 default, anchor 정합) | 'triplet' (Pfister-Gerstner 2006).
     this._stdpMode     = 'pair';
+    // Session 37 Phase 7: 벡터화 backend 토글 (default false = NN, true = vectorized).
+    this._useVectorized = false;
   }
+
+  setUseVectorized(enabled) {
+    this._useVectorized = Boolean(enabled);
+  }
+
+  get useVectorized() { return this._useVectorized; }
 
   setStdpEnabled(enabled) {
     this._stdpEnabled = Boolean(enabled);
@@ -365,9 +373,10 @@ export class NeuronFaceBackend {
       `[neuronface] calling /handface_train (multi) with stdp=${this._stdpEnabled} mode=${this._stdpMode} ` +
       `(gestures=[${names.join(',')}] -> inputs=[${mappedInputs.join(',')}], intensity=${clampedIntensity})`,
     );
+    const endpoint = this._useVectorized ? 'handface_train_vectorized' : 'handface_train';
     try {
       const resp = await this._fetch(
-        `/networks/${this._networkId}/handface_train`,
+        `/networks/${this._networkId}/${endpoint}`,
         { method: 'POST', body },
       );
       this.emit({

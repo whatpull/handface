@@ -725,6 +725,19 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Session 37 Phase 7: Vectorized backend toggle.
+  const vecToggle = document.getElementById('nf-vectorized-toggle');
+  const vecState  = document.getElementById('nf-vectorized-state');
+  if (vecToggle) {
+    vecToggle.addEventListener('change', () => {
+      const on = vecToggle.checked;
+      backend.setUseVectorized(on);
+      if (vecState) {
+        vecState.textContent = on ? 'ON (vectorized, ~2x for large nets)' : 'OFF (NeuralNetwork)';
+      }
+    });
+  }
+
   // Phase 4: Direct decode pathway toggle.
   const decodePathwayToggle = document.getElementById('nf-decode-pathway-toggle');
   const decodePathwayState  = document.getElementById('nf-decode-pathway-state');

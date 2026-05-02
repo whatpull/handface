@@ -1201,7 +1201,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const imageGridEl  = document.getElementById('nf-image-grid');
   const imageInject  = document.getElementById('nf-image-inject');
   const imageClear   = document.getElementById('nf-image-clear');
+  const imageStream  = document.getElementById('nf-image-stream');
   const imageStatus  = document.getElementById('nf-image-status');
+
+  function patternFromImageCells() {
+    const pattern = new Array(8).fill(0);
+    for (let b = 0; b < 8; b += 1) {
+      pattern[b] = (imageCells[b * 2] + imageCells[b * 2 + 1]) / 2.0;
+    }
+    return pattern;
+  }
   const imageCells   = new Array(16).fill(0);
   if (imageGridEl) {
     for (let i = 0; i < 16; i += 1) {
@@ -1228,11 +1237,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   if (imageInject) {
     imageInject.addEventListener('click', async () => {
-      // 16 cells → 8 bins (2 cells per bin, 평균).
-      const pattern = new Array(8).fill(0);
-      for (let b = 0; b < 8; b += 1) {
-        pattern[b] = (imageCells[b * 2] + imageCells[b * 2 + 1]) / 2.0;
-      }
+      const pattern = patternFromImageCells();
       const total = imageCells.reduce((a, b) => a + b, 0);
       if (total === 0) {
         if (imageStatus) imageStatus.textContent = '셀을 클릭하여 패턴 만들기.';
@@ -1253,6 +1258,39 @@ window.addEventListener('DOMContentLoaded', () => {
         imageInject.textContent = `Failed: ${r.reason || ''}`;
       }
       setTimeout(() => { imageInject.textContent = orig; imageInject.disabled = false; }, 2000);
+    });
+  }
+
+  // Streaming mode: 1초 주기로 현재 grid 패턴 inject (사용자 실시간 toggle 지원).
+  let imageStreamCtx = null;
+  if (imageStream) {
+    imageStream.addEventListener('click', async () => {
+      if (imageStreamCtx) {
+        imageStreamCtx.running = false;
+        imageStreamCtx = null;
+        imageStream.textContent = 'Streaming start';
+        if (imageStatus) imageStatus.textContent = 'Streaming stopped.';
+        return;
+      }
+      imageStreamCtx = { running: true };
+      imageStream.textContent = 'Streaming stop';
+      let tick = 0;
+      while (imageStreamCtx && imageStreamCtx.running) {
+        tick += 1;
+        const total = imageCells.reduce((a, b) => a + b, 0);
+        if (total > 0) {
+          const pattern = patternFromImageCells();
+          const r = await backend.injectPattern(pattern, { modality: 'image' });
+          if (imageStatus && r.ok) {
+            const out = r.response?.out_rates || {};
+            const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+            imageStatus.textContent = `[stream tick ${tick}] cells=${total}/16 → winner=${winner || '없음'}`;
+          }
+        } else {
+          if (imageStatus) imageStatus.textContent = `[stream tick ${tick}] grid 비어있음 — 셀 클릭`;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
     });
   }
 

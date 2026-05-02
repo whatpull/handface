@@ -16,20 +16,23 @@ export const CASCADE_EDGES = [
   { from: 'V2',    to: 'OUT', label: 'V2 L5_E->OUT (w=64)',       stage: 4 },
 ];
 
-// Neuron 단위 layout (4 region column, 좌→우. region 내부 population sub-column).
+// Neuron 단위 layout (4 region column + SOURCE column, 좌→우. region 내부 population sub-column).
+// Session 36: SOURCE column 신규 (Camera + Gesture 영역 input 전 영역).
 const REGION_X = {
-  INPUT:    80,
-  V1_L4_E:  320,
-  V1_L4_I:  480,
-  V1_L23_E: 640,
-  V2_L4_E:  880,
-  V2_L23_E: 1040,
-  V2_L5_E:  1200,
-  OUT:      1360,
+  SOURCE_CAMERA:  80,
+  SOURCE_GESTURE: 240,
+  INPUT:    440,    // gap 200 (Gesture → INPUT)
+  V1_L4_E:  740,    // gap 300 (region boundary)
+  V1_L4_I:  940,    // gap 200 (V1 sub-column)
+  V1_L23_E: 1140,   // gap 200
+  V2_L4_E:  1440,   // gap 300 (region boundary)
+  V2_L23_E: 1640,   // gap 200
+  V2_L5_E:  1840,   // gap 200
+  OUT:      2140,   // gap 300 (region boundary)
 };
 
-const ROW_HEIGHT = 80;
-const TOP_PAD = 60;
+const ROW_HEIGHT = 110;     // 80 → 110 (vertical 영역 영역 영역)
+const TOP_PAD = 80;
 
 function gridPos(x, idx, count) {
   // Center column 영역 vertical alignment.
@@ -40,6 +43,24 @@ function gridPos(x, idx, count) {
 }
 
 export const NEURON_NODES = [
+  // SOURCE (Session 36: Camera + Gesture, INPUT 전 영역).
+  {
+    id: 'src_camera',
+    label: 'Camera',
+    region: 'SOURCE',
+    population: 'camera',
+    color: '#a78bfa',
+    ...gridPos(REGION_X.SOURCE_CAMERA, 0, 1),
+  },
+  {
+    id: 'src_gesture',
+    label: 'Gesture',
+    region: 'SOURCE',
+    population: 'gesture',
+    color: '#fbbf24',
+    ...gridPos(REGION_X.SOURCE_GESTURE, 0, 1),
+  },
+
   // INPUT (8 노드)
   ...['in_pinch', 'in_fist', 'in_palm', 'in_point', 'in_gaze', 'in_blink', 'in_thumbsup', 'in_victory']
     .map((name, i) => ({
@@ -111,15 +132,29 @@ export const NEURON_NODES = [
     ...gridPos(REGION_X.V2_L5_E, i, 4),
   })),
 
-  // OUT (4 노드)
-  ...Array.from({ length: 4 }, (_, i) => ({
+  // OUT (4 노드, decoded label 영역 영역 — 학습 영역 영역 영역).
+  ...['Decode #0', 'Decode #1', 'Decode #2', 'Decode #3'].map((label, i) => ({
     id: `out_${i}`,
-    label: `out_${i}`,
+    label,
     region: 'OUT',
     population: 'output',
     color: '#5eead4',
     ...gridPos(REGION_X.OUT, i, 4),
   })),
+];
+
+// SOURCE edges (Session 36): Camera → Gesture → 8 INPUT (handface input chain 정합).
+// 본 영역 = backend synapse 영역 0 (frontend 영역 영역 영역 영역) — runtime fixed display.
+export const SOURCE_EDGES = [
+  { pre: 'src_camera',  post: 'src_gesture', weight: 50 }, // camera → gesture
+  { pre: 'src_gesture', post: 'in_pinch',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_fist',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_palm',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_point',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_gaze',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_blink',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_thumbsup', weight: 50 },
+  { pre: 'src_gesture', post: 'in_victory',  weight: 50 },
 ];
 
 // Synapse weight gradient color mapping (3A spec).

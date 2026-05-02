@@ -5,4 +5,8 @@ export {
   updateCanvasFireNeuron,
   destroyCanvas,
   getCanvasMode,
+  setEditorMode,
+  setCanvasZoom,
+  getCanvasZoom,
+  fitCanvasToNodes,
 } from './canvas.js';

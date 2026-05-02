@@ -7,13 +7,16 @@ import {
   REGION_NODES,
   CASCADE_EDGES,
   NEURON_NODES,
+  SOURCE_EDGES,
   weightColor,
 } from './data.js';
 import { regionNodeHtml } from './nodes.js';
 
 let editor = null;
 let mode = 'region'; // 'region' | 'neuron'
-const nodeIdMap = {}; // region id 또는 neuron id -> drawflow node id
+const nodeIdMap = {};   // neuron id -> drawflow node id (number)
+const nodeRefMap = {};  // neuron id -> direct DOM element ref (drawflow auto-id catch 회피)
+const connRefMap = {};  // 'pre->post' -> connection SVG element ref
 
 export function getCanvasMode() {
   return mode;
@@ -55,6 +58,13 @@ export function initCanvas(containerId) {
     }
   }
 
+  editor.editor_mode = 'view';
+  attachManualPan(container);
+  attachMenuHandler(container);
+  applyStepPaths();
+  patchUpdateConnectionNodes();
+  setTimeout(() => fitCanvasToNodes(0.9), 200);
+
   return editor;
 }
 
@@ -69,64 +79,426 @@ export function initCanvasNeuron(containerId, synapses) {
   mode = 'neuron';
 
   editor = new Drawflow(container);
-  editor.reroute = true;
-  editor.reroute_fix_curvature = true;
-  editor.curvature = 0.5;
-  editor.zoom_min = 0.3;
-  editor.zoom_max = 2.0;
+  editor.reroute = false;                  // reroute 영역 0 (깔끔 영역).
+  editor.reroute_fix_curvature = false;
+  editor.curvature = 0;                    // 직선 (사용자 catch 정합 — bezier 영역 cross 영역 영역 영역).
+  editor.zoom_min = 0.2;
+  editor.zoom_max = 2.5;
+  editor.zoom_value = 0.05;
+  editor.draggable_inputs = false;
+  editor.force_first_input = false;
+  editor.line_path = 2;
   editor.start();
+  editor.editor_mode = 'view';
 
-  // 52 neuron node.
+  // Session 36: 본격 manual pan handler 영역 (drawflow 'view' mode pan 영역 catch 회피).
+  // mousedown + mousemove + mouseup 영역 직접 영역 → editor.canvas_x/y + transform 갱신.
+  attachManualPan(container);
+  attachMenuHandler(container);
+
+  // fit-to-view — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
+  // setTimeout 영역 → drawflow node DOM offsetWidth/Height 영역 영역 영역 영역 영역.
+  setTimeout(() => fitCanvasToNodes(0.9), 200);
+
+  // 52 neuron node — class arg 영역 neuron id 영역 영역 (drawflow auto-id catch 회피).
   for (const neuron of NEURON_NODES) {
     const id = editor.addNode(
       neuron.id,
       1, 1,
       neuron.x, neuron.y,
-      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()}`,
+      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()} snn-canvas-node-${neuron.id}`,
       { neuron: neuron.id, region: neuron.region, population: neuron.population },
       neuronNodeHtml(neuron),
       false,
     );
     nodeIdMap[neuron.id] = id;
+    // direct DOM ref (drawflow render synchronous 통과 영역 영역 영역).
+    const el = document.getElementById(`node-${id}`);
+    if (el) nodeRefMap[neuron.id] = el;
   }
 
-  // synapse edge (backend response 사용).
-  const safeSyn = Array.isArray(synapses) ? synapses : [];
-  for (const syn of safeSyn) {
+  // synapse edge (backend response 사용 + SOURCE 영역 frontend fixed).
+  const backendSyn = Array.isArray(synapses) ? synapses : [];
+  const allSyn = [...SOURCE_EDGES, ...backendSyn];
+  for (const syn of allSyn) {
     const fromId = nodeIdMap[syn.pre];
     const toId = nodeIdMap[syn.post];
     if (fromId && toId) {
       editor.addConnection(fromId, toId, 'output_1', 'input_1');
+      const selector = `.connection.node_in_node-${toId}.node_out_node-${fromId}`;
+      const conn = container.querySelector(selector);
+      if (conn) connRefMap[`${syn.pre}->${syn.post}`] = conn;
     }
   }
 
-  applyEdgeColors(safeSyn);
+  applyEdgeColors(allSyn);
+  patchUpdateConnectionNodes();
+
+  // Session 36: source 노드 (Camera + Gesture) mount 통과 영역 → scene.js 영역 ASCII camera + hand skeleton mount.
+  window.dispatchEvent(new CustomEvent('snn-canvas:source-mounted'));
 
   return editor;
 }
 
+// Session 36: node menu (...) click → submenu (Delete) 영역 정정.
+// drawflow default delete button (X) hide + ... menu 영역 정합 영역.
+let activeSubmenu = null;
+
+function closeSubmenu() {
+  if (activeSubmenu) {
+    activeSubmenu.remove();
+    activeSubmenu = null;
+  }
+}
+
+function openSubmenu(menuEl, nodeId, dfId) {
+  closeSubmenu();
+  const submenu = document.createElement('div');
+  submenu.className = 'snn-canvas-node-submenu';
+
+  const deleteItem = document.createElement('div');
+  deleteItem.className = 'snn-canvas-node-submenu-item snn-canvas-node-submenu-item--delete';
+  deleteItem.innerHTML = '<span class="snn-canvas-node-submenu-icon">×</span><span>Delete node</span>';
+  deleteItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (editor && dfId) {
+      editor.removeNodeId(`node-${dfId}`);
+      delete nodeIdMap[nodeId];
+      delete nodeRefMap[nodeId];
+      for (const key of Object.keys(connRefMap)) {
+        if (key.startsWith(`${nodeId}->`) || key.endsWith(`->${nodeId}`)) {
+          delete connRefMap[key];
+        }
+      }
+    }
+    closeSubmenu();
+  });
+  submenu.appendChild(deleteItem);
+
+  // ... menu button 영역 자식 영역 영역 → button 영역 영역 dropdown + drawflow zoom transform 영역 영역.
+  menuEl.appendChild(submenu);
+  activeSubmenu = submenu;
+}
+
+function attachMenuHandler(container) {
+  if (!container) return;
+  // event delegation — node menu (.snn-canvas-region-menu / .snn-canvas-neuron-menu) click.
+  container.addEventListener('click', (e) => {
+    const menuEl = e.target.closest('.snn-canvas-region-menu, .snn-canvas-neuron-menu');
+    if (!menuEl) return;
+    e.stopPropagation();
+    const drawflowNode = menuEl.closest('.drawflow-node');
+    if (!drawflowNode) return;
+    const dfId = drawflowNode.id.replace('node-', '');
+    // neuron id 영역 영역 (class 영역 영역 추출).
+    let nodeId = null;
+    for (const id in nodeIdMap) {
+      if (String(nodeIdMap[id]) === dfId) { nodeId = id; break; }
+    }
+    if (!nodeId) return;
+    openSubmenu(menuEl, nodeId, dfId);
+  });
+}
+
+// global click → submenu close (submenu 외부 click 영역 영역).
+window.addEventListener('click', (e) => {
+  if (activeSubmenu && !e.target.closest('.snn-canvas-node-submenu') && !e.target.closest('.snn-canvas-region-menu, .snn-canvas-neuron-menu')) {
+    closeSubmenu();
+  }
+});
+
+// Session 36: 본격 manual pan handler — drawflow 'view' mode pan catch 회피.
+// drawflow editor.canvas_x / canvas_y + editor.precanvas transform 직접 영역 영역.
+function attachManualPan(container) {
+  if (!container || !editor) return;
+
+  let panning = false;
+  let startMouseX = 0;
+  let startMouseY = 0;
+  let startCanvasX = 0;
+  let startCanvasY = 0;
+
+  function onMouseDown(e) {
+    // 영역 영역 영역 영역 = submenu close (영역 영역 영역 0).
+    if (e.target.closest('.snn-canvas-region-menu, .snn-canvas-neuron-menu, .snn-canvas-node-submenu')) return;
+    closeSubmenu();
+    // Edit mode 영역 = drawflow 자체 영역 → 본 handler 영역 0.
+    if (editor.editor_mode === 'edit') return;
+    // port / button 영역 click 영역 = pan 영역 (port hover / connection 영역 영역).
+    if (e.target.closest('.input, .output, button, input, textarea, select')) return;
+    panning = true;
+    startMouseX = e.clientX;
+    startMouseY = e.clientY;
+    startCanvasX = editor.canvas_x || 0;
+    startCanvasY = editor.canvas_y || 0;
+    container.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
+  function onWheel() {
+    // zoom 시점 영역 submenu 영역 영역 영역 → close.
+    closeSubmenu();
+    // header zoom % 영역 갱신 영역 → zoom-changed event dispatch (drawflow native zoom_in/out 영역 영역).
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', {
+        detail: { zoom: editor?.zoom || 1 },
+      }));
+      applyStepPaths();
+    }, 0);
+  }
+  container.addEventListener('wheel', onWheel, { passive: true });
+
+  function onMouseMove(e) {
+    if (!panning) return;
+    const dx = e.clientX - startMouseX;
+    const dy = e.clientY - startMouseY;
+    editor.canvas_x = startCanvasX + dx;
+    editor.canvas_y = startCanvasY + dy;
+    if (editor.precanvas) {
+      editor.precanvas.style.transform =
+        `translate(${editor.canvas_x}px, ${editor.canvas_y}px) scale(${editor.zoom})`;
+    }
+  }
+
+  function onMouseUp() {
+    if (!panning) return;
+    panning = false;
+    container.style.cursor = 'grab';
+  }
+
+  container.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+
+  // wheel zoom 영역 영역 영역 = drawflow 자체 영역 (영역 영역 영역).
+}
+
+// Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
+// bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
+// container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
+export function fitCanvasToNodes(padding = 0.9) {
+  if (!editor || !editor.precanvas) return;
+  const container = editor.container;
+  if (!container) return;
+
+  // double RAF 영역 layout 영역 ready 보장.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => doFit(padding));
+  });
+}
+
+function doFit(padding) {
+  if (!editor || !editor.precanvas) return;
+  const container = editor.container;
+  if (!container) return;
+
+  const nodes = editor.precanvas.querySelectorAll('.drawflow-node');
+  if (nodes.length === 0) return;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach((node) => {
+    const left = parseFloat(node.style.left) || 0;
+    const top = parseFloat(node.style.top) || 0;
+    const w = node.offsetWidth || 160;
+    const h = node.offsetHeight || 80;
+    if (left < minX) minX = left;
+    if (top < minY) minY = top;
+    if (left + w > maxX) maxX = left + w;
+    if (top + h > maxY) maxY = top + h;
+  });
+
+  const bboxW = maxX - minX;
+  const bboxH = maxY - minY;
+  // container 영역 = #nf-snn-canvas (.nf-app-main grid 1fr 영역 영역).
+  const rect = container.getBoundingClientRect();
+  const viewportW = rect.width;
+  const viewportH = rect.height;
+  if (bboxW <= 0 || bboxH <= 0 || viewportW <= 0 || viewportH <= 0) return;
+
+  // zoom = min(viewport / bbox) × padding factor.
+  const zoomX = viewportW / bboxW;
+  const zoomY = viewportH / bboxH;
+  const targetZoom = Math.max(
+    editor.zoom_min || 0.2,
+    Math.min(editor.zoom_max || 2.5, Math.min(zoomX, zoomY) * padding),
+  );
+
+  // center pan: bbox center 영역 viewport center 영역 정합 (transform-origin: 0 0 영역).
+  const bboxCenterX = (minX + maxX) / 2;
+  const bboxCenterY = (minY + maxY) / 2;
+  const targetCanvasX = viewportW / 2 - bboxCenterX * targetZoom;
+  const targetCanvasY = viewportH / 2 - bboxCenterY * targetZoom;
+
+  editor.zoom = targetZoom;
+  editor.canvas_x = targetCanvasX;
+  editor.canvas_y = targetCanvasY;
+  editor.precanvas.style.transformOrigin = '0 0';
+  editor.precanvas.style.transform =
+    `translate(${targetCanvasX}px, ${targetCanvasY}px) scale(${targetZoom})`;
+  applyStepPaths();
+  window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', { detail: { zoom: targetZoom } }));
+}
+
+// Session 36: header zoom control 영역 영역 — drawflow zoom 영역 직접 영역.
+export function setCanvasZoom(zoomFraction) {
+  if (!editor) return;
+  const z = Math.max(editor.zoom_min || 0.2, Math.min(editor.zoom_max || 2.5, zoomFraction));
+  editor.zoom = z;
+  if (editor.precanvas) {
+    editor.precanvas.style.transform =
+      `translate(${editor.canvas_x || 0}px, ${editor.canvas_y || 0}px) scale(${z})`;
+  }
+  // step path 영역 zoom 영역 영역 → 재 patch.
+  applyStepPaths();
+  window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', { detail: { zoom: z } }));
+}
+
+export function getCanvasZoom() {
+  return editor ? (editor.zoom || 1) : 1;
+}
+
+export function setEditorMode(modeName) {
+  if (!editor) return;
+  const isEdit = modeName === 'edit';
+  // drawflow editor_mode:
+  //   'edit' = node drag + connection + zoom + pan (사용자 명시 영역만, Edit click)
+  //   'view' = node drag 차단 + 모든 영역 click → pan + zoom (default, view-only Normal)
+  editor.editor_mode = isEdit ? 'edit' : 'view';
+  // CSS class toggle — pointer-events 영역 영역 (view 영역 = node click 영역 → pan 가능, edit 영역 = node drag 영역).
+  const container = document.getElementById('nf-snn-canvas');
+  if (container) {
+    container.classList.toggle('snn-canvas-edit', isEdit);
+  }
+}
+
 function neuronNodeHtml(neuron) {
+  // OUT 영역 — 영역 영역 영역 영역 추가 (rate / active state).
+  if (neuron.population === 'output') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-out-card">
+        <div class="snn-canvas-neuron-header">
+          <span class="snn-canvas-neuron-dot"></span>
+          <span class="snn-canvas-neuron-label">${neuron.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
+        </div>
+        <div class="snn-canvas-neuron-body">
+          <div class="snn-canvas-neuron-row">
+            <span class="snn-canvas-neuron-row-label">status</span>
+            <span class="snn-canvas-neuron-row-value snn-canvas-out-status" id="snn-canvas-out-status-${neuron.id}">idle</span>
+          </div>
+          <div class="snn-canvas-neuron-row">
+            <span class="snn-canvas-neuron-row-label">rate</span>
+            <span class="snn-canvas-neuron-row-value snn-canvas-out-rate" id="snn-canvas-out-rate-${neuron.id}">0</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  // SOURCE 영역 (camera / gesture) 영역 = mount container 영역 (ASCII camera + hand skeleton 영역).
+  if (neuron.population === 'camera') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-source-card snn-canvas-source-card--camera">
+        <div class="snn-canvas-neuron-header">
+          <span class="snn-canvas-neuron-dot"></span>
+          <span class="snn-canvas-neuron-label">${neuron.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
+        </div>
+        <div class="snn-canvas-source-mount" id="snn-canvas-camera-mount" data-source="camera">
+          <div class="snn-canvas-source-empty">
+            <div class="snn-canvas-source-empty-icon">📷</div>
+            <div>Click to enable camera</div>
+            <div class="snn-canvas-source-empty-hint">사용자 권한 영역 영역 영역</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (neuron.population === 'gesture') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-source-card snn-canvas-source-card--gesture">
+        <div class="snn-canvas-neuron-header">
+          <span class="snn-canvas-neuron-dot"></span>
+          <span class="snn-canvas-neuron-label">${neuron.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
+        </div>
+        <div class="snn-canvas-source-mount" id="snn-canvas-gesture-mount" data-source="gesture">
+          <div class="snn-canvas-source-empty">
+            <div class="snn-canvas-source-empty-icon">✋</div>
+            <div>Click to enable camera</div>
+            <div class="snn-canvas-source-empty-hint">hand skeleton 영역</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="snn-canvas-neuron-card">
-      <div class="snn-canvas-neuron-label">${neuron.label}</div>
-      <div class="snn-canvas-neuron-pop">${neuron.population}</div>
+      <div class="snn-canvas-neuron-header">
+        <span class="snn-canvas-neuron-dot"></span>
+        <span class="snn-canvas-neuron-label">${neuron.label}</span>
+        <span class="snn-canvas-neuron-menu">···</span>
+      </div>
+      <div class="snn-canvas-neuron-body">
+        <div class="snn-canvas-neuron-row">
+          <span class="snn-canvas-neuron-row-label">region</span>
+          <span class="snn-canvas-neuron-row-value">${neuron.region}</span>
+        </div>
+        <div class="snn-canvas-neuron-row">
+          <span class="snn-canvas-neuron-row-label">pop</span>
+          <span class="snn-canvas-neuron-row-value">${neuron.population}</span>
+        </div>
+      </div>
     </div>
   `;
 }
 
 // drawflow connection SVG class = node_in_node-{toId} + node_out_node-{fromId} (drawflow.min.js 내부 사실).
+// default 영역 영역 영역 영역 visible (CSS 영역 stroke rgba 0.06 영역 통합) — fired 시점 영역만 영역 영역.
+// weight color 영역 = data attribute 영역 영역 영역 (fired 영역 영역 영역 정합 영역 영역).
 function applyEdgeColors(synapses) {
   for (const syn of synapses) {
-    const fromId = nodeIdMap[syn.pre];
-    const toId = nodeIdMap[syn.post];
-    if (!fromId || !toId) continue;
-    const selector = `.connection.node_in_node-${toId}.node_out_node-${fromId} .main-path`;
-    const path = document.querySelector(selector);
-    if (path) {
-      path.style.stroke = weightColor(syn.weight);
-      path.style.strokeWidth = '2';
-    }
+    const conn = connRefMap[`${syn.pre}->${syn.post}`];
+    if (!conn) continue;
+    conn.dataset.weight = String(syn.weight);
+    conn.dataset.weightColor = weightColor(syn.weight);
   }
+  // PPT-style step/orthogonal connector — drawflow bezier path → right-angle step path 영역 정정.
+  applyStepPaths();
+}
+
+// 직각 step path 영역 — output → midX → input (right-angle 2-segment path).
+function applyStepPaths() {
+  if (!editor || !editor.precanvas) return;
+  const connections = editor.precanvas.querySelectorAll('.connection');
+  connections.forEach((conn) => {
+    const path = conn.querySelector('.main-path');
+    if (!path) return;
+    // drawflow bezier path "M x1,y1 C cx1,cy1 cx2,cy2 x2,y2" 영역 endpoint (x1,y1, x2,y2) 영역 영역.
+    const d = path.getAttribute('d') || '';
+    const m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+C[\s\S]*?(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
+    if (!m) return;
+    const x1 = parseFloat(m[1]);
+    const y1 = parseFloat(m[2]);
+    const x2 = parseFloat(m[3]);
+    const y2 = parseFloat(m[4]);
+    const midX = (x1 + x2) / 2;
+    // step path: output (right edge) → mid x (vertical) → input (left edge).
+    // 3-segment: H midX, V y2, H x2.
+    const stepD = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
+    path.setAttribute('d', stepD);
+  });
+}
+
+// drawflow updateConnectionNodes 영역 patch — pan/zoom 영역 영역 path 영역 영역 영역 → step path 영역 재 patch.
+let updateConnectionNodesPatched = false;
+function patchUpdateConnectionNodes() {
+  if (!editor || updateConnectionNodesPatched) return;
+  const original = editor.updateConnectionNodes.bind(editor);
+  editor.updateConnectionNodes = function (id) {
+    original(id);
+    applyStepPaths();
+  };
+  updateConnectionNodesPatched = true;
 }
 
 export function updateCanvasFire(activeByRegion) {
@@ -141,17 +513,53 @@ export function updateCanvasFire(activeByRegion) {
   }
 }
 
+// fired class auto-clear timer (neuron id → timeoutId).
+const fireTimers = {};
+const FIRE_DURATION_MS = 800;
+
 export function updateCanvasFireNeuron(rates) {
   if (!editor || mode !== 'neuron') return;
+  const safeRates = rates || {};
+
+  // 1. neuron card fired pulse — fire 영역 영역 영역 영역 영역, 0.8s 후 자동 영역 (1회 신호 영역 영역).
+  const firedSet = new Set();
   for (const neuron of NEURON_NODES) {
-    const rate = rates[neuron.id] || 0;
+    const rate = safeRates[neuron.id] || 0;
     const fired = rate > 0;
-    const dfId = nodeIdMap[neuron.id];
-    if (!dfId) continue;
-    const nodeEl = document.getElementById(`node-${dfId}`);
-    if (nodeEl) {
-      nodeEl.classList.toggle('snn-canvas-neuron--fired', fired);
+    // OUT 노드 영역 status / rate row 영역 갱신 (fired 영역 영역 영역 ACTIVE 영역).
+    if (neuron.population === 'output') {
+      const statusEl = document.getElementById(`snn-canvas-out-status-${neuron.id}`);
+      const rateEl = document.getElementById(`snn-canvas-out-rate-${neuron.id}`);
+      if (statusEl) {
+        statusEl.textContent = fired ? 'ACTIVE' : 'idle';
+        statusEl.classList.toggle('snn-canvas-out-status--active', fired);
+      }
+      if (rateEl) rateEl.textContent = fired ? rate.toFixed(1) : '0';
     }
+    if (!fired) continue;
+    firedSet.add(neuron.id);
+    const nodeEl = nodeRefMap[neuron.id];
+    if (!nodeEl) continue;
+    nodeEl.classList.add('snn-canvas-neuron--fired');
+    // 직전 timer clear (재 fire 영역 영역 영역 영역).
+    if (fireTimers[neuron.id]) clearTimeout(fireTimers[neuron.id]);
+    fireTimers[neuron.id] = setTimeout(() => {
+      nodeEl.classList.remove('snn-canvas-neuron--fired');
+      delete fireTimers[neuron.id];
+    }, FIRE_DURATION_MS);
+  }
+
+  // 2. synapse line fired pulse — pre fired 영역 영역 영역, 0.8s 후 자동 영역.
+  for (const key in connRefMap) {
+    const conn = connRefMap[key];
+    const [pre] = key.split('->');
+    if (!firedSet.has(pre)) continue;
+    conn.classList.add('fired');
+    if (fireTimers[`__conn_${key}`]) clearTimeout(fireTimers[`__conn_${key}`]);
+    fireTimers[`__conn_${key}`] = setTimeout(() => {
+      conn.classList.remove('fired');
+      delete fireTimers[`__conn_${key}`];
+    }, FIRE_DURATION_MS);
   }
 }
 
@@ -162,7 +570,7 @@ export function destroyCanvas() {
     if (container) container.innerHTML = '';
     editor = null;
   }
-  for (const key of Object.keys(nodeIdMap)) {
-    delete nodeIdMap[key];
-  }
+  for (const key of Object.keys(nodeIdMap)) delete nodeIdMap[key];
+  for (const key of Object.keys(nodeRefMap)) delete nodeRefMap[key];
+  for (const key of Object.keys(connRefMap)) delete connRefMap[key];
 }

@@ -8,6 +8,10 @@
   background: #0a0a0a;
   overflow: hidden;
   display: block;
+  /* mobile touch — browser native scroll/zoom 영역 영역, manual pan + pinch 영역 영역. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .snn-canvas-empty {

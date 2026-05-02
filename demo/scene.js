@@ -1057,19 +1057,95 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Phase 2 audio modality: 마이크 → FFT 32 bin → 8 bin 평균 → injectPattern.
   const audioCapture = document.getElementById('nf-audio-capture');
+  const audioStream  = document.getElementById('nf-audio-stream');
   const audioStatus  = document.getElementById('nf-audio-status');
-  if (audioCapture) {
-    audioCapture.addEventListener('click', async () => {
-      audioCapture.disabled = true;
-      const orig = audioCapture.textContent;
-      audioCapture.textContent = '마이크 권한 요청...';
+
+  // 마이크 1회 capture + inject (1초 평균).
+  async function captureAndInjectAudio(extAnalyser, extBins) {
+    let analyser = extAnalyser;
+    let bins = extBins;
+    let cleanup = null;
+    if (!analyser) {
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
+        return { ok: false, reason: `마이크 거부: ${err.message}` };
+      }
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source   = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      bins = new Uint8Array(analyser.frequencyBinCount);
+      cleanup = () => {
+        stream.getTracks().forEach(t => t.stop());
+        audioCtx.close();
+      };
+    }
+    const accumulator = new Float32Array(32);
+    const samples = 30;
+    for (let i = 0; i < samples; i += 1) {
+      analyser.getByteFrequencyData(bins);
+      for (let j = 0; j < 32; j += 1) accumulator[j] += bins[j];
+      await new Promise(r => setTimeout(r, 33));
+    }
+    if (cleanup) cleanup();
+    const pattern = new Array(8).fill(0);
+    for (let b = 0; b < 8; b += 1) {
+      let sum = 0;
+      for (let k = 0; k < 4; k += 1) sum += accumulator[b * 4 + k] / samples;
+      pattern[b] = sum / 4 / 255;
+    }
+    const max = Math.max(...pattern);
+    if (max > 0) for (let i = 0; i < 8; i += 1) pattern[i] /= max;
+    const r = await backend.injectPattern(pattern, { modality: 'audio' });
+    return { ok: r.ok, response: r.response, pattern };
+  }
+
+  if (audioCapture) {
+    audioCapture.addEventListener('click', async () => {
+      audioCapture.disabled = true;
+      const orig = audioCapture.textContent;
+      audioCapture.textContent = 'Capturing 1s...';
+      const r = await captureAndInjectAudio();
+      if (r.ok) {
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        if (audioStatus) {
+          audioStatus.textContent = `pattern=[${r.pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+        }
+        audioCapture.textContent = 'Captured ✓';
+      } else {
+        audioCapture.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { audioCapture.textContent = orig; audioCapture.disabled = false; }, 2000);
+    });
+  }
+
+  // Streaming mode — 1초 주기 capture + inject (지속 실행).
+  let audioStreamCtx = null;
+  if (audioStream) {
+    audioStream.addEventListener('click', async () => {
+      if (audioStreamCtx) {
+        // Stop.
+        audioStreamCtx.running = false;
+        audioStreamCtx.cleanup();
+        audioStreamCtx = null;
+        audioStream.textContent = 'Streaming start';
+        if (audioStatus) audioStatus.textContent = 'Streaming stopped.';
+        return;
+      }
+      // Start: 마이크 한 번만 열고 reuse.
+      audioStream.disabled = true;
+      audioStream.textContent = '마이크 권한...';
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        audioStream.textContent = 'Streaming start';
         if (audioStatus) audioStatus.textContent = `마이크 거부: ${err.message}`;
-        audioCapture.textContent = orig;
-        audioCapture.disabled = false;
+        audioStream.disabled = false;
         return;
       }
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1077,41 +1153,26 @@ window.addEventListener('DOMContentLoaded', () => {
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
       source.connect(analyser);
-      const bins = new Uint8Array(analyser.frequencyBinCount); // 32 bins
-      audioCapture.textContent = 'Capturing 1s...';
-      // 1초 동안 평균 누적.
-      const accumulator = new Float32Array(32);
-      const samples = 30;
-      for (let i = 0; i < samples; i += 1) {
-        analyser.getByteFrequencyData(bins);
-        for (let j = 0; j < 32; j += 1) accumulator[j] += bins[j];
-        await new Promise(r => setTimeout(r, 33));
-      }
-      // 정리.
-      stream.getTracks().forEach(t => t.stop());
-      audioCtx.close();
-      // 32 bins → 8 bins (4 bins/output, 평균) + 정규화.
-      const pattern = new Array(8).fill(0);
-      for (let b = 0; b < 8; b += 1) {
-        let sum = 0;
-        for (let k = 0; k < 4; k += 1) sum += accumulator[b * 4 + k] / samples;
-        pattern[b] = sum / 4 / 255; // normalize to [0, 1]
-      }
-      const max = Math.max(...pattern);
-      if (max > 0) for (let i = 0; i < 8; i += 1) pattern[i] /= max;
-      audioCapture.textContent = 'Injecting...';
-      const r = await backend.injectPattern(pattern, { modality: 'audio' });
-      if (r.ok) {
-        const out = r.response?.out_rates || {};
-        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
-        if (audioStatus) {
-          audioStatus.textContent = `pattern=[${pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+      const bins = new Uint8Array(analyser.frequencyBinCount);
+      audioStreamCtx = {
+        running: true,
+        cleanup: () => {
+          stream.getTracks().forEach(t => t.stop());
+          audioCtx.close();
+        },
+      };
+      audioStream.textContent = 'Streaming stop';
+      audioStream.disabled = false;
+      let tick = 0;
+      while (audioStreamCtx && audioStreamCtx.running) {
+        tick += 1;
+        const r = await captureAndInjectAudio(analyser, bins);
+        if (audioStatus && r.ok) {
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          audioStatus.textContent = `[stream tick ${tick}] winner=${winner || '없음'}`;
         }
-        audioCapture.textContent = 'Captured ✓';
-      } else {
-        audioCapture.textContent = `Failed: ${r.reason || ''}`;
       }
-      setTimeout(() => { audioCapture.textContent = orig; audioCapture.disabled = false; }, 2000);
     });
   }
 

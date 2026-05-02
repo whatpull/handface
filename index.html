@@ -1305,10 +1305,12 @@
       text-align: center;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DhD87McX.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CObHhxaW.js"></script>
+  <link rel="stylesheet" crossorigin href="/handface/assets/index-SZyWFn1d.css">
 </head>
 <body>
   <div id="snn-viz-root"></div>
+  <div id="nf-snn-canvas"></div>
 
   <video id="cam-preview" autoplay muted playsinline></video>
   <div id="flash"></div>
@@ -1401,6 +1403,12 @@
         <button id="nf-cascade-fire-open" type="button" class="nf-induce-multi-btn">Open Map</button>
       </div>
       <div class="nf-mode-hint">D80 anchor (8 INPUT induce) cascade fire 7 region map.</div>
+    </div>
+
+    <div class="nf-section nf-canvas-toggle-section">
+      <label class="nf-section-label">CIRCUIT CANVAS (drawflow PoC)</label>
+      <button id="nf-canvas-toggle" type="button" class="nf-induce-multi-btn">Toggle Canvas View</button>
+      <div class="nf-mode-hint">drawflow 기반 4 region canvas (PoC). drag pan + scroll zoom + active count badge. self-loop = PoC 영역 0 (V1/V2 internal cascade). 본격 결정 = 사용자 검증 후.</div>
     </div>
   </div>
 

@@ -606,6 +606,72 @@
       background: rgba(183, 148, 244, 0.25);
     }
 
+    /* Session 37 Phase 4: supervised RL + decode UI. */
+    .nf-supervised-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .nf-supervised-btn {
+      background: transparent;
+      border: 1px solid rgba(94, 234, 212, 0.3);
+      color: #5eead4;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nf-supervised-btn:hover {
+      background: rgba(94, 234, 212, 0.15);
+      border-color: rgba(94, 234, 212, 0.6);
+    }
+    .nf-supervised-btn:active {
+      background: rgba(94, 234, 212, 0.25);
+    }
+    .nf-supervised-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .nf-decode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .nf-decode-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding: 6px 8px;
+      border: 1px solid rgba(94, 234, 212, 0.2);
+      border-radius: 4px;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+    .nf-decode-cell .nf-decode-label {
+      font-size: 11px;
+      color: #5eead4;
+      font-family: monospace;
+    }
+    .nf-decode-cell .nf-decode-rate {
+      font-size: 13px;
+      color: rgba(94, 234, 212, 0.6);
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .nf-decode-cell.winner {
+      background: rgba(94, 234, 212, 0.15);
+      border-color: #5eead4;
+      box-shadow: 0 0 8px rgba(94, 234, 212, 0.4);
+    }
+    .nf-decode-cell.winner .nf-decode-rate {
+      color: #5eead4;
+    }
+
     /* 모바일 반응형 — width ≤ 768px OR 세로 우세 (aspect ≤ 4/5).
        OR 조건 통합 (DRY): width 작은 phone + tablet portrait + 세로 모니터 모두 동일 layout. */
     @media (max-width: 768px), (max-aspect-ratio: 4/5) {
@@ -1606,6 +1672,29 @@
         <button id="nf-train-cascade" type="button" class="nf-induce-multi-btn">Run Training (20 induce + STDP)</button>
       </div>
       <div class="nf-mode-hint">STDP on + 8 INPUT 동시 induce × 20회 → weight LTP 발동 → 단일 gesture click → cascade fire OUT 도달.</div>
+    </div>
+
+    <div class="nf-section nf-supervised-rl-section">
+      <label class="nf-section-label">SUPERVISED RL (Phase 4 본격)</label>
+      <div class="nf-supervised-grid">
+        <button data-gesture="pointing" data-target="out_0" type="button" class="nf-supervised-btn">Pointing → out_0</button>
+        <button data-gesture="openpalm" data-target="out_1" type="button" class="nf-supervised-btn">Open palm → out_1</button>
+        <button data-gesture="thumbsup" data-target="out_2" type="button" class="nf-supervised-btn">Thumbs up → out_2</button>
+        <button data-gesture="victory"  data-target="out_3" type="button" class="nf-supervised-btn">Victory → out_3</button>
+      </div>
+      <button id="nf-supervised-batch" type="button" class="nf-induce-multi-btn">Batch (4 gestures × 5 trials)</button>
+      <div id="nf-supervised-status" class="nf-mode-hint">gesture INPUT + target OUT 동시 자극 + STDP. 각 button = 단일 gesture 5 trial. Batch = 4 gesture round-robin × 5 trial. 학습 후 OUT decode panel 영역 winner 표시.</div>
+    </div>
+
+    <div class="nf-section nf-decode-section">
+      <label class="nf-section-label">OUT DECODE (Phase 4)</label>
+      <div class="nf-decode-grid">
+        <div class="nf-decode-cell" data-out="out_0"><span class="nf-decode-label">Pointing</span><span class="nf-decode-rate">—</span></div>
+        <div class="nf-decode-cell" data-out="out_1"><span class="nf-decode-label">Open palm</span><span class="nf-decode-rate">—</span></div>
+        <div class="nf-decode-cell" data-out="out_2"><span class="nf-decode-label">Thumbs up</span><span class="nf-decode-rate">—</span></div>
+        <div class="nf-decode-cell" data-out="out_3"><span class="nf-decode-label">Victory</span><span class="nf-decode-rate">—</span></div>
+      </div>
+      <div class="nf-mode-hint">최근 cascade 의 OUT 발화율 (Hz). 가장 높은 OUT = decoded gesture (winner highlight).</div>
     </div>
 
     <div class="nf-section nf-training-save-section">

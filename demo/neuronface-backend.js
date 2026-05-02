@@ -477,6 +477,28 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 4 cascade decode 검증: POST /networks/{id}/decode_pathway 토글.
+   * @param {boolean} enabled - true=직접 INPUT→OUT pathway 활성, false=비활성 (cascade only).
+   * @param {object} [opts]   - { weight }
+   */
+  async setDecodePathway(enabled, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = { enabled, weight: opts.weight ?? 30.0 };
+    try {
+      const resp = await this._fetch(
+        `/networks/${this._networkId}/decode_pathway`,
+        { method: 'POST', body },
+      );
+      return { ok: true, response: resp };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 37 Phase 7: POST /networks/{id}/grow_region — 동적 영역 영역.
    * @param {string} region     - 'V1' | 'V2'
    * @param {string} population - 'L4_E' | 'L23_E' | 'L5_E'

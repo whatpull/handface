@@ -720,6 +720,18 @@ export class NeuronFaceBackend {
       const data = await this._fetch(`/networks/${this._networkId}/user_inputs`);
       return { ok: true, userInputs: data.user_inputs || [] };
     } catch (err) {
+      // Session 38: backend (HF Spaces) 재시작 등으로 network 없음 → 자동 재초기화 후 1회 retry.
+      const msg = String(err.message || '');
+      if (/not\s*found/i.test(msg) || msg.includes('404')) {
+        const init = await this.initialize();
+        if (!init.ok) return { ok: false, reason: init.reason };
+        try {
+          const data = await this._fetch(`/networks/${this._networkId}/user_inputs`);
+          return { ok: true, userInputs: data.user_inputs || [] };
+        } catch (err2) {
+          return { ok: false, reason: err2.message };
+        }
+      }
       return { ok: false, reason: err.message };
     }
   }
@@ -743,13 +755,25 @@ export class NeuronFaceBackend {
       fanout_density: opts.fanoutDensity ?? 0.5,
       fanout_weight:  opts.fanoutWeight  ?? 16.0,
     };
+    const doFetch = () => this._fetch(
+      `/networks/${this._networkId}/user_inputs`,
+      { method: 'POST', body },
+    );
     try {
-      const data = await this._fetch(
-        `/networks/${this._networkId}/user_inputs`,
-        { method: 'POST', body },
-      );
+      const data = await doFetch();
       return { ok: true, ...data };
     } catch (err) {
+      const msg = String(err.message || '');
+      if (/not\s*found/i.test(msg) || msg.includes('404')) {
+        const init = await this.initialize();
+        if (!init.ok) return { ok: false, reason: init.reason };
+        try {
+          const data = await doFetch();
+          return { ok: true, ...data };
+        } catch (err2) {
+          return { ok: false, reason: err2.message };
+        }
+      }
       return { ok: false, reason: err.message };
     }
   }

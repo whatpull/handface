@@ -868,6 +868,52 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 text modality: ASCII → 8-bin histogram → injectPattern.
+  const textInput  = document.getElementById('nf-text-input');
+  const textInject = document.getElementById('nf-text-inject');
+  const textStatus = document.getElementById('nf-text-status');
+  if (textInject && textInput) {
+    textInject.addEventListener('click', async () => {
+      const txt = textInput.value || '';
+      if (!txt) {
+        if (textStatus) textStatus.textContent = '입력 필요.';
+        return;
+      }
+      // ASCII 32-127 영역을 8 bin으로 분할.
+      const bins = new Array(8).fill(0);
+      let count = 0;
+      for (const ch of txt) {
+        const code = ch.charCodeAt(0);
+        if (code < 32 || code > 127) continue;
+        const bi = Math.min(7, Math.floor((code - 32) / 12));
+        bins[bi] += 1;
+        count += 1;
+      }
+      if (count === 0) {
+        if (textStatus) textStatus.textContent = 'ASCII 가시 문자 없음.';
+        return;
+      }
+      // 정규화 (max → 1.0).
+      const m = Math.max(...bins);
+      const pattern = bins.map(b => m > 0 ? b / m : 0);
+      textInject.disabled = true;
+      const orig = textInject.textContent;
+      textInject.textContent = 'Injecting...';
+      const r = await backend.injectPattern(pattern, { modality: 'text' });
+      if (r.ok) {
+        const out = r.response?.out_rates || {};
+        const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+        if (textStatus) {
+          textStatus.textContent = `pattern=[${pattern.map(p => p.toFixed(2)).join(',')}] → winner=${winner || '없음'}`;
+        }
+        textInject.textContent = 'Injected ✓';
+      } else {
+        textInject.textContent = `Failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { textInject.textContent = orig; textInject.disabled = false; }, 2000);
+    });
+  }
+
   // 최종 GUI: Multi-modal input panel.
   const mmModality = document.getElementById('nf-mm-modality');
   const mmTarget   = document.getElementById('nf-mm-target');

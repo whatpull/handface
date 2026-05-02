@@ -737,6 +737,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const supervisedBtns = Array.from(document.querySelectorAll('.nf-supervised-btn'));
   const supervisedBatchBtn = document.getElementById('nf-supervised-batch');
 
+  const decodeHeadline = document.getElementById('nf-decode-headline');
+  let decodeHeadlinePrev = '';
   function updateDecodePanel(outRates) {
     if (!outRates) return;
     const cells = Array.from(document.querySelectorAll('.nf-decode-cell'));
@@ -750,6 +752,25 @@ window.addEventListener('DOMContentLoaded', () => {
       if (rate > maxRate) { maxRate = rate; winner = cell; }
     }
     if (winner && maxRate > 0) winner.classList.add('winner');
+    // Decode headline (Session 37): 큰 글씨로 winner 라벨 + 변경 시 pulse 애니메이션.
+    if (decodeHeadline) {
+      if (winner && maxRate > 0) {
+        const label = winner.querySelector('.nf-decode-label')?.textContent || winner.dataset.out;
+        const display = `${label} (${maxRate.toFixed(0)} Hz)`;
+        if (display !== decodeHeadlinePrev) {
+          decodeHeadline.textContent = display;
+          decodeHeadline.classList.remove('active');
+          // Reflow 강제 (애니메이션 재실행).
+          void decodeHeadline.offsetWidth;
+          decodeHeadline.classList.add('active');
+          decodeHeadlinePrev = display;
+        }
+      } else {
+        decodeHeadline.textContent = '—';
+        decodeHeadline.classList.remove('active');
+        decodeHeadlinePrev = '';
+      }
+    }
   }
 
   async function runSingleSupervised(gesture, target, trials = 5) {

@@ -880,6 +880,144 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Session 38 USER INPUT panel */
+    .nf-user-input-add { margin-bottom: 8px; }
+    .nf-user-input-tune {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .nf-ui-tune-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.04em;
+    }
+    .nf-ui-tune-label input[type="range"] { flex: 1; min-width: 0; }
+    .nf-ui-tune-val {
+      min-width: 32px;
+      text-align: right;
+      color: #c4b5fd;
+      font-family: monospace;
+    }
+    .nf-user-input-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .nf-user-input-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 8px;
+      background: rgba(167, 139, 250, 0.08);
+      border: 1px solid rgba(167, 139, 250, 0.18);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .nf-user-input-row .nf-ui-label {
+      color: #c4b5fd;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .nf-user-input-row .nf-ui-fanout {
+      color: rgba(255, 255, 255, 0.5);
+      font-family: monospace;
+      font-size: 10px;
+    }
+    .nf-user-input-row .nf-ui-del {
+      background: transparent;
+      border: 1px solid rgba(231, 111, 111, 0.3);
+      color: #e76f6f;
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      transition: all 0.15s;
+    }
+    .nf-user-input-row .nf-ui-del:hover {
+      background: rgba(231, 111, 111, 0.2);
+      border-color: #e76f6f;
+    }
+    .nf-user-input-empty {
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 10px;
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    /* USER INPUT delete confirm modal */
+    .nf-ui-confirm-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .nf-ui-confirm-modal.open { display: flex; }
+    .nf-ui-confirm-content {
+      background: #0f1729;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 280px;
+      max-width: 90vw;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .nf-ui-confirm-content h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: #c4b5fd;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nf-ui-confirm-content p {
+      margin: 0 0 12px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.5;
+    }
+    .nf-ui-confirm-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .nf-ui-confirm-actions button {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 3px;
+      cursor: pointer;
+      border: 1px solid;
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .nf-ui-confirm-cancel {
+      border-color: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .nf-ui-confirm-cancel:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .nf-ui-confirm-ok {
+      border-color: #e76f6f;
+      color: #e76f6f;
+    }
+    .nf-ui-confirm-ok:hover {
+      background: rgba(231, 111, 111, 0.15);
+    }
+
     /* Settings 카테고리 탭 (Session 37 reorganization).
        탭처럼 보이도록: 하단 경계선 공유 + 활성 탭만 컬러 underline indicator. */
     .nf-tab-bar {
@@ -2016,8 +2154,8 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-Cy-8Q3K3.js"></script>
-  <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
+  <script type="module" crossorigin src="/handface/assets/index-DoBQTaQq.js"></script>
+  <link rel="stylesheet" crossorigin href="/handface/assets/index-Pe2JlH2s.css">
 </head>
 <body>
   <header class="nf-app-header">
@@ -2277,6 +2415,56 @@
       <div id="nf-text-status" class="nf-mode-hint">텍스트 → 각 문자 ASCII 코드 → 8 bin 정규화 히스토그램 → 8-dim pattern → SNN 주입. modality=text. 디코드 결과는 OUT DECODE 패널 참조.</div>
     </div>
 
+    <div class="nf-section nf-user-input-section" data-cat="input">
+      <label class="nf-section-label">USER INPUT (사용자 추가 노드)</label>
+      <div class="nf-user-input-add">
+        <input id="nf-ui-label" type="text" placeholder="라벨 (예: Slack alert)" maxlength="64" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
+        <div class="nf-user-input-tune">
+          <label class="nf-ui-tune-label">fanout density
+            <input id="nf-ui-density" type="range" min="0.1" max="1.0" step="0.05" value="0.5">
+            <span id="nf-ui-density-val" class="nf-ui-tune-val">0.50</span>
+          </label>
+          <label class="nf-ui-tune-label">fanout weight
+            <input id="nf-ui-weight" type="range" min="4" max="40" step="1" value="16">
+            <span id="nf-ui-weight-val" class="nf-ui-tune-val">16</span>
+          </label>
+        </div>
+        <button id="nf-ui-add" type="button" class="nf-induce-multi-btn">+ Add USER INPUT</button>
+      </div>
+      <div id="nf-ui-list" class="nf-user-input-list"></div>
+      <div id="nf-ui-status" class="nf-mode-hint">사용자 정의 INPUT 노드 추가 — V1 L4_E에 자동 sparse wiring (D200 cortical 정합). 시스템 노드 (in_*, v1_*, v2_*, out_*) 는 변경되지 않음 — 자기가 추가한 노드만 삭제 가능.</div>
+    </div>
+
+    <div class="nf-section nf-user-input-inject-section" data-cat="input">
+      <label class="nf-section-label">USER INPUT INJECT</label>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Target</span>
+        <select id="nf-ui-inject-target" class="nf-multimodal-select">
+          <option value="">(USER INPUT 노드 선택)</option>
+        </select>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Weight</span>
+        <input id="nf-ui-inject-weight" type="range" min="10" max="100" step="5" value="50" style="flex:1;">
+        <span id="nf-ui-inject-weight-val" class="nf-ui-tune-val">50</span>
+      </div>
+      <div class="nf-supervised-grid">
+        <button id="nf-ui-inject" type="button" class="nf-induce-multi-btn">Inject (5ms)</button>
+        <button id="nf-ui-inject-train" type="button" class="nf-induce-multi-btn">Inject + train (10×)</button>
+      </div>
+      <div class="nf-multimodal-row" style="margin-top:6px;">
+        <span class="nf-multimodal-label">Train target</span>
+        <select id="nf-ui-train-target" class="nf-multimodal-select">
+          <option value="">(none — inject only)</option>
+          <option value="out_0">out_0 (Pointing)</option>
+          <option value="out_1">out_1 (Open palm)</option>
+          <option value="out_2">out_2 (Thumbs up)</option>
+          <option value="out_3">out_3 (Victory)</option>
+        </select>
+      </div>
+      <div id="nf-ui-inject-status" class="nf-mode-hint">선택한 사용자 INPUT 노드에 직접 자극 주입 → cascade를 통해 OUT decode. Inject + train: supervised RL (target OUT 학습).</div>
+    </div>
+
     <div class="nf-section nf-multimodal-section" data-cat="input">
       <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
       <div class="nf-multimodal-row">
@@ -2420,6 +2608,18 @@
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
   </button>
+
+  <!-- Session 38: USER INPUT delete confirmation modal -->
+  <div id="nf-ui-confirm" class="nf-ui-confirm-modal">
+    <div class="nf-ui-confirm-content">
+      <h3>USER INPUT 삭제 확인</h3>
+      <p id="nf-ui-confirm-msg">선택한 사용자 INPUT 노드를 삭제할까요? 연결된 시냅스도 함께 제거됩니다 (시스템 노드는 영향 없음).</p>
+      <div class="nf-ui-confirm-actions">
+        <button id="nf-ui-confirm-cancel" type="button" class="nf-ui-confirm-cancel">취소</button>
+        <button id="nf-ui-confirm-ok"     type="button" class="nf-ui-confirm-ok">삭제</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

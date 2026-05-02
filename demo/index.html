@@ -2160,16 +2160,13 @@
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>
     </div>
 
-    <details class="nf-section-group" data-cat="tools" open>
-      <summary class="nf-section-group-summary">고급 (DEMO / GROW / EXPORT / TRAINING SAVE)</summary>
-
-    <div class="nf-section nf-demo-section">
+    <div class="nf-section nf-demo-section" data-cat="tools">
       <label class="nf-section-label">DEMO 시나리오 (Phase 7 통합)</label>
       <button id="nf-demo-large-train" type="button" class="nf-induce-multi-btn">시연: 회로 성장 → 학습 → 디코드 (벡터화)</button>
       <div id="nf-demo-status" class="nf-mode-hint">버튼 클릭 시: 1) V1/V2 각 100 뉴런 성장 (총 ~452) 2) 4 gesture supervised RL 5 round 3) decode 검증 4) NN/Vec 시간 비교.</div>
     </div>
 
-    <div class="nf-section nf-grow-section">
+    <div class="nf-section nf-grow-section" data-cat="tools">
       <label class="nf-section-label">GROW NETWORK (Phase 7 — 성장하는 뉴런)</label>
       <div class="nf-multimodal-row">
         <span class="nf-multimodal-label">Region</span>
@@ -2202,10 +2199,7 @@
       <div id="nf-grow-status" class="nf-mode-hint">동적 성장 — 선택한 region/population에 N 뉴런 추가 + 시냅스 연결. canvas 자동 새로고침. Topology Save/Load: 성장된 회로 전체를 D1에 영구 저장 / 복원.</div>
     </div>
 
-    <details class="nf-section-group" data-cat="input" open>
-      <summary class="nf-section-group-summary">입력 데모 (TEXT / IMAGE / AUDIO)</summary>
-
-    <div class="nf-section nf-audio-modality-section">
+    <div class="nf-section nf-audio-modality-section" data-cat="input">
       <label class="nf-section-label">AUDIO 입력 데모 (Phase 2 multi-modal)</label>
       <div class="nf-supervised-grid">
         <button id="nf-audio-capture" type="button" class="nf-induce-multi-btn">마이크 capture + inject (1초)</button>
@@ -2214,7 +2208,7 @@
       <div id="nf-audio-status" class="nf-mode-hint">마이크 권한 → FFT 32 bin → 8 bin 평균 → 8-dim pattern → SNN 주입. modality=audio. Streaming: 1초 간격 자동 반복 (continuous SNN feed).</div>
     </div>
 
-    <div class="nf-section nf-image-modality-section">
+    <div class="nf-section nf-image-modality-section" data-cat="input">
       <label class="nf-section-label">IMAGE 입력 데모 (Phase 2 multi-modal)</label>
       <div id="nf-image-grid" class="nf-image-grid"></div>
       <div class="nf-supervised-grid">
@@ -2271,7 +2265,7 @@
       <div id="nf-mouse-status" class="nf-mode-hint">패드를 드래그 → 이동 방향 angle을 8 bin (E, NE, N, NW, W, SW, S, SE)으로 누적 → 정규화 → 8-dim pattern → SNN 주입. modality=custom.</div>
     </div>
 
-    <div class="nf-section nf-text-modality-section">
+    <div class="nf-section nf-text-modality-section" data-cat="input">
       <label class="nf-section-label">TEXT 입력 데모 (Phase 2 multi-modal)</label>
       <input id="nf-text-input" type="text" placeholder="문자열 입력 (예: hello)" maxlength="32" class="nf-multimodal-select" style="width:100%;margin-bottom:6px;padding:4px 6px;">
       <div class="nf-supervised-grid">
@@ -2280,7 +2274,6 @@
       </div>
       <div id="nf-text-status" class="nf-mode-hint">텍스트 → 각 문자 ASCII 코드 → 8 bin 정규화 히스토그램 → 8-dim pattern → SNN 주입. modality=text. 디코드 결과는 OUT DECODE 패널 참조.</div>
     </div>
-    </details>
 
     <div class="nf-section nf-multimodal-section" data-cat="input">
       <label class="nf-section-label">MULTI-MODAL INPUT (Phase 2 / 최종)</label>
@@ -2395,7 +2388,7 @@
       <div id="nf-circuit-export-status" class="nf-mode-hint">현재 회로 (neurons + synapses + 신경조절) 전체를 JSON으로 다운로드/업로드. 다른 사용자에게 회로 사양 공유 가능.</div>
     </div>
 
-    <div class="nf-section nf-training-save-section">
+    <div class="nf-section nf-training-save-section" data-cat="tools">
       <label class="nf-section-label">TRAINING SAVE / LOAD</label>
       <div class="nf-anchor-verify-buttons">
         <button id="nf-training-save"  type="button" class="nf-induce-multi-btn">Save</button>
@@ -2404,7 +2397,6 @@
       </div>
       <div class="nf-mode-hint">학습 결과 (synapse weight) localStorage 보존. 페이지 reload 시 자동 복원. Save = 즉시 저장, Load = 강제 복원, Clear = 보존 삭제.</div>
     </div>
-    </details>
 
     <div class="nf-section nf-canvas-toggle-section" data-cat="tools">
       <label class="nf-section-label">CIRCUIT CANVAS (drawflow)</label>

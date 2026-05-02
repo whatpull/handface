@@ -1073,6 +1073,49 @@ window.addEventListener('DOMContentLoaded', () => {
     if (kpiUpdated)  kpiUpdated.textContent = new Date().toLocaleTimeString();
   }
   if (dashboardRefreshBtn) dashboardRefreshBtn.addEventListener('click', refreshDashboard);
+
+  // 회로 완전 초기화 — preset basic + overwrite + history clear.
+  const circuitResetBtn = document.getElementById('nf-circuit-reset');
+  if (circuitResetBtn) {
+    circuitResetBtn.addEventListener('click', async () => {
+      if (!confirm('회로 초기화: 모든 grown 뉴런 + 학습된 weight 제거. 진행?')) return;
+      circuitResetBtn.disabled = true;
+      const orig = circuitResetBtn.textContent;
+      circuitResetBtn.textContent = 'Resetting...';
+      const r = await backend.resetCircuit();
+      if (!r.ok) {
+        circuitResetBtn.textContent = `Failed: ${r.reason || ''}`;
+        setTimeout(() => { circuitResetBtn.textContent = orig; circuitResetBtn.disabled = false; }, 2000);
+        return;
+      }
+      // 학습 history + accuracy + stats history 모두 초기화.
+      try {
+        clearTrainingState();
+        localStorage.removeItem('handface.last_accuracy.v1');
+        localStorage.removeItem('handface.stats.history.v1');
+      } catch (_) {}
+      // OUT history buffer reset.
+      for (const k of ['out_0','out_1','out_2','out_3']) {
+        if (outRateHistory[k]) outRateHistory[k].length = 0;
+      }
+      if (decodeSparkline) decodeSparkline.innerHTML = '';
+      if (decodeHeadline) { decodeHeadline.textContent = '—'; decodeHeadline.classList.remove('active'); }
+      if (kpiAccuracy) kpiAccuracy.textContent = '—';
+      // Stats history 그래프 초기화.
+      if (statsHistory) statsHistory.innerHTML = '';
+      // 대시보드 + canvas 갱신.
+      await refreshDashboard();
+      const snap = await backend.getTrainingSnapshot();
+      if (snap.ok && snap.response?.synapses) {
+        if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+        else lastFireResponse = { synapses: snap.response.synapses };
+        state.synapses = snap.response.synapses;
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+      }
+      circuitResetBtn.textContent = `Reset ✓ (${r.response?.synapses_added} syn)`;
+      setTimeout(() => { circuitResetBtn.textContent = orig; circuitResetBtn.disabled = false; }, 2000);
+    });
+  }
   // 외부 export — auto-train / accuracy 측정 후 호출 가능.
   window.__nfRefreshDashboard = refreshDashboard;
   window.__nfSetKpiAccuracy   = setKpiAccuracy;

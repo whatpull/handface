@@ -486,6 +486,26 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37: 회로 완전 초기화 (preset basic + overwrite).
+   * 모든 grown 뉴런 / 학습된 weight 제거 후 D130 baseline으로 복원.
+   */
+  async resetCircuit() {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/presets/basic`,
+        { method: 'POST', body: { overwrite: true } },
+      );
+      return { ok: true, response: data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 37 Phase 4 cascade decode 검증: POST /networks/{id}/decode_pathway 토글.
    * @param {boolean} enabled - true=직접 INPUT→OUT pathway 활성, false=비활성 (cascade only).
    * @param {object} [opts]   - { weight }

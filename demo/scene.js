@@ -45,7 +45,10 @@ import './snn-viz/canvas/style.css';
 // ─────────────────────────────────────────
 function createBackend() {
   const { apiKey, endpoint } = loadNeuronFaceSettings();
-  return new NeuronFaceBackend({ apiKey, endpoint });
+  const b = new NeuronFaceBackend({ apiKey, endpoint });
+  // Session 38 PR-K: canvas inline widget delegated handler 가 참조.
+  window.__neuronfaceBackend = b;
+  return b;
 }
 let backend = createBackend();
 
@@ -1614,16 +1617,26 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // ────────────────────────────────────────────────────────
-  // Session 38: USER INPUT panel (사용자 추가 노드, 시스템 노드 보호)
+  // Session 38 PR-I: Node Library + USER INPUT panel
   // ────────────────────────────────────────────────────────
-  const uiLabel       = document.getElementById('nf-ui-label');
   const uiDensity     = document.getElementById('nf-ui-density');
   const uiDensityVal  = document.getElementById('nf-ui-density-val');
   const uiWeight      = document.getElementById('nf-ui-weight');
   const uiWeightVal   = document.getElementById('nf-ui-weight-val');
-  const uiAdd         = document.getElementById('nf-ui-add');
   const uiList        = document.getElementById('nf-ui-list');
   const uiStatus      = document.getElementById('nf-ui-status');
+  const nodeLibBtns   = document.querySelectorAll('.nf-node-lib-btn');
+
+  // 다음 노드 라벨 자동 결정 (kind별 카운터).
+  function nextLabelForKind(kind) {
+    const existing = state.userInputs || [];
+    const sameKind = existing.filter(ui => ui.kind === kind);
+    const titles = {
+      audio: 'Audio', text: 'Text', image: 'Image', motion: 'Motion',
+      keyboard: 'Keyboard', mouse: 'Mouse', geo: 'Geo', custom: 'Custom',
+    };
+    return `${titles[kind] || kind} ${sameKind.length + 1}`;
+  }
 
   const uiInjectTarget   = document.getElementById('nf-ui-inject-target');
   const uiInjectWeight   = document.getElementById('nf-ui-inject-weight');
@@ -1667,11 +1680,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const inputs = r.userInputs || [];
     state.userInputs = inputs;
     if (inputs.length === 0) {
-      uiList.innerHTML = '<div class="nf-user-input-empty">추가된 사용자 INPUT 없음</div>';
+      uiList.innerHTML = '<div class="nf-user-input-empty">추가된 사용자 INPUT 없음 — 위 라이브러리에서 노드 타입 클릭</div>';
     } else {
+      const kindIcon = {
+        audio: '🎤', text: '📝', image: '🖼️', motion: '📱',
+        keyboard: '⌨️', mouse: '🖱️', geo: '📍', custom: '⚙️',
+      };
       uiList.innerHTML = inputs.map(ui => `
         <div class="nf-user-input-row" data-name="${ui.name}">
-          <span class="nf-ui-label" title="${ui.label}">${ui.label}</span>
+          <span class="nf-ui-label" title="${ui.label} (${ui.kind || 'custom'})">${kindIcon[ui.kind] || '⚙️'} ${ui.label}</span>
           <span class="nf-ui-fanout">→V1 ${ui.fanout}</span>
           <button type="button" class="nf-ui-del" data-del="${ui.name}" data-label="${ui.label}" title="삭제">×</button>
         </div>
@@ -1693,25 +1710,22 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (uiAdd) {
-    uiAdd.addEventListener('click', async () => {
-      const label = (uiLabel?.value || '').trim();
-      if (!label) {
-        if (uiStatus) uiStatus.textContent = '라벨을 입력하세요.';
-        return;
-      }
-      uiAdd.disabled = true;
-      const orig = uiAdd.textContent;
-      uiAdd.textContent = 'Adding...';
+  // Node Library catalog 클릭 → kind에 맞는 노드 추가.
+  nodeLibBtns.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const kind = btn.getAttribute('data-kind') || 'custom';
+      const label = nextLabelForKind(kind);
+      btn.disabled = true;
       const r = await backend.addUserInput(label, {
-        fanoutDensity: parseFloat(uiDensity.value),
-        fanoutWeight:  parseFloat(uiWeight.value),
+        kind,
+        fanoutDensity: parseFloat(uiDensity?.value || '0.5'),
+        fanoutWeight:  parseFloat(uiWeight?.value  || '16'),
       });
+      btn.disabled = false;
       if (r.ok) {
-        if (uiStatus) uiStatus.textContent = `+ ${r.label} (${r.name}) — V1 fanout ${r.synapses_added}.`;
-        if (uiLabel) uiLabel.value = '';
+        if (uiStatus) uiStatus.textContent = `+ ${r.label} [${r.kind}] (${r.name}) — V1 fanout ${r.synapses_added}.`;
         await refreshUserInputList();
-        // canvas 갱신 (PR-E에서 USER_INPUT column 표시).
         const snap = await backend.getTrainingSnapshot();
         if (snap.ok && snap.response?.synapses) {
           state.synapses = snap.response.synapses;
@@ -1720,9 +1734,8 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         if (uiStatus) uiStatus.textContent = `실패: ${r.reason || ''}`;
       }
-      setTimeout(() => { uiAdd.textContent = orig; uiAdd.disabled = false; }, 1500);
     });
-  }
+  });
 
   if (uiConfirmCancel) {
     uiConfirmCancel.addEventListener('click', () => {
@@ -1820,7 +1833,7 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const raw = state.userInputs.map(ui => ({
         label: ui.label,
-        // 현재는 fanout만 보존 (density/weight 는 add 시점 default 사용 — backend 결정론).
+        kind:  ui.kind || 'custom',
       }));
       localStorage.setItem(USER_INPUTS_LS_KEY, JSON.stringify(raw));
     } catch (e) {
@@ -1839,7 +1852,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (r.ok && r.userInputs.length > 0) return false;
       for (const item of arr) {
         if (!item.label) continue;
-        await backend.addUserInput(item.label);
+        await backend.addUserInput(item.label, { kind: item.kind || 'custom' });
       }
       return true;
     } catch (e) {
@@ -1858,15 +1871,10 @@ window.addEventListener('DOMContentLoaded', () => {
     // 추가/삭제 후 자동 LS 저장 hook — refreshUserInputList 이후 호출.
   })();
 
-  // refreshUserInputList wrap — 호출 후 LS 저장 보장.
-  const _origRefresh = refreshUserInputList;
-  // (refreshUserInputList 는 위에서 정의됨 — 호출 위치에서 saveUserInputsLocal 추가 호출 패턴.)
-  // add/delete 핸들러에서 refreshUserInputList 직후 saveUserInputsLocal 호출 추가.
-  if (uiAdd) {
-    uiAdd.addEventListener('click', () => setTimeout(saveUserInputsLocal, 200));
-  }
+  // add/delete 핸들러 직후 LS 동기. nodeLibBtns 클릭 + uiConfirmOk 클릭 후 자동 호출.
+  nodeLibBtns.forEach(btn => btn.addEventListener('click', () => setTimeout(saveUserInputsLocal, 300)));
   if (uiConfirmOk) {
-    uiConfirmOk.addEventListener('click', () => setTimeout(saveUserInputsLocal, 200));
+    uiConfirmOk.addEventListener('click', () => setTimeout(saveUserInputsLocal, 300));
   }
 
   // Phase 2 audio modality: 마이크 → FFT 32 bin → 8 bin 평균 → injectPattern.
@@ -2885,8 +2893,140 @@ function mountCanvasForMode() {
     const userInputs = state.userInputs || [];
     const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx));
     initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes]);
+    // Session 38 PR-K: 사용자 노드 inline widget event wiring.
+    setTimeout(wireUserInputNodeHandlers, 50);
   }
   applyFireToCanvas();
+}
+
+// Session 38 PR-K: 사용자 노드 inline widget 핸들러 — modality별 capture/encode + inject_pattern.
+async function captureMicTo8Bin(durationSec = 1) {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    return { ok: false, reason: `마이크 거부: ${err.message}` };
+  }
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source   = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 64;
+  source.connect(analyser);
+  const bins = new Uint8Array(analyser.frequencyBinCount);
+  const samples = Math.max(1, Math.round(durationSec * 30));
+  const accumulator = new Float32Array(32);
+  for (let i = 0; i < samples; i += 1) {
+    analyser.getByteFrequencyData(bins);
+    for (let j = 0; j < 32; j += 1) accumulator[j] += bins[j];
+    await new Promise(r => setTimeout(r, 33));
+  }
+  stream.getTracks().forEach(t => t.stop());
+  audioCtx.close();
+  const pattern = new Array(8).fill(0);
+  for (let b = 0; b < 8; b += 1) {
+    let sum = 0;
+    for (let k = 0; k < 4; k += 1) sum += accumulator[b * 4 + k] / samples;
+    pattern[b] = sum / 4 / 255;
+  }
+  const max = Math.max(...pattern);
+  if (max > 0) for (let i = 0; i < 8; i += 1) pattern[i] /= max;
+  return { ok: true, pattern };
+}
+
+function textTo8Bin(str) {
+  const counts = new Array(8).fill(0);
+  if (!str) return counts;
+  for (const ch of str) {
+    const code = ch.charCodeAt(0);
+    counts[code & 7] += 1;
+  }
+  const max = Math.max(...counts);
+  return max > 0 ? counts.map(c => c / max) : counts;
+}
+
+function paintUserInputBins(nodeId, pattern) {
+  const container = document.getElementById(`snn-user-bins-${nodeId}`);
+  if (!container) return;
+  const bins = container.querySelectorAll('.snn-canvas-user-bin');
+  bins.forEach((el, i) => {
+    el.style.height = `${Math.round((pattern[i] || 0) * 100)}%`;
+  });
+}
+
+function setUserInputStatus(nodeId, msg) {
+  const el = document.getElementById(`snn-user-status-${nodeId}`);
+  if (el) el.textContent = msg;
+}
+
+let _userNodeHandlersBound = false;
+function wireUserInputNodeHandlers() {
+  // Delegate clicks at canvas root → 모든 user input 노드 버튼 처리 (단일 listener).
+  if (_userNodeHandlersBound) return;
+  const root = document.getElementById('nf-snn-canvas');
+  if (!root) return;
+  root.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('.snn-canvas-user-btn');
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    const nodeId = btn.getAttribute('data-node');
+    if (!nodeId) return;
+    const backend = window.__neuronfaceBackend;
+    if (!backend) {
+      setUserInputStatus(nodeId, 'backend 없음');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      if (action === 'capture' && btn.getAttribute('data-kind') === 'audio') {
+        setUserInputStatus(nodeId, '🎤 capturing 1s...');
+        const cap = await captureMicTo8Bin(1);
+        if (!cap.ok) {
+          setUserInputStatus(nodeId, cap.reason);
+          return;
+        }
+        paintUserInputBins(nodeId, cap.pattern);
+        const r = await backend.injectUserInputPattern(nodeId, cap.pattern, { intensity: 1.0 });
+        if (r.ok) {
+          const out = r.out_rates || {};
+          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
+        } else {
+          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+        }
+      } else if (action === 'encode-text') {
+        const input = document.getElementById(`snn-user-input-${nodeId}`);
+        const text = (input?.value || '').trim();
+        if (!text) {
+          setUserInputStatus(nodeId, '텍스트 입력하세요');
+          return;
+        }
+        const pattern = textTo8Bin(text);
+        paintUserInputBins(nodeId, pattern);
+        setUserInputStatus(nodeId, '📝 encoding...');
+        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
+        if (r.ok) {
+          const out = r.out_rates || {};
+          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
+        } else {
+          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+        }
+      } else if (action === 'inject-direct') {
+        setUserInputStatus(nodeId, 'injecting...');
+        const r = await backend.injectUserInput(nodeId, { weight: 50, durationMs: 5 });
+        if (r.ok) {
+          const out = r.out_rates || {};
+          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ ok');
+        } else {
+          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+        }
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  _userNodeHandlersBound = true;
 }
 
 function toggleCanvasView() {

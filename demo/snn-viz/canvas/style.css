@@ -337,6 +337,80 @@
   box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 0 12px rgba(167, 139, 250, 0.25);
 }
 
+/* Session 38 PR-J: USER INPUT 노드 inline widget */
+.snn-canvas-user-card {
+  min-width: 160px;
+}
+.snn-canvas-user-body {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.snn-canvas-user-bins {
+  display: flex;
+  align-items: flex-end;
+  height: 22px;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px;
+  border-radius: 2px;
+}
+.snn-canvas-user-bin {
+  flex: 1;
+  background: linear-gradient(to top, #a78bfa, #c4b5fd);
+  height: 0%;
+  min-height: 1px;
+  border-radius: 1px;
+  transition: height 0.15s;
+}
+.snn-canvas-user-input {
+  width: 100%;
+  padding: 3px 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+  font-family: monospace;
+  outline: none;
+  box-sizing: border-box;
+}
+.snn-canvas-user-input:focus { border-color: #a78bfa; }
+.snn-canvas-user-actions {
+  display: flex;
+  gap: 4px;
+}
+.snn-canvas-user-btn {
+  flex: 1;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  color: #c4b5fd;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.snn-canvas-user-btn:hover {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: #a78bfa;
+}
+.snn-canvas-user-btn:disabled { opacity: 0.5; cursor: wait; }
+.snn-canvas-user-status {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: monospace;
+  text-align: center;
+}
+.snn-canvas-user-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
 .snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
 .snn-canvas-neuron--user_input .snn-canvas-neuron-card { --neuron-color: #a78bfa; }

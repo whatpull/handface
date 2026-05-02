@@ -507,6 +507,12 @@ function neuronNodeHtml(neuron) {
   // Session 38: 시스템 노드 잠금 아이콘 + USER INPUT 노드 별도 표시.
   const lockIcon = neuron.isSystem ? '<span class="snn-canvas-neuron-lock" title="시스템 노드 (편집 불가)">🔒</span>' : '';
   const userBadge = neuron.isUserInput ? '<span class="snn-canvas-neuron-user-badge" title="사용자 추가">USR</span>' : '';
+
+  // Session 38 PR-J: 사용자 INPUT 노드 — modality kind별 inline widget.
+  if (neuron.isUserInput) {
+    return userInputNodeHtml(neuron, userBadge);
+  }
+
   return `
     <div class="snn-canvas-neuron-card">
       <div class="snn-canvas-neuron-header">
@@ -531,6 +537,67 @@ function neuronNodeHtml(neuron) {
 }
 
 // drawflow connection SVG class = node_in_node-{toId} + node_out_node-{fromId} (drawflow.min.js 내부 사실).
+// Session 38 PR-J: 사용자 INPUT 노드 — modality kind별 inline widget 템플릿.
+// 각 노드는 자기 modality 인코더 UI 보유 (Audio: mic capture, Text: input + Encode 등).
+// 클릭 이벤트는 PR-K (scene.js) 에서 wireUserInputNodeHandlers 로 attach.
+function userInputNodeHtml(neuron, userBadge) {
+  const kind = neuron.kind || 'custom';
+  const id = neuron.id;
+  const headerCommon = `
+    <div class="snn-canvas-neuron-header">
+      <span class="snn-canvas-neuron-dot"></span>
+      <span class="snn-canvas-neuron-label">${neuron.label}</span>
+      ${userBadge}
+    </div>
+  `;
+  if (kind === 'audio') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--audio">
+        ${headerCommon}
+        <div class="snn-canvas-user-body">
+          <div class="snn-canvas-user-bins" id="snn-user-bins-${id}">
+            ${Array.from({length: 8}).map((_, i) => `<span class="snn-canvas-user-bin" data-bin="${i}"></span>`).join('')}
+          </div>
+          <div class="snn-canvas-user-actions">
+            <button class="snn-canvas-user-btn" data-action="capture" data-node="${id}" data-kind="audio" type="button">🎤 Capture 1s</button>
+          </div>
+          <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
+        </div>
+      </div>
+    `;
+  }
+  if (kind === 'text') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--text">
+        ${headerCommon}
+        <div class="snn-canvas-user-body">
+          <input class="snn-canvas-user-input" id="snn-user-input-${id}" type="text" placeholder="텍스트 입력" maxlength="32" />
+          <div class="snn-canvas-user-actions">
+            <button class="snn-canvas-user-btn" data-action="encode-text" data-node="${id}" type="button">📝 Encode + inject</button>
+          </div>
+          <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
+        </div>
+      </div>
+    `;
+  }
+  // custom / 미구현 modality fallback — 8 thin slider.
+  return `
+    <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--custom">
+      ${headerCommon}
+      <div class="snn-canvas-user-body">
+        <div class="snn-canvas-user-row">
+          <span class="snn-canvas-neuron-row-label">kind</span>
+          <span class="snn-canvas-neuron-row-value">${kind}</span>
+        </div>
+        <div class="snn-canvas-user-actions">
+          <button class="snn-canvas-user-btn" data-action="inject-direct" data-node="${id}" type="button">▶ Inject (50w)</button>
+        </div>
+        <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
+      </div>
+    </div>
+  `;
+}
+
 // default 영역 영역 영역 영역 visible (CSS 영역 stroke rgba 0.06 영역 통합) — fired 시점 영역만 영역 영역.
 // weight color 영역 = data attribute 영역 영역 영역 (fired 영역 영역 영역 정합 영역 영역).
 function applyEdgeColors(synapses) {

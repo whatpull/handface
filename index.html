@@ -838,6 +838,32 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* 대시보드 KPI 카드 */
+    .nf-dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .nf-kpi-card {
+      padding: 6px 8px;
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      border-radius: 4px;
+      background: rgba(167, 139, 250, 0.05);
+    }
+    .nf-kpi-label {
+      font-size: 9px;
+      color: #94a3b8;
+      font-family: monospace;
+      margin-bottom: 2px;
+    }
+    .nf-kpi-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #a78bfa;
+      font-family: monospace;
+    }
+
     /* PATTERN 라이브러리 grid */
     .nf-preset-grid {
       display: grid;
@@ -1806,7 +1832,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-DG4bji4M.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CRi7JqV5.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1881,6 +1907,17 @@
       <button id="nf-test" type="button">Test</button>
     </div>
     <div id="nf-status">not tested</div>
+
+    <div class="nf-section nf-dashboard-section">
+      <label class="nf-section-label">대시보드 (KPI)</label>
+      <div class="nf-dashboard-grid">
+        <div class="nf-kpi-card"><div class="nf-kpi-label">Neurons</div><div id="nf-kpi-neurons" class="nf-kpi-value">—</div></div>
+        <div class="nf-kpi-card"><div class="nf-kpi-label">Synapses</div><div id="nf-kpi-synapses" class="nf-kpi-value">—</div></div>
+        <div class="nf-kpi-card"><div class="nf-kpi-label">Total +Δw</div><div id="nf-kpi-totalw" class="nf-kpi-value">—</div></div>
+        <div class="nf-kpi-card"><div class="nf-kpi-label">Saturation</div><div id="nf-kpi-sat" class="nf-kpi-value">—</div></div>
+      </div>
+      <button id="nf-dashboard-refresh" type="button" class="nf-induce-multi-btn">대시보드 새로고침</button>
+    </div>
 
     <div class="nf-section nf-train-cascade-section">
       <label class="nf-section-label">TRAIN CASCADE (학습 발동)</label>

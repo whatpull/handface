@@ -958,6 +958,45 @@ window.addEventListener('DOMContentLoaded', () => {
   // 회로 통계 패널.
   const statsRefreshBtn = document.getElementById('nf-stats-refresh');
   const statsOutput     = document.getElementById('nf-stats-output');
+  const statsHistogram  = document.getElementById('nf-stats-histogram');
+
+  function renderWeightHistogram(weights) {
+    if (!statsHistogram) return;
+    if (!weights || weights.length === 0) {
+      statsHistogram.innerHTML = '';
+      return;
+    }
+    // Bin: -100..-1 (inh), 0..40 (weak), 40..80 (mid-low), 80..120 (mid), 120..200 (high), 200..320 (saturated).
+    const bins = [
+      { range: [-Infinity, 0],   color: '#e76f6f', label: 'inh' },
+      { range: [0, 20],          color: '#4dd0e1', label: '0-20' },
+      { range: [20, 40],         color: '#4dd0e1', label: '20-40' },
+      { range: [40, 60],         color: '#5eead4', label: '40-60' },
+      { range: [60, 80],         color: '#f5b842', label: '60-80' },
+      { range: [80, 120],        color: '#f5b842', label: '80-120' },
+      { range: [120, 200],       color: '#a78bfa', label: '120-200' },
+      { range: [200, Infinity],  color: '#b794f4', label: '200+' },
+    ];
+    const counts = bins.map(b => weights.filter(w => w >= b.range[0] && w < b.range[1]).length);
+    const max = Math.max(...counts, 1);
+    const w = 200, h = 80, padTop = 4, padBot = 14, padX = 4;
+    const barW = (w - padX * 2) / bins.length;
+    const drawH = h - padTop - padBot;
+    const parts = [];
+    bins.forEach((b, i) => {
+      const barH = (counts[i] / max) * drawH;
+      const x = padX + i * barW;
+      const y = padTop + (drawH - barH);
+      parts.push(`<rect x="${x + 1}" y="${y}" width="${barW - 2}" height="${barH}" fill="${b.color}" opacity="0.85"/>`);
+      // label.
+      parts.push(`<text x="${x + barW / 2}" y="${h - 3}" font-size="6" font-family="monospace" fill="#94a3b8" text-anchor="middle">${b.label}</text>`);
+      // count above bar.
+      if (counts[i] > 0) {
+        parts.push(`<text x="${x + barW / 2}" y="${y - 1}" font-size="6" font-family="monospace" fill="#cbd5e1" text-anchor="middle">${counts[i]}</text>`);
+      }
+    });
+    statsHistogram.innerHTML = parts.join('');
+  }
   if (statsRefreshBtn) {
     statsRefreshBtn.addEventListener('click', async () => {
       statsRefreshBtn.disabled = true;
@@ -978,6 +1017,7 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const synapses = snap.response.synapses || [];
       const weights = synapses.map(s => s.weight);
+      renderWeightHistogram(weights);
       const pos = weights.filter(w => w > 0);
       const neg = weights.filter(w => w < 0);
       const sum = a => a.reduce((x, y) => x + y, 0);

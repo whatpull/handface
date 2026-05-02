@@ -1237,6 +1237,40 @@ window.addEventListener('DOMContentLoaded', () => {
       renderStatsHistory([]);
     });
   }
+
+  // History CSV 다운로드.
+  const statsExportCsvBtn = document.getElementById('nf-stats-export-csv');
+  if (statsExportCsvBtn) {
+    statsExportCsvBtn.addEventListener('click', () => {
+      const arr = loadStatsHistory();
+      if (arr.length === 0) {
+        statsExportCsvBtn.textContent = 'History 비어있음';
+        setTimeout(() => { statsExportCsvBtn.textContent = 'History CSV 다운로드'; }, 1500);
+        return;
+      }
+      const header = 'timestamp_iso,neuron_count,syn_count,total_pos_weight,sat_ratio';
+      const rows = arr.map(e => [
+        new Date(e.ts).toISOString(),
+        e.neuron_count ?? '',
+        e.syn_count ?? '',
+        (e.total_pos ?? 0).toFixed(2),
+        (e.sat_ratio ?? 0).toFixed(4),
+      ].join(','));
+      const csv = [header, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `handface-stats-history-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      const orig = statsExportCsvBtn.textContent;
+      statsExportCsvBtn.textContent = `Downloaded ✓ (${arr.length} rows)`;
+      setTimeout(() => { statsExportCsvBtn.textContent = orig; }, 2000);
+    });
+  }
   // 초기 history 렌더.
   renderStatsHistory(loadStatsHistory());
 

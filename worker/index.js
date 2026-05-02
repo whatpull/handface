@@ -57,19 +57,75 @@ async function handlePost(request, env, networkId) {
   return json({ network_id: networkId, updated_at: updatedAt, count: weights.length }, 200, env);
 }
 
+// Phase 7 topology endpoints (Session 37).
+async function handleTopologyGet(env, networkId) {
+  const row = await env.DB.prepare(
+    'SELECT neurons, synapses, updated_at, meta FROM topologies WHERE network_id = ?'
+  ).bind(networkId).first();
+  if (!row) {
+    return json({ network_id: networkId, neurons: [], synapses: [], updated_at: null, meta: null }, 200, env);
+  }
+  return json({
+    network_id: networkId,
+    neurons: JSON.parse(row.neurons),
+    synapses: JSON.parse(row.synapses),
+    updated_at: row.updated_at,
+    meta: row.meta ? JSON.parse(row.meta) : null,
+  }, 200, env);
+}
+
+async function handleTopologyPost(request, env, networkId) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: 'invalid json' }, 400, env);
+  }
+  const { neurons, synapses } = body;
+  if (!Array.isArray(neurons) || !Array.isArray(synapses)) {
+    return json({ error: 'neurons and synapses must be arrays' }, 400, env);
+  }
+  const updatedAt = Math.floor(Date.now() / 1000);
+  const meta = body.meta ? JSON.stringify(body.meta) : null;
+  await env.DB.prepare(
+    `INSERT INTO topologies (network_id, neurons, synapses, updated_at, meta)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(network_id) DO UPDATE SET
+       neurons = excluded.neurons,
+       synapses = excluded.synapses,
+       updated_at = excluded.updated_at,
+       meta = excluded.meta`
+  ).bind(networkId, JSON.stringify(neurons), JSON.stringify(synapses), updatedAt, meta).run();
+  return json({
+    network_id: networkId,
+    updated_at: updatedAt,
+    neuron_count: neurons.length,
+    synapse_count: synapses.length,
+  }, 200, env);
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(env) });
     }
     const url = new URL(request.url);
-    // Path: /networks/{id}/training/snapshot
-    const m = url.pathname.match(/^\/networks\/([^/]+)\/training\/snapshot\/?$/);
-    if (!m) return json({ error: 'not found' }, 404, env);
-    const networkId = decodeURIComponent(m[1]);
-
-    if (request.method === 'GET')  return handleGet(env, networkId);
-    if (request.method === 'POST') return handlePost(request, env, networkId);
-    return json({ error: 'method not allowed' }, 405, env);
+    // training snapshot.
+    const mTrain = url.pathname.match(/^\/networks\/([^/]+)\/training\/snapshot\/?$/);
+    if (mTrain) {
+      const networkId = decodeURIComponent(mTrain[1]);
+      if (request.method === 'GET')  return handleGet(env, networkId);
+      if (request.method === 'POST') return handlePost(request, env, networkId);
+      return json({ error: 'method not allowed' }, 405, env);
+    }
+    // Phase 7 topology.
+    const mTopo = url.pathname.match(/^\/networks\/([^/]+)\/topology\/?$/);
+    if (mTopo) {
+      const networkId = decodeURIComponent(mTopo[1]);
+      if (request.method === 'GET')  return handleTopologyGet(env, networkId);
+      if (request.method === 'POST') return handleTopologyPost(request, env, networkId);
+      return json({ error: 'method not allowed' }, 405, env);
+    }
+    return json({ error: 'not found' }, 404, env);
   },
 };

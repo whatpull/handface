@@ -452,6 +452,39 @@ async function mirrorToD1(synapses, anchor) {
   }
 }
 
+async function saveTopologyToD1(neurons, synapses, meta) {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/topology`, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    JSON.stringify({ neurons, synapses, meta: meta || { savedAt: Date.now() } }),
+    });
+    if (!r.ok) {
+      console.warn('[d1 topology] save failed:', r.status);
+      return false;
+    }
+    const data = await r.json();
+    console.info(`[d1 topology] saved ${data.neuron_count} neurons / ${data.synapse_count} synapses`);
+    return true;
+  } catch (err) {
+    console.warn('[d1 topology] save error:', err.message);
+    return false;
+  }
+}
+
+async function loadTopologyFromD1() {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/topology`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!Array.isArray(data.neurons) || data.neurons.length === 0) return null;
+    return { neurons: data.neurons, synapses: data.synapses, savedAt: data.updated_at };
+  } catch (err) {
+    console.warn('[d1 topology] load error:', err.message);
+    return null;
+  }
+}
+
 async function loadFromD1() {
   try {
     const r = await fetch(`${D1_WORKER_ENDPOINT}/networks/${D1_NETWORK_ID}/training/snapshot`);
@@ -829,6 +862,56 @@ window.addEventListener('DOMContentLoaded', () => {
   const growCount      = document.getElementById('nf-grow-count');
   const growBtn        = document.getElementById('nf-grow-btn');
   const growStatus     = document.getElementById('nf-grow-status');
+
+  // Phase 7 topology save/load (D1).
+  const topoSaveBtn = document.getElementById('nf-topology-save');
+  const topoLoadBtn = document.getElementById('nf-topology-load');
+  if (topoSaveBtn) {
+    topoSaveBtn.addEventListener('click', async () => {
+      topoSaveBtn.disabled = true;
+      const orig = topoSaveBtn.textContent;
+      topoSaveBtn.textContent = 'Exporting...';
+      const exp = await backend.exportTopology();
+      if (!exp.ok) {
+        topoSaveBtn.textContent = `Failed: ${exp.reason || ''}`;
+        setTimeout(() => { topoSaveBtn.textContent = orig; topoSaveBtn.disabled = false; }, 2000);
+        return;
+      }
+      topoSaveBtn.textContent = 'Saving to D1...';
+      const ok = await saveTopologyToD1(exp.neurons, exp.synapses, { totalNeurons: exp.neurons.length });
+      topoSaveBtn.textContent = ok ? `Saved ✓ (${exp.neurons.length} neurons / ${exp.synapses.length} synapses)` : 'D1 save failed';
+      setTimeout(() => { topoSaveBtn.textContent = orig; topoSaveBtn.disabled = false; }, 2500);
+    });
+  }
+  if (topoLoadBtn) {
+    topoLoadBtn.addEventListener('click', async () => {
+      topoLoadBtn.disabled = true;
+      const orig = topoLoadBtn.textContent;
+      topoLoadBtn.textContent = 'Loading from D1...';
+      const data = await loadTopologyFromD1();
+      if (!data) {
+        topoLoadBtn.textContent = 'No D1 snapshot';
+        setTimeout(() => { topoLoadBtn.textContent = orig; topoLoadBtn.disabled = false; }, 2000);
+        return;
+      }
+      topoLoadBtn.textContent = `Importing (${data.neurons.length} neurons)...`;
+      const r = await backend.importTopology(data.neurons, data.synapses);
+      if (r.ok) {
+        topoLoadBtn.textContent = `Loaded ✓ (+${r.addedNeurons} neurons / +${r.addedSynapses} synapses)`;
+        // Canvas 재로드.
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+      } else {
+        topoLoadBtn.textContent = `Import failed: ${r.reason || ''}`;
+      }
+      setTimeout(() => { topoLoadBtn.textContent = orig; topoLoadBtn.disabled = false; }, 3000);
+    });
+  }
 
   if (growBtn) {
     growBtn.addEventListener('click', async () => {

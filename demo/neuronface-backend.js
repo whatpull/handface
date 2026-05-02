@@ -508,6 +508,97 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 37 Phase 7 topology: 현재 회로 신경세포 + 시냅스 export.
+   * neurons는 기본 preset 외 grown 뉴런만 (region/population/v_threshold 포함).
+   * synapses는 모든 시냅스 (pre/post/weight/delay).
+   */
+  async exportTopology() {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}`);
+      const neurons = (data.neurons || []).map(n => ({
+        name: n.name,
+        region: n.region,
+        population: n.population,
+        v_threshold: n.v_threshold,
+        v_rest: n.v_rest,
+        v_reset: n.v_reset,
+        tau_m: n.tau_m,
+        refractory: n.refractory,
+      }));
+      const synapses = (data.synapses || []).map(s => ({
+        pre: s.pre,
+        post: s.post,
+        weight: s.weight,
+        delay: s.delay,
+      }));
+      return { ok: true, neurons, synapses };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 37 Phase 7 topology: neurons + synapses를 백엔드에 import.
+   * 기본 preset을 빌드한 뒤, preset에 없는 neuron만 add_neuron 호출, 모든 synapse를 add_synapse로 추가.
+   * 단순화: preset rebuild 후 delta만 추가.
+   */
+  async importTopology(neurons, synapses) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    // 1. preset rebuild.
+    await this._fetch(`/networks/${this._networkId}/presets/basic`, {
+      method: 'POST', body: { overwrite: true },
+    });
+    // 2. preset 후 현재 neurons 가져옴.
+    const baseSnap = await this._fetch(`/networks/${this._networkId}`);
+    const existing = new Set((baseSnap.neurons || []).map(n => n.name));
+    // 3. preset에 없는 neuron만 추가.
+    let addedNeurons = 0;
+    for (const n of neurons) {
+      if (existing.has(n.name)) continue;
+      try {
+        await this._fetch(`/networks/${this._networkId}/neurons`, {
+          method: 'POST', body: {
+            name: n.name,
+            region: n.region,
+            population: n.population,
+            v_threshold: n.v_threshold ?? -55.0,
+            v_rest: n.v_rest ?? -70.0,
+            v_reset: n.v_reset ?? -75.0,
+            tau_m: n.tau_m ?? 15.0,
+            refractory: n.refractory ?? 2.0,
+          },
+        });
+        addedNeurons += 1;
+      } catch (err) {
+        console.warn(`[topology import] add_neuron ${n.name} 실패:`, err.message);
+      }
+    }
+    // 4. 새 neuron으로 향한 시냅스만 추가 (preset 시냅스는 보존).
+    const presetSynapses = new Set((baseSnap.synapses || []).map(s => `${s.pre}->${s.post}`));
+    let addedSynapses = 0;
+    for (const s of synapses) {
+      const key = `${s.pre}->${s.post}`;
+      if (presetSynapses.has(key)) continue;
+      try {
+        await this._fetch(`/networks/${this._networkId}/synapses`, {
+          method: 'POST', body: {
+            source: s.pre, target: s.post,
+            weight: s.weight, delay: s.delay ?? 1.0,
+          },
+        });
+        addedSynapses += 1;
+      } catch (err) {
+        console.warn(`[topology import] add_synapse ${s.pre}->${s.post} 실패:`, err.message);
+      }
+    }
+    return { ok: true, addedNeurons, addedSynapses };
+  }
+
+  /**
    * Session 37 Phase 7: POST /networks/{id}/grow_region — 동적 영역 영역.
    * @param {string} region     - 'V1' | 'V2'
    * @param {string} population - 'L4_E' | 'L23_E' | 'L5_E'

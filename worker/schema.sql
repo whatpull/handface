@@ -9,3 +9,15 @@ CREATE TABLE IF NOT EXISTS training_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_training_snapshots_updated
   ON training_snapshots (updated_at);
+
+-- Phase 7 topology 영구 저장 (Session 37): grown neurons + synapses 통째.
+CREATE TABLE IF NOT EXISTS topologies (
+  network_id  TEXT PRIMARY KEY,
+  neurons     TEXT NOT NULL,       -- JSON [{name, region, population, v_threshold, ...},...]
+  synapses    TEXT NOT NULL,       -- JSON [{pre, post, weight, delay},...]
+  updated_at  INTEGER NOT NULL,
+  meta        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_topologies_updated
+  ON topologies (updated_at);

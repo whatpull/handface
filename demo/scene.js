@@ -742,6 +742,20 @@ window.addEventListener('DOMContentLoaded', () => {
   const decodeHeadline = document.getElementById('nf-decode-headline');
   const decodeSparkline = document.getElementById('nf-decode-sparkline');
   let decodeHeadlinePrev = '';
+  // Region 활성도 mini bar 갱신 (대시보드).
+  function updateRegionBars(ratesByRegion) {
+    if (!ratesByRegion) return;
+    const regions = ['INPUT', 'V1', 'V2', 'OUT'];
+    const max = Math.max(...regions.map(r => ratesByRegion[r] ?? 0), 1);
+    for (const r of regions) {
+      const v = ratesByRegion[r] ?? 0;
+      const fill = document.getElementById(`nf-region-bar-${r}`);
+      const val = document.getElementById(`nf-region-val-${r}`);
+      if (fill) fill.style.width = `${(v / max * 100).toFixed(0)}%`;
+      if (val) val.textContent = `${v.toFixed(1)} Hz`;
+    }
+  }
+
   // OUT 발화율 history buffer (max 30 entries).
   const OUT_RATE_HISTORY_MAX = 30;
   const outRateHistory = { out_0: [], out_1: [], out_2: [], out_3: [] };
@@ -2142,11 +2156,15 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Decode panel 영역 listen — 모든 backend train/induce response 영역 OUT rate 영역 갱신.
+  // Decode panel + Region bars listen — 모든 backend train/induce response 자동 갱신.
   backend.onEvent((evt) => {
     const r = evt?.response;
     if (!r) return;
-    // out_rates field (handface_train_supervised) 영역 우선, 영역 rates field 영역 폴백.
+    // Region 활성도 갱신.
+    if (r.rates_by_region) {
+      updateRegionBars(r.rates_by_region);
+    }
+    // out_rates field (handface_train_supervised) 우선, 폴백 rates.
     if (r.out_rates) {
       updateDecodePanel(r.out_rates);
       return;

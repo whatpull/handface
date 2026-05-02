@@ -854,6 +854,42 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* 신경조절 인디케이터 (대시보드 상단) */
+    .nf-neuromod-indicator {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      border: 1px solid rgba(167, 139, 250, 0.2);
+      border-radius: 4px;
+      background: rgba(167, 139, 250, 0.04);
+      font-family: monospace;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .nf-nm-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1a1f2e;
+      border: 1px solid #475569;
+      color: #475569;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .nf-nm-dot[data-nm="dopamine"].active  { background: rgba(245, 184, 66, 0.2); border-color: #f5b842; color: #f5b842; box-shadow: 0 0 6px rgba(245, 184, 66, 0.4); }
+    .nf-nm-dot[data-nm="ach"].active       { background: rgba(94, 234, 212, 0.2);  border-color: #5eead4; color: #5eead4; box-shadow: 0 0 6px rgba(94, 234, 212, 0.4); }
+    .nf-nm-dot[data-nm="serotonin"].active { background: rgba(167, 139, 250, 0.2); border-color: #a78bfa; color: #a78bfa; box-shadow: 0 0 6px rgba(167, 139, 250, 0.4); }
+    .nf-nm-state {
+      margin-left: auto;
+      font-size: 10px;
+      color: #cbd5e1;
+    }
+
     /* Region 활성도 미니 bar (대시보드) */
     .nf-region-bars {
       display: flex;
@@ -1892,7 +1928,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-D0Bc0Cca.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-SVJ91qAX.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -1970,6 +2006,7 @@
 
     <div class="nf-section nf-dashboard-section">
       <label class="nf-section-label">대시보드 (KPI)</label>
+      <div id="nf-neuromod-indicator" class="nf-neuromod-indicator"><span data-nm="dopamine" class="nf-nm-dot">D</span><span data-nm="ach" class="nf-nm-dot">A</span><span data-nm="serotonin" class="nf-nm-dot">S</span><span class="nf-nm-state">중립 (anchor)</span></div>
       <div class="nf-dashboard-grid nf-dashboard-grid-3">
         <div class="nf-kpi-card"><div class="nf-kpi-label">Neurons</div><div id="nf-kpi-neurons" class="nf-kpi-value">—</div></div>
         <div class="nf-kpi-card"><div class="nf-kpi-label">Synapses</div><div id="nf-kpi-synapses" class="nf-kpi-value">—</div></div>

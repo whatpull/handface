@@ -1514,6 +1514,77 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 2 motion modality: DeviceMotionEvent → 8-bin → injectPattern.
+  const motionStream = document.getElementById('nf-motion-stream');
+  const motionStatus = document.getElementById('nf-motion-status');
+  let motionStreamCtx = null;
+  if (motionStream) {
+    motionStream.addEventListener('click', async () => {
+      if (motionStreamCtx) {
+        motionStreamCtx.running = false;
+        window.removeEventListener('devicemotion', motionStreamCtx.handler);
+        motionStreamCtx = null;
+        motionStream.textContent = 'Motion streaming start';
+        if (motionStatus) motionStatus.textContent = 'Streaming stopped.';
+        return;
+      }
+      // iOS 13+ 권한.
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const res = await DeviceMotionEvent.requestPermission();
+          if (res !== 'granted') {
+            if (motionStatus) motionStatus.textContent = `권한 거부: ${res}`;
+            return;
+          }
+        } catch (err) {
+          if (motionStatus) motionStatus.textContent = `권한 오류: ${err.message}`;
+          return;
+        }
+      }
+      const accumulator = new Float64Array(8);
+      let samples = 0;
+      const handler = (e) => {
+        const a = e.acceleration || e.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
+        const x = a.x || 0, y = a.y || 0, z = a.z || 0;
+        const mag = Math.sqrt(x * x + y * y + z * z);
+        accumulator[0] += Math.abs(x);
+        accumulator[1] += Math.abs(y);
+        accumulator[2] += Math.abs(z);
+        accumulator[3] += x > 0 ? x : 0;
+        accumulator[4] += x < 0 ? -x : 0;
+        accumulator[5] += y > 0 ? y : 0;
+        accumulator[6] += y < 0 ? -y : 0;
+        accumulator[7] += mag;
+        samples += 1;
+      };
+      window.addEventListener('devicemotion', handler);
+      motionStreamCtx = { running: true, handler };
+      motionStream.textContent = 'Motion streaming stop';
+      let tick = 0;
+      while (motionStreamCtx && motionStreamCtx.running) {
+        await new Promise(r => setTimeout(r, 1000));
+        tick += 1;
+        if (samples === 0) {
+          if (motionStatus) motionStatus.textContent = `[stream tick ${tick}] motion 이벤트 없음 — 데스크톱? 모바일 권장`;
+          continue;
+        }
+        const pattern = new Array(8);
+        for (let i = 0; i < 8; i += 1) pattern[i] = accumulator[i] / samples;
+        const max = Math.max(...pattern);
+        if (max > 0) for (let i = 0; i < 8; i += 1) pattern[i] /= max;
+        // reset accumulator.
+        accumulator.fill(0);
+        samples = 0;
+        const r = await backend.injectPattern(pattern, { modality: 'custom' });
+        if (motionStatus && r.ok) {
+          const out = r.response?.out_rates || {};
+          const winner = Object.entries(out).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0])[0];
+          motionStatus.textContent = `[stream tick ${tick}] winner=${winner || '없음'} pattern=[${pattern.map(p => p.toFixed(2)).join(',')}]`;
+        }
+      }
+    });
+  }
+
   // Phase 2 mouse modality: drag pad → angle 8-bin histogram.
   const mousePad     = document.getElementById('nf-mouse-pad');
   const mouseInject  = document.getElementById('nf-mouse-inject');

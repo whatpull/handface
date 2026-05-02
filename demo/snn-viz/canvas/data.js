@@ -18,7 +18,7 @@ export const CASCADE_EDGES = [
 
 // Neuron 단위 layout (4 region column + SOURCE column, 좌→우. region 내부 population sub-column).
 // Session 36: SOURCE column 신규 (Camera + Gesture 영역 input 전 영역).
-const REGION_X = {
+export const REGION_X = {
   SOURCE_CAMERA:  80,
   SOURCE_GESTURE: 240,
   INPUT:    440,    // gap 200 (Gesture → INPUT)
@@ -168,6 +168,51 @@ export const DECODE_EDGES = [
   { pre: 'in_thumbsup', post: 'out_2', weight: 30 }, // thumbsup → out_2
   { pre: 'in_victory',  post: 'out_3', weight: 30 }, // victory → out_3
 ];
+
+// Session 37 Phase 7 grown 뉴런 시각화 helper.
+// preset population key → REGION_X 키 매핑.
+const POP_TO_REGION_X_KEY = {
+  'v1_L4_E':  'V1_L4_E',
+  'v1_L4_I':  'V1_L4_I',
+  'v1_L23_E': 'V1_L23_E',
+  'v2_L4_E':  'V2_L4_E',
+  'v2_L23_E': 'V2_L23_E',
+  'v2_L5_E':  'V2_L5_E',
+};
+
+/**
+ * grown neuron 객체 (backend snapshot)을 NEURON_NODES와 동일 형식 노드로 변환.
+ * 이름 형식 "v1_L4_E_10" 식으로 region/population/index 추출.
+ * @param {object} n - { name, region, population } 등 backend neuron.
+ * @param {number} stackOffset - 같은 column에서 grown 뉴런 stack 오프셋 (cell index).
+ * @returns {object|null} { id, label, region, population, color, x, y }
+ */
+export function buildGrownNeuronNode(n, stackOffset = 0) {
+  const name = n.name || '';
+  // 이름 prefix 매칭.
+  let popKey = null;
+  for (const k of Object.keys(POP_TO_REGION_X_KEY)) {
+    if (name.startsWith(k + '_')) { popKey = k; break; }
+  }
+  if (!popKey) return null;
+  const xKey = POP_TO_REGION_X_KEY[popKey];
+  const x = REGION_X[xKey];
+  if (x === undefined) return null;
+  // y 좌표: 기존 preset population 아래로 stack (간격 80).
+  const baseY = 1080;  // preset 아래 영역 (CANVAS_CENTER_Y 약 630, base column 길이 4-10 cells × 110 + 80 padding).
+  const y = baseY + stackOffset * 90;
+  // color: region 기준.
+  const colorMap = { V1: '#4dd0e1', V2: '#b794f4' };
+  return {
+    id: name,
+    label: name.replace(/^v\d+_/, '').replace(/_/g, ''),  // 짧은 라벨.
+    region: n.region || 'V1',
+    population: popKey.split('_').slice(1).join('_'),
+    color: colorMap[n.region] || '#94a3b8',
+    x,
+    y,
+  };
+}
 
 // Synapse weight gradient color mapping (3A spec).
 //   inhibitory (w<0): red       — V1 L4_I → V1 L4_E (w=-48)

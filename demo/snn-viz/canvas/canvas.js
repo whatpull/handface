@@ -69,7 +69,7 @@ export function initCanvas(containerId) {
   return editor;
 }
 
-export function initCanvasNeuron(containerId, synapses) {
+export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   const container = document.getElementById(containerId);
   if (!container) {
     console.warn('[snn-canvas] container 0:', containerId);
@@ -101,8 +101,9 @@ export function initCanvasNeuron(containerId, synapses) {
   // setTimeout 영역 → drawflow node DOM offsetWidth/Height 영역 영역 영역 영역 영역.
   setTimeout(() => fitCanvasToNodes(0.9), 200);
 
-  // 52 neuron node — class arg 영역 neuron id 영역 영역 (drawflow auto-id catch 회피).
-  for (const neuron of NEURON_NODES) {
+  // 52 preset neuron + dynamic grown neurons.
+  const allNeurons = [...NEURON_NODES, ...dynamicNeurons];
+  for (const neuron of allNeurons) {
     const id = editor.addNode(
       neuron.id,
       1, 1,

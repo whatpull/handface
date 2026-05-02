@@ -28,6 +28,7 @@ import {
 import {
   initCanvas,
   initCanvasNeuron,
+  buildGrownNeuronNode,
   updateCanvasFire,
   updateCanvasFireNeuron,
   destroyCanvas,
@@ -1267,16 +1268,58 @@ function applyFireToCanvas() {
   }
 }
 
+// Session 37 Phase 7: synapse 리스트에서 grown 뉴런 이름 추출 → 시각화 노드로 변환.
+// preset NEURON_NODES에 없는 이름이면 grown으로 간주.
+const PRESET_NEURON_NAMES = new Set([
+  'in_pinch','in_fist','in_palm','in_point','in_gaze','in_blink','in_thumbsup','in_victory',
+  'src_camera','src_gesture',
+  ...Array.from({length:10}, (_,i)=>`v1_L4_E_${i}`),
+  ...Array.from({length:4},  (_,i)=>`v1_L4_I_${i}`),
+  ...Array.from({length:6},  (_,i)=>`v1_L23_E_${i}`),
+  ...Array.from({length:10}, (_,i)=>`v2_L4_E_${i}`),
+  ...Array.from({length:6},  (_,i)=>`v2_L23_E_${i}`),
+  ...Array.from({length:4},  (_,i)=>`v2_L5_E_${i}`),
+  'out_0','out_1','out_2','out_3',
+]);
+
+function buildDynamicNeuronsFromSynapses(synapses) {
+  if (!Array.isArray(synapses) || synapses.length === 0) return [];
+  const names = new Set();
+  for (const s of synapses) {
+    if (s.pre && !PRESET_NEURON_NAMES.has(s.pre)) names.add(s.pre);
+    if (s.post && !PRESET_NEURON_NAMES.has(s.post)) names.add(s.post);
+  }
+  // population별 stack 카운터.
+  const stackCounters = {};
+  const result = [];
+  for (const name of Array.from(names).sort()) {
+    // 이름 prefix → region 추론.
+    let region = null;
+    if (name.startsWith('v1_')) region = 'V1';
+    else if (name.startsWith('v2_')) region = 'V2';
+    if (!region) continue;
+    // population key (예: "v1_L4_E").
+    const popKey = name.match(/^(v[12]_[^_]+_[EI])_/)?.[1];
+    if (!popKey) continue;
+    const sc = stackCounters[popKey] || 0;
+    stackCounters[popKey] = sc + 1;
+    const node = buildGrownNeuronNode({ name, region }, sc);
+    if (node) result.push(node);
+  }
+  return result;
+}
+
 function mountCanvasForMode() {
   if (canvasMode === 'region') {
     initCanvas('nf-snn-canvas');
   } else {
     // Session 36: synapses fallback chain (lastFireResponse → state.synapses → []).
-    // backend connection-status event (snn-viz/index.js:77-78) 영역 state.synapses 갱신 통과 영역 영역.
     const synapses = lastFireResponse?.synapses
       || (Array.isArray(state.synapses) ? state.synapses : [])
       || [];
-    initCanvasNeuron('nf-snn-canvas', synapses);
+    // Phase 7: synapse 리스트에서 grown 뉴런 추출 + 시각화.
+    const dynamicNeurons = buildDynamicNeuronsFromSynapses(synapses);
+    initCanvasNeuron('nf-snn-canvas', synapses, dynamicNeurons);
   }
   applyFireToCanvas();
 }

@@ -1876,7 +1876,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BZqIMt8M.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CB1kFxIj.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Ce7iVI-a.css">
 </head>
 <body>
@@ -2181,8 +2181,11 @@
           <span id="nf-nm-serotonin-val" class="nf-neuromod-val">0.0</span>
         </div>
       </div>
-      <button id="nf-nm-reset" type="button" class="nf-induce-multi-btn">Reset all to 0</button>
-      <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor 영역.</div>
+      <div class="nf-supervised-grid">
+        <button id="nf-nm-reset" type="button" class="nf-induce-multi-btn">Reset all to 0</button>
+        <button id="nf-nm-cycle" type="button" class="nf-induce-multi-btn">Day cycle 시뮬레이션</button>
+      </div>
+      <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor 영역. Day cycle: 30초 주기로 sine wave 변화 (낮=ACh+dopamine 활성, 밤=serotonin 활성).</div>
     </div>
 
     <div class="nf-section nf-decode-section">

@@ -12,7 +12,7 @@ compatibility_date = "2026-05-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "handface-training"
-database_id = "REPLACE_WITH_WRANGLER_OUTPUT"
+database_id = "4fbb837d-0ca7-4b6e-b7cc-c5a5894dcce9"
 
 [vars]
 ALLOWED_ORIGIN = "https://whatpull.github.io"

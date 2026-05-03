@@ -412,6 +412,13 @@ function doFit(padding) {
     `translate(${targetCanvasX}px, ${targetCanvasY}px) scale(${targetZoom})`;
   applyStepPaths();
   window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', { detail: { zoom: targetZoom } }));
+  // Session 39: fit (auto zoom + center) 완료 — 다음 frame 에 transform 적용 후 이벤트 발행.
+  // scene.js 의 setCanvasLoading(false) 가 이 이벤트로 hide.
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new CustomEvent('snn-canvas:fit-complete', {
+      detail: { zoom: targetZoom, canvasX: targetCanvasX, canvasY: targetCanvasY },
+    }));
+  });
 }
 
 // Session 36: header zoom control 영역 영역 — drawflow zoom 영역 직접 영역.

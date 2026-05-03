@@ -814,6 +814,15 @@ export class NeuronFaceBackend {
         `/networks/${this._networkId}/user_inputs/inject_pattern`,
         { method: 'POST', body },
       );
+      // Session 38 fix: fire 시각화 이벤트 emit (rates + synapses 포함) →
+      // applyFireToCanvas / updateCanvasFireNeuron 가 user_in 에서 V1 으로
+      // 흐르는 시냅스 라인을 violet 강조 + active 노드 dot 점등.
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `user-pattern:${name}`,
+        intensity: opts.intensity ?? 1.0,
+        response:  data,
+      });
       return { ok: true, ...data };
     } catch (err) {
       return { ok: false, reason: err.message };
@@ -851,6 +860,13 @@ export class NeuronFaceBackend {
         `/networks/${this._networkId}/user_inputs/inject`,
         { method: 'POST', body },
       );
+      // Session 38 fix: fire 시각화 emit.
+      this.emit({
+        type:      'neuron-firing',
+        gesture:   `user:${name}`,
+        intensity: 1.0,
+        response:  data,
+      });
       return { ok: true, ...data };
     } catch (err) {
       return { ok: false, reason: err.message };

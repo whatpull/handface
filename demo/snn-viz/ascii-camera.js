@@ -14,9 +14,14 @@
  * <video> 자체는 살려둠 (mediapipe HandControl 자체 hidden video 사용, cam-preview 와 무관).
  */
 
-const COLS = 60;
-const ROWS = 32;
-const CHARSET = [' ', '·', ':', '•'];
+// Session 38: 해상도 ↑ + ramp 다단계 + adaptive threshold → 실루엣 형태 강조.
+const COLS = 80;
+const ROWS = 44;
+// 10-단계 brightness ramp — light → dark 순. 어두운 영역 (실루엣) 은 짙은 char,
+// 밝은 영역 (배경) 은 빈 공간 → 사람 윤곽이 dense character 로 또렷하게 드러남.
+const CHARSET = [' ', ' ', '·', ':', '-', '=', '+', '*', '#', '@'];
+// Gamma correction: 0.6 → mid-tone 을 어둡게 → 실루엣 vs 배경 대비 ↑.
+const GAMMA = 0.6;
 
 let rafId = null;
 let asciiCanvas = null;
@@ -136,20 +141,47 @@ function drawFrame() {
   outCtx.textBaseline = 'top';
   outCtx.textAlign = 'center';
 
-  // 4. brightness → charset → fillText
+  // Session 38 silhouette mode:
+  // 4a. 1차 패스 — frame 평균/표준편차 계산 (adaptive contrast).
+  let sumLuma = 0;
+  let lumaArr = new Float32Array(COLS * ROWS);
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const i = (r * COLS + c) * 4;
-      const red = data[i];
-      const green = data[i + 1];
-      const blue = data[i + 2];
-      // NTSC luma
-      const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-      let idx = Math.floor((brightness / 256) * CHARSET.length);
+      const lum = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+      lumaArr[r * COLS + c] = lum;
+      sumLuma += lum;
+    }
+  }
+  const meanLuma = sumLuma / (COLS * ROWS);
+  // 표준편차 (대비 정규화 기준).
+  let sumSq = 0;
+  for (let k = 0; k < lumaArr.length; k++) {
+    const d = lumaArr[k] - meanLuma;
+    sumSq += d * d;
+  }
+  const stdLuma = Math.sqrt(sumSq / lumaArr.length) || 1;
+
+  // 4b. 2차 패스 — adaptive normalization + gamma + ramp.
+  // 정규화: (lum - mean) / (2 * std) + 0.5 → [0, 1] 근사.
+  // 어두운 영역 (lum < mean - std) → dense char (실루엣).
+  // 밝은 영역 (lum > mean) → 빈 공간.
+  // ramp 가 어둠 → 짙은 char 순서이므로 norm 을 invert (1 - norm) 하여 매핑.
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const lum = lumaArr[r * COLS + c];
+      // adaptive normalize → [0, 1]
+      let norm = (lum - meanLuma) / (2 * stdLuma) + 0.5;
+      norm = Math.max(0, Math.min(1, norm));
+      // Invert: bright → empty, dark → solid.
+      let inv = 1 - norm;
+      // Gamma curve: mid-tone 어둡게 (실루엣 강조).
+      inv = Math.pow(inv, GAMMA);
+      let idx = Math.floor(inv * CHARSET.length);
+      if (idx >= CHARSET.length) idx = CHARSET.length - 1;
       if (idx < 0) idx = 0;
-      else if (idx >= CHARSET.length) idx = CHARSET.length - 1;
       const ch = CHARSET[idx];
-      if (ch === ' ') continue;  // skip empty cells
+      if (ch === ' ') continue;
       outCtx.fillText(ch, c * cellW + cellW / 2, r * cellH);
     }
   }

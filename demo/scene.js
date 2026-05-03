@@ -130,6 +130,7 @@ import {
   setCanvasZoom,
   getCanvasZoom,
   fitCanvasToNodes,
+  flashWeightDelta,
 } from './snn-viz/canvas/index.js';
 import './snn-viz/canvas/style.css';
 
@@ -139,6 +140,18 @@ import './snn-viz/canvas/style.css';
 function createBackend() {
   const { apiKey, endpoint } = loadNeuronFaceSettings();
   const b = new NeuronFaceBackend({ apiKey, endpoint });
+  // Session 40+: 모든 user_in inject 시점에 source nodeId 기록 — action callback 이
+  // {text} 치환 / console message 출력 시 "마지막 inject 가 text-kind 였는지" 판정에 사용.
+  const _wrapInject = (fnName) => {
+    if (typeof b[fnName] !== 'function') return;
+    const orig = b[fnName].bind(b);
+    b[fnName] = (name, ...rest) => {
+      if (typeof name === 'string') window.__lastInjectNodeId = name;
+      return orig(name, ...rest);
+    };
+  };
+  _wrapInject('injectUserInputPattern');
+  _wrapInject('injectUserInput');
   // Session 38 PR-K: canvas inline widget delegated handler 가 참조.
   window.__neuronfaceBackend = b;
   return b;
@@ -612,6 +625,63 @@ async function loadDatasetFromD1() {
     return { samples: data.samples, savedAt: data.updated_at };
   } catch (err) {
     return null;
+  }
+}
+
+// Session 42+ Tier3-G: Circuit Marketplace — D1 shared_circuits CRUD.
+// 사용자가 회로(neurons + synapses)를 owner 식별자로 publish, 다른 사용자가 list/fetch 로 import.
+async function publishCircuitToD1({ owner, name, description, neurons, synapses, meta, isPublic = true }) {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/circuits`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ owner, name, description, neurons, synapses, meta, public: isPublic }),
+    });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, reason: data.error || `${r.status}` };
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+async function listSharedCircuits({ owner = null, limit = 50, offset = 0 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (owner) params.set('owner', owner);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/circuits?${params}`);
+    const data = await r.json();
+    if (!r.ok) return { ok: false, reason: data.error || `${r.status}` };
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+async function fetchSharedCircuit(circuitId) {
+  try {
+    const r = await fetch(`${D1_WORKER_ENDPOINT}/circuits/${encodeURIComponent(circuitId)}`);
+    const data = await r.json();
+    if (!r.ok) return { ok: false, reason: data.error || `${r.status}` };
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+async function deleteSharedCircuit(circuitId, owner) {
+  try {
+    const r = await fetch(
+      `${D1_WORKER_ENDPOINT}/circuits/${encodeURIComponent(circuitId)}?owner=${encodeURIComponent(owner)}`,
+      { method: 'DELETE' }
+    );
+    const data = await r.json();
+    if (!r.ok) return { ok: false, reason: data.error || `${r.status}` };
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, reason: err.message };
   }
 }
 
@@ -1226,6 +1296,80 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   } catch (_) {}
 
+  // Session 41+: OUT 활성 saturation index — 다중 OUT 동시 fire 비율.
+  // Pure STDP (Option A) 정책: cascade 학습 후 정답 OUT 만 fire 가 이상적.
+  // active_outs / total_outs 가 0.5 초과 시 경고 (정답 분리 안 됨).
+  // Session 42+ Phase Boost (P9): KPI 카드 클릭 시 auto-prune 권장 dialog.
+  const SAT_ACTIVE_HZ = 5;       // > 5Hz = 활성으로 간주 (noise floor 위).
+  const SAT_WARN_RATIO = 0.5;    // 50% 이상 → 노란 경고
+  const SAT_CRIT_RATIO = 0.7;    // 70% 이상 → 빨간 위험
+  // KPI 카드 클릭 → prune 권장.
+  if (kpiSat) {
+    kpiSat.style.cursor = 'pointer';
+    kpiSat.title = (kpiSat.title || '') + ' · 클릭 = auto-prune 제안';
+    kpiSat.addEventListener('click', async () => {
+      // 현재 saturation 비율 측정.
+      const txt = kpiSat.textContent || '';
+      const m = txt.match(/(\d+)\s*\/\s*(\d+)/);
+      const ratio = m ? parseInt(m[1], 10) / Math.max(1, parseInt(m[2], 10)) : 0;
+      if (ratio < SAT_WARN_RATIO) {
+        await dialogAlert(
+          `현재 OUT 활성도는 정상 범위 (${(ratio*100).toFixed(0)}% < ${(SAT_WARN_RATIO*100).toFixed(0)}%). prune 불필요.`,
+          'Saturation 정상'
+        );
+        return;
+      }
+      // 자동 권장 threshold: critical 일수록 더 강한 정리 (1.0 → 5.0).
+      const threshold = ratio >= SAT_CRIT_RATIO ? 5.0 : 2.0;
+      const ok = await dialogConfirm(
+        `OUT 활성도 ${(ratio*100).toFixed(0)}% (${ratio >= SAT_CRIT_RATIO ? 'CRIT' : 'WARN'}) — cascade saturation 의심.\n\n|w| < ${threshold} 인 약한 시냅스 정리를 권장합니다. 시스템 baseline 보존, user_in/user_out 관여 시냅스만 정리. 진행?`,
+        '🩺 Auto-prune 권장'
+      );
+      if (!ok) return;
+      const r = await backend.homeostasisPrune(threshold, true);
+      if (r.ok) {
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+        await dialogAlert(
+          `✓ 정리 완료 — ${r.synapses_removed} 시냅스 제거 (${r.synapses_before} → ${r.synapses_after}). KPI 새 fire 시 갱신됩니다.`,
+          'Auto-prune'
+        );
+      } else {
+        await dialogAlert(`실패: ${r.reason || ''}`, 'Auto-prune');
+      }
+    });
+  }
+  function updateSaturationKpi(outRates) {
+    if (!kpiSat) return;
+    if (!outRates || typeof outRates !== 'object') {
+      kpiSat.textContent = '—';
+      kpiSat.classList.remove('warn', 'crit');
+      return;
+    }
+    const entries = Object.entries(outRates);
+    if (entries.length === 0) {
+      kpiSat.textContent = '—';
+      kpiSat.classList.remove('warn', 'crit');
+      return;
+    }
+    const active = entries.filter(([, r]) => (r ?? 0) >= SAT_ACTIVE_HZ);
+    const total = entries.length;
+    const ratio = active.length / total;
+    kpiSat.textContent = `${active.length}/${total}`;
+    kpiSat.classList.remove('warn', 'crit');
+    if (ratio >= SAT_CRIT_RATIO) kpiSat.classList.add('crit');
+    else if (ratio >= SAT_WARN_RATIO) kpiSat.classList.add('warn');
+    const winners = active.map(([n, r]) => `${n}=${(r ?? 0).toFixed(0)}Hz`);
+    kpiSat.title = `OUT 활성 ${active.length}/${total} (${(ratio * 100).toFixed(0)}%)`
+      + (winners.length > 0 ? ` — ${winners.join(', ')}` : '')
+      + ` · 임계: warn ≥ ${(SAT_WARN_RATIO * 100).toFixed(0)}%, crit ≥ ${(SAT_CRIT_RATIO * 100).toFixed(0)}%`;
+  }
+
   async function refreshDashboard() {
     const snap = await backend.getTrainingSnapshot();
     const exp  = await backend.exportTopology();
@@ -1233,14 +1377,83 @@ window.addEventListener('DOMContentLoaded', () => {
     const synapses = snap.response.synapses || [];
     const weights = synapses.map(s => s.weight);
     const pos = weights.filter(w => w > 0);
-    const sat = pos.filter(w => w >= 250).length;
     if (kpiNeurons)  kpiNeurons.textContent = exp.neurons.length;
     if (kpiSynapses) kpiSynapses.textContent = synapses.length;
     if (kpiTotalW)   kpiTotalW.textContent = pos.reduce((a, b) => a + b, 0).toFixed(0);
-    if (kpiSat)      kpiSat.textContent = pos.length ? `${(sat / pos.length * 100).toFixed(0)}%` : '—';
+    // Saturation 카드는 fire-update 이벤트 통해 실시간 갱신 (refresh 시 lastFireResponse 사용).
+    if (lastFireResponse?.out_rates) updateSaturationKpi(lastFireResponse.out_rates);
     if (kpiUpdated)  kpiUpdated.textContent = new Date().toLocaleTimeString();
   }
   if (dashboardRefreshBtn) dashboardRefreshBtn.addEventListener('click', refreshDashboard);
+
+  // 매 fire 마다 saturation KPI 자동 갱신 (induce / inject / train 등 모든 응답).
+  window.addEventListener('snn-viz:fire-update', (ev) => {
+    const r = ev.detail?.response || lastFireResponse || {};
+    if (r.out_rates) {
+      updateSaturationKpi(r.out_rates);
+      // Tier2-E: winner OUT 발견 시 RL feedback prompt 띄움.
+      showRlFeedbackForResponse(r);
+    }
+    // Tier1-C: 학습 round 간 weight-delta heatmap. 응답 .synapses 와 prev 비교.
+    if (Array.isArray(r.synapses) && r.synapses.length > 0) {
+      const prev = window.__prevSynapseWeights || {};
+      const next = {};
+      const deltas = {};
+      for (const s of r.synapses) {
+        const k = `${s.pre}->${s.post}`;
+        next[k] = s.weight;
+        const d = s.weight - (prev[k] ?? s.weight);
+        if (Math.abs(d) >= 0.5) deltas[k] = d;
+      }
+      window.__prevSynapseWeights = next;
+      // 학습 모드 응답에만 highlight (induce/inject 단발에서는 stdp 없으면 d=0).
+      if (Object.keys(deltas).length > 0 && canvasShown && canvasMode === 'neuron') {
+        flashWeightDelta(deltas, { durationMs: 1500 });
+      }
+    }
+  });
+
+  // Session 41+: Homeostatic weight pruning (CORE 탭 버튼).
+  const pruneBtn = document.getElementById('nf-prune-btn');
+  const pruneThresholdInput = document.getElementById('nf-prune-threshold');
+  const pruneStatus = document.getElementById('nf-prune-status');
+  if (pruneBtn) {
+    pruneBtn.addEventListener('click', async () => {
+      const threshold = parseFloat(pruneThresholdInput?.value || '1.0');
+      if (!Number.isFinite(threshold) || threshold < 0) {
+        if (pruneStatus) pruneStatus.textContent = '⚠ threshold 가 유효하지 않습니다 (0 이상 숫자).';
+        return;
+      }
+      const ok = await dialogConfirm(
+        `|w| < ${threshold} 인 시냅스를 제거합니다. 시스템 baseline 은 보존됩니다. 진행?`,
+        'Homeostatic Pruning'
+      );
+      if (!ok) return;
+      pruneBtn.disabled = true;
+      const orig = pruneBtn.textContent;
+      pruneBtn.textContent = '정리 중...';
+      const r = await backend.homeostasisPrune(threshold, true);
+      pruneBtn.textContent = orig;
+      pruneBtn.disabled = false;
+      if (r.ok) {
+        if (pruneStatus) {
+          pruneStatus.textContent =
+            `✓ 제거 ${r.synapses_removed} 시냅스 (${r.synapses_before} → ${r.synapses_after}). threshold=${threshold}.`;
+        }
+        // 캔버스 + KPI 갱신.
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+        refreshDashboard();
+      } else {
+        if (pruneStatus) pruneStatus.textContent = `실패: ${r.reason || ''}`;
+      }
+    });
+  }
 
   // 회로 완전 초기화 — preset basic + overwrite + history clear.
   const circuitResetBtn = document.getElementById('nf-circuit-reset');
@@ -1726,7 +1939,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const sameKind = existing.filter(ui => ui.kind === kind);
     const titles = {
       audio: 'Audio', text: 'Text', image: 'Image', motion: 'Motion',
-      keyboard: 'Keyboard', mouse: 'Mouse', geo: 'Geo', custom: 'Custom',
+      keyboard: 'Keyboard', mouse: 'Mouse', geo: 'Geo', eeg: 'EEG', custom: 'Custom',
     };
     return `${titles[kind] || kind} ${sameKind.length + 1}`;
   }
@@ -1801,7 +2014,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       const kindIcon = {
         audio: '🎤', text: '📝', image: '🖼️', motion: '📱',
-        keyboard: '⌨️', mouse: '🖱️', geo: '📍', custom: '⚙️',
+        keyboard: '⌨️', mouse: '🖱️', geo: '📍', eeg: '🧠', custom: '⚙️',
       };
       uiList.innerHTML = inputs.map(ui => `
         <div class="nf-user-input-row" data-name="${ui.name}">
@@ -2217,18 +2430,18 @@ window.addEventListener('DOMContentLoaded', () => {
       if (cfg === 'pending') {
         cfg = await openActionConfigDialog(kind, label);
         if (!cfg) {
-          if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
+          if (uiStatus) uiStatus.textContent = '취소됨 — 노드 추가하지 않음.';
           return;
         }
       } else if (cfg === null) {
-        if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
+        if (uiStatus) uiStatus.textContent = '취소됨 — 노드 추가하지 않음.';
         return;
       }
       btn.disabled = true;
       const r = await backend.addUserOutput(label, { kind, actionConfig: cfg });
       btn.disabled = false;
       if (r.ok) {
-        if (qlStatus) qlStatus.textContent = `+ ${r.label} [${r.kind}] (${r.name}) — V2 fanin ${r.synapses_added}.`;
+        if (uiStatus) uiStatus.textContent = `+ ${r.label} [${r.kind}] (${r.name}) — V2 fanin ${r.synapses_added}.`;
         await refreshUserOutputList();
         const snap = await backend.getTrainingSnapshot();
         if (snap.ok && snap.response?.synapses) {
@@ -2238,7 +2451,7 @@ window.addEventListener('DOMContentLoaded', () => {
           if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
         }
       } else {
-        if (qlStatus) qlStatus.textContent = `실패: ${r.reason || ''}`;
+        if (uiStatus) uiStatus.textContent = `실패: ${r.reason || ''}`;
       }
     });
   });
@@ -2342,12 +2555,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const _lastActionAt = {};
 
   // {text} 토큰 치환 — 가장 최근 inject 된 USER INPUT 의 텍스트 사용.
-  // window.__lastInjectedTextByNode 에서 가장 최근 항목 (또는 빈 문자열).
+  // 단, source 가 'text' kind 인 경우에만 의미 있는 text 가 존재 — audio/custom 등 비-text
+  // 입력이 트리거 한 경우 stale text (이전 text 노드 잔여) 노출 금지.
   function lastInjectedText() {
-    const map = window.__lastInjectedTextByNode || {};
-    const keys = Object.keys(map);
-    if (keys.length === 0) return '';
-    return map[keys[keys.length - 1]] || '';
+    const id = window.__lastInjectNodeId;
+    if (!id) return '';
+    const ui = (state.userInputs || []).find(u => u.name === id);
+    if (!ui || ui.kind !== 'text') return '';
+    return (window.__lastInjectedTextByNode || {})[id] || '';
   }
   function substitute(template) {
     if (!template) return template;
@@ -2397,7 +2612,18 @@ window.addEventListener('DOMContentLoaded', () => {
           }).catch(e => console.warn('[action webhook] failed:', e));
         }
       } else if (uo.kind === 'console') {
-        console.log(`[ACTION ${cfg.tag || uo.label}]`, { name: uo.name, text: lastInjectedText(), time: new Date(now).toISOString(), config: cfg });
+        const txt = lastInjectedText();  // text-kind source 일 때만 non-empty.
+        const tag = cfg.tag || uo.label;
+        if (txt && cfg.text) {
+          // text source + 사용자 message 정의됨 → {text} 치환된 메시지 출력.
+          console.log(`[${tag}]`, cfg.text.replace(/\{text\}/g, txt));
+        } else if (txt) {
+          // text source, message 미정의 → 텍스트만 포함된 객체.
+          console.log(`[${tag}]`, { name: uo.name, text: txt, time: new Date(now).toISOString() });
+        } else {
+          // 비-text source (audio/custom 등) → text 필드 제외.
+          console.log(`[${tag}]`, { name: uo.name, time: new Date(now).toISOString() });
+        }
       }
     } catch (e) {
       console.warn('[action] execute failed:', e);
@@ -2468,6 +2694,10 @@ window.addEventListener('DOMContentLoaded', () => {
       console.warn('[user_outputs] save failed:', e);
     }
   }
+
+  // 모듈-레벨 wireUserInputNodeHandlers 의 edit-out 핸들러에서 사용 (canvas 카드 ✏️ 클릭).
+  window.__nfSaveUserOutputsLocal = saveUserOutputsLocal;
+  window.__nfRefreshUserOutputListFromState = refreshUserOutputListFromState;
 
   async function saveUserSynapsesLocal() {
     try {
@@ -3423,11 +3653,14 @@ window.addEventListener('DOMContentLoaded', () => {
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => setActiveTab(btn.dataset.cat));
   });
-  // 초기 탭 (localStorage 또는 'core' 기본).
-  let initialTab = 'core';
+  // 초기 탭 (localStorage 또는 'nodes' 기본). NODES = Node Library + Scene tree (node-editor 기본 화면).
+  // 'input' (구) → 'nodes' / 'all' (제거됨) → 'nodes' 로 마이그레이션.
+  let initialTab = 'nodes';
   try {
     const saved = localStorage.getItem(TAB_KEY);
-    if (saved && ['core','learn','input','tools','all'].includes(saved)) initialTab = saved;
+    let migrated = saved;
+    if (saved === 'input' || saved === 'all') migrated = 'nodes';
+    if (migrated && ['nodes','core','learn','tools'].includes(migrated)) initialTab = migrated;
   } catch (_) {}
   setActiveTab(initialTab);
 
@@ -3560,6 +3793,56 @@ function buildDynamicNeuronsFromSynapses(synapses) {
   const stackCounters = {};
   const result = [];
   for (const name of Array.from(names).sort()) {
+    // Session 42+ Phase 15-23: HIPPO/PFC/AMG/BG/CRB/THAL 노드는 buildGrownNeuronNode 가 자체 처리.
+    if (name.startsWith('ca3_') || name.startsWith('ca1_') || name.startsWith('dg_')
+        || name.startsWith('place_') || name.startsWith('grid_')
+        || name.startsWith('ec_ii_') || name.startsWith('ec_iii_') || name.startsWith('ec_v_')
+        || name.startsWith('pfc_l23_') || name.startsWith('pfc_l5_')
+        || name.startsWith('amg_')
+        || name.startsWith('str_d1_') || name.startsWith('str_d2_') || name.startsWith('tail_str_')
+        || name.startsWith('grc_') || name.startsWith('pc_') || name.startsWith('dcn_')
+        || name.startsWith('io_')
+        || name.startsWith('th_') || name.startsWith('trn_')
+        || name.startsWith('ast_')
+        || name.startsWith('amn_') || name.startsWith('rc_')
+        || name.startsWith('lc_') || name.startsWith('bf_') || name.startsWith('raphe_')
+        || name.startsWith('v4_l4_') || name.startsWith('v4_l5_') || name.startsWith('v4_color_')
+        || name.startsWith('it_l4_') || name.startsWith('it_l5_')
+        || name.startsWith('v3_') || name.startsWith('mt_') || name.startsWith('ppc_')
+        || name.startsWith('ipl_') || name.startsWith('f5_') || name.startsWith('tpj_') || name.startsWith('fef_')
+        || name.startsWith('wern_') || name.startsWith('broca_')
+        || name.startsWith('a1_') || name.startsWith('a2_') || name.startsWith('s1_') || name.startsWith('m1_')
+        || name.startsWith('cun_') || name.startsWith('lin_')
+        || name.startsWith('lgn_') || name.startsWith('pul_') || name.startsWith('stn_')
+        || name.startsWith('hb_') || name.startsWith('sc_') || name.startsWith('ofc_')
+        || name.startsWith('snc_') || name.startsWith('atn_') || name.startsWith('mb_')
+        || name.startsWith('caud_') || name.startsWith('put_') || name.startsWith('gpe_') || name.startsWith('gpi_')
+        || name.startsWith('cbverm_') || name.startsWith('cbhemi_') || name.startsWith('cbfloc_')
+        || name.startsWith('rsc_')
+        || name.startsWith('presma_') || name.startsWith('sma_') || name.startsWith('pmd_') || name.startsWith('pmv_')
+        || name.startsWith('subic_') || name.startsWith('phc_') || name.startsWith('prc_')
+        || name.startsWith('ai_') || name.startsWith('pi_')
+        || name.startsWith('ot_') || name.startsWith('bnst_')
+        || name.startsWith('dlpfc_') || name.startsWith('vmpfc_')
+        || name.startsWith('dacc_') || name.startsWith('vacc_')
+        || name.startsWith('bla_') || name.startsWith('cen_') || name.startsWith('amgmed_')
+        || name.startsWith('dg_') || name.startsWith('ca2_')
+        || name.startsWith('v1_L23a_') || name.startsWith('v1_L23b_') || name.startsWith('a1c_')
+        || name.startsWith('v2_L23a_') || name.startsWith('v2_L23b_')
+        || name.startsWith('teo_') || name.startsWith('te_anterior_')
+        || name.startsWith('s1f_') || name.startsWith('mso_') || name.startsWith('lso_')
+        || name.startsWith('v4rgb_') || name.startsWith('scs_') || name.startsWith('sci_') || name.startsWith('scd_')
+        || name.startsWith('vta_') || name.startsWith('nacc_')
+        || name.startsWith('ins_') || name.startsWith('acc_')
+        || name.startsWith('ob_') || name.startsWith('pir_')
+        || name.startsWith('pag_') || name.startsWith('pons_')
+        || name.startsWith('mpfc_') || name.startsWith('pcc_') || name.startsWith('ag_')
+        || name.startsWith('hyp_') || name.startsWith('vlpo_') || name.startsWith('rf_')
+        || name.startsWith('ai_') || name.startsWith('dacc_')) {
+      const node = buildGrownNeuronNode({ name }, 0);
+      if (node) result.push(node);
+      continue;
+    }
     // 이름 prefix → region 추론.
     let region = null;
     if (name.startsWith('v1_')) region = 'V1';
@@ -3789,6 +4072,29 @@ function wireUserInputNodeHandlers() {
         btn.disabled = false;
         await openUserInputDialog({ nodeId, label: nodeId, kind: kindAttr });
         return;
+      } else if (action === 'edit-out') {
+        // Session 39+: USER OUT 노드 카드 클릭 → action_config 편집 dialog.
+        // user_in 의 ✏️ 편집과 동일한 UX — 노드 자체에서 결과값 셋팅 가능.
+        btn.disabled = false;
+        const uo = (state.userOutputs || []).find(u => u.name === nodeId);
+        if (!uo) return;
+        const newCfg = await openActionConfigDialog(uo.kind, uo.label, uo.action_config);
+        if (!newCfg) return;
+        // Optimistic update — frontend state 즉시 반영 (action callback 이 새 cfg 사용).
+        uo.action_config = newCfg;
+        if (typeof window.__nfSaveUserOutputsLocal === 'function') window.__nfSaveUserOutputsLocal();
+        const backend2 = window.__neuronfaceBackend;
+        if (backend2) {
+          // backend best-effort — 실패해도 frontend 동작에 영향 없음.
+          await backend2.updateUserOutputConfig(nodeId, newCfg).catch(() => null);
+        }
+        // 우측 패널 list 갱신 (cfgPreview 텍스트).
+        if (typeof window.__nfRefreshUserOutputListFromState === 'function') {
+          window.__nfRefreshUserOutputListFromState();
+        }
+        // 캔버스 카드 cfgPreview 도 갱신 — neuron 모드에서 remount.
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        return;
       } else if (action === 'encode-text') {
         const input = document.getElementById(`snn-user-input-${nodeId}`);
         const text = (input?.value || '').trim();
@@ -3836,7 +4142,7 @@ async function openUserInputDialog({ nodeId, label, kind }) {
   const ui = (state.userInputs || []).find(u => u.name === nodeId);
   if (ui?.label) label = ui.label;
   if (ui?.kind) kind = ui.kind;
-  const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍' };
+  const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍', eeg: '🧠' };
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;
   const statusHTML = `<div class="nf-dialog-node-status" id="nf-dlg-status">대기</div>`;
@@ -3882,13 +4188,43 @@ async function openUserInputDialog({ nodeId, label, kind }) {
       + binsHTML + statusHTML + learnHTML;
     primaryLabel = '🎤 Capture + inject';
     action = 'audio';
+  } else if (kind === 'eeg') {
+    // 8-band EEG — mood preset 선택 + WebSocket stream (옵션). bins = δ-γ 시각화.
+    const moodOptions = Object.keys(EEG_MOOD_PRESETS).map(m => `<option value="${m}">${m}</option>`).join('');
+    bodyHTML = `<p>EEG 8-band (δ θ α β₁ β₂ γ₁ γ₂ γ₃). Mock mood preset 선택 또는 실제 stream (WebSocket: Muse / OpenBCI).</p>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+        <span style="font-size:11px;color:#94a3b8;flex:0 0 50px;">Mood</span>
+        <select id="nf-dlg-eeg-mood" class="nf-multimodal-select" style="flex:1;padding:6px 8px;font-size:12px;">${moodOptions}</select>
+        <button id="nf-dlg-eeg-mock" type="button" style="padding:5px 10px;font-size:11px;background:rgba(167,139,250,0.18);color:#e9e2ff;border:1px solid rgba(167,139,250,0.45);border-radius:3px;cursor:pointer;">🎲 Mock</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+        <span style="font-size:11px;color:#94a3b8;flex:0 0 50px;">Stream</span>
+        <input id="nf-dlg-eeg-ws" type="text" placeholder="ws://localhost:7777 (Muse) 또는 8765 (OpenBCI)" style="flex:1;padding:6px 8px;font-size:11px;" autocomplete="off" />
+        <button id="nf-dlg-eeg-conn" type="button" style="padding:5px 10px;font-size:11px;background:rgba(16,185,129,0.12);color:#a7f3d0;border:1px solid rgba(167,243,208,0.30);border-radius:3px;cursor:pointer;">🔌</button>
+      </div>
+      <div id="nf-dlg-eeg-info" style="margin-top:6px;font-size:10px;color:#94a3b8;min-height:14px;">Mock 또는 stream 선택. Inject 시 현재 패턴이 user_in 노드로 전송.</div>`
+      + binsHTML + statusHTML + learnHTML;
+    primaryLabel = '🧠 EEG inject';
+    action = 'eeg';
   } else {
     bodyHTML = `<p>${kind} modality — Train (학습) 또는 Inject (직접 자극).</p>`
       + statusHTML + learnHTML;
     primaryLabel = '▶ Inject (50w)';
     action = 'direct';
   }
-  await openDialog({
+  // EEG-specific helper: 현재 dialog 의 active 패턴 결정 (mock or live stream).
+  let _currentEegPattern = null;
+  function currentEegPatternFromDialog() {
+    if (_eegWs && _eegLastFrame) return _eegLastFrame;  // live stream priority.
+    if (_currentEegPattern) return _currentEegPattern;
+    // 처음 접근 — mood 기반 mock.
+    const mood = document.getElementById('nf-dlg-eeg-mood')?.value || 'awake';
+    _currentEegPattern = generateMockEeg(mood);
+    paintDialogBins(_currentEegPattern);
+    return _currentEegPattern;
+  }
+
+  const dialogPromise = openDialog({
     title: `${icon} ${label} (${kind})`,
     bodyHTML,
     buttons: [
@@ -3916,6 +4252,9 @@ async function openUserInputDialog({ nodeId, label, kind }) {
           const cap = await captureMicTo8Bin(1);
           if (!cap.ok) { if (learnStatus) learnStatus.textContent = `⚠ ${cap.reason}`; return undefined; }
           pattern = cap.pattern;
+          paintDialogBins(pattern);
+        } else if (action === 'eeg') {
+          pattern = currentEegPatternFromDialog();
           paintDialogBins(pattern);
         } else {
           pattern = [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
@@ -4013,6 +4352,18 @@ async function openUserInputDialog({ nodeId, label, kind }) {
               if (status) status.textContent = `실패: ${r.reason || ''}`;
               return undefined;
             }
+          } else if (action === 'eeg') {
+            const pattern = currentEegPatternFromDialog();
+            paintDialogBins(pattern);
+            if (status) status.textContent = '🧠 injecting 8-band EEG...';
+            const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
+            if (r.ok) {
+              setUserInputStatus(nodeId, '⚡ injected', 'fired');
+              return true;
+            } else {
+              if (status) status.textContent = `실패: ${r.reason || ''}`;
+              return undefined;
+            }
           } else {
             if (status) status.textContent = 'injecting...';
             const r = await backend.injectUserInput(nodeId, { weight: 50, durationMs: 5 });
@@ -4031,6 +4382,45 @@ async function openUserInputDialog({ nodeId, label, kind }) {
       }},
     ],
   });
+
+  // EEG dialog — Mock + Stream 버튼 wiring (DOM 이 innerHTML 으로 set 된 직후).
+  if (action === 'eeg') {
+    const mockBtn = document.getElementById('nf-dlg-eeg-mock');
+    const connBtn = document.getElementById('nf-dlg-eeg-conn');
+    const wsInput = document.getElementById('nf-dlg-eeg-ws');
+    const info = document.getElementById('nf-dlg-eeg-info');
+    if (mockBtn) {
+      mockBtn.addEventListener('click', () => {
+        const mood = document.getElementById('nf-dlg-eeg-mood')?.value || 'awake';
+        _currentEegPattern = generateMockEeg(mood);
+        paintDialogBins(_currentEegPattern);
+        if (info) info.textContent = `🎲 mock '${mood}' — δ${(_currentEegPattern[0]*100).toFixed(0)} α${(_currentEegPattern[2]*100).toFixed(0)} β${(_currentEegPattern[3]*100).toFixed(0)} γ${(_currentEegPattern[5]*100).toFixed(0)}`;
+      });
+      mockBtn.click();  // 초기 mock 1회 자동.
+    }
+    if (connBtn && wsInput) {
+      connBtn.addEventListener('click', async () => {
+        if (_eegWs) {
+          disconnectEegStream();
+          if (info) info.textContent = '🔌 연결 해제됨.';
+          connBtn.textContent = '🔌';
+          return;
+        }
+        const url = (wsInput.value || '').trim();
+        if (!url) { if (info) info.textContent = '⚠ WebSocket URL 입력 필요.'; return; }
+        if (info) info.textContent = `🔌 ${url} 연결 시도...`;
+        try {
+          await connectEegStream(url);
+          if (info) info.textContent = '✓ stream 연결됨 — live frame 수신 대기.';
+          connBtn.textContent = '✕';
+        } catch (e) {
+          if (info) info.textContent = `❌ ${e.message}`;
+        }
+      });
+    }
+  }
+
+  await dialogPromise;
 }
 
 function paintDialogBins(pattern) {
@@ -4039,6 +4429,67 @@ function paintDialogBins(pattern) {
   container.querySelectorAll('.nf-dialog-node-bin').forEach((el, i) => {
     el.style.height = `${Math.round((pattern[i] || 0) * 100)}%`;
   });
+}
+
+// Session 42+ Tier3-I: EEG modality — 8 frequency bands (BCI 표준 powers).
+// 실제 hardware (Muse / OpenBCI) 통합 전까지 mock 생성기로 동작 검증.
+// Bands: delta (0.5-4Hz), theta (4-8), alpha (8-13), beta1 (13-20), beta2 (20-30),
+//        gamma1 (30-50), gamma2 (50-80), gamma3 (80-100).
+const EEG_BANDS = [
+  { name: 'δ delta', lo: 0.5, hi: 4 },
+  { name: 'θ theta', lo: 4,   hi: 8 },
+  { name: 'α alpha', lo: 8,   hi: 13 },
+  { name: 'β₁ beta', lo: 13,  hi: 20 },
+  { name: 'β₂ beta', lo: 20,  hi: 30 },
+  { name: 'γ₁ gam',  lo: 30,  hi: 50 },
+  { name: 'γ₂ gam',  lo: 50,  hi: 80 },
+  { name: 'γ₃ gam',  lo: 80,  hi: 100 },
+];
+// 사용자 mood preset → band power 분포 (정규화 0-1).
+// awake: 알파 (휴식) + 베타 (집중) 두 봉.
+// focused: 베타+감마 dominant (집중·문제풀이).
+// relaxed: 알파 dominant + 약한 세타.
+// sleepy: 델타+세타 dominant (졸림).
+const EEG_MOOD_PRESETS = {
+  awake:   [0.20, 0.30, 0.85, 0.65, 0.55, 0.30, 0.15, 0.10],
+  focused: [0.10, 0.15, 0.30, 0.80, 0.90, 0.75, 0.55, 0.30],
+  relaxed: [0.30, 0.55, 0.95, 0.40, 0.20, 0.10, 0.05, 0.05],
+  sleepy:  [0.95, 0.80, 0.40, 0.15, 0.10, 0.05, 0.05, 0.05],
+};
+function generateMockEeg(mood = 'awake', noise = 0.10) {
+  const base = EEG_MOOD_PRESETS[mood] || EEG_MOOD_PRESETS.awake;
+  return base.map(v => Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 2 * noise)));
+}
+// 실제 EEG WebSocket bridge 가 connect 되면 활성화 — 현재는 placeholder.
+// Muse: muse-js / Mind Monitor → WebSocket on ws://localhost:7777
+// OpenBCI: bci-bridge → WebSocket on ws://localhost:8765
+// 메시지 포맷: { bands: [δ, θ, α, β₁, β₂, γ₁, γ₂, γ₃] } 8-dim normalized.
+let _eegWs = null;
+let _eegLastFrame = null;
+function connectEegStream(url) {
+  return new Promise((resolve, reject) => {
+    try {
+      _eegWs = new WebSocket(url);
+      const timer = setTimeout(() => {
+        try { _eegWs?.close(); } catch (_) {}
+        reject(new Error('연결 timeout (3초)'));
+      }, 3000);
+      _eegWs.onopen = () => { clearTimeout(timer); resolve(true); };
+      _eegWs.onerror = (e) => { clearTimeout(timer); reject(new Error('WebSocket 오류')); };
+      _eegWs.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (Array.isArray(data.bands) && data.bands.length === 8) _eegLastFrame = data.bands;
+        } catch (_) {}
+      };
+      _eegWs.onclose = () => { _eegWs = null; };
+    } catch (err) { reject(err); }
+  });
+}
+function disconnectEegStream() {
+  try { _eegWs?.close(); } catch (_) {}
+  _eegWs = null;
+  _eegLastFrame = null;
 }
 
 // Session 39: OUT 노드 추가 + 편집 시 action_config dialog (title/body/text/url 입력).
@@ -4108,7 +4559,3007 @@ async function openActionConfigDialog(kind, label, existing) {
       ],
     });
   }
+  if (kind === 'console') {
+    const tag = existing?.tag ?? label;
+    const text = existing?.text ?? '입력: {text}';
+    return await openDialog({
+      title: `📟 ${label} — Console 설정`,
+      bodyHTML: `
+        <p>발화 시 <code>console.log</code> 출력 — 태그(prefix)와 메시지. <code>{text}</code> 토큰 지원 (마지막 USER INPUT 텍스트 치환).</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">태그 (prefix)</p>
+        <input id="nf-dlg-cfg-tag" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(tag)}" placeholder="ACTION ..." />
+        <p style="margin-top:10px;font-size:11px;color:#94a3b8;">메시지 ({text} 토큰)</p>
+        <input id="nf-dlg-cfg-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(text)}" placeholder="입력: {text}" />
+      `,
+      buttons: [
+        { label: '취소', kind: 'cancel', value: null },
+        { label: primaryLabel, kind: 'primary', onClick: () => {
+          const t = (document.getElementById('nf-dlg-cfg-tag')?.value || '').trim();
+          const m = (document.getElementById('nf-dlg-cfg-text')?.value || '').trim();
+          return { tag: t || label, text: m || '' };
+        }},
+      ],
+    });
+  }
   return existing || {};
+}
+
+// Session 42+ Tier2-E: RL feedback prompt — 마지막 fire 결과 winner 에 ✅/❌ 입력.
+// reward=+1 → dopamine pulse 2x STDP gain (winner path 강화).
+// reward=-1 + 정답 OUT 선택 → 정답 path supervisor pulse + LTD 풍 학습 (re-routing).
+let _rlLastWinner = null;
+let _rlAutoHideTimer = null;
+let _rlFeedbackBound = false;
+const RL_WINNER_HZ = 5;
+function showRlFeedbackForResponse(r) {
+  const panel = document.getElementById('nf-rl-feedback');
+  const winnerEl = document.getElementById('nf-rl-feedback-winner');
+  if (!panel || !winnerEl) return;
+  // user/system OUT 모두 후보. 가장 높은 rate, 최소 RL_WINNER_HZ 이상.
+  const out = r.out_rates || {};
+  let winner = null, maxRate = 0;
+  for (const [k, v] of Object.entries(out)) {
+    if (v >= RL_WINNER_HZ && v > maxRate) { maxRate = v; winner = k; }
+  }
+  if (!winner) {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    _rlLastWinner = null;
+    return;
+  }
+  // user_out 라벨 매핑.
+  const uo = (state.userOutputs || []).find(u => u.name === winner);
+  const label = uo ? uo.label : winner;
+  _rlLastWinner = winner;
+  winnerEl.textContent = `${label} (${maxRate.toFixed(0)} Hz)`;
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+  if (_rlAutoHideTimer) clearTimeout(_rlAutoHideTimer);
+  _rlAutoHideTimer = setTimeout(() => {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+  }, 8000);
+  bindRlFeedbackHandlers();
+}
+function bindRlFeedbackHandlers() {
+  if (_rlFeedbackBound) return;
+  _rlFeedbackBound = true;
+  const correctBtn = document.getElementById('nf-rl-correct');
+  const wrongBtn = document.getElementById('nf-rl-wrong');
+  const closeBtn = document.getElementById('nf-rl-close');
+  const panel = document.getElementById('nf-rl-feedback');
+  if (correctBtn) correctBtn.addEventListener('click', async () => {
+    if (!_rlLastWinner) return;
+    const backend = window.__neuronfaceBackend;
+    if (!backend) return;
+    correctBtn.disabled = true;
+    const r = await backend.sendRlFeedback(+1.0, _rlLastWinner);
+    correctBtn.disabled = false;
+    panel?.classList.remove('open');
+    if (r.ok) {
+      // STDP pulse 결과 synapses 동기.
+      const snap = await backend.getTrainingSnapshot();
+      if (snap.ok && snap.response?.synapses) {
+        if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+        else lastFireResponse = { synapses: snap.response.synapses };
+        state.synapses = snap.response.synapses;
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+      }
+    }
+  });
+  if (wrongBtn) wrongBtn.addEventListener('click', async () => {
+    if (!_rlLastWinner) return;
+    const backend = window.__neuronfaceBackend;
+    if (!backend) return;
+    // 정답 OUT 입력 받음.
+    const candidates = [
+      ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: uo.label })),
+      { name: 'out_0', label: 'Pointing' },
+      { name: 'out_1', label: 'Open palm' },
+      { name: 'out_2', label: 'Thumbs up' },
+      { name: 'out_3', label: 'Victory' },
+    ].filter(c => c.name !== _rlLastWinner);
+    const opts = candidates.map(c => `<option value="${c.name}">${c.label} (${c.name})</option>`).join('');
+    const target = await openDialog({
+      title: '❌ 틀림 — 정답 OUT 선택',
+      bodyHTML: `<p>winner <code>${_rlLastWinner}</code> 가 틀렸습니다. 정답 OUT 을 선택하면 dopamine 음수 pulse + 정답 path supervisor 로 재학습합니다.</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">정답 OUT</p>
+        <select id="nf-rl-target-sel" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+          <option value="">(선택)</option>${opts}
+        </select>`,
+      buttons: [
+        { label: '취소', kind: 'cancel', value: null },
+        { label: '재학습', kind: 'primary', onClick: () => document.getElementById('nf-rl-target-sel')?.value || null },
+      ],
+    });
+    if (!target) return;
+    panel?.classList.remove('open');
+    const r = await backend.sendRlFeedback(-1.0, target);
+    if (r.ok) {
+      const snap = await backend.getTrainingSnapshot();
+      if (snap.ok && snap.response?.synapses) {
+        if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+        else lastFireResponse = { synapses: snap.response.synapses };
+        state.synapses = snap.response.synapses;
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+      }
+    }
+  });
+  if (closeBtn) closeBtn.addEventListener('click', () => {
+    panel?.classList.remove('open');
+    if (_rlAutoHideTimer) clearTimeout(_rlAutoHideTimer);
+  });
+}
+
+// Session 42+ Tier2-F: Sequence learning dialog.
+// 사용자가 순서 있는 INPUT 시퀀스 (e.g., A→B→C) + 정답 OUT 지정 → triplet STDP 로 학습.
+// Markram 1997 / Pfister-Gerstner 2006. 음성 명령 / 제스처 sequence 등 시간 패턴 학습.
+async function openSequenceLearnDialog() {
+  const backend = window.__neuronfaceBackend;
+  if (!backend) return;
+  const inputs = (state.userInputs || []);
+  if (inputs.length < 2) {
+    await dialogAlert('Sequence learning 은 USER INPUT 노드 2개 이상 필요. 라이브러리에서 더 추가해 주세요.', '🎵 Sequence');
+    return;
+  }
+  const targets = [
+    ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: `${uo.label} (사용자 액션)` })),
+    { name: 'out_0', label: 'out_0 — Pointing (시스템)' },
+    { name: 'out_1', label: 'out_1 — Open palm (시스템)' },
+    { name: 'out_2', label: 'out_2 — Thumbs up (시스템)' },
+    { name: 'out_3', label: 'out_3 — Victory (시스템)' },
+  ];
+  const inputOptions = inputs.map(ui => {
+    const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍', eeg: '🧠' };
+    const ic = kindIcon[ui.kind] || '⚙️';
+    return `<option value="${ui.name}">${ic} ${ui.label} (${ui.name})</option>`;
+  }).join('');
+  const targetOptions = targets.map(t => `<option value="${t.name}">${t.label}</option>`).join('');
+
+  await openDialog({
+    title: '🎵 Sequence Learning (시간 순서 학습)',
+    bodyHTML: `
+      <p>순서 있는 INPUT 시퀀스 (e.g., A→B→C) 를 정답 OUT 으로 매핑. <strong>Triplet STDP</strong> 가 시간 코인시던스를 잡아 sequence-specific path 형성. Markram 1997 / Pfister-Gerstner 2006.</p>
+      <p style="margin-top:10px;font-size:11px;color:#94a3b8;">Step 1 (INPUT)</p>
+      <select id="nf-seq-1" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+        <option value="">(선택)</option>${inputOptions}
+      </select>
+      <p style="margin-top:8px;font-size:11px;color:#94a3b8;">Step 2 (INPUT)</p>
+      <select id="nf-seq-2" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+        <option value="">(선택)</option>${inputOptions}
+      </select>
+      <p style="margin-top:8px;font-size:11px;color:#94a3b8;">Step 3 (INPUT, 선택사항)</p>
+      <select id="nf-seq-3" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+        <option value="">(없음)</option>${inputOptions}
+      </select>
+      <p style="margin-top:10px;font-size:11px;color:#94a3b8;">정답 OUT (sequence target)</p>
+      <select id="nf-seq-target" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+        <option value="">(선택)</option>${targetOptions}
+      </select>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <span style="font-size:11px;color:#94a3b8;flex:0 0 60px;">Delay</span>
+        <select id="nf-seq-delay" class="nf-multimodal-select" style="flex:1;padding:6px 8px;font-size:12px;">
+          <option value="20">20ms (빠름)</option>
+          <option value="30" selected>30ms (권장)</option>
+          <option value="50">50ms</option>
+          <option value="100">100ms (느림)</option>
+        </select>
+        <span style="font-size:11px;color:#94a3b8;flex:0 0 50px;">Rounds</span>
+        <select id="nf-seq-rounds" class="nf-multimodal-select" style="flex:1;padding:6px 8px;font-size:12px;">
+          <option value="10" selected>10×</option>
+          <option value="20">20×</option>
+          <option value="30">30×</option>
+          <option value="50">50×</option>
+        </select>
+      </div>
+      <div id="nf-seq-status" style="margin-top:10px;font-size:11px;color:#94a3b8;min-height:18px;">Step 1, 2 (선택 Step 3) + 정답 OUT 선택 후 Train.</div>
+    `,
+    buttons: [
+      { label: '닫기', kind: 'cancel', value: null },
+      { label: '🧪 Test', kind: 'secondary', onClick: async () => {
+        const items = collectSeqItems();
+        if (items.length < 2) { setSeqStatus('⚠ 2개 이상 step 필요.'); return undefined; }
+        setSeqStatus(`🧪 sequence 테스트 (stdp off) — ${items.length} steps...`);
+        // Test = 1 round, no STDP — single sequence inject 후 winner 측정.
+        // train_sequence with rounds=1 is fine, but stdp=triplet 켜진다. simpler: 단일 inject_multi 가 sequence 와 다름.
+        // 그냥 train_sequence rounds=1 로 STDP 1번만 발생 (학습 미미).
+        const r = await backend.trainSequence(
+          items.map(it => ({ name: it.name, weight: 50.0 })),
+          document.getElementById('nf-seq-target')?.value,
+          { delayMs: parseFloat(document.getElementById('nf-seq-delay')?.value || '30'), rounds: 1 }
+        );
+        if (!r.ok) { setSeqStatus(`실패: ${r.reason || ''}`); return undefined; }
+        const out = r.out_rates || {};
+        const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+        setSeqStatus(`✓ winner: ${winner ? `${winner[0]} = ${winner[1].toFixed(0)}Hz` : '없음'}`);
+        return undefined;
+      }},
+      { label: '🎓 Train', kind: 'primary', onClick: async () => {
+        const items = collectSeqItems();
+        if (items.length < 2) { setSeqStatus('⚠ 2개 이상 step 필요.'); return undefined; }
+        const target = document.getElementById('nf-seq-target')?.value;
+        if (!target) { setSeqStatus('⚠ 정답 OUT 을 선택해 주세요.'); return undefined; }
+        const delayMs = parseFloat(document.getElementById('nf-seq-delay')?.value || '30');
+        const rounds = parseInt(document.getElementById('nf-seq-rounds')?.value || '10', 10);
+        setSeqStatus(`🎓 학습 ${rounds} rounds × ${items.length} steps (delay ${delayMs}ms)...`);
+        const r = await backend.trainSequence(
+          items.map(it => ({ name: it.name, weight: 50.0 })),
+          target,
+          { delayMs, rounds }
+        );
+        if (!r.ok) { setSeqStatus(`실패: ${r.reason || ''}`); return undefined; }
+        // 캔버스 동기.
+        if (Array.isArray(r.synapses)) {
+          if (lastFireResponse) lastFireResponse.synapses = r.synapses;
+          else lastFireResponse = { synapses: r.synapses };
+          state.synapses = r.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+        setSeqStatus(`✓ sequence 학습 완료 ${rounds} rounds → ${target}. Test 로 검증해 보세요.`);
+        return undefined;
+      }},
+    ],
+  });
+
+  function collectSeqItems() {
+    const ids = ['nf-seq-1', 'nf-seq-2', 'nf-seq-3'];
+    return ids.map(id => document.getElementById(id)?.value).filter(v => v).map(name => ({ name }));
+  }
+  function setSeqStatus(msg) {
+    const el = document.getElementById('nf-seq-status');
+    if (el) el.textContent = msg;
+  }
+}
+
+// Session 42+ Tier3-G: Circuit Marketplace dialog — D1 shared_circuits 공유.
+// Publish (current circuit) / Browse public / My circuits / Import (from circuit_id).
+async function openMarketplaceDialog() {
+  const backend = window.__neuronfaceBackend;
+  if (!backend) return;
+  const userEmail = (window.__currentUserEmail) || 'anonymous@local';
+  let activeTab = 'browse'; // 'browse' | 'mine' | 'publish' | 'import'
+
+  function tabHeader() {
+    const mk = (id, label) =>
+      `<button data-tab="${id}" class="nf-mk-tab ${activeTab===id?'active':''}" type="button"
+         style="flex:1;padding:6px 8px;font-size:11px;border:none;background:${activeTab===id?'rgba(167,139,250,0.18)':'transparent'};
+                color:${activeTab===id?'#e9e2ff':'#94a3b8'};border-radius:3px;cursor:pointer;">
+         ${label}
+       </button>`;
+    return `<div style="display:flex;gap:4px;padding:4px;background:rgba(255,255,255,0.04);border-radius:3px;margin-bottom:10px;">
+      ${mk('browse','🌐 Browse')}${mk('mine','👤 My')}${mk('publish','📤 Publish')}${mk('import','🔗 Import by ID')}
+    </div>`;
+  }
+  async function renderTabBody() {
+    const body = document.getElementById('nf-mk-body');
+    if (!body) return;
+    body.innerHTML = `<div style="color:#94a3b8;font-size:11px;">로딩...</div>`;
+    if (activeTab === 'browse' || activeTab === 'mine') {
+      const r = await listSharedCircuits(activeTab === 'mine' ? { owner: userEmail, limit: 50 } : { limit: 50 });
+      if (!r.ok) { body.innerHTML = `<div style="color:#ef4444;font-size:11px;">목록 로드 실패: ${r.reason}</div>`; return; }
+      const items = r.circuits || [];
+      if (items.length === 0) {
+        body.innerHTML = `<div style="color:#94a3b8;font-size:11px;padding:20px;text-align:center;">${
+          activeTab==='mine' ? '본인이 publish 한 회로 없음.' : '공유 회로 없음.'}</div>`;
+        return;
+      }
+      body.innerHTML = items.map(c => {
+        const date = new Date(c.created_at * 1000).toLocaleDateString();
+        const isOwner = c.owner === userEmail;
+        return `<div class="nf-mk-row" data-cid="${c.circuit_id}" style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:#e9e2ff;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
+            <div style="font-size:10px;color:#94a3b8;">${escapeHtml(c.owner)} · ${date} · DL ${c.download_count}${c.public ? '' : ' · 🔒 private'}</div>
+            ${c.description ? `<div style="font-size:10px;color:#cbd5e1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.description)}</div>` : ''}
+          </div>
+          <button class="nf-mk-import" data-cid="${c.circuit_id}" type="button"
+                  style="padding:4px 10px;font-size:11px;background:rgba(167,139,250,0.18);color:#e9e2ff;border:1px solid rgba(167,139,250,0.45);border-radius:3px;cursor:pointer;">
+            Import
+          </button>
+          ${isOwner ? `<button class="nf-mk-delete" data-cid="${c.circuit_id}" type="button"
+                  style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(252,165,165,0.30);border-radius:3px;cursor:pointer;">삭제</button>` : ''}
+        </div>`;
+      }).join('');
+      body.querySelectorAll('.nf-mk-import').forEach(b => b.addEventListener('click', async (ev) => {
+        const cid = ev.currentTarget.getAttribute('data-cid');
+        await importCircuitFromId(cid);
+      }));
+      body.querySelectorAll('.nf-mk-delete').forEach(b => b.addEventListener('click', async (ev) => {
+        const cid = ev.currentTarget.getAttribute('data-cid');
+        if (!await dialogConfirm(`'${cid}' 회로를 삭제할까요?`, '회로 삭제')) return;
+        const r2 = await deleteSharedCircuit(cid, userEmail);
+        if (r2.ok) renderTabBody();
+        else await dialogAlert(`실패: ${r2.reason || ''}`, '삭제');
+      }));
+    } else if (activeTab === 'publish') {
+      body.innerHTML = `
+        <p style="font-size:11px;color:#94a3b8;">현재 회로(neurons + synapses 통째)를 D1 marketplace 에 publish 합니다.</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">이름</p>
+        <input id="nf-mk-name" type="text" autocomplete="off" placeholder="My SNN circuit v1" />
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">설명 (선택)</p>
+        <input id="nf-mk-desc" type="text" autocomplete="off" placeholder="실험적 회로 — Hippocampus + STDP 학습 완료" />
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px;color:#94a3b8;cursor:pointer;">
+          <input id="nf-mk-public" type="checkbox" checked> public list 노출 (해제 시 ID 가진 사람만 import)
+        </label>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">Owner 식별: <code>${escapeHtml(userEmail)}</code> (재 publish/삭제 시 동일)</p>
+        <button id="nf-mk-publish" type="button"
+                style="margin-top:12px;padding:8px 14px;background:rgba(16,185,129,0.18);color:#d1fae5;border:1px solid rgba(167,243,208,0.45);border-radius:3px;cursor:pointer;font-size:12px;">
+          📤 Publish 회로
+        </button>
+        <div id="nf-mk-publish-status" style="margin-top:10px;font-size:11px;color:#94a3b8;"></div>
+      `;
+      document.getElementById('nf-mk-publish')?.addEventListener('click', async () => {
+        const name = (document.getElementById('nf-mk-name')?.value || '').trim();
+        const description = (document.getElementById('nf-mk-desc')?.value || '').trim();
+        const isPublic = !!document.getElementById('nf-mk-public')?.checked;
+        const status = document.getElementById('nf-mk-publish-status');
+        if (!name) { if (status) status.textContent = '⚠ 이름 필요.'; return; }
+        if (status) status.textContent = '📤 export → publish...';
+        const exp = await backend.exportTopology();
+        if (!exp.ok) { if (status) status.textContent = `회로 export 실패: ${exp.reason || ''}`; return; }
+        const r = await publishCircuitToD1({
+          owner: userEmail, name, description,
+          neurons: exp.neurons, synapses: exp.synapses,
+          meta: { neuron_count: exp.neurons.length, synapse_count: exp.synapses.length, savedAt: Date.now() },
+          isPublic,
+        });
+        if (r.ok) {
+          if (status) status.innerHTML = `✓ 공유 완료 — <code style="color:#a7f3d0;">${r.circuit_id}</code> (이 ID 를 다른 사용자에게 전달).`;
+        } else {
+          if (status) status.textContent = `실패: ${r.reason || ''}`;
+        }
+      });
+    } else if (activeTab === 'import') {
+      body.innerHTML = `
+        <p style="font-size:11px;color:#94a3b8;">circuit ID 로 직접 import (private 회로도 가능).</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">Circuit ID</p>
+        <input id="nf-mk-id" type="text" autocomplete="off" placeholder="cir_abc123..." />
+        <button id="nf-mk-fetch" type="button"
+                style="margin-top:10px;padding:6px 12px;background:rgba(167,139,250,0.18);color:#e9e2ff;border:1px solid rgba(167,139,250,0.45);border-radius:3px;cursor:pointer;font-size:12px;">
+          🔗 Fetch + Import
+        </button>
+      `;
+      document.getElementById('nf-mk-fetch')?.addEventListener('click', async () => {
+        const id = (document.getElementById('nf-mk-id')?.value || '').trim();
+        if (!id) return;
+        await importCircuitFromId(id);
+      });
+    }
+  }
+  async function importCircuitFromId(cid) {
+    const ok = await dialogConfirm(
+      `'${cid}' 회로를 import 하면 현재 회로가 덮어써집니다 (학습 weight 손실 가능). 진행?`,
+      '🔗 Import 회로'
+    );
+    if (!ok) return;
+    const r = await fetchSharedCircuit(cid);
+    if (!r.ok) { await dialogAlert(`실패: ${r.reason || ''}`, 'Import'); return; }
+    // backend.importTopology 같은 게 없으므로 reset → addNeuron loop → connect 직접 사용 못 함.
+    // 간단히: backend 쪽 endpoint 가 있는지 확인 (importTopology), 없으면 안내.
+    if (typeof backend.importTopology === 'function') {
+      const ir = await backend.importTopology(r.neurons, r.synapses);
+      if (ir.ok) {
+        await dialogAlert(`✓ ${r.name} import 완료 — ${r.neurons.length} 뉴런 / ${r.synapses.length} 시냅스.`, 'Import');
+      } else {
+        await dialogAlert(`Backend import 실패: ${ir.reason}`, 'Import');
+      }
+    } else {
+      // fallback: existing JSON import 메커니즘에 위임 — circuit JSON Blob 으로 변환 → 기존 import handler.
+      try {
+        const blob = new Blob([JSON.stringify({ neurons: r.neurons, synapses: r.synapses, meta: r.meta })], { type: 'application/json' });
+        const file = new File([blob], `${cid}.json`, { type: 'application/json' });
+        const fileInput = document.getElementById('nf-circuit-import-file');
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          await dialogAlert(`'${r.name}' import 시도됨 (기존 JSON import 핸들러 사용).`, 'Import');
+        } else {
+          await dialogAlert('백엔드 import 미지원 + JSON import 핸들러 없음. r.json 을 콘솔에 출력합니다.', 'Import');
+          console.log('[marketplace import] circuit:', r);
+        }
+      } catch (e) {
+        await dialogAlert(`Import 처리 실패: ${e.message}`, 'Import');
+      }
+    }
+  }
+
+  await openDialog({
+    title: '🛒 Circuit Marketplace',
+    bodyHTML: `
+      ${tabHeader()}
+      <div id="nf-mk-body" style="max-height:340px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:3px;padding:6px;">
+        <div style="color:#94a3b8;font-size:11px;">로딩...</div>
+      </div>
+    `,
+    buttons: [
+      { label: '닫기', kind: 'cancel', value: null },
+    ],
+  });
+  // 탭 클릭 위임.
+  document.querySelectorAll('.nf-mk-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      activeTab = t.getAttribute('data-tab');
+      // 헤더 색 갱신.
+      document.querySelectorAll('.nf-mk-tab').forEach(x => {
+        const sel = x.getAttribute('data-tab') === activeTab;
+        x.style.background = sel ? 'rgba(167,139,250,0.18)' : 'transparent';
+        x.style.color = sel ? '#e9e2ff' : '#94a3b8';
+      });
+      renderTabBody();
+    });
+  });
+  renderTabBody();
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+// Session 42+ Tier2-D + Phase 20: Brain Builder 통합 dialog (Hippocampus + PFC + Amygdala).
+async function buildHippocampusFromToolbar() {
+  const backend = window.__neuronfaceBackend;
+  if (!backend) return;
+  // 캔버스에 존재하는 region 점검 (synapses 기반).
+  const synapses = state.synapses || [];
+  const names = new Set();
+  for (const s of synapses) { names.add(s.pre); names.add(s.post); }
+  const hippoExists = [...names].some(n => n.startsWith('ca3_') || n.startsWith('ca1_'));
+  const pfcExists   = [...names].some(n => n.startsWith('pfc_'));
+  const amgExists   = [...names].some(n => n.startsWith('amg_'));
+  const bgExists    = [...names].some(n => n.startsWith('str_d1_') || n.startsWith('str_d2_'));
+  const crbExists   = [...names].some(n => n.startsWith('grc_') || n.startsWith('pc_') || n.startsWith('dcn_'));
+  const ioExists    = [...names].some(n => n.startsWith('io_'));
+  const spinalExists = [...names].some(n => n.startsWith('amn_') || n.startsWith('rc_'));
+  const lcExists    = [...names].some(n => n.startsWith('lc_'));
+  const bfExists    = [...names].some(n => n.startsWith('bf_'));
+  const rapheExists = [...names].some(n => n.startsWith('raphe_'));
+  const vsExists    = [...names].some(n => n.startsWith('v4_') || n.startsWith('it_'));
+  const dsExists    = [...names].some(n => n.startsWith('v3_') || n.startsWith('mt_') || n.startsWith('ppc_'));
+  const audExists   = [...names].some(n => n.startsWith('a1_') || n.startsWith('a2_'));
+  const rewardExists= [...names].some(n => n.startsWith('vta_') || n.startsWith('nacc_'));
+  const insExists   = [...names].some(n => n.startsWith('ins_'));
+  const accExists   = [...names].some(n => n.startsWith('acc_'));
+  const olfExists   = [...names].some(n => n.startsWith('ob_') || n.startsWith('pir_'));
+  const stemExists  = [...names].some(n => n.startsWith('pag_') || n.startsWith('pons_'));
+  const dmnExists   = [...names].some(n => n.startsWith('mpfc_') || n.startsWith('pcc_') || n.startsWith('ag_'));
+  const hypExists   = [...names].some(n => n.startsWith('hyp_'));
+  const snExists    = [...names].some(n => n.startsWith('ai_') || n.startsWith('dacc_'));
+  const mnsExists   = [...names].some(n => n.startsWith('f5_') || n.startsWith('ipl_'));
+  const tpjExists   = [...names].some(n => n.startsWith('tpj_'));
+  const tailExists  = [...names].some(n => n.startsWith('tail_str_'));
+  const fefExists   = [...names].some(n => n.startsWith('fef_'));
+  const v4ColorExists = [...names].some(n => n.startsWith('v4_color_'));
+  const s1Exists    = [...names].some(n => n.startsWith('s1_'));
+  const m1Exists    = [...names].some(n => n.startsWith('m1_'));
+  const cunExists   = [...names].some(n => n.startsWith('cun_'));
+  const linExists   = [...names].some(n => n.startsWith('lin_'));
+  const lgnExists   = [...names].some(n => n.startsWith('lgn_'));
+  const pulExists   = [...names].some(n => n.startsWith('pul_'));
+  const stnExists   = [...names].some(n => n.startsWith('stn_'));
+  const hbExists    = [...names].some(n => n.startsWith('hb_'));
+  const scExists    = [...names].some(n => n.startsWith('sc_'));
+  const ofcExists   = [...names].some(n => n.startsWith('ofc_'));
+  const sncExists   = [...names].some(n => n.startsWith('snc_'));
+  const atnExists   = [...names].some(n => n.startsWith('atn_'));
+  const mbExists    = [...names].some(n => n.startsWith('mb_'));
+  const caudExists  = [...names].some(n => n.startsWith('caud_'));
+  const putExists   = [...names].some(n => n.startsWith('put_'));
+  const gpExists    = [...names].some(n => n.startsWith('gpe_') || n.startsWith('gpi_'));
+  const cbLobExists = [...names].some(n => n.startsWith('cbverm_') || n.startsWith('cbhemi_') || n.startsWith('cbfloc_'));
+  const rscExists   = [...names].some(n => n.startsWith('rsc_'));
+  const smaExists   = [...names].some(n => n.startsWith('sma_') || n.startsWith('presma_'));
+  const pmExists    = [...names].some(n => n.startsWith('pmd_') || n.startsWith('pmv_'));
+  const subicExists = [...names].some(n => n.startsWith('subic_'));
+  const phcExists   = [...names].some(n => n.startsWith('phc_'));
+  const prcExists   = [...names].some(n => n.startsWith('prc_'));
+  const aiPiExists  = [...names].some(n => n.startsWith('ai_') || n.startsWith('pi_'));
+  const otExists    = [...names].some(n => n.startsWith('ot_'));
+  const bnstExists  = [...names].some(n => n.startsWith('bnst_'));
+  const pfcSplitExists = [...names].some(n => n.startsWith('dlpfc_') || n.startsWith('vmpfc_'));
+  const accSplitExists = [...names].some(n => n.startsWith('dacc_') || n.startsWith('vacc_'));
+  const amgSplitExists = [...names].some(n => n.startsWith('bla_') || n.startsWith('cen_') || n.startsWith('amgmed_'));
+  const hippoExtExists = [...names].some(n => n.startsWith('dg_') || n.startsWith('ca2_'));
+  const v1L23SplitExists = [...names].some(n => n.startsWith('v1_L23a_') || n.startsWith('v1_L23b_'));
+  const a1TonoExists = [...names].some(n => n.startsWith('a1c_'));
+  const v2L23SplitExists = [...names].some(n => n.startsWith('v2_L23a_') || n.startsWith('v2_L23b_'));
+  const itSubdivExists = [...names].some(n => n.startsWith('teo_') || n.startsWith('te_anterior_'));
+  const s1SomatoExists = [...names].some(n => n.startsWith('s1f_'));
+  const audLocExists = [...names].some(n => n.startsWith('mso_') || n.startsWith('lso_'));
+  const v4RgbExists = [...names].some(n => n.startsWith('v4rgb_'));
+  const scLayeredExists = [...names].some(n => n.startsWith('scs_') || n.startsWith('sci_') || n.startsWith('scd_'));
+  const langExists  = [...names].some(n => n.startsWith('broca_') || n.startsWith('wern_'));
+  const vlpoExists  = [...names].some(n => n.startsWith('vlpo_'));
+  const rfExists    = [...names].some(n => n.startsWith('rf_'));
+  const thalExists  = [...names].some(n => n.startsWith('th_') || n.startsWith('trn_'));
+
+  async function syncCanvas(statusFn, msg) {
+    const snap = await backend.getTrainingSnapshot();
+    if (snap.ok && snap.response?.synapses) {
+      if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+      else lastFireResponse = { synapses: snap.response.synapses };
+      state.synapses = snap.response.synapses;
+      if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+    }
+    if (statusFn && msg) statusFn(msg);
+  }
+
+  await openDialog({
+    title: '🧠 Brain Builder',
+    bodyHTML: `
+      <p>피질 위에 추가 region 을 합성합니다 — 학술적으로 검증된 회로.</p>
+      <p style="margin-top:10px;font-size:11px;color:#94a3b8;">현재 구축 상태</p>
+      <ul style="margin:4px 0 10px;padding-left:18px;font-size:12px;color:#cbd5e1;line-height:1.6;">
+        <li>Hippocampus (CA3 recurrent + CA1) — ${hippoExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>PFC (working memory, L23 → L5 recurrent) — ${pfcExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Amygdala (emotional valence) — ${amgExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Basal Ganglia (D1 Go / D2 NoGo) — ${bgExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Cerebellum (GRC + PC + DCN, motor learning) — ${crbExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Thalamus (TH relay + TRN gate, cortico-thalamo loop) — ${thalExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Spinal motor pool (AMN + Renshaw, final common pathway) — ${spinalExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Locus Coeruleus (NE source, arousal/gain) — ${lcExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Basal Forebrain (ACh source, attention) — ${bfExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Raphe Nuclei (5-HT source, mood/inhibition) — ${rapheExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Ventral Stream (V4 + IT, object recognition) — ${vsExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Dorsal Stream (V3 + MT + PPC, where/how pathway) — ${dsExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Auditory Cortex (A1 + A2, sound processing) — ${audExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Reward Circuit (VTA + NAcc, DA source) — ${rewardExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Insula (interoception, salience network) — ${insExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>ACC (conflict monitoring, error detection) — ${accExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Olfactory (OB + Piriform → AMG/HIPPO) — ${olfExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Brainstem (PAG + Pons, autonomic/relay) — ${stemExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>DMN (mPFC + PCC + AG, rest state) — ${dmnExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Hypothalamus (HPA + autonomic) — ${hypExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Salience Network (AI + dACC, DMN↔CEN switch) — ${snExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Mirror Neuron System (F5 + IPL, action understanding) — ${mnsExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>TPJ (theory of mind, mentalizing) — ${tpjExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Striatum tail (habit/automatic pathway) — ${tailExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>FEF (Frontal Eye Field, saccade/attention) — ${fefExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>V4 color sub-region (chromatic processing) — ${v4ColorExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>S1 (Somatosensory Cortex, tactile) — ${s1Exists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>M1 (Primary Motor Cortex) — ${m1Exists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Language (Broca + Wernicke) — ${langExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Sleep/Wake (VLPO flip-flop) — ${vlpoExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Reticular Formation (RAS, arousal) — ${rfExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Cingulate-Hippocampal binding (context binding, ACC↔CA1) — <span style="color:#94a3b8;">connectivity-only (ACC + HIPPO 필요)</span></li>
+        <li>Cuneus + Lingual Gyrus (extra-striate, dorsal/ventral split) — ${(cunExists && linExists) ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Pulvinar (thalamic visual attention relay) — ${pulExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>STN (Subthalamic Nucleus, BG hyperdirect NoGo) — ${stnExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>LGN (Lateral Geniculate, retinal relay → V1) — ${lgnExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Habenula (Hb, anti-reward / negative RPE) — ${hbExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Superior Colliculus (SC, orienting reflex / saccade) — ${scExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>OFC (Orbitofrontal Cortex, economic value coding) — ${ofcExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>SNc (Substantia Nigra compacta, nigrostriatal DA) — ${sncExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>ATN (Anterior Thalamic Nucleus, Papez relay) — ${atnExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Mammillary Bodies (Papez circuit junction) — ${mbExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Caudate + Putamen split (cognitive vs motor STR loops) — ${(caudExists && putExists) ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>GPe + GPi (BG output, direct/indirect) — ${gpExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Cerebellar lobules (vermis/hemisphere/flocculus) — ${cbLobExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>RSC (Retrosplenial Cortex, spatial scene + DMN) — ${rscExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>SMA + pre-SMA (internal action sequencing) — ${smaExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Premotor Cortex (PMd dorsal + PMv ventral) — ${pmExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Subiculum (HIPPO output → MB/ATN/NAcc) — ${subicExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>PHC (Parahippocampal, scene context) — ${phcExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>PRC (Perirhinal, object familiarity) — ${prcExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Insula split (AI salience + PI somatic) — ${aiPiExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Olfactory Tubercle (OT, olfactory-reward interface) — ${otExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>BNST (sustained anxiety, extended amygdala) — ${bnstExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>dlPFC + vmPFC split (cognitive vs valuation) — ${pfcSplitExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>dACC + vACC split (cognitive control vs affective) — ${accSplitExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>AMG split (BLA learning + CEN autonomic + Med social) — ${amgSplitExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Hippocampus DG + CA2 (pattern separation + social memory) — ${hippoExtExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>V1 L2/3 split (L23a feedforward + L23b recurrent) — ${v1L23SplitExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>A1 tonotopic map (frequency columns) — ${a1TonoExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>V2 L2/3 split (L23a feedforward + L23b recurrent) — ${v2L23SplitExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>IT subdivision (TEO posterior + TE anterior) — ${itSubdivExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>S1 somatotopic finger map (5 finger columns) — ${s1SomatoExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>Auditory localization (MSO ITD + LSO ILD) — ${audLocExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>V4 RGB columns (red/green/blue selectivity) — ${v4RgbExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+        <li>SC layered (superficial/intermediate/deep) — ${scLayeredExists ? '<span style="color:#10b981;">✓ 구축됨</span>' : '<span style="color:#94a3b8;">미구축</span>'}</li>
+      </ul>
+      <hr style="margin:10px 0;border:none;border-top:1px solid rgba(167,139,250,0.18);">
+      <input id="nf-bb-search" type="search" placeholder="🔍 region 검색 (이름/sub-label, 예: 'hippo' 'BG')" autocomplete="off" style="width:100%;box-sizing:border-box;padding:8px 10px;margin:4px 0 12px;background:rgba(15,23,42,0.55);border:1px solid rgba(167,139,250,0.25);border-radius:6px;color:#e9e2ff;font-size:12px;font-family:inherit;outline:none;">
+      <p class="nf-bb-section-label">🚀 Cluster presets (one-click)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-preset-visual" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          👁 Visual Hierarchy<br><span class="nf-bb-btn-sub">LGN+VS+DS+CUN+LIN+V4col+PUL+FEF+SC</span>
+        </button>
+        <button id="nf-bb-preset-memory" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🧬 Memory MTL+Papez<br><span class="nf-bb-btn-sub">Hippo+EC+DG/CA2+SUBIC+PHC+PRC+MB+ATN</span>
+        </button>
+        <button id="nf-bb-preset-limbic" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          🌀 Limbic+Salience<br><span class="nf-bb-btn-sub">ACC+INS+HYP+AMG split+BNST+AI/PI+dACC/vACC</span>
+        </button>
+        <button id="nf-bb-preset-motor" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🤲 Motor+BG<br><span class="nf-bb-btn-sub">BG+CAUD/PUT+GP+STN+M1+SMA+PM+CRB lobules</span>
+        </button>
+        <button id="nf-bb-smoketest" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🔬 Smoke Test<br><span class="nf-bb-btn-sub">build 메서드 회귀 점검</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🧠 Core regions (canonical)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-hippo" class="nf-bb-btn nf-bb-btn--amber" type="button">
+          🟡 Hippocampus<br><span class="nf-bb-btn-sub">CA3 + CA1</span>
+        </button>
+        <button id="nf-bb-pfc" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🟣 PFC<br><span class="nf-bb-btn-sub">working memory</span>
+        </button>
+        <button id="nf-bb-amg" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🔴 Amygdala<br><span class="nf-bb-btn-sub">emotional gate</span>
+        </button>
+        <button id="nf-bb-bg" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🔵 Basal Ganglia<br><span class="nf-bb-btn-sub">D1 Go / D2 NoGo</span>
+        </button>
+        <button id="nf-bb-crb" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🟢 Cerebellum<br><span class="nf-bb-btn-sub">GRC + PC + DCN</span>
+        </button>
+        <button id="nf-bb-thal" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          🔷 Thalamus<br><span class="nf-bb-btn-sub">TH relay + TRN gate</span>
+        </button>
+        <button id="nf-bb-spinal" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🦾 Spinal Motor<br><span class="nf-bb-btn-sub">AMN + Renshaw</span>
+        </button>
+        <button id="nf-bb-stem" class="nf-bb-btn nf-bb-btn--red-act" type="button">
+          🟥 Brainstem<br><span class="nf-bb-btn-sub">PAG + Pons (autonomic)</span>
+        </button>
+        <button id="nf-bb-hyp" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          🌡 Hypothalamus<br><span class="nf-bb-btn-sub">HPA + autonomic</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">👁 Sensory & visual streams</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-lgn" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🌟 LGN<br><span class="nf-bb-btn-sub">retina → V1 relay</span>
+        </button>
+        <button id="nf-bb-pulvinar" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🎯 Pulvinar<br><span class="nf-bb-btn-sub">attention relay</span>
+        </button>
+        <button id="nf-bb-vs" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🔵 Ventral Stream<br><span class="nf-bb-btn-sub">V4 + IT (what)</span>
+        </button>
+        <button id="nf-bb-ds" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          🟢 Dorsal Stream<br><span class="nf-bb-btn-sub">V3 + MT + PPC (where)</span>
+        </button>
+        <button id="nf-bb-cunlin" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🌅 Cuneus+Lingual<br><span class="nf-bb-btn-sub">extra-striate</span>
+        </button>
+        <button id="nf-bb-v4color" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🎨 V4 Color<br><span class="nf-bb-btn-sub">chromatic</span>
+        </button>
+        <button id="nf-bb-fef" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          👀 FEF<br><span class="nf-bb-btn-sub">saccade/attention</span>
+        </button>
+        <button id="nf-bb-sc" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          👁 SC<br><span class="nf-bb-btn-sub">orienting / saccade</span>
+        </button>
+        <button id="nf-bb-aud" class="nf-bb-btn nf-bb-btn--amber2" type="button">
+          🔉 Auditory<br><span class="nf-bb-btn-sub">A1 + A2</span>
+        </button>
+        <button id="nf-bb-olf" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🌿 Olfactory<br><span class="nf-bb-btn-sub">OB + Piriform</span>
+        </button>
+        <button id="nf-bb-s1" class="nf-bb-btn nf-bb-btn--fuchsia" type="button">
+          ✋ S1<br><span class="nf-bb-btn-sub">somatosensory</span>
+        </button>
+        <button id="nf-bb-v1-l23" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🔬 V1 L2/3<br><span class="nf-bb-btn-sub">L23a FF + L23b recur</span>
+        </button>
+        <button id="nf-bb-a1-tono" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🎵 A1 tonotopic<br><span class="nf-bb-btn-sub">frequency columns</span>
+        </button>
+        <button id="nf-bb-v2-l23" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔬 V2 L2/3<br><span class="nf-bb-btn-sub">L23a FF + L23b recur</span>
+        </button>
+        <button id="nf-bb-it-subdiv" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🎨 IT subdiv<br><span class="nf-bb-btn-sub">TEO + TE</span>
+        </button>
+        <button id="nf-bb-s1-finger" class="nf-bb-btn nf-bb-btn--fuchsia" type="button">
+          🖐 S1 finger map<br><span class="nf-bb-btn-sub">5 finger columns</span>
+        </button>
+        <button id="nf-bb-aud-loc" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          📡 Auditory loc<br><span class="nf-bb-btn-sub">MSO ITD + LSO ILD</span>
+        </button>
+        <button id="nf-bb-v4-rgb" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🌈 V4 RGB<br><span class="nf-bb-btn-sub">R/G/B columns</span>
+        </button>
+        <button id="nf-bb-sc-layered" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          🎬 SC layered<br><span class="nf-bb-btn-sub">sup/int/deep</span>
+        </button>
+        <button id="nf-bb-v1-lateral" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          ↔ V1 lateral<br><span class="nf-bb-btn-sub">L23 horizontal</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🧬 Memory (MTL + Papez)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-hippoext" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🌱 DG+CA2<br><span class="nf-bb-btn-sub">pattern sep + social</span>
+        </button>
+        <button id="nf-bb-subiculum" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🏛 Subiculum<br><span class="nf-bb-btn-sub">HIPPO output</span>
+        </button>
+        <button id="nf-bb-phc" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          🏞 PHC<br><span class="nf-bb-btn-sub">scene context</span>
+        </button>
+        <button id="nf-bb-prc" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🎭 PRC<br><span class="nf-bb-btn-sub">object familiarity</span>
+        </button>
+        <button id="nf-bb-mb" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🧬 MB<br><span class="nf-bb-btn-sub">Mammillary bodies</span>
+        </button>
+        <button id="nf-bb-atn" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          🔁 ATN<br><span class="nf-bb-btn-sub">Papez relay</span>
+        </button>
+        <button id="nf-bb-cinghippo" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔗 ACC↔HIPPO<br><span class="nf-bb-btn-sub">context binding</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">💗 Reward & dopamine</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-reward" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          💗 VTA+NAcc<br><span class="nf-bb-btn-sub">mesolimbic DA</span>
+        </button>
+        <button id="nf-bb-snc" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          ⚡ SNc<br><span class="nf-bb-btn-sub">nigrostriatal DA</span>
+        </button>
+        <button id="nf-bb-habenula" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          ⛈ Habenula<br><span class="nf-bb-btn-sub">anti-reward (RPE−)</span>
+        </button>
+        <button id="nf-bb-ofc" class="nf-bb-btn nf-bb-btn--amber" type="button">
+          💰 OFC<br><span class="nf-bb-btn-sub">economic value</span>
+        </button>
+        <button id="nf-bb-ot" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🍬 OT<br><span class="nf-bb-btn-sub">olfactory→reward</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🌀 Limbic & salience</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-acc" class="nf-bb-btn nf-bb-btn--fuchsia" type="button">
+          🟪 ACC<br><span class="nf-bb-btn-sub">conflict monitor</span>
+        </button>
+        <button id="nf-bb-accsplit" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          🎚 dACC+vACC<br><span class="nf-bb-btn-sub">control/affect</span>
+        </button>
+        <button id="nf-bb-ins" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          🟠 Insula<br><span class="nf-bb-btn-sub">interoception</span>
+        </button>
+        <button id="nf-bb-insula" class="nf-bb-btn nf-bb-btn--purple" type="button">
+          🌀 AI+PI<br><span class="nf-bb-btn-sub">insula split</span>
+        </button>
+        <button id="nf-bb-amgsplit" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          ⚡ AMG split<br><span class="nf-bb-btn-sub">BLA+CEN+Med</span>
+        </button>
+        <button id="nf-bb-bnst" class="nf-bb-btn nf-bb-btn--red" type="button">
+          😨 BNST<br><span class="nf-bb-btn-sub">sustained anxiety</span>
+        </button>
+        <button id="nf-bb-sn" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          🚦 Salience Network<br><span class="nf-bb-btn-sub">AI+dACC switch</span>
+        </button>
+        <button id="nf-bb-mns" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🪞 Mirror Neurons<br><span class="nf-bb-btn-sub">F5 + IPL</span>
+        </button>
+        <button id="nf-bb-tpj" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          👁 TPJ<br><span class="nf-bb-btn-sub">theory of mind</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🎯 Cognitive control & DMN</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-pfcsplit" class="nf-bb-btn nf-bb-btn--amber2" type="button">
+          🧭 dlPFC+vmPFC<br><span class="nf-bb-btn-sub">cognitive/valuation</span>
+        </button>
+        <button id="nf-bb-dmn" class="nf-bb-btn nf-bb-btn--amber2" type="button">
+          🌅 DMN<br><span class="nf-bb-btn-sub">mPFC+PCC+AG</span>
+        </button>
+        <button id="nf-bb-rsc" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🗺 RSC<br><span class="nf-bb-btn-sub">retrosplenial DMN</span>
+        </button>
+        <button id="nf-bb-lang" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🗣 Language<br><span class="nf-bb-btn-sub">Broca + Wernicke</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🤲 Motor & BG circuits</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-m1" class="nf-bb-btn nf-bb-btn--red" type="button">
+          💪 M1<br><span class="nf-bb-btn-sub">primary motor</span>
+        </button>
+        <button id="nf-bb-sma" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          📋 SMA+preSMA<br><span class="nf-bb-btn-sub">action sequencing</span>
+        </button>
+        <button id="nf-bb-premotor" class="nf-bb-btn nf-bb-btn--amber" type="button">
+          🤲 Premotor<br><span class="nf-bb-btn-sub">PMd + PMv</span>
+        </button>
+        <button id="nf-bb-caudput" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🧠 Caud+Put<br><span class="nf-bb-btn-sub">cognitive/motor STR</span>
+        </button>
+        <button id="nf-bb-tail" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🚶 STR tail<br><span class="nf-bb-btn-sub">habit/automatic</span>
+        </button>
+        <button id="nf-bb-stn" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🛑 STN<br><span class="nf-bb-btn-sub">hyperdirect NoGo</span>
+        </button>
+        <button id="nf-bb-gp" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          ⚙ GPe+GPi<br><span class="nf-bb-btn-sub">BG output</span>
+        </button>
+        <button id="nf-bb-cblob" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          🍊 CRB Lobules<br><span class="nf-bb-btn-sub">vermis/hemi/floc</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🟣 Neuromodulators</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-lc" class="nf-bb-btn nf-bb-btn--purple" type="button">
+          🟣 Locus Coeruleus<br><span class="nf-bb-btn-sub">NE arousal</span>
+        </button>
+        <button id="nf-bb-bf" class="nf-bb-btn nf-bb-btn--amber2" type="button">
+          🟧 Basal Forebrain<br><span class="nf-bb-btn-sub">ACh attention</span>
+        </button>
+        <button id="nf-bb-raphe" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          🩷 Raphe Nuclei<br><span class="nf-bb-btn-sub">5-HT mood</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">📊 Analysis & verification</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-verify-behavior" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🎯 Verify behavior<br><span class="nf-bb-btn-sub">gesture→OUT accuracy</span>
+        </button>
+        <button id="nf-bb-weight-stats" class="nf-bb-btn nf-bb-btn--purple" type="button">
+          ⚖ Weight stats<br><span class="nf-bb-btn-sub">distribution + region pairs</span>
+        </button>
+        <button id="nf-bb-region-rates" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          🔥 Region rates<br><span class="nf-bb-btn-sub">firing Hz by region</span>
+        </button>
+        <button id="nf-bb-region-summary" class="nf-bb-btn nf-bb-btn--amber" type="button">
+          🗂 Region summary<br><span class="nf-bb-btn-sub">neuron counts</span>
+        </button>
+        <button id="nf-bb-test-dg" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🧩 DG sep test<br><span class="nf-bb-btn-sub">pattern separation</span>
+        </button>
+        <button id="nf-bb-test-ca3" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🔁 CA3 completion<br><span class="nf-bb-btn-sub">cue → recall</span>
+        </button>
+        <button id="nf-bb-test-binding" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🔗 Cross-modal<br><span class="nf-bb-btn-sub">V1+A1→INS synergy</span>
+        </button>
+        <button id="nf-bb-test-wta" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🏆 WTA test<br><span class="nf-bb-btn-sub">winner-take-all</span>
+        </button>
+        <button id="nf-bb-test-da" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          💊 DA effect<br><span class="nf-bb-btn-sub">dopamine on/off</span>
+        </button>
+        <button id="nf-bb-w-hist" class="nf-bb-btn nf-bb-btn--purple" type="button">
+          📊 Weight hist<br><span class="nf-bb-btn-sub">10-bin distribution</span>
+        </button>
+        <button id="nf-bb-w-snap" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          📸 Snapshot Δw<br><span class="nf-bb-btn-sub">STDP learning trace</span>
+        </button>
+        <button id="nf-bb-conn" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🕸 Connectivity<br><span class="nf-bb-btn-sub">region pair matrix</span>
+        </button>
+        <button id="nf-bb-energy" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🔋 Energy cost<br><span class="nf-bb-btn-sub">metabolic estimator</span>
+        </button>
+        <button id="nf-bb-reset-region" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          ✂ Reset region<br><span class="nf-bb-btn-sub">prefix 단위 제거</span>
+        </button>
+        <button id="nf-bb-raster" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🌠 Raster export<br><span class="nf-bb-btn-sub">spike events JSON</span>
+        </button>
+        <button id="nf-bb-telemetry" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          📡 Telemetry<br><span class="nf-bb-btn-sub">network state</span>
+        </button>
+        <button id="nf-bb-methods" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          📚 Methods<br><span class="nf-bb-btn-sub">API auto-discover</span>
+        </button>
+        <button id="nf-bb-train-sel" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🎓 Train selectivity<br><span class="nf-bb-btn-sub">STDP 5 epochs</span>
+        </button>
+        <button id="nf-bb-baseline" class="nf-bb-btn nf-bb-btn--green" type="button">
+          📐 Baseline check<br><span class="nf-bb-btn-sub">Phase 2 + Stage 1</span>
+        </button>
+        <button id="nf-bb-webgpu" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🚀 WebGPU 진입?<br><span class="nf-bb-btn-sub">benchmark+recommend</span>
+        </button>
+        <button id="nf-bb-auto-train" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🚂 Auto-train all<br><span class="nf-bb-btn-sub">build+train+validate</span>
+        </button>
+        <button id="nf-bb-freeze" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🧊 Freeze region<br><span class="nf-bb-btn-sub">prefix STDP gating</span>
+        </button>
+        <button id="nf-bb-multimodal" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🎭 Multi-modal<br><span class="nf-bb-btn-sub">visual+audio scenario</span>
+        </button>
+        <button id="nf-bb-randomize" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🎲 Randomize w<br><span class="nf-bb-btn-sub">STDP reset (topology 보존)</span>
+        </button>
+        <button id="nf-bb-compare-snap" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔍 Compare snap<br><span class="nf-bb-btn-sub">snapshot vs current</span>
+        </button>
+        <button id="nf-bb-func-conn" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🌐 Func connectivity<br><span class="nf-bb-btn-sub">co-firing pairs</span>
+        </button>
+        <button id="nf-bb-raster-plot" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          📈 Raster plot<br><span class="nf-bb-btn-sub">spike SVG visualization</span>
+        </button>
+        <button id="nf-bb-rate-trend" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          📉 Rate trend<br><span class="nf-bb-btn-sub">multi-window 발화율</span>
+        </button>
+        <button id="nf-bb-top-firing" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🔥 Top firing<br><span class="nf-bb-btn-sub">leaderboard</span>
+        </button>
+        <button id="nf-bb-neuron-conn" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🔌 Neuron conn<br><span class="nf-bb-btn-sub">fanin/fanout 조회</span>
+        </button>
+        <button id="nf-bb-stdp-region" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          📐 STDP/region<br><span class="nf-bb-btn-sub">region pair Δw</span>
+        </button>
+        <button id="nf-bb-csv" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          📑 Spike CSV<br><span class="nf-bb-btn-sub">external plotting</span>
+        </button>
+        <button id="nf-bb-region-graph" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🗺 Region graph<br><span class="nf-bb-btn-sub">force-directed input</span>
+        </button>
+        <button id="nf-bb-reward-train" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🏆 Reward train<br><span class="nf-bb-btn-sub">gesture→OUT supervised</span>
+        </button>
+        <button id="nf-bb-test-wm" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🧠 WM persistent<br><span class="nf-bb-btn-sub">PFC delay activity</span>
+        </button>
+        <button id="nf-bb-forgetting" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🌫 Forgetting<br><span class="nf-bb-btn-sub">passive weight decay</span>
+        </button>
+        <button id="nf-bb-vtrace" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🌊 V trace<br><span class="nf-bb-btn-sub">single neuron V over time</span>
+        </button>
+        <button id="nf-bb-psth" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          📊 PSTH<br><span class="nf-bb-btn-sub">peri-stim time histogram</span>
+        </button>
+        <button id="nf-bb-state-diff" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔀 State diff<br><span class="nf-bb-btn-sub">topology snapshot diff</span>
+        </button>
+        <button id="nf-bb-isi" class="nf-bb-btn nf-bb-btn--emerald" type="button">
+          📈 ISI stats<br><span class="nf-bb-btn-sub">CV / firing regime</span>
+        </button>
+        <button id="nf-bb-tune-inh" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          ⚖ Tune inhibition<br><span class="nf-bb-btn-sub">prefix E/I balance</span>
+        </button>
+        <button id="nf-bb-critical" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🌟 Critical period<br><span class="nf-bb-btn-sub">high-plasticity window</span>
+        </button>
+        <button id="nf-bb-rpe" class="nf-bb-btn nf-bb-btn--pink" type="button">
+          📊 RPE<br><span class="nf-bb-btn-sub">reward prediction error</span>
+        </button>
+        <button id="nf-bb-e2e" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🎬 E2E demo<br><span class="nf-bb-btn-sub">build+train+verify combo</span>
+        </button>
+        <button id="nf-bb-rf" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🎯 Receptive field<br><span class="nf-bb-btn-sub">single neuron fanin</span>
+        </button>
+        <button id="nf-bb-pop-vec" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          📡 Pop decoder<br><span class="nf-bb-btn-sub">gesture from ensemble</span>
+        </button>
+        <button id="nf-bb-stdp-prefix" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔧 STDP × prefix<br><span class="nf-bb-btn-sub">per-region gain scaling</span>
+        </button>
+        <button id="nf-bb-numpy" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          ⚡ NumPy proto<br><span class="nf-bb-btn-sub">Tier 3 prototype</span>
+        </button>
+        <button id="nf-bb-pfc-delay" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          ⏳ PFC delay<br><span class="nf-bb-btn-sub">delay activity (5 groups)</span>
+        </button>
+        <button id="nf-bb-sparseness" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🧪 Sparseness<br><span class="nf-bb-btn-sub">Treves & Rolls</span>
+        </button>
+        <button id="nf-bb-curve" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          📈 Learning curve<br><span class="nf-bb-btn-sub">selectivity over cycles</span>
+        </button>
+        <button id="nf-bb-conflict" class="nf-bb-btn nf-bb-btn--red" type="button">
+          ⚔ Action conflict<br><span class="nf-bb-btn-sub">2 gesture race</span>
+        </button>
+        <button id="nf-bb-delay-dist" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          ⏱ Delay dist<br><span class="nf-bb-btn-sub">synapse delay histogram</span>
+        </button>
+        <button id="nf-bb-place-field" class="nf-bb-btn nf-bb-btn--green" type="button">
+          📍 Place field<br><span class="nf-bb-btn-sub">CA1 spatial tuning</span>
+        </button>
+        <button id="nf-bb-theta-gamma" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🌊 θ-γ coupling<br><span class="nf-bb-btn-sub">phase locking index</span>
+        </button>
+        <button id="nf-bb-rstdp" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          💎 R-STDP<br><span class="nf-bb-btn-sub">eligibility-trace reward</span>
+        </button>
+        <button id="nf-bb-homeo" class="nf-bb-btn nf-bb-btn--orange" type="button">
+          ⚖ Homeo norm<br><span class="nf-bb-btn-sub">target Hz scaling</span>
+        </button>
+        <button id="nf-bb-tono-test" class="nf-bb-btn nf-bb-btn--yellow" type="button">
+          🎶 Tono test<br><span class="nf-bb-btn-sub">A1 column 선택성</span>
+        </button>
+        <button id="nf-bb-color-test" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🎨 Color sel<br><span class="nf-bb-btn-sub">V4 RGB 선택성</span>
+        </button>
+        <button id="nf-bb-bg-act" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          ⚖ BG D1/D2<br><span class="nf-bb-btn-sub">action go/nogo</span>
+        </button>
+        <button id="nf-bb-episodic" class="nf-bb-btn nf-bb-btn--green" type="button">
+          📚 Episodic<br><span class="nf-bb-btn-sub">HIPPO encode→recall</span>
+        </button>
+        <button id="nf-bb-lif-sweep" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🧬 LIF τ sweep<br><span class="nf-bb-btn-sub">tau_m vs firing rate</span>
+        </button>
+        <button id="nf-bb-orient" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          📐 V1 orient<br><span class="nf-bb-btn-sub">preferred orientation</span>
+        </button>
+        <button id="nf-bb-pc" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🔄 Pred coding<br><span class="nf-bb-btn-sub">V2→V1 prediction error</span>
+        </button>
+        <button id="nf-bb-xreg-sync" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🔗 X-region sync<br><span class="nf-bb-btn-sub">PFC ↔ HIPPO Pearson r</span>
+        </button>
+        <button id="nf-bb-sig" class="nf-bb-btn nf-bb-btn--amber" type="button">
+          🪪 Signature<br><span class="nf-bb-btn-sub">canonical fingerprint</span>
+        </button>
+        <button id="nf-bb-acg" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          🔁 Autocorr<br><span class="nf-bb-btn-sub">single neuron periodicity</span>
+        </button>
+        <button id="nf-bb-entropy" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🎲 Entropy<br><span class="nf-bb-btn-sub">Shannon (bits)</span>
+        </button>
+        <button id="nf-bb-aval" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          ⚡ Avalanche<br><span class="nf-bb-btn-sub">criticality dist</span>
+        </button>
+        <button id="nf-bb-sta" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🎯 STA<br><span class="nf-bb-btn-sub">spike-triggered avg</span>
+        </button>
+        <button id="nf-bb-paper" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          📄 Paper export<br><span class="nf-bb-btn-sub">all-in-one bundle</span>
+        </button>
+        <button id="nf-bb-seed" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🎰 Seed lock<br><span class="nf-bb-btn-sub">deterministic</span>
+        </button>
+        <button id="nf-bb-dash" class="nf-bb-btn nf-bb-btn--ocean" type="button">
+          🖥 Dashboard<br><span class="nf-bb-btn-sub">one-call status</span>
+        </button>
+        <button id="nf-bb-report" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          📝 Auto report<br><span class="nf-bb-btn-sub">markdown summary</span>
+        </button>
+        <button id="nf-bb-mdoc" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          📖 Methods doc<br><span class="nf-bb-btn-sub">METHODS.md auto</span>
+        </button>
+        <button id="nf-bb-compile" class="nf-bb-btn nf-bb-btn--green" type="button">
+          ✅ Compile check<br><span class="nf-bb-btn-sub">smoke+CV+sig</span>
+        </button>
+        <button id="nf-bb-2snap" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🔀 2-snap diff<br><span class="nf-bb-btn-sub">snap A vs B</span>
+        </button>
+        <button id="nf-bb-watcher" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          👁 Watcher tick<br><span class="nf-bb-btn-sub">single status snapshot</span>
+        </button>
+        <button id="nf-bb-final" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          🏁 Final pipeline<br><span class="nf-bb-btn-sub">build+train+all tests</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🌊 Oscillations & dynamics</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-theta" class="nf-bb-btn nf-bb-btn--violet" type="button">
+          🌀 Theta 8Hz<br><span class="nf-bb-btn-sub">HIPPO oscillation</span>
+        </button>
+        <button id="nf-bb-gamma" class="nf-bb-btn nf-bb-btn--magenta" type="button">
+          ⚡ Gamma 40Hz<br><span class="nf-bb-btn-sub">PV-mediated PING binding</span>
+        </button>
+        <button id="nf-bb-place-remap" class="nf-bb-btn nf-bb-btn--green" type="button">
+          🗺 Place remap<br><span class="nf-bb-btn-sub">CA1 context switch</span>
+        </button>
+        <button id="nf-bb-reset-dyn" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🔄 Reset dynamics<br><span class="nf-bb-btn-sub">spike state clear</span>
+        </button>
+        <button id="nf-bb-reset-all" class="nf-bb-btn nf-bb-btn--red" type="button">
+          🗑 Reset all<br><span class="nf-bb-btn-sub">grown regions 제거</span>
+        </button>
+      </div>
+
+      <p class="nf-bb-section-label">🛌 State & global</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-sleepwake" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          🛌 Sleep/Wake<br><span class="nf-bb-btn-sub">VLPO flip-flop</span>
+        </button>
+        <button id="nf-bb-rf" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          ⚡ Reticular Formation<br><span class="nf-bb-btn-sub">ARAS arousal</span>
+        </button>
+        <button id="nf-bb-benchmark" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          ⏱ Benchmark<br><span class="nf-bb-btn-sub">throughput 측정</span>
+        </button>
+        <button id="nf-bb-replay-sleep" class="nf-bb-btn nf-bb-btn--blue" type="button">
+          💤 Sleep Replay<br><span class="nf-bb-btn-sub">HIPPO→cortex consolidation</span>
+        </button>
+        <button id="nf-bb-export" class="nf-bb-btn nf-bb-btn--cyan" type="button">
+          📥 Export JSON<br><span class="nf-bb-btn-sub">snapshot 다운로드</span>
+        </button>
+        <button id="nf-bb-smoke-ext" class="nf-bb-btn nf-bb-btn--gray" type="button">
+          🧪 Smoke Test+<br><span class="nf-bb-btn-sub">cross-validation</span>
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Hippocampus 기능 (이미 구축 시)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-replay" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--violet-act${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          💤 Replay (sleep)
+        </button>
+        <button id="nf-bb-completion" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--emerald-act${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          🧩 Pattern Test
+        </button>
+        <button id="nf-bb-dg" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--amber${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          🌾 DG (pattern separation)
+        </button>
+        <button id="nf-bb-ec" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--amber2${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          🚪 EC (gateway II/III/V)
+        </button>
+        <button id="nf-bb-spatial" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--emerald-act${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          🗺 Place + Grid cells
+        </button>
+        <button id="nf-bb-spatial-inject" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--emerald" type="button">
+          📍 Inject (x=0.5, y=0.5)
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">시냅스 upgrade (Phase 24)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-nmda-pfc" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--violet${pfcExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${pfcExists ? '' : 'disabled'}>
+          💊 NMDA → PFC L5 (recurrent)
+        </button>
+        <button id="nf-bb-nmda-ca3" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--amber${hippoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${hippoExists ? '' : 'disabled'}>
+          💊 NMDA → CA3 (recurrent)
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Neuromodulation pulses</p>
+      <div class="nf-bb-grid-1">
+        <button id="nf-bb-ne-pulse" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--purple${lcExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${lcExists ? '' : 'disabled'}>
+          💥 NE pulse (LC arousal — V_th ↓ + dopamine co-release)
+        </button>
+        <button id="nf-bb-ach-pulse" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--amber2${bfExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${bfExists ? '' : 'disabled'}>
+          🎯 ACh pulse (BF attention — cortex+HIPPO V_th ↓)
+        </button>
+        <button id="nf-bb-5ht-pulse" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--pink${rapheExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${rapheExists ? '' : 'disabled'}>
+          💧 5-HT pulse (Raphe — inhibitory weight 강화)
+        </button>
+        <button id="nf-bb-vta-pulse" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--magenta${rewardExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${rewardExists ? '' : 'disabled'}>
+          🎉 VTA pulse (DA release — NAcc + BG D1 활성)
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Astrocyte / glia (Phase 26 — Turrigiano 1998 homeostasis)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-ast" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--gray" type="button">
+          🟦 Astrocyte 추가
+        </button>
+        <button id="nf-bb-homeo" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--blue" type="button">
+          ⚖️ Homeostasis step
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Long-range binding (Phase 43)</p>
+      <div class="nf-bb-grid-1">
+        <button id="nf-bb-commissural" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--violet-act" type="button">
+          🔗 Commissural fibers (cross-region binding 8 pairs)
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Cortical microcircuit (Phase 44 — L1 + L6 추가)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-layers-v1" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--cyan" type="button">
+          🧱 V1 → 6-layer
+        </button>
+        <button id="nf-bb-layers-v2" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--violet" type="button">
+          🧱 V2 → 6-layer
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Cerebro-Cerebellar Loop (Phase 48)</p>
+      <div class="nf-bb-grid-1">
+        <button id="nf-bb-cccloop" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--green" type="button">
+          🔄 Close cerebro-cerebellar loop (DCN → TH → PFC)
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Sleep/Wake toggle (Phase 50)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-sleep-mode" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--blue${vlpoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${vlpoExists ? '' : 'disabled'}>
+          😴 Sleep mode
+        </button>
+        <button id="nf-bb-wake-mode" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--amber2${vlpoExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${vlpoExists ? '' : 'disabled'}>
+          ☀️ Wake mode
+        </button>
+      </div>
+      <hr class="nf-bb-divider">
+      <p class="nf-bb-section-label">Cerebellum motor learning (Phase 25)</p>
+      <div class="nf-bb-grid-2">
+        <button id="nf-bb-io" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--orange-act${crbExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${crbExists ? '' : 'disabled'}>
+          🟠 IO + Climbing Fiber
+        </button>
+        <button id="nf-bb-ltd" class="nf-bb-btn nf-bb-btn--small nf-bb-btn--red-act${ioExists ? '' : ' nf-bb-btn--disabled'}" type="button" ${ioExists ? '' : 'disabled'}>
+          🩹 LTD train (error → 약화)
+        </button>
+      </div>
+      <div id="nf-bb-status" class="nf-bb-status">위 region 을 클릭해 추가하거나, 기존 Hippocampus 의 기능을 실행하세요.</div>
+    `,
+    buttons: [
+      { label: '닫기', kind: 'cancel', value: null },
+    ],
+  });
+
+  function setBbStatus(msg) {
+    const el = document.getElementById('nf-bb-status');
+    if (el) el.innerHTML = msg;
+  }
+  // 버튼 wiring (DOM ready 직후).
+  document.getElementById('nf-bb-hippo')?.addEventListener('click', async () => {
+    setBbStatus('🟡 Hippocampus 구축 중...');
+    const r = await backend.buildHippocampus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — CA3 ${r.ca3_count} / CA1 ${r.ca1_count}.`);
+    await syncCanvas(setBbStatus, `✓ Hippocampus 완료 — CA3 ${r.ca3_count} + CA1 ${r.ca1_count}, ${r.synapses_added} 시냅스.`);
+  });
+  document.getElementById('nf-bb-pfc')?.addEventListener('click', async () => {
+    setBbStatus('🟣 PFC 구축 중...');
+    const r = await backend.buildPfc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — L23 ${r.l23_count} / L5 ${r.l5_count}.`);
+    await syncCanvas(setBbStatus, `✓ PFC 완료 — L23 ${r.l23_count} + L5 ${r.l5_count} (recurrent), ${r.synapses_added} 시냅스.${r.ca1_sources ? ` HIPPO CA1 ${r.ca1_sources} 도 통합됨.` : ''}`);
+  });
+  document.getElementById('nf-bb-amg')?.addEventListener('click', async () => {
+    setBbStatus('🔴 Amygdala 구축 중...');
+    const r = await backend.buildAmygdala({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — AMG ${r.amg_count}.`);
+    await syncCanvas(setBbStatus, `✓ Amygdala 완료 — AMG ${r.amg_count} (recurrent), ${r.synapses_added} 시냅스.`);
+  });
+  document.getElementById('nf-bb-bg')?.addEventListener('click', async () => {
+    setBbStatus('🔵 Basal Ganglia 구축 중...');
+    const r = await backend.buildBasalGanglia({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — D1 ${r.d1_count} / D2 ${r.d2_count}.`);
+    await syncCanvas(setBbStatus, `✓ Basal Ganglia 완료 — D1 ${r.d1_count} (Go) + D2 ${r.d2_count} (NoGo), ${r.synapses_added} 시냅스. dopamine 으로 D1↑ / D2↓ 학습 가능.`);
+  });
+  document.getElementById('nf-bb-crb')?.addEventListener('click', async () => {
+    setBbStatus('🟢 Cerebellum 구축 중...');
+    const r = await backend.buildCerebellum({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — GRC ${r.grc_count} / PC ${r.pc_count} / DCN ${r.dcn_count}.`);
+    await syncCanvas(setBbStatus, `✓ Cerebellum 완료 — GRC ${r.grc_count} + PC ${r.pc_count} + DCN ${r.dcn_count}, ${r.synapses_added} 시냅스. V1 → GRC → PC → DCN → OUT (motor pathway).`);
+  });
+  document.getElementById('nf-bb-thal')?.addEventListener('click', async () => {
+    setBbStatus('🔷 Thalamus 구축 중...');
+    const r = await backend.buildThalamus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — TH ${r.th_count} / TRN ${r.trn_count}.`);
+    await syncCanvas(setBbStatus, `✓ Thalamus 완료 — TH ${r.th_count} (relay) + TRN ${r.trn_count} (gate), ${r.synapses_added} 시냅스. V1 → TH → V2 cortico-thalamo-cortical loop + TRN attention searchlight.`);
+  });
+  document.getElementById('nf-bb-spinal')?.addEventListener('click', async () => {
+    setBbStatus('🦾 Spinal motor pool 구축 중...');
+    const r = await backend.buildSpinalMotorPool({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — AMN ${r.amn_count} / RC ${r.rc_count}.`);
+    await syncCanvas(setBbStatus, `✓ Spinal Motor 완료 — AMN ${r.amn_count} (alpha motor) + RC ${r.rc_count} (Renshaw inhibitory), ${r.synapses_added} 시냅스. cortex/CRB/BG → AMN → OUT 최종 motor pathway.`);
+  });
+  document.getElementById('nf-bb-lc')?.addEventListener('click', async () => {
+    setBbStatus('🟣 Locus Coeruleus 구축 중...');
+    const r = await backend.buildLocusCoeruleus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — LC ${r.lc_count}.`);
+    await syncCanvas(setBbStatus, `✓ LC 완료 — ${r.lc_count} 뉴런 broadcast (regions: ${r.regions_targeted.join(', ')}, ${r.broadcast_targets} target). 💥 NE pulse 로 arousal 활성.`);
+  });
+  document.getElementById('nf-bb-ne-pulse')?.addEventListener('click', async () => {
+    setBbStatus('💥 NE pulse 진행 (V_th ↓ 1mV + dopamine co-release)...');
+    const r = await backend.lcPulse({ amplitude: 1.0, vthLowerMv: 1.0, dopamineCoRelease: 0.2 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ NE pulse — amplitude ${r.amplitude}, V_th ↓ ${r.vth_lower_mv}mV, DA ${r.dopamine_co_release}, active ${r.active_neurons_during_pulse} 뉴런. arousal/gain 일시 boost.`);
+  });
+  document.getElementById('nf-bb-bf')?.addEventListener('click', async () => {
+    setBbStatus('🟧 Basal Forebrain 구축 중...');
+    const r = await backend.buildBasalForebrain({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — BF ${r.bf_count}.`);
+    await syncCanvas(setBbStatus, `✓ BF 완료 — ${r.bf_count} 뉴런 broadcast (cortex + HIPPO + PFC + AMG, ${r.broadcast_targets} target). 🎯 ACh pulse 로 attention 활성.`);
+  });
+  document.getElementById('nf-bb-ach-pulse')?.addEventListener('click', async () => {
+    setBbStatus('🎯 ACh pulse 진행 (cortex + HIPPO V_th ↓ 0.8mV)...');
+    const r = await backend.bfPulse({ amplitude: 1.0, vthLowerMv: 0.8 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ ACh pulse — amplitude ${r.amplitude}, V_th ↓ ${r.vth_lower_mv}mV, active ${r.active_neurons_during_pulse} 뉴런. signal-to-noise enhancement.`);
+  });
+  document.getElementById('nf-bb-raphe')?.addEventListener('click', async () => {
+    setBbStatus('🩷 Raphe Nuclei 구축 중...');
+    const r = await backend.buildRapheNuclei({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Raphe ${r.raphe_count}.`);
+    await syncCanvas(setBbStatus, `✓ Raphe 완료 — ${r.raphe_count} 뉴런 broadcast (regions: ${r.regions_targeted.join(', ')}, ${r.broadcast_targets} target). 💧 5-HT pulse 로 mood/inhibition.`);
+  });
+  document.getElementById('nf-bb-5ht-pulse')?.addEventListener('click', async () => {
+    setBbStatus('💧 5-HT pulse 진행 (inhibitory weight 강화)...');
+    const r = await backend.raphePulse({ amplitude: 1.0 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ 5-HT pulse — amplitude ${r.amplitude}, active ${r.active_neurons_during_pulse} 뉴런. inhibitory weight × 2 (Aghajanian 1990).`);
+  });
+  document.getElementById('nf-bb-vs')?.addEventListener('click', async () => {
+    setBbStatus('🔵 Ventral Stream 구축 중...');
+    const r = await backend.buildVentralStream({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — V4 ${r.v4_count} / IT ${r.it_count}.`);
+    await syncCanvas(setBbStatus, `✓ Ventral Stream 완료 — V4 ${r.v4_count} + IT ${r.it_count}, ${r.synapses_added} 시냅스. V2 → V4 → IT → OUT (object recognition pathway).`);
+  });
+  document.getElementById('nf-bb-ds')?.addEventListener('click', async () => {
+    setBbStatus('🟢 Dorsal Stream 구축 중...');
+    const r = await backend.buildDorsalStream({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — V3 ${r.v3_count} / MT ${r.mt_count} / PPC ${r.ppc_count}.`);
+    await syncCanvas(setBbStatus, `✓ Dorsal Stream 완료 — V3 ${r.v3_count} + MT ${r.mt_count} + PPC ${r.ppc_count}, ${r.synapses_added} 시냅스. V2 → V3 → MT → PPC → OUT/PFC (where/how pathway, motion+spatial).`);
+  });
+  document.getElementById('nf-bb-aud')?.addEventListener('click', async () => {
+    setBbStatus('🔉 Auditory Cortex 구축 중...');
+    const r = await backend.buildAuditoryCortex({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — A1 ${r.a1_count} / A2 ${r.a2_count}.`);
+    await syncCanvas(setBbStatus, `✓ Auditory Cortex 완료 — A1 ${r.a1_count} (tonotopic) + A2 ${r.a2_count}, ${r.synapses_added} 시냅스. ${r.audio_sources} audio source → A1 → A2 → OUT${r.it_targets ? '/IT (multimodal)' : ''}.`);
+  });
+  document.getElementById('nf-bb-reward')?.addEventListener('click', async () => {
+    setBbStatus('💗 Reward Circuit 구축 중...');
+    const r = await backend.buildRewardCircuit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — VTA ${r.vta_count} / NAcc ${r.nacc_count}.`);
+    await syncCanvas(setBbStatus, `✓ Reward 완료 — VTA ${r.vta_count} (DA) + NAcc ${r.nacc_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} + PFC ${r.pfc_sources} → NAcc → BG D1 ${r.d1_targets}. 🎉 VTA pulse 로 DA release.`);
+  });
+  document.getElementById('nf-bb-vta-pulse')?.addEventListener('click', async () => {
+    setBbStatus('🎉 VTA pulse 진행 (DA release + NAcc 활성)...');
+    const r = await backend.vtaPulse({ amplitude: 1.0 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ VTA pulse — amplitude ${r.amplitude}, NAcc active ${r.nacc_active}, BG D1 active ${r.d1_active_downstream}. reward signal propagated.`);
+  });
+  document.getElementById('nf-bb-ins')?.addEventListener('click', async () => {
+    setBbStatus('🟠 Insula 구축 중...');
+    const r = await backend.buildInsula({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — INS ${r.ins_count}.`);
+    await syncCanvas(setBbStatus, `✓ Insula 완료 — INS ${r.ins_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} + V1 ${r.v1_sources} → INS → AMG/PFC ${r.pfc_targets} (interoception + salience).`);
+  });
+  document.getElementById('nf-bb-acc')?.addEventListener('click', async () => {
+    setBbStatus('🟪 ACC 구축 중...');
+    const r = await backend.buildAnteriorCingulate({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — ACC ${r.acc_count}.`);
+    await syncCanvas(setBbStatus, `✓ ACC 완료 — ACC ${r.acc_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} + INS ${r.ins_sources} + AMG ${r.amg_sources} + BG ${r.bg_sources} → ACC → PFC/VTA ${r.vta_targets} (conflict monitor).`);
+  });
+  document.getElementById('nf-bb-olf')?.addEventListener('click', async () => {
+    setBbStatus('🌿 Olfactory system 구축 중...');
+    const r = await backend.buildOlfactorySystem({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — OB ${r.ob_count} / PIR ${r.pir_count}.`);
+    await syncCanvas(setBbStatus, `✓ Olfactory 완료 — OB ${r.ob_count} (mitral) + PIR ${r.pir_count}, ${r.synapses_added} 시냅스. ${r.olfactory_sources} source → OB → PIR → AMG ${r.amg_targets} / CA3 ${r.ca3_targets} (Proust effect).`);
+  });
+  document.getElementById('nf-bb-stem')?.addEventListener('click', async () => {
+    setBbStatus('🟥 Brainstem 구축 중...');
+    const r = await backend.buildBrainstem({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — PAG ${r.pag_count} / Pons ${r.pons_count}.`);
+    await syncCanvas(setBbStatus, `✓ Brainstem 완료 — PAG ${r.pag_count} + Pons ${r.pons_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} → PAG → LC ${r.lc_targets} / AMN ${r.amn_targets} (defensive), Cortex → Pons → GRC ${r.grc_targets} (cerebellar relay).`);
+  });
+  document.getElementById('nf-bb-dmn')?.addEventListener('click', async () => {
+    setBbStatus('🌅 DMN 구축 중...');
+    const r = await backend.buildDefaultModeNetwork({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — mPFC ${r.mpfc_count} / PCC ${r.pcc_count} / AG ${r.ag_count}.`);
+    await syncCanvas(setBbStatus, `✓ DMN 완료 — mPFC ${r.mpfc_count} + PCC ${r.pcc_count} + AG ${r.ag_count}, ${r.synapses_added} 시냅스. mutual recurrent + CA1 ${r.ca1_sources} → PCC → CA3 (mind-wandering, autobiographical memory).`);
+  });
+  document.getElementById('nf-bb-hyp')?.addEventListener('click', async () => {
+    setBbStatus('🌡 Hypothalamus 구축 중...');
+    const r = await backend.buildHypothalamus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — HYP ${r.hyp_count}.`);
+    await syncCanvas(setBbStatus, `✓ HYP 완료 — ${r.hyp_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} → HYP → PAG ${r.pag_targets} / LC ${r.lc_targets} / Raphe ${r.raphe_targets} / AMN ${r.amn_targets} (HPA + autonomic broadcast).`);
+  });
+  document.getElementById('nf-bb-sn')?.addEventListener('click', async () => {
+    setBbStatus('🚦 Salience Network 구축 중...');
+    const r = await backend.buildSalienceNetwork({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — AI ${r.ai_count} / dACC ${r.dacc_count}.`);
+    await syncCanvas(setBbStatus, `✓ SN 완료 — AI ${r.ai_count} + dACC ${r.dacc_count}, ${r.synapses_added} 시냅스. INS ${r.ins_sources} + ACC ${r.acc_sources} → SN → CEN ${r.cen_targets} (excit) + DMN ${r.dmn_targets} (inhib). salient input 시 DMN suppress + CEN activate.`);
+  });
+  document.getElementById('nf-bb-mns')?.addEventListener('click', async () => {
+    setBbStatus('🪞 Mirror Neuron System 구축 중...');
+    const r = await backend.buildMirrorNeurons({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — F5 ${r.f5_count} / IPL ${r.ipl_count}.`);
+    await syncCanvas(setBbStatus, `✓ MNS 완료 — F5 ${r.f5_count} + IPL ${r.ipl_count}, ${r.synapses_added} 시냅스. PPC ${r.ppc_sources} + IT ${r.it_sources} → IPL → F5 → AMN ${r.amn_targets} + IT-back ${r.it_l4_targets} (action understanding + observation-execution matching).`);
+  });
+  document.getElementById('nf-bb-tpj')?.addEventListener('click', async () => {
+    setBbStatus('👁 TPJ 구축 중...');
+    const r = await backend.buildTpj({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — TPJ ${r.tpj_count}.`);
+    await syncCanvas(setBbStatus, `✓ TPJ 완료 — ${r.tpj_count}, ${r.synapses_added} 시냅스. IPL ${r.ipl_sources} + IT ${r.it_sources} → TPJ → mPFC ${r.mpfc_targets} (mentalizing) + AG ${r.ag_targets} (DMN bidir) + ACC ${r.acc_targets} (self/other conflict).`);
+  });
+  document.getElementById('nf-bb-tail')?.addEventListener('click', async () => {
+    setBbStatus('🚶 Striatum tail 구축 중...');
+    const r = await backend.buildStriatumTail({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — TAIL ${r.tail_count}.`);
+    await syncCanvas(setBbStatus, `✓ Tail 완료 — TAIL_STR ${r.tail_count}, ${r.synapses_added} 시냅스. IT ${r.it_sources} + A2 ${r.a2_sources} → TAIL → OUT ${r.out_targets} (habit pathway, parallel to BG body goal-directed).`);
+  });
+  document.getElementById('nf-bb-fef')?.addEventListener('click', async () => {
+    setBbStatus('👀 FEF 구축 중...');
+    const r = await backend.buildFrontalEyeField({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — FEF ${r.fef_count}.`);
+    await syncCanvas(setBbStatus, `✓ FEF 완료 — ${r.fef_count}, ${r.synapses_added} 시냅스. PPC ${r.ppc_sources} + V2 ${r.v2_sources} → FEF → V1 ${r.v1_targets} + V2_L23 ${r.v2_l23_targets} (top-down boost) + AMN ${r.amn_targets} (saccade).`);
+  });
+  document.getElementById('nf-bb-v4color')?.addEventListener('click', async () => {
+    setBbStatus('🎨 V4 Color 구축 중...');
+    const r = await backend.buildV4Color({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — V4_COLOR ${r.color_count}.`);
+    await syncCanvas(setBbStatus, `✓ V4 Color 완료 — ${r.color_count}, ${r.synapses_added} 시냅스. V1 ${r.v1_sources} → V4_COLOR → V4_L5 ${r.v4_l5_targets} + IT ${r.it_targets} (chromatic stream).`);
+  });
+  document.getElementById('nf-bb-s1')?.addEventListener('click', async () => {
+    setBbStatus('✋ S1 Somatosensory 구축 중...');
+    const r = await backend.buildSomatosensoryCortex({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — S1 ${r.s1_count}.`);
+    await syncCanvas(setBbStatus, `✓ S1 완료 — ${r.s1_count}, ${r.synapses_added} 시냅스. tactile ${r.tactile_sources} → S1 → V2 ${r.v2_targets} (cross-modal) + AMN ${r.amn_targets} (reflex) + INS ${r.ins_targets} (interoception).`);
+  });
+  document.getElementById('nf-bb-m1')?.addEventListener('click', async () => {
+    setBbStatus('💪 M1 Primary Motor 구축 중...');
+    const r = await backend.buildPrimaryMotorCortex({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — M1 ${r.m1_count}.`);
+    await syncCanvas(setBbStatus, `✓ M1 완료 — ${r.m1_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} + S1 ${r.s1_sources} + DCN ${r.dcn_sources} + STR_D1 ${r.str_sources} → M1 → AMN ${r.amn_targets} (corticospinal).`);
+  });
+  document.getElementById('nf-bb-cinghippo')?.addEventListener('click', async () => {
+    setBbStatus('🔗 ACC↔HIPPO 결합 중...');
+    const r = await backend.buildCingulateHippoBinding({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 결합됨 — ACC ${r.acc_count}, CA1 ${r.ca1_count}, CA3 ${r.ca3_count}.`);
+    await syncCanvas(setBbStatus, `✓ ACC↔HIPPO 결합 완료 — ${r.synapses_added} 시냅스. ACC ${r.acc_count} ↔ CA1 ${r.ca1_count} + ACC→CA3 ${r.ca3_count} (context binding).`);
+  });
+  document.getElementById('nf-bb-cunlin')?.addEventListener('click', async () => {
+    setBbStatus('🌅 Cuneus+Lingual 구축 중...');
+    const r = await backend.buildCuneusLingual({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Cuneus ${r.cuneus_count}, Lingual ${r.lingual_count}.`);
+    await syncCanvas(setBbStatus, `✓ Cuneus+Lingual 완료 — Cuneus ${r.cuneus_count} (sky) + Lingual ${r.lingual_count} (peach), ${r.synapses_added} 시냅스. V1 ${r.v1_sources} → CUN → V3 ${r.v3_targets}/MT ${r.mt_targets} (dorsal) + V1 → LIN → V4 ${r.v4_targets} (ventral).`);
+  });
+  document.getElementById('nf-bb-pulvinar')?.addEventListener('click', async () => {
+    setBbStatus('🎯 Pulvinar 구축 중...');
+    const r = await backend.buildPulvinar({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Pulvinar ${r.pul_count}.`);
+    await syncCanvas(setBbStatus, `✓ Pulvinar 완료 — ${r.pul_count}, ${r.synapses_added} 시냅스. V1 ${r.v1_sources} + V2 ${r.v2_sources} + MT ${r.mt_sources} → PUL → V4 ${r.v4_targets}/IT ${r.it_targets}/PPC ${r.ppc_targets} (attention gain).`);
+  });
+  document.getElementById('nf-bb-stn')?.addEventListener('click', async () => {
+    setBbStatus('🛑 STN 구축 중...');
+    const r = await backend.buildStn({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — STN ${r.stn_count}.`);
+    await syncCanvas(setBbStatus, `✓ STN 완료 — ${r.stn_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} + M1 ${r.m1_sources} → STN → STR_D2 ${r.str_d2_targets} (NoGo hyperdirect, action cancel).`);
+  });
+  document.getElementById('nf-bb-lgn')?.addEventListener('click', async () => {
+    setBbStatus('🌟 LGN 구축 중...');
+    const r = await backend.buildLgn({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — LGN ${r.lgn_count}.`);
+    await syncCanvas(setBbStatus, `✓ LGN 완료 — ${r.lgn_count}, ${r.synapses_added} 시냅스. INPUT ${r.input_sources} → LGN → V1 L4 ${r.v1_targets} (retina-cortical relay).`);
+  });
+  document.getElementById('nf-bb-habenula')?.addEventListener('click', async () => {
+    setBbStatus('⛈ Habenula 구축 중...');
+    const r = await backend.buildHabenula({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Hb ${r.hb_count}.`);
+    await syncCanvas(setBbStatus, `✓ Habenula 완료 — ${r.hb_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} + AMG ${r.amg_sources} → Hb ⊣ VTA ${r.vta_targets} (anti-reward) + → Raphe ${r.raphe_targets} (aversion 5-HT).`);
+  });
+  document.getElementById('nf-bb-sc')?.addEventListener('click', async () => {
+    setBbStatus('👁 Superior Colliculus 구축 중...');
+    const r = await backend.buildSuperiorColliculus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — SC ${r.sc_count}.`);
+    await syncCanvas(setBbStatus, `✓ SC 완료 — ${r.sc_count}, ${r.synapses_added} 시냅스. V1 ${r.v1_sources} + FEF ${r.fef_sources} → SC → AMN ${r.amn_targets} (saccade) + PUL ${r.pul_targets} (attention).`);
+  });
+  document.getElementById('nf-bb-ofc')?.addEventListener('click', async () => {
+    setBbStatus('💰 OFC 구축 중...');
+    const r = await backend.buildOfc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — OFC ${r.ofc_count}.`);
+    await syncCanvas(setBbStatus, `✓ OFC 완료 — ${r.ofc_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} + INS ${r.ins_sources} → OFC → STR_D1 ${r.str_targets}/PFC L23 ${r.pfc_targets} (value-guided choice).`);
+  });
+  document.getElementById('nf-bb-snc')?.addEventListener('click', async () => {
+    setBbStatus('⚡ SNc 구축 중...');
+    const r = await backend.buildSnc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — SNc ${r.snc_count}.`);
+    await syncCanvas(setBbStatus, `✓ SNc 완료 — ${r.snc_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} + PFC ${r.pfc_sources} → SNc → STR_D1 ${r.str_d1_targets} (+) / STR_D2 ${r.str_d2_targets} (−) (nigrostriatal DA).`);
+  });
+  document.getElementById('nf-bb-atn')?.addEventListener('click', async () => {
+    setBbStatus('🔁 ATN 구축 중...');
+    const r = await backend.buildAtn({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — ATN ${r.atn_count}.`);
+    await syncCanvas(setBbStatus, `✓ ATN 완료 — ${r.atn_count}, ${r.synapses_added} 시냅스. MB ${r.mb_sources} → ATN → ACC ${r.acc_targets}/PCC ${r.pcc_targets}/CA1 ${r.ca1_targets} (Papez relay).`);
+  });
+  document.getElementById('nf-bb-mb')?.addEventListener('click', async () => {
+    setBbStatus('🧬 Mammillary Bodies 구축 중...');
+    const r = await backend.buildMammillaryBodies({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — MB ${r.mb_count}.`);
+    await syncCanvas(setBbStatus, `✓ MB 완료 — ${r.mb_count}, ${r.synapses_added} 시냅스. CA1 ${r.ca1_sources} → MB → ATN ${r.atn_targets} (mammillothalamic tract).`);
+  });
+  document.getElementById('nf-bb-caudput')?.addEventListener('click', async () => {
+    setBbStatus('🧠 Caudate + Putamen 구축 중...');
+    const r = await backend.buildCaudatePutamen({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Caud ${r.caud_count}, Put ${r.put_count}.`);
+    await syncCanvas(setBbStatus, `✓ Caud+Put 완료 — Caud ${r.caud_count} + Put ${r.put_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} → CAUD → GPi (cognitive loop), M1 ${r.m1_sources} + S1 ${r.s1_sources} → PUT → GPi ${r.gpi_targets} (motor loop).`);
+  });
+  document.getElementById('nf-bb-gp')?.addEventListener('click', async () => {
+    setBbStatus('⚙ Globus Pallidus 구축 중...');
+    const r = await backend.buildGlobusPallidus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — GPe ${r.gpe_count}, GPi ${r.gpi_count}.`);
+    await syncCanvas(setBbStatus, `✓ GP 완료 — GPe ${r.gpe_count} + GPi ${r.gpi_count}, ${r.synapses_added} 시냅스. STR_D1 ${r.str_d1_sources} → GPi (direct Go), STR_D2 ${r.str_d2_sources} → GPe → STN ${r.stn_targets}/GPi (indirect NoGo) → TH ${r.th_targets} (BG gating).`);
+  });
+  document.getElementById('nf-bb-cblob')?.addEventListener('click', async () => {
+    setBbStatus('🍊 Cerebellar Lobules 구축 중...');
+    const r = await backend.buildCerebellarLobules({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — VERM ${r.verm_count}, HEMI ${r.hemi_count}, FLOC ${r.floc_count}.`);
+    await syncCanvas(setBbStatus, `✓ CRB Lobules 완료 — VERM ${r.verm_count} (AMG-axis) + HEMI ${r.hemi_count} (PFC/M1 cognitive) + FLOC ${r.floc_count} (PPC/FEF VOR), ${r.synapses_added} 시냅스 → DCN ${r.dcn_targets}.`);
+  });
+  document.getElementById('nf-bb-rsc')?.addEventListener('click', async () => {
+    setBbStatus('🗺 RSC 구축 중...');
+    const r = await backend.buildRsc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — RSC ${r.rsc_count}.`);
+    await syncCanvas(setBbStatus, `✓ RSC 완료 — ${r.rsc_count}, ${r.synapses_added} 시냅스. CA1 ${r.ca1_sources} + PPC ${r.ppc_sources} → RSC → PCC ${r.pcc_targets}/mPFC ${r.mpfc_targets} (spatial scene + DMN).`);
+  });
+  document.getElementById('nf-bb-sma')?.addEventListener('click', async () => {
+    setBbStatus('📋 SMA+preSMA 구축 중...');
+    const r = await backend.buildSma({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — SMA ${r.sma_count}, preSMA ${r.presma_count}.`);
+    await syncCanvas(setBbStatus, `✓ SMA 완료 — preSMA ${r.presma_count} + SMA ${r.sma_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} → preSMA → SMA → M1 ${r.m1_targets} + STR_D1 ${r.str_d1_targets} (self-initiated).`);
+  });
+  document.getElementById('nf-bb-premotor')?.addEventListener('click', async () => {
+    setBbStatus('🤲 Premotor 구축 중...');
+    const r = await backend.buildPremotor({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — PMd ${r.pmd_count}, PMv ${r.pmv_count}.`);
+    await syncCanvas(setBbStatus, `✓ Premotor 완료 — PMd ${r.pmd_count} (reach) + PMv ${r.pmv_count} (grasp), ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} + PPC ${r.ppc_sources} → PMd, PFC + IPL ${r.ipl_sources} → PMv → M1 ${r.m1_targets}.`);
+  });
+  document.getElementById('nf-bb-subiculum')?.addEventListener('click', async () => {
+    setBbStatus('🏛 Subiculum 구축 중...');
+    const r = await backend.buildSubiculum({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Subiculum ${r.sub_count}.`);
+    await syncCanvas(setBbStatus, `✓ Subiculum 완료 — ${r.sub_count}, ${r.synapses_added} 시냅스. CA1 ${r.ca1_sources} → SUBIC → MB ${r.mb_targets}/ATN ${r.atn_targets}/NAcc ${r.nacc_targets}/EC ${r.ec_targets}.`);
+  });
+  document.getElementById('nf-bb-phc')?.addEventListener('click', async () => {
+    setBbStatus('🏞 PHC 구축 중...');
+    const r = await backend.buildPhc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — PHC ${r.phc_count}.`);
+    await syncCanvas(setBbStatus, `✓ PHC 완료 — ${r.phc_count}, ${r.synapses_added} 시냅스. PPC ${r.ppc_sources} + V4 ${r.v4_sources} + RSC ${r.rsc_sources} → PHC → EC ${r.ec_targets} (scene gateway).`);
+  });
+  document.getElementById('nf-bb-prc')?.addEventListener('click', async () => {
+    setBbStatus('🎭 PRC 구축 중...');
+    const r = await backend.buildPrc({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — PRC ${r.prc_count}.`);
+    await syncCanvas(setBbStatus, `✓ PRC 완료 — ${r.prc_count}, ${r.synapses_added} 시냅스. IT ${r.it_sources} → PRC → EC ${r.ec_targets} (object familiarity).`);
+  });
+  document.getElementById('nf-bb-insula')?.addEventListener('click', async () => {
+    setBbStatus('🌀 Insula split 구축 중...');
+    const r = await backend.buildInsulaSplit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — AI ${r.ai_count}, PI ${r.pi_count}.`);
+    await syncCanvas(setBbStatus, `✓ Insula split 완료 — AI ${r.ai_count} + PI ${r.pi_count}, ${r.synapses_added} 시냅스. S1/A1/V1 → AI → ACC ${r.acc_targets} (salience), HYP ${r.hyp_sources} + AMG ${r.amg_sources} → PI → S1 (somatic).`);
+  });
+  document.getElementById('nf-bb-ot')?.addEventListener('click', async () => {
+    setBbStatus('🍬 OT 구축 중...');
+    const r = await backend.buildOlfactoryTubercle({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — OT ${r.ot_count}.`);
+    await syncCanvas(setBbStatus, `✓ OT 완료 — ${r.ot_count}, ${r.synapses_added} 시냅스. PIR ${r.pir_sources} → OT → NAcc ${r.nacc_targets}/VTA ${r.vta_targets}/STR_D1 ${r.str_targets} (odor-reward).`);
+  });
+  document.getElementById('nf-bb-bnst')?.addEventListener('click', async () => {
+    setBbStatus('😨 BNST 구축 중...');
+    const r = await backend.buildBnst({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — BNST ${r.bnst_count}.`);
+    await syncCanvas(setBbStatus, `✓ BNST 완료 — ${r.bnst_count}, ${r.synapses_added} 시냅스. AMG ${r.amg_sources} → BNST → HYP ${r.hyp_targets}/PAG ${r.pag_targets} (sustained anxiety).`);
+  });
+  document.getElementById('nf-bb-pfcsplit')?.addEventListener('click', async () => {
+    setBbStatus('🧭 dlPFC+vmPFC 구축 중...');
+    const r = await backend.buildPfcSplit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — dlPFC ${r.dlpfc_count}, vmPFC ${r.vmpfc_count}.`);
+    await syncCanvas(setBbStatus, `✓ PFC split 완료 — dlPFC ${r.dlpfc_count} + vmPFC ${r.vmpfc_count}, ${r.synapses_added} 시냅스. PPC ${r.ppc_sources} → dlPFC → SMA ${r.sma_targets}/Caud ${r.caud_targets} (executive), OFC ${r.ofc_sources} + AMG ${r.amg_sources} → vmPFC → NAcc ${r.nacc_targets} (valuation).`);
+  });
+  document.getElementById('nf-bb-accsplit')?.addEventListener('click', async () => {
+    setBbStatus('🎚 dACC+vACC 구축 중...');
+    const r = await backend.buildAccSplit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — dACC ${r.dacc_count}, vACC ${r.vacc_count}.`);
+    await syncCanvas(setBbStatus, `✓ ACC split 완료 — dACC ${r.dacc_count} + vACC ${r.vacc_count}, ${r.synapses_added} 시냅스. PFC ${r.pfc_sources} → dACC → STR ${r.str_targets} (cognitive control), AMG ${r.amg_sources} + INS ${r.ins_sources} → vACC → mPFC ${r.mpfc_targets} (affective).`);
+  });
+  document.getElementById('nf-bb-amgsplit')?.addEventListener('click', async () => {
+    setBbStatus('⚡ AMG split 구축 중...');
+    const r = await backend.buildAmgSplit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — BLA ${r.bla_count}, CEN ${r.cen_count}, Med ${r.med_count}.`);
+    await syncCanvas(setBbStatus, `✓ AMG split 완료 — BLA ${r.bla_count} + CEN ${r.cen_count} + Med ${r.med_count}, ${r.synapses_added} 시냅스. V1+A1+AMG → BLA → PFC ${r.pfc_targets}/CA1 ${r.ca1_targets} (learning) → CEN → PAG ${r.pag_targets}/HYP ${r.hyp_targets} (autonomic), PIR ${r.pir_sources} → Med → BNST ${r.bnst_targets} (social).`);
+  });
+  document.getElementById('nf-bb-hippoext')?.addEventListener('click', async () => {
+    setBbStatus('🌱 DG+CA2 구축 중...');
+    const r = await backend.buildHippoDgCa2({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — DG ${r.dg_count}, CA2 ${r.ca2_count}.`);
+    await syncCanvas(setBbStatus, `✓ DG+CA2 완료 — DG ${r.dg_count} + CA2 ${r.ca2_count}, ${r.synapses_added} 시냅스. EC ${r.ec_sources} → DG → CA3 ${r.ca3_targets} (mossy fibers, pattern separation), EC → CA2 → CA1 ${r.ca1_targets} (social memory).`);
+  });
+  document.getElementById('nf-bb-benchmark')?.addEventListener('click', async () => {
+    setBbStatus('⏱ 벤치마크 측정 중...');
+    const r = await backend.runBenchmark({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Bench — ${r.neurons} 뉴런 / ${r.synapses} 시냅스, ${r.elapsed_sec}s elapsed (${r.duration_ms}ms sim) → realtime ratio ${r.realtime_ratio}× (${r.steps_per_sec} steps/s, ${(r.neuron_steps_per_sec / 1e6).toFixed(2)}M neuron-steps/s).`);
+  });
+  // Phase 89 cluster preset handlers.
+  // Phase 91 — progress UI: pre-build button disabled state + post-build summary breakdown.
+  const summarizePreset = (r) => {
+    const entries = Object.entries(r.results || {});
+    const ok = entries.filter(([k, v]) => v && v.ok !== false);
+    const fails = entries.filter(([k, v]) => v && v.ok === false);
+    const okCount = ok.length;
+    const totalCount = entries.length;
+    const newCount = ok.filter(([k, v]) => !v.already_exists).length;
+    const existingCount = ok.filter(([k, v]) => v.already_exists).length;
+    let msg = `${okCount}/${totalCount} sub-region — 신규 ${newCount}, 기존 ${existingCount}, ${r.total_synapses} 시냅스 추가`;
+    if (fails.length) msg += ` (실패: ${fails.map(([k]) => k).join(', ')})`;
+    return msg;
+  };
+  const runPreset = async (btnId, label, emoji, fn) => {
+    const btn = document.getElementById(btnId);
+    if (btn) btn.disabled = true;
+    setBbStatus(`${emoji} ${label} 빌드 중... (region 별 sequential)`);
+    const t0 = performance.now();
+    const r = await fn();
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`${emoji} 실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ ${label} — ${summarizePreset(r)} (${dt}s)`);
+  };
+  // Phase 92 — Region search/filter. 버튼/리스트 항목 텍스트로 필터.
+  const searchInput = document.getElementById('nf-bb-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      const buttons = document.querySelectorAll('[id^="nf-bb-"][id]');
+      buttons.forEach((btn) => {
+        if (btn.id === 'nf-bb-search' || btn.tagName !== 'BUTTON') return;
+        // Skip non-region action buttons (replay/upgrade/etc).
+        const isRegionBtn = btn.classList.contains('nf-bb-btn') && !btn.classList.contains('nf-bb-btn--small');
+        if (!isRegionBtn) return;
+        const text = btn.textContent.toLowerCase();
+        const match = !q || text.includes(q);
+        btn.style.display = match ? '' : 'none';
+      });
+      // Hide/dim section labels with no visible buttons.
+      const labels = document.querySelectorAll('.nf-bb-section-label');
+      labels.forEach((label) => {
+        const next = label.nextElementSibling;
+        if (next && next.classList.contains('nf-bb-grid-2')) {
+          const visibleCount = [...next.querySelectorAll('button.nf-bb-btn')]
+            .filter((b) => b.style.display !== 'none' && !b.classList.contains('nf-bb-btn--small')).length;
+          label.style.display = visibleCount > 0 ? '' : 'none';
+          next.style.display = visibleCount > 0 ? '' : 'none';
+        }
+      });
+    });
+  }
+  document.getElementById('nf-bb-preset-visual')?.addEventListener('click', () =>
+    runPreset('nf-bb-preset-visual', 'Visual Hierarchy', '👁', () => backend.buildPresetVisualHierarchy()));
+  document.getElementById('nf-bb-preset-memory')?.addEventListener('click', () =>
+    runPreset('nf-bb-preset-memory', 'Memory MTL+Papez', '🧬', () => backend.buildPresetMemory()));
+  document.getElementById('nf-bb-preset-limbic')?.addEventListener('click', () =>
+    runPreset('nf-bb-preset-limbic', 'Limbic+Salience', '🌀', () => backend.buildPresetLimbic()));
+  document.getElementById('nf-bb-preset-motor')?.addEventListener('click', () =>
+    runPreset('nf-bb-preset-motor', 'Motor+BG', '🤲', () => backend.buildPresetMotor()));
+  // Phase 90 smoke test.
+  document.getElementById('nf-bb-smoketest')?.addEventListener('click', async () => {
+    setBbStatus('🔬 Smoke test 실행 중...');
+    const r = await backend.runSmokeTest();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Smoke — ${r.callable_methods}/${r.total_methods} build 메서드 callable, 현재 ${r.neurons_current} 뉴런 / ${r.synapses_current} 시냅스.`);
+  });
+  // Phase 191-199 (final round).
+  document.getElementById('nf-bb-paper')?.addEventListener('click', async () => {
+    setBbStatus('📄 Paper export 추출 중...');
+    const r = await backend.paperExport();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const json = JSON.stringify(r, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `neuronface-paper-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+    setBbStatus(`✓ Paper export — ${r.neurons?.length || 0} 뉴런 sig=${r.signature?.signature || ''} (${(json.length / 1024).toFixed(1)} KB) 다운로드.`);
+  });
+  document.getElementById('nf-bb-seed')?.addEventListener('click', async () => {
+    const seedStr = prompt("Random seed 값 (default 42)", "42");
+    const seed = parseInt(seedStr); if (!Number.isInteger(seed)) return;
+    const r = await backend.seedLock(seed);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Seed lock — seed=${r.seed}. 후속 회로 빌드 결정론.`);
+  });
+  document.getElementById('nf-bb-dash')?.addEventListener('click', async () => {
+    setBbStatus('🖥 Dashboard 조회...');
+    const r = await backend.dashboard();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const tel = r.telemetry || {};
+    setBbStatus(`✓ Dash — ${tel.neurons || 0} 뉴런 / ${tel.synapses || 0} 시냅스, ${r.region_count} regions, ${r.method_count} methods, CV=${r.cross_validate_passes}.`);
+  });
+  document.getElementById('nf-bb-report')?.addEventListener('click', async () => {
+    setBbStatus('📝 Auto report 생성 중...');
+    const r = await backend.autoReport();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const blob = new Blob([r.markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `neuronface-report-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+    setBbStatus(`✓ Auto report — ${r.char_count} chars 다운로드.`);
+  });
+  document.getElementById('nf-bb-mdoc')?.addEventListener('click', async () => {
+    setBbStatus('📖 Methods doc 생성 중...');
+    const r = await backend.methodsDoc();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const blob = new Blob([r.markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `METHODS.md`; a.click();
+    URL.revokeObjectURL(url);
+    setBbStatus(`✓ Methods doc — ${r.total_methods} methods, ${r.char_count} chars 다운로드.`);
+  });
+  document.getElementById('nf-bb-compile')?.addEventListener('click', async () => {
+    setBbStatus('✅ Compile check 실행...');
+    const r = await backend.compileCheck();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.all_pass ? '✓' : '⚠'} Compile — ${r.neurons} 뉴런, smoke=${r.smoke?.ok}, cv=${r.cv?.passes}, sig=${r.sig?.ok}. all_pass=${r.all_pass}.`);
+  });
+  document.getElementById('nf-bb-2snap')?.addEventListener('click', async () => {
+    setBbStatus('🔀 2-snap diff 측정 중...');
+    const r = await backend.compareTwoSnapshots({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ 2-snap (Δt=${r.elapsed_ms}ms) — shared ${r.shared}, +${r.added}, -${r.removed}, changed ${r.changed} (pot ${r.potentiated} / dep ${r.depressed}).`);
+  });
+  document.getElementById('nf-bb-watcher')?.addEventListener('click', async () => {
+    setBbStatus('👁 Watcher tick 측정 중...');
+    const r = await backend.watcherTick();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Watcher — ${r.neurons} 뉴런 / ${r.synapses} 시냅스, active ${r.active}, t=${r.current_t_ms}ms, passes=${r.passes}.`);
+  });
+  document.getElementById('nf-bb-final')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-final');
+    if (btn) btn.disabled = true;
+    setBbStatus('🏁 Final pipeline (build all + train + all tests)...');
+    const t0 = performance.now();
+    const r = await backend.runFinalPipeline({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `🏁 FINAL (${dt}s) — ${r.neurons} 뉴런 / ${r.synapses} 시냅스, ${r.pass_count} pass / ${r.log.length} steps.`);
+  });
+  // Phase 186 autocorr.
+  document.getElementById('nf-bb-acg')?.addEventListener('click', async () => {
+    const name = prompt("ACG 측정 뉴런 이름 (예: ca1_0)");
+    if (!name) return;
+    setBbStatus(`🔁 ${name} ACG 계산 중...`);
+    const r = await backend.autocorrelation(name, {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.few_spikes) return setBbStatus(`🔁 spikes ${r.spikes} 부족.`);
+    setBbStatus(`✓ ACG ${r.target} — ${r.spikes} spikes, peak lag ${r.peak_lag_ms}ms (count ${r.peak_count}), period ≈ ${r.estimated_period_hz}Hz.`);
+  });
+  // Phase 187 entropy.
+  document.getElementById('nf-bb-entropy')?.addEventListener('click', async () => {
+    setBbStatus('🎲 Network entropy 계산 중...');
+    const r = await backend.networkEntropy({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.no_activity) return setBbStatus('🎲 발화 없음.');
+    setBbStatus(`✓ Entropy — H=${r.shannon_entropy_bits} bits / max ${r.max_entropy_bits}, normalized ${r.normalized_entropy} (${r.verdict}). active ${r.active_neurons}.`);
+  });
+  // Phase 188 avalanche.
+  document.getElementById('nf-bb-aval')?.addEventListener('click', async () => {
+    setBbStatus('⚡ Avalanche distribution 측정 중...');
+    const r = await backend.avalancheDist({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const histStr = Object.entries(r.log2_size_histogram || {})
+      .map(([k, v]) => `2^${k}=${v}`).join(', ');
+    setBbStatus(`✓ Avalanche — ${r.n_avalanches} cascades, max ${r.max_size}, mean ${r.mean_size}. log2 hist: ${histStr || '없음'}`);
+  });
+  // Phase 189 STA.
+  document.getElementById('nf-bb-sta')?.addEventListener('click', async () => {
+    const name = prompt("STA 측정 뉴런 (target, 예: out_0, ca1_0)");
+    if (!name) return;
+    setBbStatus(`🎯 ${name} STA 계산 중...`);
+    const r = await backend.spikeTriggeredAverage(name, {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.no_spikes) return setBbStatus(`🎯 ${r.target}: 발화 없음.`);
+    if (r.no_sources) return setBbStatus(`🎯 ${r.target}: incoming source 없음.`);
+    const top3 = (r.top_sources || []).slice(0, 3).map(s => `${s.name}=${s.contrib}`).join(', ');
+    setBbStatus(`✓ STA ${r.target} (${r.n_target_spikes} spikes, ${r.n_sources} sources). Top contrib: ${top3 || '없음'}`);
+  });
+  // Phase 181 LIF sweep.
+  document.getElementById('nf-bb-lif-sweep')?.addEventListener('click', async () => {
+    setBbStatus('🧬 LIF τ_m sweep 측정 중...');
+    const r = await backend.lifSweep({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const trace = (r.tau_sweep || []).map(t => `τ=${t.tau_m}→${t.rate_hz}Hz`).join(', ');
+    setBbStatus(`✓ LIF sweep (${r.target_prefix}, n=${r.n_neurons}): ${trace}`);
+  });
+  // Phase 182 V1 orientation tuning.
+  document.getElementById('nf-bb-orient')?.addEventListener('click', async () => {
+    setBbStatus('📐 V1 orientation tuning 측정 중...');
+    const r = await backend.testOrientation({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const dist = Object.entries(r.preferred_distribution || {})
+      .map(([o, c]) => `o${o}=${c}`).join(', ');
+    setBbStatus(`${r.verdict === 'diverse_tuning' ? '✓' : '⚠'} V1 orient — pool ${r.v1_pool}, ${r.n_orientations} orient. Pref dist: ${dist}. imbalance ${r.imbalance}.`);
+  });
+  // Phase 183 predictive coding.
+  document.getElementById('nf-bb-pc')?.addEventListener('click', async () => {
+    setBbStatus('🔄 Predictive coding error 측정 중...');
+    const r = await backend.predictiveCoding({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Pred coding — V1 BU ${r.v1_bottom_up_spikes}, V1 TD ${r.v1_top_down_spikes}, PE=${r.prediction_error}. ${r.verdict}`);
+  });
+  // Phase 184 cross-region sync.
+  document.getElementById('nf-bb-xreg-sync')?.addEventListener('click', async () => {
+    setBbStatus('🔗 Cross-region sync (PFC↔HIPPO) 측정 중...');
+    const r = await backend.crossRegionSync({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'synced' ? '✓' : '⚠'} Sync (${r.prefix_a}↔${r.prefix_b}) — n_a=${r.n_a}/n_b=${r.n_b}, spikes ${r.total_spikes_a}/${r.total_spikes_b}, pearson_r=${r.pearson_r}. ${r.verdict}`);
+  });
+  // Phase 185 signature.
+  document.getElementById('nf-bb-sig')?.addEventListener('click', async () => {
+    setBbStatus('🪪 Network signature 추출 중...');
+    const r = await backend.networkSignature();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Sig — ${r.signature}. regions: ${Object.keys(r.regions).length}, ${r.neurons} 뉴런 / ${r.synapses} 시냅스.`);
+  });
+  // Phase 176 tonotopic.
+  document.getElementById('nf-bb-tono-test')?.addEventListener('click', async () => {
+    setBbStatus('🎶 Tonotopic selectivity 측정 중...');
+    const r = await backend.testTonotopic({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'tonotopic_preserved' ? '✓' : '⚠'} Tono — ${r.n_columns} columns, accuracy ${r.selectivity_accuracy}. ${r.verdict}`);
+  });
+  // Phase 177 color selectivity.
+  document.getElementById('nf-bb-color-test')?.addEventListener('click', async () => {
+    setBbStatus('🎨 Color selectivity 측정 중...');
+    const r = await backend.testColorSelectivity({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'color_selective' ? '✓' : '⚠'} Color — accuracy ${r.selectivity_accuracy}. ${r.verdict}`);
+  });
+  // Phase 178 BG action.
+  document.getElementById('nf-bb-bg-act')?.addEventListener('click', async () => {
+    setBbStatus('⚖ BG action selection 측정 중...');
+    const r = await backend.testBgAction({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ BG (${r.gesture}) — D1 ${r.d1_spikes}sp / D2 ${r.d2_spikes}sp, D1 ratio ${r.d1_ratio}. ${r.verdict}`);
+  });
+  // Phase 179 episodic memory.
+  document.getElementById('nf-bb-episodic')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-episodic');
+    if (btn) btn.disabled = true;
+    setBbStatus('📚 Episodic memory encode + recall 진행 중...');
+    const t0 = performance.now();
+    const r = await backend.testEpisodicMemory({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'recall_present' ? '✓' : '⚠'} Episodic (${dt}s) — CA1 pool ${r.ca1_pool}, CA3 pool ${r.ca3_pool}. avg recall: CA1=${r.avg_ca1_recall}, CA3=${r.avg_ca3_recall}. ${r.verdict}`);
+  });
+  // Phase 171 delay distribution.
+  document.getElementById('nf-bb-delay-dist')?.addEventListener('click', async () => {
+    setBbStatus('⏱ Delay distribution 집계 중...');
+    const r = await backend.delayDistribution();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.synapses === 0) return setBbStatus('⏱ 시냅스 없음.');
+    const histStr = (r.histogram || []).map(c => c).join('/');
+    const top3 = (r.top_region_pairs || []).slice(0, 3)
+      .map(p => `${p.pair}=${p.mean_delay}ms`).join(', ');
+    setBbStatus(`✓ Delays — ${r.synapses} 시냅스, range [${r.min}, ${r.max}]ms (10 bins: ${histStr}). Top: ${top3}`);
+  });
+  // Phase 172 place field.
+  document.getElementById('nf-bb-place-field')?.addEventListener('click', async () => {
+    setBbStatus('📍 Place field encoding 측정 중...');
+    const r = await backend.testPlaceField({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const dist = Object.entries(r.loc_distribution || {})
+      .map(([loc, c]) => `${loc}=${c}`).join(', ');
+    setBbStatus(`${r.balanced ? '✓' : '⚠'} Place fields — CA1 ${r.ca1_pool}, ${r.locations.length} locations. Distribution: ${dist}. balanced=${r.balanced}.`);
+  });
+  // Phase 173 theta-gamma.
+  document.getElementById('nf-bb-theta-gamma')?.addEventListener('click', async () => {
+    setBbStatus('🌊 θ-γ coupling 측정 중...');
+    const r = await backend.thetaGammaCoupling({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.no_activity) return setBbStatus(`🌊 ${r.target_prefix}: 발화 없음.`);
+    setBbStatus(`${r.verdict === 'coupled' ? '✓' : '⚠'} θ-γ (${r.target_prefix}) — n=${r.n_neurons}, spikes ${r.total_spikes}, mod_idx ${r.modulation_index}. ${r.verdict} (θ ${r.theta_freq_hz}Hz, γ ${r.gamma_freq_hz}Hz)`);
+  });
+  // Phase 174 R-STDP.
+  document.getElementById('nf-bb-rstdp')?.addEventListener('click', async () => {
+    setBbStatus('💎 R-STDP reward pulse (positive Δw 증폭) 적용 중...');
+    const r = await backend.applyRstdpPulse({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ R-STDP — ${r.synapses_amplified} 시냅스 증폭 (×${r.reward_strength}, positive_only=${r.positive_only}), total Δw=${r.total_amplified_delta}.`);
+  });
+  // Phase 175 homeostatic.
+  document.getElementById('nf-bb-homeo')?.addEventListener('click', async () => {
+    setBbStatus('⚖ Homeostatic normalization (target 5Hz) 적용 중...');
+    const r = await backend.homeostaticNormalize({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Homeo — target ${r.target_hz}Hz (window ${r.window_ms}ms), ${r.synapses_adjusted} 시냅스 scaled (clamp [0.5, 2.0]).`);
+  });
+  // Phase 169 V1 lateral.
+  document.getElementById('nf-bb-v1-lateral')?.addEventListener('click', async () => {
+    setBbStatus('↔ V1 lateral horizontal connections 추가 중...');
+    const r = await backend.buildV1Lateral({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ V1 lateral — pool ${r.v1_l23_pool}, existing ${r.existing_lateral}, added ${r.added_lateral} (density ${r.density}).`);
+  });
+  // Phase 166 sparseness.
+  document.getElementById('nf-bb-sparseness')?.addEventListener('click', async () => {
+    const prefix = prompt("Sparseness 계산 prefix (빈 값 = 전체, 예: 'ca1_', 'pfc_l5_')") ?? "";
+    setBbStatus(`🧪 Sparseness 계산 중 (${prefix || 'all'})...`);
+    const r = await backend.sparseness({ prefix });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.no_activity) return setBbStatus(`🧪 ${r.prefix}: 발화 없음 — 자극 후 다시.`);
+    setBbStatus(`✓ Sparseness (${r.prefix}, n=${r.n_neurons}) — Treves-Rolls S=${r.treves_rolls_sparseness} (max sparse ${r.max_sparse_value}), active ${r.active_count}/${r.n_neurons}=${r.active_fraction}. ${r.verdict}`);
+  });
+  // Phase 167 learning curve.
+  document.getElementById('nf-bb-curve')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-curve');
+    if (btn) btn.disabled = true;
+    setBbStatus('📈 Learning curve (5 cycles × 3 epochs) — 시간 소요...');
+    const t0 = performance.now();
+    const r = await backend.learningCurve({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const trace = (r.curve || []).map(p => `c${p.cycle}=${p.selectivity}`).join(' → ');
+    setBbStatus(`✓ Learning curve (${dt}s) — improvement ${r.improvement}. [${trace}]`);
+  });
+  // Phase 168 action conflict.
+  document.getElementById('nf-bb-conflict')?.addEventListener('click', async () => {
+    setBbStatus('⚔ Action conflict (pinch vs fist) 측정 중...');
+    const r = await backend.testActionConflict({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const counts = Object.entries(r.out_counts || {}).map(([n, c]) => `${n}=${c}`).join(',');
+    setBbStatus(`${r.verdict === 'decisive' ? '✓' : '⚠'} Conflict (${r.input_a} ↔ ${r.input_b}) — winner ${r.winner} (share ${r.winner_share}). out: ${counts}. ${r.verdict}`);
+  });
+  // Phase 162 NumPy vectorized run.
+  document.getElementById('nf-bb-numpy')?.addEventListener('click', async () => {
+    setBbStatus('⚡ NumPy vectorized prototype 측정 중...');
+    const r = await backend.runVectorized({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.backend === 'pure_python_fallback') {
+      return setBbStatus(`⚠ NumPy 미설치 — fallback. ${r.neurons_per_step} 뉴런 / ${r.spikes} spikes (window ${r.duration_ms || ''}ms).`);
+    }
+    setBbStatus(`✓ NumPy proto — ${r.neurons} 뉴런 / ${r.synapses} 시냅스 (${r.duration_ms}ms): pure ${r.elapsed_pure_python_sec}s vs np stub ${r.elapsed_numpy_stub_sec}s, speedup ${r.speedup_x}×. (stub = leak only)`);
+  });
+  // Phase 163 V4 RGB columns.
+  document.getElementById('nf-bb-v4-rgb')?.addEventListener('click', async () => {
+    setBbStatus('🌈 V4 RGB columns 구축 중...');
+    const r = await backend.buildV4Rgb({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — RGB ${r.rgb_count}.`);
+    await syncCanvas(setBbStatus, `✓ V4 RGB — ${r.colors.join('/')} × ${r.cells_per_color} = ${r.rgb_count}, ${r.synapses_added} 시냅스. V1 ${r.v1_sources} → RGB → V4 ${r.v4_targets}/IT ${r.it_targets}.`);
+  });
+  // Phase 164 SC layered.
+  document.getElementById('nf-bb-sc-layered')?.addEventListener('click', async () => {
+    setBbStatus('🎬 SC layered 구축 중...');
+    const r = await backend.buildScLayered({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — sup ${r.sup_count}, int ${r.int_count}, deep ${r.deep_count}.`);
+    await syncCanvas(setBbStatus, `✓ SC layered — sup ${r.sup_count} + int ${r.int_count} + deep ${r.deep_count}, ${r.synapses_added} 시냅스. V1 ${r.v1_sources} → sup → int (← FEF ${r.fef_sources}) → deep → AMN ${r.amn_targets}.`);
+  });
+  // Phase 165 PFC delay measurement.
+  document.getElementById('nf-bb-pfc-delay')?.addEventListener('click', async () => {
+    setBbStatus('⏳ PFC delay 측정 중 (cue=in_pinch)...');
+    const r = await backend.measurePfcDelay({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const summary = Object.entries(r.groups || {})
+      .map(([g, s]) => `${g}(${s.size}): cue=${s.cue_spikes}/delay=${s.delay_spikes} (p=${s.persistence})`).join(' | ');
+    setBbStatus(`✓ PFC delay — cue=${r.cue_input} (${r.cue_ms}ms), delay ${r.delay_ms}ms. ${summary}`);
+  });
+  // Phase 156 auditory localization.
+  document.getElementById('nf-bb-aud-loc')?.addEventListener('click', async () => {
+    setBbStatus('📡 Auditory localization 구축 중...');
+    const r = await backend.buildAuditoryLocalization({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — MSO ${r.mso_count}, LSO ${r.lso_count}.`);
+    await syncCanvas(setBbStatus, `✓ Aud loc — MSO ${r.mso_count} (ITD) + LSO ${r.lso_count} (ILD), ${r.synapses_added} 시냅스. ${r.ear_l}/${r.ear_r} → MSO/LSO → A1 ${r.a1_targets}.`);
+  });
+  // Phase 157 receptive field.
+  document.getElementById('nf-bb-rf')?.addEventListener('click', async () => {
+    const name = prompt("Receptive field 조회할 뉴런 이름 (예: ca1_0, v2_L4_E_0)");
+    if (!name) return;
+    setBbStatus(`🎯 ${name} receptive field 조회 중...`);
+    const r = await backend.receptiveField(name, {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top3 = (r.top_fanin || []).slice(0, 3).map(f => `${f.from}(${f.region}, w=${f.weight})`).join(', ');
+    const reg = (r.by_region || []).slice(0, 3).map(g => `${g.region}=${g.count}(μ${g.mean_weight})`).join(', ');
+    setBbStatus(`✓ RF ${r.neuron} (${r.region}) — fanin ${r.fanin_total}. Top: ${top3 || '없음'}. By region: ${reg}`);
+  });
+  // Phase 158 population vector decoder.
+  document.getElementById('nf-bb-pop-vec')?.addEventListener('click', async () => {
+    setBbStatus('📡 Population vector decoding 측정 중...');
+    const r = await backend.decodePopulation({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const decoded = Object.entries(r.self_decoding || {}).map(([g, d]) => `${g}→${d}`).join(', ');
+    const sims = Object.entries(r.pairwise_similarity || {}).map(([k, v]) => `${k}=${v}`).join(', ');
+    setBbStatus(`${r.verdict === 'good_decoding' ? '✓' : '⚠'} Pop decode — accuracy ${r.self_accuracy} (${decoded}). Pairwise sim: ${sims}`);
+  });
+  // Phase 159 STDP gain prefix.
+  document.getElementById('nf-bb-stdp-prefix')?.addEventListener('click', async () => {
+    const prefix = prompt("STDP gain 적용할 region prefix (예: ca1_, pfc_l5_)");
+    if (!prefix) return;
+    const mulStr = prompt("Gain multiplier (1.0 = unchanged, 2.0 = double STDP rate)", "1.5");
+    const mul = parseFloat(mulStr);
+    if (!isFinite(mul) || mul <= 0) return setBbStatus(`⚠ multiplier invalid: ${mulStr}`);
+    setBbStatus(`🔧 '${prefix}' STDP × ${mul} 표시 중...`);
+    const r = await backend.setStdpGainPrefix(prefix, mul);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ STDP gain — '${r.prefix}' × ${r.gain_multiplier}, ${r.synapses_marked} 시냅스 marked. (현 marking only — 결구화 future work)`);
+  });
+  // Phase 151 S1 somatotopic.
+  document.getElementById('nf-bb-s1-finger')?.addEventListener('click', async () => {
+    setBbStatus('🖐 S1 finger map 구축 중...');
+    const r = await backend.buildS1Somatotopic({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — ${r.finger_count} 셀.`);
+    await syncCanvas(setBbStatus, `✓ S1 finger — ${r.n_fingers} 손가락 × ${r.cells_per_finger} = ${r.finger_count}, ${r.synapses_added} 시냅스. INPUT ${r.input_sources} → S1 finger col → V2 ${r.v2_targets}.`);
+  });
+  // Phase 152 inhibition tuner.
+  document.getElementById('nf-bb-tune-inh')?.addEventListener('click', async () => {
+    const prefix = prompt("Inhibition tune 할 region prefix (예: v1_, ca1_, pfc_)");
+    if (!prefix) return;
+    const mulStr = prompt("Multiplier (1.0 = unchanged, 1.5 = +50%, 0.5 = halve)", "1.5");
+    const mul = parseFloat(mulStr);
+    if (!isFinite(mul) || mul <= 0) return setBbStatus(`⚠ multiplier invalid: ${mulStr}`);
+    setBbStatus(`⚖ '${prefix}' inhibition × ${mul} 적용 중...`);
+    const r = await backend.tuneInhibition(prefix, mul);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Inhibition tune — '${r.prefix}' × ${r.multiplier}, ${r.inhibitory_synapses_tuned} 시냅스 조정.`);
+  });
+  // Phase 153 critical period.
+  document.getElementById('nf-bb-critical')?.addEventListener('click', async () => {
+    setBbStatus('🌟 Critical period (5 cycles, gain ×3, DA boost) 진행 중...');
+    const r = await backend.openCriticalPeriod({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Critical period — ${r.cycles} cycles × ${(r.duration_ms / r.cycles).toFixed(0)}ms, gain ×${r.gain_multiplier}, INPUT ${r.input_neurons_stimulated} 자극, ${r.total_spikes} spikes. snapshots ${r.snapshots_recorded}.`);
+  });
+  // Phase 154 RPE.
+  document.getElementById('nf-bb-rpe')?.addEventListener('click', async () => {
+    setBbStatus('📊 RPE 계산 중...');
+    const r = await backend.computeRpe({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ RPE (${r.verdict}) — NAcc baseline ${r.nacc_baseline} / actual ${r.nacc_actual} (Δ${r.rpe_nacc}), VTA baseline ${r.vta_baseline} / actual ${r.vta_actual} (Δ${r.rpe_vta}).`);
+  });
+  // Phase 155 E2E demo.
+  document.getElementById('nf-bb-e2e')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-e2e');
+    if (btn) btn.disabled = true;
+    setBbStatus('🎬 E2E demo (baseline+snapshot+train+final+CV+raster+ISI)...');
+    const t0 = performance.now();
+    const r = await backend.runE2eDemo({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const stepStr = r.steps.map(s => s.step).join(' → ');
+    setBbStatus(`✓ E2E (${dt}s) — pipeline: ${stepStr}. selectivity ${r.baseline_selectivity}→${r.final_selectivity} (Δ${r.delta}, ${r.verdict}). passes_validation=${r.passes_validation}.`);
+  });
+  // Phase 146 voltage trace.
+  document.getElementById('nf-bb-vtrace')?.addEventListener('click', async () => {
+    const name = prompt("V 추적할 뉴런 이름 (예: ca1_0, pfc_l5_0)");
+    if (!name) return;
+    setBbStatus(`🌊 ${name} membrane V 50ms trace 중...`);
+    const r = await backend.traceVoltage(name, {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    // Build small inline SVG.
+    const W = 500, H = 200, padL = 50, padR = 10, padT = 14, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const samples = r.samples || [];
+    const tMax = samples.length ? samples[samples.length - 1].t : 1;
+    const vMin = r.v_rest - 5, vMax = Math.max(r.v_threshold + 5, r.v_max + 5);
+    const vRange = vMax - vMin;
+    const points = samples.map(s => {
+      const x = padL + (s.t / tMax) * plotW;
+      const y = padT + plotH - ((s.v - vMin) / vRange) * plotH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const thY = padT + plotH - ((r.v_threshold - vMin) / vRange) * plotH;
+    const restY = padT + plotH - ((r.v_rest - vMin) / vRange) * plotH;
+    const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:rgba(15,23,42,0.5);border-radius:6px;">
+      <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="rgba(0,0,0,0.25)" stroke="#334155"/>
+      <line x1="${padL}" y1="${thY}" x2="${padL + plotW}" y2="${thY}" stroke="#fbbf24" stroke-dasharray="3,3" opacity="0.6"/>
+      <text x="${padL - 4}" y="${thY + 3}" font-size="9" fill="#fbbf24" text-anchor="end">V_th</text>
+      <line x1="${padL}" y1="${restY}" x2="${padL + plotW}" y2="${restY}" stroke="#475569" stroke-dasharray="2,2" opacity="0.5"/>
+      <text x="${padL - 4}" y="${restY + 3}" font-size="9" fill="#94a3b8" text-anchor="end">V_rest</text>
+      <polyline points="${points}" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="${padL}" y="${H - 4}" font-size="10" fill="#94a3b8">0ms</text>
+      <text x="${padL + plotW}" y="${H - 4}" font-size="10" fill="#94a3b8" text-anchor="end">${tMax}ms</text>
+    </svg>`;
+    await openDialog({
+      title: `🌊 V trace — ${r.neuron} (${r.region}) — V[${r.v_min}, ${r.v_max}] mV`,
+      bodyHTML: `<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">cyan = V(t), amber dashed = V_threshold (${r.v_threshold}), gray dashed = V_rest (${r.v_rest})</div>${svg}`,
+      okLabel: '닫기',
+    });
+    setBbStatus(`✓ V trace — ${r.neuron}: V range [${r.v_min}, ${r.v_max}], ${samples.length} samples.`);
+  });
+  // Phase 147 PSTH.
+  document.getElementById('nf-bb-psth')?.addEventListener('click', async () => {
+    const filt = prompt("PSTH prefix filter (빈 값 = 전체, 예: 'out_', 'ca1_')") ?? "";
+    setBbStatus('📊 PSTH 측정 중...');
+    const r = await backend.buildPsth({ prefixFilter: filt });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const peak = Math.max(...r.rates_hz);
+    const peakBin = r.rates_hz.indexOf(peak);
+    const peakT = peakBin * r.bin_ms;
+    setBbStatus(`✓ PSTH (${r.prefix_filter}, ${r.n_neurons_counted} 뉴런) — ${r.n_bins} bins × ${r.bin_ms}ms, ${r.total_spikes} spikes. Peak @ ${peakT}ms = ${peak.toFixed(1)}Hz`);
+  });
+  // Phase 148 state diff.
+  document.getElementById('nf-bb-state-diff')?.addEventListener('click', async () => {
+    setBbStatus('🔀 State diff 측정 중...');
+    const r = await backend.stateDiff({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ State diff (Δt=${r.elapsed_ms}ms) — synapses ${r.snapshot_synapse_count} → ${r.current_synapse_count} (Δ=${r.synapse_count_delta}), preserved ${r.preserved_synapses}, +${r.added_synapses}, -${r.removed_synapses}.`);
+  });
+  // Phase 149 ISI.
+  document.getElementById('nf-bb-isi')?.addEventListener('click', async () => {
+    setBbStatus('📈 ISI statistics 집계 중...');
+    const r = await backend.isiStats({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.active_neurons === 0) return setBbStatus('📈 발화 뉴런 부족 — 자극 후 다시.');
+    const reg = (r.top_regular || []).slice(0, 2).map(x => `${x.name}(CV ${x.cv})`).join(', ');
+    const burst = (r.top_bursty || []).slice(0, 2).map(x => `${x.name}(CV ${x.cv})`).join(', ');
+    setBbStatus(`✓ ISI — active ${r.active_neurons}, global mean ${r.global_mean_isi_ms}ms / CV ${r.global_cv} (${r.global_cv < 0.5 ? 'regular' : r.global_cv > 1.5 ? 'bursty' : 'poisson-like'}). Most regular: ${reg || '—'}. Most bursty: ${burst || '—'}`);
+  });
+  // Phase 141 reward-driven gesture training (long-running).
+  document.getElementById('nf-bb-reward-train')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-reward-train');
+    if (btn) btn.disabled = true;
+    setBbStatus('🏆 Reward training (pinch → out_0, 10 epochs DA boost)...');
+    const t0 = performance.now();
+    const r = await backend.rewardTrain({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const trace = (r.epoch_history || []).map(e => `e${e.epoch}=${e.target_spikes}`).join(' / ');
+    setBbStatus(`${r.verdict === 'reward_learning_observed' ? '✓' : '⚠'} Reward (${dt}s) — ${r.gesture}→${r.target_out}: pre target ${r.pre_target_spikes}/other ${r.pre_other_spikes} → post ${r.post_target_spikes}/${r.post_other_spikes} (gain=${r.target_gain}). [${trace}]`);
+  });
+  // Phase 142 V2 L2/3 split.
+  document.getElementById('nf-bb-v2-l23')?.addEventListener('click', async () => {
+    setBbStatus('🔬 V2 L2/3 split 구축 중...');
+    const r = await backend.buildV2L23Split({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — L23a ${r.l23a_count}, L23b ${r.l23b_count}.`);
+    await syncCanvas(setBbStatus, `✓ V2 L2/3 split — L23a ${r.l23a_count} (FF) + L23b ${r.l23b_count} (recur), ${r.synapses_added} 시냅스. V2 L4 ${r.v2_l4_sources} → L23a → V4 ${r.v4_targets}.`);
+  });
+  // Phase 143 IT subdivision.
+  document.getElementById('nf-bb-it-subdiv')?.addEventListener('click', async () => {
+    setBbStatus('🎨 IT subdivision 구축 중...');
+    const r = await backend.buildItSubdivision({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — TEO ${r.teo_count}, TE ${r.te_count}.`);
+    await syncCanvas(setBbStatus, `✓ IT subdiv — TEO ${r.teo_count} (post) + TE ${r.te_count} (ant), ${r.synapses_added} 시냅스. V4 ${r.v4_sources} → TEO → TE → PRC ${r.prc_targets}.`);
+  });
+  // Phase 144 working memory.
+  document.getElementById('nf-bb-test-wm')?.addEventListener('click', async () => {
+    setBbStatus('🧠 WM persistent activity 측정 중...');
+    const r = await backend.testPersistentActivity({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'wm_present' ? '✓' : '⚠'} WM — PFC pool ${r.pfc_pool}, cue subset ${r.cue_subset}: cue ${r.cue_spikes} sp / delay ${r.delay_spikes} sp (persistence=${r.persistence_ratio}). ${r.verdict}`);
+  });
+  // Phase 145 forgetting.
+  document.getElementById('nf-bb-forgetting')?.addEventListener('click', async () => {
+    if (!confirm("forgetting decay 적용? weight 가 baseline 으로 부분 회귀합니다 (학습 일부 망각).")) return;
+    setBbStatus('🌫 Forgetting decay 적용 중...');
+    const r = await backend.applyForgettingDecay({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Forgetting (τ=${r.decay_tau_ms}ms, elapsed=${r.elapsed_ms}ms, factor=${r.decay_factor}) — ${r.synapses_decayed} 시냅스 decay, total drift=${r.total_drift}, mean=${r.mean_drift}.`);
+  });
+  // Phase 136 V1 L2/3 split.
+  document.getElementById('nf-bb-v1-l23')?.addEventListener('click', async () => {
+    setBbStatus('🔬 V1 L2/3 split 구축 중...');
+    const r = await backend.buildV1L23Split({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — L23a ${r.l23a_count}, L23b ${r.l23b_count}.`);
+    await syncCanvas(setBbStatus, `✓ V1 L2/3 split — L23a ${r.l23a_count} (FF) + L23b ${r.l23b_count} (recur), ${r.synapses_added} 시냅스. V1 L4 ${r.v1_l4_sources} → L23a → V2 ${r.v2_targets}, L23b ↺ recurrent.`);
+  });
+  // Phase 137 A1 tonotopic.
+  document.getElementById('nf-bb-a1-tono')?.addEventListener('click', async () => {
+    setBbStatus('🎵 A1 tonotopic map 구축 중...');
+    const r = await backend.buildA1Tonotopic({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — ${r.tonotopic_count} 셀.`);
+    await syncCanvas(setBbStatus, `✓ A1 tonotopic — ${r.n_columns} 컬럼 × ${r.cells_per_column} 셀 = ${r.tonotopic_count}, ${r.synapses_added} 시냅스. INPUT ${r.input_sources} → A1 col → A2 ${r.a2_targets}.`);
+  });
+  // Phase 138 spike CSV export.
+  document.getElementById('nf-bb-csv')?.addEventListener('click', async () => {
+    setBbStatus('📑 Spike CSV 추출 중...');
+    const r = await backend.exportSpikesCsv({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    try {
+      const blob = new Blob([r.csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `spikes-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBbStatus(`✓ CSV — ${r.rows} rows (${(r.csv.length / 1024).toFixed(1)} KB)${r.truncated ? ', truncated' : ''} 다운로드.`);
+    } catch (err) {
+      setBbStatus(`CSV 실패: ${err.message || err}`);
+    }
+  });
+  // Phase 139 region graph.
+  document.getElementById('nf-bb-region-graph')?.addEventListener('click', async () => {
+    setBbStatus('🗺 Region graph 추출 중...');
+    const r = await backend.regionGraph({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    try {
+      const json = JSON.stringify({
+        nodes: r.nodes, edges: r.edges,
+        node_count: r.node_count, edge_count: r.edge_count,
+      }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `region-graph-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBbStatus(`✓ Region graph — ${r.node_count} nodes, ${r.edge_count} edges 다운로드 (force-directed JSON).`);
+    } catch (err) {
+      setBbStatus(`Region graph 실패: ${err.message || err}`);
+    }
+  });
+  // Phase 131 raster plot dialog (SVG).
+  document.getElementById('nf-bb-raster-plot')?.addEventListener('click', async () => {
+    setBbStatus('📈 Raster plot 그리는 중...');
+    const r = await backend.exportRaster({ windowMs: 200.0, maxPoints: 2000 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (!r.events || r.events.length === 0) return setBbStatus('📈 spike events 없음 — 자극 후 다시 시도.');
+    // 뉴런 → row index.
+    const uniqueNeurons = [...new Set(r.events.map(e => e.name))].sort();
+    const W = 720, H = Math.max(220, Math.min(720, uniqueNeurons.length * 8));
+    const padL = 100, padT = 14, padB = 26, padR = 14;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    const tMin = r.since_t, tMax = r.current_t;
+    const tRange = Math.max(1e-3, tMax - tMin);
+    const rowH = plotH / Math.max(1, uniqueNeurons.length);
+    const nameToY = new Map(uniqueNeurons.map((n, i) => [n, padT + i * rowH + rowH / 2]));
+    // Color by region prefix.
+    const colorOf = (name) => {
+      if (name.startsWith('v1_')) return '#4dd0e1';
+      if (name.startsWith('v2_')) return '#b794f4';
+      if (name.startsWith('out_')) return '#5eead4';
+      if (name.startsWith('in_')) return '#f5b842';
+      if (name.startsWith('ca')) return '#22c55e';
+      if (name.startsWith('pfc_')) return '#a78bfa';
+      if (name.startsWith('amg_') || name.startsWith('bla_') || name.startsWith('cen_')) return '#fb923c';
+      return '#94a3b8';
+    };
+    const dots = r.events.map(e => {
+      const x = padL + ((e.t - tMin) / tRange) * plotW;
+      const y = nameToY.get(e.name) || padT;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.7" fill="${colorOf(e.name)}" opacity="0.85"/>`;
+    }).join('');
+    // 뉴런 이름 라벨 (sample).
+    const labelStep = Math.max(1, Math.ceil(uniqueNeurons.length / 30));
+    const labels = uniqueNeurons.map((n, i) => {
+      if (i % labelStep) return '';
+      const y = nameToY.get(n);
+      return `<text x="${padL - 6}" y="${y + 3}" font-size="9" fill="#94a3b8" text-anchor="end" font-family="monospace">${n.length > 14 ? n.slice(0, 13) + '…' : n}</text>`;
+    }).join('');
+    // 시간 축 ticks (5).
+    const ticks = Array.from({ length: 6 }, (_, i) => {
+      const t = tMin + (tRange * i) / 5;
+      const x = padL + (plotW * i) / 5;
+      return `<line x1="${x}" y1="${H - padB}" x2="${x}" y2="${H - padB + 4}" stroke="#475569"/><text x="${x}" y="${H - padB + 16}" font-size="9" fill="#94a3b8" text-anchor="middle">${t.toFixed(0)}ms</text>`;
+    }).join('');
+    const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:rgba(15,23,42,0.5);border-radius:6px;">
+      <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="rgba(0,0,0,0.25)" stroke="#334155"/>
+      ${labels}${ticks}${dots}
+    </svg>`;
+    await openDialog({
+      title: `📈 Spike Raster Plot — ${r.events.length} events / ${uniqueNeurons.length} 뉴런 (window ${r.window_ms}ms)`,
+      bodyHTML: `<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">color = region prefix · x = time (ms) · y = neuron index. ${r.events.length >= 2000 ? '<span style="color:#fbbf24;">(2000+ truncated)</span>' : ''}</div>${svg}`,
+      okLabel: '닫기',
+    });
+    setBbStatus(`✓ Raster — ${r.events.length} spikes / ${uniqueNeurons.length} 뉴런 plotted.`);
+  });
+  // Phase 132 region rate trend.
+  document.getElementById('nf-bb-rate-trend')?.addEventListener('click', async () => {
+    setBbStatus('📉 Region rate trend 측정 중...');
+    const r = await backend.regionRateTrend({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top5 = Object.entries(r.regions || {})
+      .sort((a, b) => {
+        const aMax = Math.max(...Object.values(a[1]));
+        const bMax = Math.max(...Object.values(b[1]));
+        return bMax - aMax;
+      }).slice(0, 5);
+    const summary = top5.map(([reg, ws]) => {
+      const wstr = Object.entries(ws).map(([w, v]) => `${w}=${v}Hz`).join('/');
+      return `${reg}{${wstr}}`;
+    }).join(', ');
+    setBbStatus(`✓ Trend (windows ${r.windows_ms.join('/')}) — top 5: ${summary || '없음'}`);
+  });
+  // Phase 133 top firing.
+  document.getElementById('nf-bb-top-firing')?.addEventListener('click', async () => {
+    setBbStatus('🔥 Top firing leaderboard 측정 중...');
+    const r = await backend.topFiring({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top5 = (r.top || []).slice(0, 5)
+      .map(n => `${n.name}(${n.region})=${n.spikes}sp/${n.rate_hz}Hz`).join(', ');
+    setBbStatus(`✓ Top firing — active ${r.active_neurons}, top 5: ${top5 || '없음'}`);
+  });
+  // Phase 134 neuron connectivity.
+  document.getElementById('nf-bb-neuron-conn')?.addEventListener('click', async () => {
+    const name = prompt("조회할 뉴런 이름 (예: ca1_0, pfc_l5_0, m1_0)");
+    if (!name) return;
+    setBbStatus(`🔌 ${name} fanin/fanout 조회 중...`);
+    const r = await backend.neuronConnectivity(name);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ ${r.neuron} (${r.region}/${r.population}) — fanin ${r.fanin_count}${r.truncated_fanin ? '+' : ''}, fanout ${r.fanout_count}${r.truncated_fanout ? '+' : ''}.`);
+  });
+  // Phase 135 STDP per region.
+  document.getElementById('nf-bb-stdp-region')?.addEventListener('click', async () => {
+    setBbStatus('📐 Region STDP delta 집계 중...');
+    const r = await backend.regionStdpDelta({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top3 = (r.region_pairs || []).slice(0, 3)
+      .map(p => `${p.pair}: μΔ=${p.mean_delta} (pot ${p.potentiated}/dep ${p.depressed})`).join(' | ');
+    setBbStatus(`✓ STDP/region (Δt=${r.elapsed_ms}ms) — top 3: ${top3 || '변화 없음'}`);
+  });
+  // Phase 127 randomize weights.
+  document.getElementById('nf-bb-randomize')?.addEventListener('click', async () => {
+    if (!confirm("모든 시냅스 weight 를 랜덤 재초기화 (학습 리셋, topology 유지)?")) return;
+    setBbStatus('🎲 Weight randomize 중...');
+    const r = await backend.randomizeWeights({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Randomize — ${r.synapses_randomized} 시냅스 재초기화 (mean ${r.mean}±${r.std}, preserve_sign=${r.preserve_sign}).`);
+  });
+  // Phase 128 compare snapshot.
+  document.getElementById('nf-bb-compare-snap')?.addEventListener('click', async () => {
+    setBbStatus('🔍 Snapshot compare 중...');
+    const r = await backend.compareSnapshot({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top3 = (r.top_changes || []).slice(0, 3)
+      .map(c => `${c.pre}→${c.post}: ${c.from.toFixed(1)}→${c.to.toFixed(1)} (Δ${c.delta})`).join(' | ');
+    setBbStatus(`✓ Compare (Δt=${r.elapsed_ms}ms) — shared ${r.shared_synapses}, +${r.added_synapses}, -${r.removed_synapses}, changed ${r.changed_synapses} (pot ${r.potentiated} / dep ${r.depressed}). Top: ${top3 || '없음'}`);
+  });
+  // Phase 129 functional connectivity.
+  document.getElementById('nf-bb-func-conn')?.addEventListener('click', async () => {
+    setBbStatus('🌐 Functional connectivity 측정 중...');
+    const r = await backend.functionalConnectivity({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top5 = (r.top_pairs || []).slice(0, 5)
+      .map(p => `${p.a}↔${p.b}=${p.jaccard}`).join(', ');
+    setBbStatus(`✓ FuncConn — active ${r.active_neurons}, pairs ${r.total_pairs} (window ${r.window_ms}ms / bin ${r.bin_ms}ms). Top 5: ${top5 || '없음'}`);
+  });
+  // Phase 123 auto-train preset.
+  document.getElementById('nf-bb-auto-train')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-auto-train');
+    if (btn) btn.disabled = true;
+    setBbStatus('🚂 Auto-train pipeline (build all + train + validate)...');
+    const t0 = performance.now();
+    const r = await backend.runAutoTrain({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const stepStr = r.steps.map(s => `${s.step}=${s.ok ? '✓' : '✗'}`).join(', ');
+    await syncCanvas(setBbStatus, `✓ Auto-train (${dt}s) — ${r.final_neurons} 뉴런 / ${r.final_synapses} 시냅스, selectivity Δ=${r.selectivity_delta} (final ${r.final_selectivity}). Steps: ${stepStr}`);
+  });
+  // Phase 124 freeze region.
+  document.getElementById('nf-bb-freeze')?.addEventListener('click', async () => {
+    const prefix = prompt("Freeze 할 region prefix (예: v1_ — STDP 학습 잠금)");
+    if (!prefix) return;
+    setBbStatus(`🧊 '${prefix}' freeze 중...`);
+    const r = await backend.freezeRegion(prefix, true);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Freeze '${r.prefix}' — ${r.synapses_affected} 시냅스 marked. Currently frozen: ${r.currently_frozen_regions.join(', ') || '없음'}.`);
+  });
+  // Phase 125 multi-modal.
+  document.getElementById('nf-bb-multimodal')?.addEventListener('click', async () => {
+    setBbStatus('🎭 Multi-modal (visual+audio) 측정 중...');
+    const r = await backend.testMultiModal({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top = Object.entries(r.activity_by_region || {})
+      .map(([reg, a]) => `${reg}=${a.active_count}/${a.neurons}(${a.total_spikes}sp)`).join(', ');
+    setBbStatus(`✓ Multi-modal — scenario: ${r.scenario}. Activity: ${top}`);
+  });
+  // Phase 120 train selectivity (longer-running — disable button during).
+  document.getElementById('nf-bb-train-sel')?.addEventListener('click', async () => {
+    const btn = document.getElementById('nf-bb-train-sel');
+    if (btn) btn.disabled = true;
+    setBbStatus('🎓 Train selectivity 5 epochs 진행 중 (STDP on, DA boost)...');
+    const t0 = performance.now();
+    const r = await backend.trainSelectivity({});
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    if (btn) btn.disabled = false;
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const trace = (r.epoch_history || [])
+      .map(e => `e${e.epoch}=${e.selectivity}`).join(' → ');
+    const wd = r.weight_delta;
+    const wd_str = wd ? `Δw: pot ${wd.potentiated} / dep ${wd.depressed} / stable ${wd.stable}, max|Δ|=${wd.max_abs_delta}` : '(weight 변화 없음)';
+    setBbStatus(`${r.verdict === 'learning_observed' ? '✓' : '⚠'} Train (${dt}s) — baseline=${r.baseline_selectivity} → final=${r.final_selectivity} (Δ=${r.selectivity_delta}). [${trace}] ${wd_str}. ${r.verdict}`);
+    // Phase 203: live learning curve mini-SVG dialog.
+    const points = [{epoch: 0, sel: r.baseline_selectivity || 0}, ...(r.epoch_history || []).map(e => ({epoch: e.epoch, sel: e.selectivity}))];
+    if (points.length >= 2) {
+      const W = 460, H = 220, padL = 40, padR = 12, padT = 14, padB = 30;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const eMax = Math.max(...points.map(p => p.epoch));
+      const sVals = points.map(p => p.sel);
+      const sMax = Math.max(1.0, ...sVals);
+      const polyPoints = points.map(p => {
+        const x = padL + (p.epoch / Math.max(1, eMax)) * plotW;
+        const y = padT + plotH - (p.sel / sMax) * plotH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const dots = points.map(p => {
+        const x = padL + (p.epoch / Math.max(1, eMax)) * plotW;
+        const y = padT + plotH - (p.sel / sMax) * plotH;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#22d3ee"/><text x="${x.toFixed(1)}" y="${(y - 8).toFixed(1)}" font-size="9" fill="#cbd5e1" text-anchor="middle">${p.sel}</text>`;
+      }).join('');
+      const ticks = [0, 0.25, 0.5, 0.75, 1.0].map(t => {
+        const y = padT + plotH - (t / sMax) * plotH;
+        return `<line x1="${padL}" y1="${y}" x2="${padL + plotW}" y2="${y}" stroke="#334155" stroke-dasharray="2,2" opacity="0.4"/><text x="${padL - 4}" y="${y + 3}" font-size="9" fill="#94a3b8" text-anchor="end">${t}</text>`;
+      }).join('');
+      const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:rgba(15,23,42,0.5);border-radius:6px;">
+        <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="rgba(0,0,0,0.25)" stroke="#334155"/>
+        ${ticks}
+        <polyline points="${polyPoints}" fill="none" stroke="#22d3ee" stroke-width="2"/>
+        ${dots}
+        <text x="${padL + plotW / 2}" y="${H - 8}" font-size="11" fill="#94a3b8" text-anchor="middle">epoch</text>
+        <text x="14" y="${padT + plotH / 2}" font-size="11" fill="#94a3b8" text-anchor="middle" transform="rotate(-90, 14, ${padT + plotH / 2})">selectivity</text>
+      </svg>`;
+      await openDialog({
+        title: `📈 Live learning curve — Δ=${r.selectivity_delta} (${r.verdict})`,
+        bodyHTML: `<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">cyan = selectivity over training epochs (cycle 0 = baseline before training)</div>${svg}`,
+        okLabel: '닫기',
+      });
+    }
+  });
+  // Phase 121 baseline check.
+  document.getElementById('nf-bb-baseline')?.addEventListener('click', async () => {
+    setBbStatus('📐 Baseline regression check 중...');
+    const r = await backend.baselineCheck();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const s1 = r.stage1;
+    const p2 = r.phase2;
+    setBbStatus(`✓ Baseline — Stage 1: canonical ${s1.current_canonical_neurons} 뉴런 / ${s1.current_canonical_synapses} 시냅스 (expected 50, match=${s1.neurons_match}). Phase 2: 별도 데모 (target ${p2.expected_total} 뉴런, V1→V2 ${p2.expected_v1_to_v2_synapses}, V2→V1 ${p2.expected_v2_to_v1_synapses}).`);
+  });
+  // Phase 122 WebGPU readiness.
+  document.getElementById('nf-bb-webgpu')?.addEventListener('click', async () => {
+    setBbStatus('🚀 WebGPU readiness 측정 중...');
+    const r = await backend.webgpuReadiness();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const icon = r.recommendation === 'TIER_3_REQUIRED' ? '🔴'
+              : r.recommendation === 'TIER_3_CONSIDER' ? '🟡' : '🟢';
+    setBbStatus(`${icon} ${r.recommendation} — ${r.current_neurons} 뉴런 / ${r.current_synapses} 시냅스, realtime ratio ${r.realtime_ratio}×, ${(r.neuron_steps_per_sec / 1e6).toFixed(2)}M neuron-steps/s. ${r.reason}`);
+  });
+  // Phase 116 raster export.
+  document.getElementById('nf-bb-raster')?.addEventListener('click', async () => {
+    setBbStatus('🌠 Raster 추출 중...');
+    const r = await backend.exportRaster({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    try {
+      const json = JSON.stringify({
+        window_ms: r.window_ms, since_t: r.since_t, current_t: r.current_t,
+        events: r.events, count: r.count,
+      }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `raster-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBbStatus(`✓ Raster — ${r.count} spike events (window ${r.window_ms}ms${r.truncated ? ', truncated' : ''}) 다운로드.`);
+    } catch (err) {
+      setBbStatus(`Raster 실패: ${err.message || err}`);
+    }
+  });
+  // Phase 117 telemetry.
+  document.getElementById('nf-bb-telemetry')?.addEventListener('click', async () => {
+    setBbStatus('📡 Telemetry 조회 중...');
+    const r = await backend.getTelemetry();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const m = r.modulators;
+    setBbStatus(`✓ Telemetry — ${r.neurons} 뉴런 / ${r.synapses} 시냅스, t=${r.current_t_ms}ms, 활성 ${r.active_neurons}, DA=${m.dopamine}, ACh=${m.acetylcholine}, 5HT=${m.serotonin}, STDP=${r.stdp_enabled ? 'on' : 'off'}.`);
+  });
+  // Phase 118 methods.
+  document.getElementById('nf-bb-methods')?.addEventListener('click', async () => {
+    setBbStatus('📚 Method catalog 조회 중...');
+    const r = await backend.listMethods();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const summary = Object.entries(r.by_prefix)
+      .map(([p, m]) => `${p}=${m.length}`).join(', ');
+    setBbStatus(`✓ Methods — total ${r.total}: ${summary}`);
+  });
+  // Phase 112 weight histogram.
+  document.getElementById('nf-bb-w-hist')?.addEventListener('click', async () => {
+    setBbStatus('📊 Weight histogram 집계 중...');
+    const r = await backend.weightHistogram({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.synapses === 0) return setBbStatus('📊 시냅스 없음.');
+    const histStr = (r.counts || []).map((c, i) => {
+      const left = r.edges[i]?.toFixed(1);
+      const right = r.edges[i + 1]?.toFixed(1);
+      return `[${left},${right})=${c}`;
+    }).join(' ');
+    setBbStatus(`✓ Hist (${r.synapses} 시냅스, range [${r.min}, ${r.max}], bin ${r.bin_size}) — ${histStr}`);
+  });
+  // Phase 113 snapshot weights.
+  document.getElementById('nf-bb-w-snap')?.addEventListener('click', async () => {
+    setBbStatus('📸 Weight snapshot 저장 중...');
+    const r = await backend.snapshotWeights();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (!r.delta_vs_oldest) return setBbStatus(`✓ Snapshot ${r.snapshot_n} 저장 (${r.current_synapses} 시냅스). 또 호출하면 delta 측정.`);
+    const d = r.delta_vs_oldest;
+    setBbStatus(`✓ Snap ${r.snapshot_n} — Δw vs oldest (Δt=${(d.to_t - d.from_t).toFixed(1)}ms): potentiated ${d.potentiated} / depressed ${d.depressed} / stable ${d.stable}, mean Δ=${d.mean_delta}, max |Δ|=${d.max_abs_delta}.`);
+  });
+  // Phase 114 connectivity matrix.
+  document.getElementById('nf-bb-conn')?.addEventListener('click', async () => {
+    setBbStatus('🕸 Connectivity matrix 집계 중...');
+    const r = await backend.connectivityMatrix({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top5 = (r.top_pairs || []).slice(0, 5)
+      .map(p => `${p.key}=${p.count}(w̄${p.mean_weight})`).join(', ');
+    setBbStatus(`✓ Connectivity — ${r.regions.length} regions, ${r.total_pairs} pair types. Top 5: ${top5}`);
+  });
+  // Phase 115 energy.
+  document.getElementById('nf-bb-energy')?.addEventListener('click', async () => {
+    setBbStatus('🔋 Energy 추정 중...');
+    const r = await backend.estimateEnergy({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top = Object.entries(r.top5_regions || {}).map(([reg, c]) => `${reg}=${c}`).join(', ');
+    setBbStatus(`✓ Energy (${r.window_ms}ms) — ${r.total_spikes} spikes (${r.avg_firing_hz}Hz/뉴런), spike=${r.spike_cost_units} + leak=${r.leak_cost_units} = ${r.total_cost_units} units. Top regions: ${top}`);
+  });
+  // Phase 111 reset region.
+  document.getElementById('nf-bb-reset-region')?.addEventListener('click', async () => {
+    const prefix = prompt("제거할 region prefix 입력 (예: bla_, dlpfc_, snc_). canonical (in_/out_/v1_/v2_) 은 보호됩니다.");
+    if (!prefix) return;
+    if (!confirm(`prefix '${prefix}' 시작 뉴런을 모두 제거할까요?`)) return;
+    setBbStatus(`✂ '${prefix}' 제거 중...`);
+    const r = await backend.resetRegion(prefix);
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ '${prefix}' — ${r.neurons_removed} 뉴런 / ${r.synapses_removed} 시냅스 제거.`);
+  });
+  // Phase 105 DG pattern separation.
+  document.getElementById('nf-bb-test-dg')?.addEventListener('click', async () => {
+    setBbStatus('🧩 DG pattern separation 측정 중...');
+    const r = await backend.testDgPatternSeparation({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'good_separation' ? '✓' : '⚠'} DG sep — overlap ${r.overlap_ratio} (sparse A=${r.sparseness_a}, B=${r.sparseness_b}). active A=${r.active_a}, B=${r.active_b}, ∩=${r.intersection}, ∪=${r.union}. ${r.verdict}`);
+  });
+  // Phase 106 CA3 pattern completion.
+  document.getElementById('nf-bb-test-ca3')?.addEventListener('click', async () => {
+    setBbStatus('🔁 CA3 pattern completion 측정 중...');
+    const r = await backend.testCa3PatternCompletion({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'good_completion' ? '✓' : '⚠'} CA3 completion — cue ${r.cue_size}/${r.ca3_pool} 활성, non-cue ${r.non_cue_active} 활성 (rate ${r.completion_rate}). ${r.verdict}`);
+  });
+  // Phase 107 cross-modal binding.
+  document.getElementById('nf-bb-test-binding')?.addEventListener('click', async () => {
+    setBbStatus('🔗 Cross-modal binding (V1+A1→INS) 측정 중...');
+    const r = await backend.testCrossModalBinding({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'binding_present' ? '✓' : '⚠'} Binding — V1 only ${r.ins_spikes_v1_only}, A1 only ${r.ins_spikes_a1_only}, both ${r.ins_spikes_both}. synergy=${r.synergy_ratio}× (>1 = supra-linear). ${r.verdict}`);
+  });
+  // Phase 108 WTA.
+  document.getElementById('nf-bb-test-wta')?.addEventListener('click', async () => {
+    setBbStatus('🏆 WTA 측정 중...');
+    const r = await backend.testWta({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'wta_active' ? '✓' : '⚠'} WTA — winner ${r.winner} (${r.winner_count}/${r.total_spikes}, share=${r.winner_share}). ${r.verdict}`);
+  });
+  // Phase 109 dopamine effect.
+  document.getElementById('nf-bb-test-da')?.addEventListener('click', async () => {
+    setBbStatus('💊 Dopamine effect 측정 중...');
+    const r = await backend.testDopamineEffect({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`${r.verdict === 'da_effective' ? '✓' : '⚠'} DA — DA=0: ${r.spikes_da_zero} spikes, DA=1.0: ${r.spikes_da_one} spikes, amplification=${r.amplification}×. ${r.verdict}`);
+  });
+  // Phase 101 verify behavior.
+  document.getElementById('nf-bb-verify-behavior')?.addEventListener('click', async () => {
+    setBbStatus('🎯 Behavior verification 실행 중...');
+    const r = await backend.verifyBehavior({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const winners = Object.entries(r.results).map(([g, v]) =>
+      v.ok ? `${g}→${v.winner || '∅'}(${v.winner_count})` : `${g}=${v.reason}`).join(', ');
+    setBbStatus(`✓ Behavior — ${r.gestures_tested}개 gesture, ${r.out_neurons} OUT, selectivity=${r.selectivity} (unique winners ${r.unique_winners}). ${winners}`);
+  });
+  // Phase 102 weight stats.
+  document.getElementById('nf-bb-weight-stats')?.addEventListener('click', async () => {
+    setBbStatus('⚖ Weight stats 집계 중...');
+    const r = await backend.weightStats();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.synapses === 0) return setBbStatus('⚖ 시냅스 없음.');
+    const top3 = (r.top_region_pairs || []).slice(0, 3).map(p => `${p.pair}=${p.count}`).join(', ');
+    setBbStatus(`✓ Weights — ${r.synapses} 시냅스, mean ${r.stats.mean}±${r.stats.std}, range [${r.stats.min}, ${r.stats.max}], +${r.stats.positive}/-${r.stats.negative}. Top: ${top3}`);
+  });
+  // Phase 103 region rates.
+  document.getElementById('nf-bb-region-rates')?.addEventListener('click', async () => {
+    setBbStatus('🔥 Region firing rates 측정 중...');
+    const r = await backend.regionRates({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top = Object.entries(r.regions || {})
+      .sort((a, b) => b[1].mean_hz - a[1].mean_hz).slice(0, 5)
+      .map(([reg, s]) => `${reg}=${s.mean_hz}Hz(${s.active}/${s.count})`).join(', ');
+    setBbStatus(`✓ Rates — top 5 regions (${r.window_ms}ms window): ${top || '없음'}`);
+  });
+  // Phase 104 region summary.
+  document.getElementById('nf-bb-region-summary')?.addEventListener('click', async () => {
+    setBbStatus('🗂 Region summary 집계 중...');
+    const r = await backend.regionSummary();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const top10 = Object.entries(r.regions).slice(0, 10)
+      .map(([reg, c]) => `${reg}=${c}`).join(', ');
+    setBbStatus(`✓ Regions — ${r.total_neurons} 뉴런 / ${r.total_synapses} 시냅스, ${Object.keys(r.regions).length} regions. Top 10: ${top10}`);
+  });
+  // Phase 97 theta.
+  document.getElementById('nf-bb-theta')?.addEventListener('click', async () => {
+    setBbStatus('🌀 Theta rhythm 8Hz × 10 cycles 실행 중...');
+    const r = await backend.triggerTheta({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Theta — ${r.cycles_run} cycles @ ${r.frequency_hz}Hz (${r.duration_ms}ms), pacemaker=${r.pacemaker}, ${r.total_spikes} spikes.`);
+  });
+  // Phase 98 gamma.
+  document.getElementById('nf-bb-gamma')?.addEventListener('click', async () => {
+    setBbStatus('⚡ Gamma 40Hz × 20 cycles 실행 중...');
+    const r = await backend.triggerGamma({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Gamma — ${r.cycles_run} cycles @ ${r.frequency_hz}Hz (${r.duration_ms}ms), inh pool ${r.inh_pool}, ${r.total_spikes} spikes (PING).`);
+  });
+  // Phase 96 place remap.
+  document.getElementById('nf-bb-place-remap')?.addEventListener('click', async () => {
+    setBbStatus('🗺 Place cell remapping (CA1 noise)...');
+    const r = await backend.triggerPlaceRemap({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Remap — CA1 ${r.ca1_count}, ${r.synapses_perturbed} 시냅스 perturbed (noise_std ${r.noise_std}).`);
+  });
+  // Phase 99 reset.
+  document.getElementById('nf-bb-reset-dyn')?.addEventListener('click', async () => {
+    setBbStatus('🔄 Dynamics reset 중...');
+    const r = await backend.resetNetwork({ mode: 'dynamics' });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Dynamics reset — ${r.neurons_reset} 뉴런 v_rest 복원, t=0.`);
+  });
+  document.getElementById('nf-bb-reset-all')?.addEventListener('click', async () => {
+    if (!confirm('Grown regions 모두 제거할까요? canonical (V1/V2/INPUT/OUT/source) 만 보존됩니다.')) return;
+    setBbStatus('🗑 Grown regions 제거 중...');
+    const r = await backend.resetNetwork({ mode: 'all' });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ Reset all — ${r.neurons_removed} 뉴런 / ${r.synapses_removed} 시냅스 제거. ${r.neurons_remaining} 뉴런 남음 (canonical).`);
+  });
+  // Phase 95 cross-validate.
+  document.getElementById('nf-bb-smoke-ext')?.addEventListener('click', async () => {
+    setBbStatus('🧪 Cross-validate 실행 중...');
+    const r = await backend.runCrossValidate();
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const verdict = r.passes ? '✓ PASS' : '⚠ WARN';
+    setBbStatus(`${verdict} — ${r.neurons} 뉴런 / ${r.synapses} 시냅스. orphan ${r.orphan_synapses}, isolated ${r.isolated_neurons}, unexpected no-input ${r.no_input_unexpected}, no-output ${r.no_output_unexpected}, weights +${r.weight_positive}/-${r.weight_negative}, delays 0=${r.delay_zero}/<0=${r.delay_negative}.`);
+  });
+  // Phase 94 sleep replay.
+  document.getElementById('nf-bb-replay-sleep')?.addEventListener('click', async () => {
+    setBbStatus('💤 Sleep replay 실행 중 (CA1 burst x5)...');
+    const r = await backend.runSleepReplay({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Sleep replay — ${r.bursts_run} bursts (${r.duration_ms}ms), CA1 pool ${r.ca1_pool}, ${r.total_spikes} spikes 생성. memory consolidation simulated.`);
+  });
+  // Phase 93 snapshot export.
+  document.getElementById('nf-bb-export')?.addEventListener('click', async () => {
+    setBbStatus('📥 Snapshot 추출 중...');
+    const r = await backend.exportSnapshot({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    try {
+      const json = JSON.stringify({
+        version: r.version, exported_at: r.exported_at,
+        neurons: r.neurons, synapses: r.synapses,
+        global_state: r.global_state, stats: r.stats,
+      }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `neuronface-snapshot-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBbStatus(`✓ Export — ${r.stats.neuron_count} 뉴런 / ${r.stats.synapse_count} 시냅스 (${(json.length / 1024).toFixed(1)} KB) 다운로드 완료.`);
+    } catch (err) {
+      setBbStatus(`Export 실패: ${err.message || err}`);
+    }
+  });
+  document.getElementById('nf-bb-lang')?.addEventListener('click', async () => {
+    setBbStatus('🗣 Language 영역 구축 중...');
+    const r = await backend.buildLanguageAreas({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — Broca ${r.broca_count} / Wernicke ${r.wern_count}.`);
+    await syncCanvas(setBbStatus, `✓ Language 완료 — Broca ${r.broca_count} + Wernicke ${r.wern_count}, ${r.synapses_added} 시냅스. A2 ${r.a2_sources} → WERN → BROCA (arcuate fasciculus) → AMN ${r.amn_targets} (speech) + PFC ${r.pfc_targets} (cognition).`);
+  });
+  document.getElementById('nf-bb-sleepwake')?.addEventListener('click', async () => {
+    setBbStatus('🛌 Sleep/Wake circuit 구축 중...');
+    const r = await backend.buildSleepWakeCircuit({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — VLPO ${r.vlpo_count}.`);
+    await syncCanvas(setBbStatus, `✓ Sleep/Wake 완료 — VLPO ${r.vlpo_count} ↔ ${r.wake_targets} wake promoters, ${r.synapses_added} mutual inhibition 시냅스. flip-flop switch 활성.`);
+  });
+  document.getElementById('nf-bb-rf')?.addEventListener('click', async () => {
+    setBbStatus('⚡ Reticular Formation 구축 중...');
+    const r = await backend.buildReticularFormation({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — RF ${r.rf_count}.`);
+    await syncCanvas(setBbStatus, `✓ RF 완료 — ${r.rf_count}, ${r.synapses_added} 시냅스. sensory ${r.sensory_sources} → RF → TH ${r.th_targets} + cortex ${r.cortex_targets} (ARAS arousal broadcast).`);
+  });
+  document.getElementById('nf-bb-sleep-mode')?.addEventListener('click', async () => {
+    setBbStatus('😴 Sleep mode 진입...');
+    const r = await backend.sleepWakeToggle('sleep', {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Sleep mode — VLPO active ${r.vlpo_active}, wake suppressed (active ${r.wake_active}). NE/ACh ↓.`);
+  });
+  document.getElementById('nf-bb-wake-mode')?.addEventListener('click', async () => {
+    setBbStatus('☀️ Wake mode 진입...');
+    const r = await backend.sleepWakeToggle('wake', {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ Wake mode — wake active ${r.wake_active}, VLPO suppressed (active ${r.vlpo_active}). NE/ACh ↑.`);
+  });
+  document.getElementById('nf-bb-nmda-pfc')?.addEventListener('click', async () => {
+    setBbStatus('💊 PFC L5 recurrent → NMDA upgrade 중...');
+    const r = await backend.upgradeNmda('pfc_l5_', { pspDurationMs: 50, onlyRecurrent: true });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ NMDA upgrade 완료 — PFC L5 recurrent ${r.synapses_upgraded} 시냅스 (PSP 50ms, sustained activity). working memory 강화.`);
+  });
+  document.getElementById('nf-bb-nmda-ca3')?.addEventListener('click', async () => {
+    setBbStatus('💊 CA3 recurrent → NMDA upgrade 중...');
+    const r = await backend.upgradeNmda('ca3_', { pspDurationMs: 50, onlyRecurrent: true });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    setBbStatus(`✓ NMDA upgrade 완료 — CA3 recurrent ${r.synapses_upgraded} 시냅스 (PSP 50ms). pattern completion attractor 안정성 ↑.`);
+  });
+  document.getElementById('nf-bb-io')?.addEventListener('click', async () => {
+    setBbStatus('🟠 Inferior Olive 구축 중...');
+    const r = await backend.buildInferiorOlive({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — IO ${r.io_count}.`);
+    await syncCanvas(setBbStatus, `✓ IO + CF 완료 — IO ${r.io_count} → ${r.pc_targets} PC (1:1 climbing fiber). LTD 학습 가능.`);
+  });
+  document.getElementById('nf-bb-ast')?.addEventListener('click', async () => {
+    setBbStatus('🟦 Astrocyte 구축 중...');
+    const r = await backend.buildAstrocytes({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — AST ${r.ast_count}.`);
+    await syncCanvas(setBbStatus, `✓ Astrocyte 완료 — ${r.ast_count} (region: ${r.regions.join(', ')}). homeostasis step 으로 V_th 자동 조정 가능.`);
+  });
+  document.getElementById('nf-bb-homeo')?.addEventListener('click', async () => {
+    setBbStatus('⚖️ homeostasis step 진행...');
+    const r = await backend.astrocyteHomeostasisStep({ targetRateHz: 10.0 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const adj = r.regions_adjusted || [];
+    if (adj.length === 0) {
+      setBbStatus('✓ 모든 region 안정 범위 — V_th 조정 없음.');
+    } else {
+      const lines = adj.map(rg => {
+        const d = r.details[rg];
+        return `${rg}: ${d.mean_rate_hz}Hz → ${d.action} ±${Math.abs(d.delta_mv)}mV (${d.neurons_affected} 뉴런)`;
+      }).join(' · ');
+      setBbStatus(`✓ ${adj.length} region 조정 — ${lines}`);
+    }
+  });
+  document.getElementById('nf-bb-commissural')?.addEventListener('click', async () => {
+    setBbStatus('🔗 Commissural fibers 구축 중 (8 pairs sparse)...');
+    const r = await backend.buildCommissuralFibers({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ Commissural 완료 — ${r.pairs_processed} pair 처리, ${r.synapses_added} 시냅스 (long-range, density ${r.density}). cross-region binding 활성: V2↔A2, PFC↔PCC, AMG↔PFC, CA1↔PFC, PPC↔PFC, INS↔AMG, AG↔PPC.`);
+  });
+  document.getElementById('nf-bb-layers-v1')?.addEventListener('click', async () => {
+    setBbStatus('🧱 V1 L1 + L6 추가 중...');
+    const r = await backend.buildCorticalLayers({ regionPrefix: 'v1_' });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — V1 L1 ${r.l1_count} / L6 ${r.l6_count}.`);
+    await syncCanvas(setBbStatus, `✓ V1 6-layer 완료 — L1 ${r.l1_count} + L6 ${r.l6_count}, ${r.synapses_added} 시냅스 (L23↔L1, L5→L6→L4 modulation, L6→TH ${r.th_targets} corticothalamic).`);
+  });
+  document.getElementById('nf-bb-layers-v2')?.addEventListener('click', async () => {
+    setBbStatus('🧱 V2 L1 + L6 추가 중...');
+    const r = await backend.buildCorticalLayers({ regionPrefix: 'v2_' });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — V2 L1 ${r.l1_count} / L6 ${r.l6_count}.`);
+    await syncCanvas(setBbStatus, `✓ V2 6-layer 완료 — L1 ${r.l1_count} + L6 ${r.l6_count}, ${r.synapses_added} 시냅스 (canonical microcircuit, L6→TH corticothalamic feedback).`);
+  });
+  document.getElementById('nf-bb-cccloop')?.addEventListener('click', async () => {
+    setBbStatus('🔄 Cerebro-cerebellar loop closure 진행...');
+    const r = await backend.buildCerebroCerebellarLoop({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — DCN→TH ${r.existing_dcn_th_synapses} 시냅스.`);
+    await syncCanvas(setBbStatus, `✓ Cerebro-cerebellar loop 닫힘 — ${r.synapses_added} 시냅스. DCN ${r.dcn_sources} → TH ${r.th_targets} → PFC ${r.pfc_targets}. 내부 모델 + 예측 오류 broadcast 회로 활성.`);
+  });
+  document.getElementById('nf-bb-ltd')?.addEventListener('click', async () => {
+    // 가장 첫 user_in 또는 V1 L4_E 첫 노드를 input 으로, IO 0번째를 error 로 demo.
+    const userIns = (state.userInputs || []).map(u => u.name);
+    const v1l4 = (state.synapses || []).map(s => s.pre).filter(n => n && n.startsWith('v1_L4_E'));
+    const inputs = userIns.length > 0 ? userIns.slice(0, 1) : v1l4.slice(0, 1);
+    if (inputs.length === 0) return setBbStatus('⚠ input 노드 없음 (user_in 또는 V1 필요).');
+    setBbStatus(`🩹 LTD train (input ${inputs[0]}, error IO_0, 10 rounds)...`);
+    const r = await backend.cerebellumLtdTrain(inputs, [0], { rounds: 10 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ LTD 적용 — ${r.ltd_applied_total} 시냅스 약화 (target PC: ${r.target_pcs.join(', ')}). Cerebellum motor learning 진행.`);
+  });
+  document.getElementById('nf-bb-replay')?.addEventListener('click', async () => {
+    setBbStatus('💤 sleep replay 진행 (20 rounds)...');
+    const r = await backend.replayHippocampus({ rounds: 20 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    await syncCanvas(setBbStatus, `✓ replay 완료 ${r.rounds} rounds × CA3 subset ${r.ca3_subset_size}/${r.ca3_total}.`);
+  });
+  document.getElementById('nf-bb-completion')?.addEventListener('click', async () => {
+    setBbStatus('🧩 pattern completion test...');
+    const r = await backend.testPatternCompletion({ partialRatio: 0.30 });
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const color = { STRONG: '#10b981', MODERATE: '#f5b842', WEAK: '#ef4444' }[r.verdict] || '#94a3b8';
+    setBbStatus(`<span style="color:${color};font-weight:600;">${r.verdict}</span> — partial ${r.partial_size}/${r.ca3_total} → active CA3 ${r.active_ca3} (gain +${(r.completion_gain*100).toFixed(0)}%) · CA1 ${r.active_ca1}`);
+  });
+  document.getElementById('nf-bb-dg')?.addEventListener('click', async () => {
+    setBbStatus('🌾 Dentate Gyrus 구축 중...');
+    const r = await backend.buildDentateGyrus({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — DG ${r.dg_count}.`);
+    await syncCanvas(setBbStatus, `✓ DG 완료 — ${r.dg_count} (sparse, V_th -52mV), ${r.synapses_added} 시냅스. V2 ${r.v2_sources} + PFC ${r.pfc_sources} → DG → CA3 ${r.ca3_targets} (mossy fiber 5%, pattern separation 활성).`);
+  });
+  document.getElementById('nf-bb-ec')?.addEventListener('click', async () => {
+    setBbStatus('🚪 Entorhinal Cortex 구축 중...');
+    const r = await backend.buildEntorhinalCortex({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — EC II/III/V ${r.ec_ii_count}/${r.ec_iii_count}/${r.ec_v_count}.`);
+    await syncCanvas(setBbStatus, `✓ EC 완료 — II ${r.ec_ii_count} + III ${r.ec_iii_count} + V ${r.ec_v_count}, ${r.synapses_added} 시냅스. cortex ${r.cortex_sources} → EC II→DG ${r.dg_count} (perforant) + EC III→CA1 ${r.ca1_count} (temporoammonic), CA1→EC V→cortex (gateway 양방향).`);
+  });
+  document.getElementById('nf-bb-spatial')?.addEventListener('click', async () => {
+    setBbStatus('🗺 Place + Grid cells 구축 중...');
+    const r = await backend.buildSpatialNavigation({});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    if (r.already_exists) return setBbStatus(`이미 존재 — PLACE ${r.place_count} / GRID ${r.grid_count}.`);
+    await syncCanvas(setBbStatus, `✓ Spatial 완료 — PLACE ${r.place_count} + GRID ${r.grid_count}, ${r.synapses_added} 시냅스. PPC ${r.ppc_sources} → GRID → PLACE → CA3 ${r.ca3_targets}. 📍 Inject 로 위치 자극 가능.`);
+  });
+  document.getElementById('nf-bb-spatial-inject')?.addEventListener('click', async () => {
+    const x = parseFloat(prompt('X 위치 (0-1):', '0.5')) || 0.5;
+    const y = parseFloat(prompt('Y 위치 (0-1):', '0.5')) || 0.5;
+    setBbStatus(`📍 Spatial inject (x=${x.toFixed(2)}, y=${y.toFixed(2)})...`);
+    const r = await backend.spatialInject(x, y, {});
+    if (!r.ok) return setBbStatus(`실패: ${r.reason || ''}`);
+    const winners = r.place_active_top5.map(p => `${p.name}(${p.rate_hz}Hz)`).join(', ');
+    setBbStatus(`✓ inject ${r.grid_injected}/${r.grid_total} grid cells active → place winners: ${winners || '없음'}`);
+  });
+}
+
+// Session 41+ Tier1-B: Cross-modal binding dialog.
+// 사용자가 2+ user_in 노드를 선택 + 정답 OUT 지정 → 동시 inject + STDP 학습.
+// Singer (1999) feature binding by synchrony — Hebbian "fire together wire together"
+// 가 동시 발화 한 modality 들을 같은 cascade path 로 묶음.
+async function openCrossModalBindDialog() {
+  const backend = window.__neuronfaceBackend;
+  if (!backend) return;
+  const inputs = (state.userInputs || []);
+  if (inputs.length < 2) {
+    await dialogAlert('Cross-modal binding 은 USER INPUT 노드 2개 이상 필요. 라이브러리에서 더 추가해 주세요.', '🔗 Bind');
+    return;
+  }
+  const targets = [
+    ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: `${uo.label} (사용자 액션)` })),
+    { name: 'out_0', label: 'out_0 — Pointing (시스템)' },
+    { name: 'out_1', label: 'out_1 — Open palm (시스템)' },
+    { name: 'out_2', label: 'out_2 — Thumbs up (시스템)' },
+    { name: 'out_3', label: 'out_3 — Victory (시스템)' },
+  ];
+  const inputCheckboxes = inputs.map(ui => {
+    const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍', eeg: '🧠' };
+    const ic = kindIcon[ui.kind] || '⚙️';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:3px;">
+      <input type="checkbox" class="nf-bind-input-cb" value="${ui.name}" data-kind="${ui.kind}" checked>
+      <span>${ic} ${ui.label} <code style="opacity:0.5;font-size:10px;">${ui.name}</code></span>
+    </label>`;
+  }).join('');
+  const targetOptions = targets.map(t => `<option value="${t.name}">${t.label}</option>`).join('');
+
+  await openDialog({
+    title: '🔗 Cross-modal Binding (다중 modality 동시 fire)',
+    bodyHTML: `
+      <p>여러 INPUT 을 <strong>동시 inject</strong> → Hebbian 으로 같은 OUT 으로 수렴 학습. 학술 근거: Singer (1999) feature binding by synchrony.</p>
+      <p style="margin-top:10px;font-size:11px;color:#94a3b8;">동시 자극할 INPUT</p>
+      <div style="max-height:160px;overflow-y:auto;border:1px solid rgba(167,139,250,0.18);border-radius:3px;padding:4px 6px;">
+        ${inputCheckboxes}
+      </div>
+      <p style="margin-top:10px;font-size:11px;color:#94a3b8;">정답 OUT (binding target)</p>
+      <select id="nf-bind-target" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+        <option value="">(선택 — Train 시 필수)</option>
+        ${targetOptions}
+      </select>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <span style="font-size:11px;color:#94a3b8;">Rounds</span>
+        <select id="nf-bind-rounds" class="nf-multimodal-select" style="flex:1;padding:6px 8px;font-size:12px;">
+          <option value="10">10×</option>
+          <option value="20" selected>20× (권장)</option>
+          <option value="30">30×</option>
+          <option value="50">50×</option>
+        </select>
+      </div>
+      <div id="nf-bind-status" style="margin-top:10px;font-size:11px;color:#94a3b8;min-height:18px;">2+ INPUT 선택 + 정답 OUT 지정 후 Train.</div>
+    `,
+    buttons: [
+      { label: '닫기', kind: 'cancel', value: null },
+      { label: '🧪 Test', kind: 'secondary', onClick: async () => {
+        const items = collectBindItems();
+        if (items.length < 2) { setBindStatus('⚠ 2개 이상 INPUT 선택 필요.'); return undefined; }
+        setBindStatus(`🧪 동시 inject 테스트 (stdp off) — ${items.length} INPUT...`);
+        const r = await backend.injectUserInputMulti(items, { stdp: false });
+        if (!r.ok) { setBindStatus(`실패: ${r.reason || ''}`); return undefined; }
+        const out = r.out_rates || {};
+        const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+        setBindStatus(`✓ winner: ${winner ? `${winner[0]} = ${winner[1].toFixed(0)}Hz` : '없음'} — Saturation 카드 확인.`);
+        return undefined;
+      }},
+      { label: '🎓 Train', kind: 'primary', onClick: async () => {
+        const items = collectBindItems();
+        if (items.length < 2) { setBindStatus('⚠ 2개 이상 INPUT 선택 필요.'); return undefined; }
+        const target = document.getElementById('nf-bind-target')?.value;
+        if (!target) { setBindStatus('⚠ 정답 OUT 을 선택해 주세요.'); return undefined; }
+        const rounds = parseInt(document.getElementById('nf-bind-rounds')?.value || '20', 10);
+        let okCount = 0;
+        for (let i = 1; i <= rounds; i += 1) {
+          setBindStatus(`🎓 binding 학습 ${i}/${rounds} (target: ${target})...`);
+          const r = await backend.injectUserInputMulti(items, { stdp: true, targetOut: target });
+          if (r.ok) okCount += 1;
+        }
+        setBindStatus(`✓ binding 학습 완료 ${okCount}/${rounds} → ${target}. Test 로 검증해 보세요.`);
+        // 최종 snapshot 동기 → 캔버스 weight 색 갱신.
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+        return undefined;
+      }},
+    ],
+  });
+
+  function collectBindItems() {
+    const cbs = Array.from(document.querySelectorAll('.nf-bind-input-cb'));
+    return cbs.filter(cb => cb.checked).map(cb => ({
+      name: cb.value,
+      // 단순 균등 패턴 (8-bin all-on). 향후 modality 별 stored encoding 으로 확장 가능.
+      pattern: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+      intensity: 1.0,
+    }));
+  }
+  function setBindStatus(msg) {
+    const el = document.getElementById('nf-bind-status');
+    if (el) el.textContent = msg;
+  }
 }
 
 function toggleCanvasView() {
@@ -4161,6 +7612,8 @@ function autoMountCanvas() {
   const modeEditBtn = document.getElementById('nf-mode-edit');
   modeNormalBtn?.classList.add('active');
   modeEditBtn?.classList.remove('active');
+  // Session 40: toolbar 상태 동기 — autoMount 가 .click() 없이 class 만 바꾸므로 명시 sync.
+  window.dispatchEvent(new CustomEvent('snn-toolbar:sync', { detail: { mode: 'normal', view: 'neuron' } }));
 
   // Session 36: 자동 학습 영역 영역 (사용자 catch 정합 — 영역 노드 활성화 영역 0).
   // 학습 영역 영역 = "Train Cascade" button (settings panel 영역 ⚙ click 영역 영역) 영역 영역 영역.
@@ -4222,7 +7675,338 @@ window.addEventListener('DOMContentLoaded', () => {
       showCanvasEmptyState();
     }
   }, 10000);
+  // Session 40: 편집 toolbar (top desktop / bottom mobile + sheet) 초기화.
+  setupEditorToolbar();
 });
+
+// ─────────────────────────────────────────────────────────────
+// Session 40: 편집 toolbar — Top (desktop) / Bottom (mobile) + Bottom sheet.
+// ─────────────────────────────────────────────────────────────
+function setupEditorToolbar() {
+  const $ = (id) => document.getElementById(id);
+  // 기존 버튼 click 으로 위임 — 모든 백엔드/상태 동기 로직 재사용.
+  const fwdClick = (existingId) => () => {
+    const el = document.getElementById(existingId);
+    if (el) el.click();
+  };
+
+  // ── Top toolbar (desktop) ──
+  const tbModeNormal = $('nf-tb-mode-normal');
+  const tbModeEdit   = $('nf-tb-mode-edit');
+  const tbViewRegion = $('nf-tb-view-region');
+  const tbViewNeuron = $('nf-tb-view-neuron');
+  const tbTrain      = $('nf-tb-train');
+  const tbEval       = $('nf-tb-eval');
+  const tbRl         = $('nf-tb-rl');
+  const tbDemo       = $('nf-tb-demo');
+  const tbBind       = $('nf-tb-bind');
+  const tbSeq        = $('nf-tb-seq');
+  const tbReset      = $('nf-tb-reset');
+  const tbGrow       = $('nf-tb-grow');
+  const tbHippo      = $('nf-tb-hippo');
+  const tbStats      = $('nf-tb-stats');
+  const tbSave       = $('nf-tb-save');
+  const tbLoad       = $('nf-tb-load');
+  const tbExport     = $('nf-tb-export');
+  const tbImport     = $('nf-tb-import');
+  const tbShare      = $('nf-tb-share');
+  const tbSettings   = $('nf-tb-settings');
+
+  if (tbModeNormal) tbModeNormal.addEventListener('click', () => { fwdClick('nf-mode-normal')(); syncToolbarMode('normal'); });
+  if (tbModeEdit)   tbModeEdit.addEventListener('click',   () => { fwdClick('nf-mode-edit')();   syncToolbarMode('edit');   });
+  if (tbViewRegion) tbViewRegion.addEventListener('click', () => { fwdClick('nf-canvas-mode-region')(); syncToolbarView('region'); });
+  if (tbViewNeuron) tbViewNeuron.addEventListener('click', () => { fwdClick('nf-canvas-mode-neuron')(); syncToolbarView('neuron'); });
+  if (tbTrain)      tbTrain.addEventListener('click', fwdClick('nf-train-cascade'));
+  if (tbEval)       tbEval.addEventListener('click',  fwdClick('nf-decode-eval'));
+  if (tbRl)         tbRl.addEventListener('click',    fwdClick('nf-supervised-batch'));
+  if (tbDemo)       tbDemo.addEventListener('click',  fwdClick('nf-demo-large-train'));
+  if (tbBind)       tbBind.addEventListener('click',  () => openCrossModalBindDialog());
+  if (tbSeq)        tbSeq.addEventListener('click',   () => openSequenceLearnDialog());
+  if (tbReset)      tbReset.addEventListener('click', fwdClick('nf-circuit-reset'));
+  if (tbGrow)       tbGrow.addEventListener('click',  fwdClick('nf-grow-btn'));
+  if (tbHippo)      tbHippo.addEventListener('click', () => buildHippocampusFromToolbar());
+  if (tbStats)      tbStats.addEventListener('click', fwdClick('nf-dashboard-refresh'));
+  if (tbSave)       tbSave.addEventListener('click',  fwdClick('nf-training-save'));
+  if (tbLoad)       tbLoad.addEventListener('click',  fwdClick('nf-training-load'));
+  if (tbExport)     tbExport.addEventListener('click', fwdClick('nf-circuit-export'));
+  if (tbImport)     tbImport.addEventListener('click', fwdClick('nf-circuit-import'));
+  if (tbShare)      tbShare.addEventListener('click',  () => openMarketplaceDialog());
+  if (tbSettings) {
+    tbSettings.addEventListener('click', () => {
+      const panel = document.getElementById('neuronface-settings');
+      if (!panel) return;
+      panel.classList.toggle('open');
+    });
+  }
+
+  // 기존 mode/view 버튼 클릭 시에도 toolbar 동기 (외부 click → toolbar active).
+  ['nf-mode-normal', 'nf-mode-edit'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => syncToolbarMode(id === 'nf-mode-edit' ? 'edit' : 'normal'));
+  });
+  ['nf-canvas-mode-region', 'nf-canvas-mode-neuron'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => syncToolbarView(id === 'nf-canvas-mode-neuron' ? 'neuron' : 'region'));
+  });
+
+  function syncToolbarMode(mode) {
+    if (tbModeNormal) tbModeNormal.classList.toggle('active', mode === 'normal');
+    if (tbModeEdit)   tbModeEdit.classList.toggle('active',   mode === 'edit');
+    // 모바일 bottom-bar mode slot 도 sync.
+    const bbMode = document.querySelector('.nf-bb-slot[data-slot="mode"]');
+    const bbModeLabel = document.getElementById('nf-bb-mode-label');
+    if (bbMode) bbMode.classList.toggle('active', mode === 'edit');
+    if (bbModeLabel) bbModeLabel.textContent = mode === 'edit' ? 'Edit' : 'Normal';
+    const bbModeIcon = bbMode?.querySelector('.nf-bb-icon');
+    if (bbModeIcon) bbModeIcon.textContent = mode === 'edit' ? '✏️' : '🖐';
+  }
+  function syncToolbarView(view) {
+    if (tbViewRegion) tbViewRegion.classList.toggle('active', view === 'region');
+    if (tbViewNeuron) tbViewNeuron.classList.toggle('active', view === 'neuron');
+  }
+
+  // 외부 dispatch 로 sync (autoMountCanvas 가 .click() 없이 class 변경 시).
+  window.addEventListener('snn-toolbar:sync', (ev) => {
+    const d = ev.detail || {};
+    if (d.mode) syncToolbarMode(d.mode);
+    if (d.view) syncToolbarView(d.view);
+  });
+
+  // ── Bottom toolbar (mobile) ──
+  setupBottomBar();
+  setupSheet();
+}
+
+// 모바일 bottom 5-slot bar — tap + long-press.
+function setupBottomBar() {
+  const bar = document.getElementById('nf-bottom-bar');
+  if (!bar) return;
+  const slots = bar.querySelectorAll('.nf-bb-slot');
+  slots.forEach(slot => attachLongPress(slot, {
+    tap: () => handleBottomTap(slot.dataset.slot),
+    longPress: () => handleBottomLong(slot.dataset.slot),
+    threshold: 500,
+  }));
+}
+
+function handleBottomTap(slot) {
+  switch (slot) {
+    case 'add':   return openSheet('add');
+    case 'train': return document.getElementById('nf-train-cascade')?.click();
+    case 'eval':  return document.getElementById('nf-decode-eval')?.click();
+    case 'save':  return document.getElementById('nf-training-save')?.click();
+    case 'more':  return openSheet('more');
+  }
+}
+async function handleBottomLong(slot) {
+  switch (slot) {
+    case 'train': {
+      // long-press = Reset (확인 dialog).
+      const ok = await dialogConfirm('회로를 초기 상태로 reset 할까요? 학습된 weight 모두 손실됩니다.', '회로 초기화');
+      if (ok) document.getElementById('nf-circuit-reset')?.click();
+      return;
+    }
+    case 'eval':  return document.getElementById('nf-supervised-batch')?.click();
+    case 'save':  return openSheet('persist');
+    case 'add':   return openSheet('add');
+    case 'more':  return openSheet('more');
+  }
+}
+
+// pointer-based long-press helper (touch + mouse 통합).
+// pointer capture 로 손가락 이동 시에도 pointerup 이 같은 element 에 도달.
+function attachLongPress(el, { tap, longPress, threshold = 500 }) {
+  let timer = null;
+  let triggered = false;
+  let capturedId = null;
+  const start = (ev) => {
+    triggered = false;
+    el.classList.add('long-pressing');
+    try { el.setPointerCapture(ev.pointerId); capturedId = ev.pointerId; } catch (_) {}
+    timer = setTimeout(() => {
+      triggered = true;
+      el.classList.remove('long-pressing');
+      try { navigator.vibrate?.(15); } catch (_) {}
+      longPress();
+    }, threshold);
+  };
+  const finalize = (didTap) => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    el.classList.remove('long-pressing');
+    if (capturedId !== null) {
+      try { el.releasePointerCapture(capturedId); } catch (_) {}
+      capturedId = null;
+    }
+    if (didTap && !triggered) tap();
+  };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', () => finalize(true));
+  el.addEventListener('pointercancel', () => finalize(false));
+}
+
+// Bottom sheet — Add / More / Persist / View 진입점 컨텐츠 동적 주입.
+function setupSheet() {
+  const sheet = document.getElementById('nf-sheet');
+  if (!sheet) return;
+  sheet.querySelectorAll('[data-sheet-close]').forEach(el => {
+    el.addEventListener('click', closeSheet);
+  });
+  // drag handle: 95% 확장/축소 토글.
+  const handle = sheet.querySelector('.nf-sheet-handle');
+  if (handle) {
+    handle.addEventListener('click', () => sheet.classList.toggle('expanded'));
+  }
+}
+function openSheet(kind) {
+  const sheet = document.getElementById('nf-sheet');
+  const title = document.getElementById('nf-sheet-title');
+  const body  = document.getElementById('nf-sheet-body');
+  if (!sheet || !title || !body) return;
+  if (kind === 'add')      { title.textContent = '노드 추가';        body.innerHTML = renderSheetAdd(); }
+  else if (kind === 'more'){ title.textContent = '더보기';          body.innerHTML = renderSheetMore(); }
+  else if (kind === 'persist'){ title.textContent = 'Save · Load · Export'; body.innerHTML = renderSheetPersist(); }
+  else if (kind === 'view'){ title.textContent = '보기 옵션';        body.innerHTML = renderSheetView(); }
+  else                     { title.textContent = '옵션';            body.innerHTML = ''; }
+  // tile / list-btn 클릭 위임.
+  body.querySelectorAll('[data-tile-action]').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.dataset.tileAction;
+      const param  = el.dataset.tileParam;
+      handleSheetAction(action, param);
+    });
+  });
+  sheet.classList.add('open');
+}
+function closeSheet() {
+  const sheet = document.getElementById('nf-sheet');
+  if (!sheet) return;
+  sheet.classList.remove('open');
+  sheet.classList.remove('expanded');
+}
+function renderSheetAdd() {
+  const inputs = [
+    ['audio',    '🎤', 'Audio'],   ['text',     '📝', 'Text'],
+    ['custom',   '⚙️', 'Custom'],  ['image',    '🖼️', 'Image (soon)'],
+    ['motion',   '📱', 'Motion (soon)'], ['keyboard', '⌨️', 'Keyboard (soon)'],
+    ['mouse',    '🖱️', 'Mouse (soon)'], ['geo',      '📍', 'Geo (soon)'],
+  ];
+  const outs = [
+    ['notification', '🔔', 'Notification'],
+    ['speak',        '🔊', 'Speak'],
+    ['webhook',      '🌐', 'Webhook'],
+    ['console',      '📟', 'Console'],
+  ];
+  const inputTiles = inputs.map(([k, ic, lbl]) => {
+    const dis = ['image','motion','keyboard','mouse','geo'].includes(k);
+    return `<button class="nf-sheet-tile" data-tile-action="add-input" data-tile-param="${k}" type="button" ${dis ? 'disabled' : ''}>
+      <span class="nf-sheet-tile-icon">${ic}</span><span class="nf-sheet-tile-label">${lbl}</span>
+    </button>`;
+  }).join('');
+  const outTiles = outs.map(([k, ic, lbl]) => `
+    <button class="nf-sheet-tile" data-tile-action="add-output" data-tile-param="${k}" type="button">
+      <span class="nf-sheet-tile-icon">${ic}</span><span class="nf-sheet-tile-label">${lbl}</span>
+    </button>`).join('');
+  return `
+    <div class="nf-sheet-section-label">INPUT 노드</div>
+    <div class="nf-sheet-grid">${inputTiles}</div>
+    <div class="nf-sheet-section-label">OUTPUT 노드 (액션)</div>
+    <div class="nf-sheet-grid">${outTiles}</div>
+  `;
+}
+function renderSheetMore() {
+  return `
+    <div class="nf-sheet-section-label">VIEW</div>
+    <button class="nf-sheet-list-btn" data-tile-action="view" data-tile-param="region" type="button">
+      <span class="nf-sheet-list-btn-icon">▦</span> Region 보기 (4 nodes)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="view" data-tile-param="neuron" type="button">
+      <span class="nf-sheet-list-btn-icon">⬢</span> Neuron 보기 (52 nodes)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="fit" type="button">
+      <span class="nf-sheet-list-btn-icon">⊕</span> Fit canvas (re-center)
+    </button>
+    <div class="nf-sheet-section-label">CIRCUIT</div>
+    <button class="nf-sheet-list-btn" data-tile-action="reset" type="button">
+      <span class="nf-sheet-list-btn-icon">↻</span> 회로 초기화 (Reset)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="load" type="button">
+      <span class="nf-sheet-list-btn-icon">📂</span> Load training (localStorage)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="export" type="button">
+      <span class="nf-sheet-list-btn-icon">📥</span> Export 회로 (JSON)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="import" type="button">
+      <span class="nf-sheet-list-btn-icon">📤</span> Import 회로 (JSON)
+    </button>
+    <div class="nf-sheet-section-label">CONFIG</div>
+    <button class="nf-sheet-list-btn" data-tile-action="endpoint" type="button">
+      <span class="nf-sheet-list-btn-icon">⚙</span> Endpoint / API Key
+    </button>
+  `;
+}
+function renderSheetPersist() {
+  return `
+    <button class="nf-sheet-list-btn" data-tile-action="save" type="button">
+      <span class="nf-sheet-list-btn-icon">💾</span> Save training (localStorage)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="load" type="button">
+      <span class="nf-sheet-list-btn-icon">📂</span> Load training (localStorage)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="export" type="button">
+      <span class="nf-sheet-list-btn-icon">📥</span> Export 회로 (JSON)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="import" type="button">
+      <span class="nf-sheet-list-btn-icon">📤</span> Import 회로 (JSON)
+    </button>
+  `;
+}
+function renderSheetView() {
+  return `
+    <button class="nf-sheet-list-btn" data-tile-action="view" data-tile-param="region" type="button">
+      <span class="nf-sheet-list-btn-icon">▦</span> Region 보기 (4 nodes)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="view" data-tile-param="neuron" type="button">
+      <span class="nf-sheet-list-btn-icon">⬢</span> Neuron 보기 (52 nodes)
+    </button>
+    <button class="nf-sheet-list-btn" data-tile-action="fit" type="button">
+      <span class="nf-sheet-list-btn-icon">⊕</span> Fit canvas (re-center)
+    </button>
+  `;
+}
+function handleSheetAction(action, param) {
+  const click = (id) => document.getElementById(id)?.click();
+  switch (action) {
+    case 'add-input':
+      // node-library 의 해당 kind 버튼 click — 기존 add 흐름 그대로.
+      document.querySelector(`.nf-node-lib-btn[data-kind="${param}"]`)?.click();
+      closeSheet();
+      return;
+    case 'add-output':
+      document.querySelector(`.nf-out-lib-btn[data-out-kind="${param}"]`)?.click();
+      closeSheet();
+      return;
+    case 'view':
+      click(param === 'neuron' ? 'nf-canvas-mode-neuron' : 'nf-canvas-mode-region');
+      closeSheet();
+      return;
+    case 'fit':    try { fitCanvasToNodes(0.9); } catch (_) {} closeSheet(); return;
+    case 'reset':  click('nf-circuit-reset'); closeSheet(); return;
+    case 'save':   click('nf-training-save'); closeSheet(); return;
+    case 'load':   click('nf-training-load'); closeSheet(); return;
+    case 'export': click('nf-circuit-export'); closeSheet(); return;
+    case 'import': click('nf-circuit-import'); closeSheet(); return;
+    case 'endpoint':
+      // 데스크톱 settings 패널 강제 노출 — 모바일에서도 접근 가능 (CORE 탭).
+      const panel = document.getElementById('neuronface-settings');
+      if (panel) {
+        panel.classList.add('open');
+        panel.style.display = 'block';
+        panel.style.zIndex = '2000';
+      }
+      closeSheet();
+      return;
+  }
+}
 
 function showCanvasEmptyState() {
   const container = document.getElementById('nf-snn-canvas');
@@ -4337,6 +8121,103 @@ function tryMountHand() {
   }
 }
 
+// Phase 202: Brain Builder 버튼 → canvas region 강조 (region 빌드 후 클릭하면 해당 region 깜박).
+function flashCanvasRegion(prefix) {
+  const canvas = document.getElementById('nf-snn-canvas');
+  if (!canvas || !prefix) return;
+  const matched = canvas.querySelectorAll(`.drawflow-node`);
+  let count = 0;
+  matched.forEach((n) => {
+    const id = n.dataset?.neuron || n.id?.replace('node-', '');
+    const region = n.dataset?.region || '';
+    if (region.toLowerCase().startsWith(prefix.toLowerCase().replace(/_$/, ''))
+        || (id && id.startsWith(prefix))) {
+      n.classList.add('snn-canvas-region-highlight');
+      count++;
+      setTimeout(() => n.classList.remove('snn-canvas-region-highlight'), 2000);
+    }
+  });
+  return count;
+}
+
+// Phase 201/204/205: canvas panel (filter + legend) init.
+function setupCanvasPanel() {
+  const panel = document.getElementById('nf-canvas-panel');
+  if (!panel) return;
+  const canvas = document.getElementById('nf-snn-canvas');
+  if (!canvas) return;
+  const search = document.getElementById('nf-cp-search');
+  const legend = document.getElementById('nf-cp-legend');
+  const body = document.getElementById('nf-cp-body');
+  const toggle = document.getElementById('nf-cp-toggle');
+  // Toggle collapse.
+  toggle?.addEventListener('click', () => {
+    const collapsed = body.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '+' : '−';
+  });
+  // Build legend from current canvas nodes.
+  const refreshLegend = () => {
+    if (!legend) return;
+    const nodes = canvas.querySelectorAll('.drawflow-node[data-region]');
+    if (!nodes.length) {
+      legend.innerHTML = '<span style="color:#64748b;">no nodes</span>';
+      return;
+    }
+    // Group by region.
+    const regionData = new Map();
+    nodes.forEach((n) => {
+      const r = n.dataset.region || '?';
+      if (!regionData.has(r)) regionData.set(r, { count: 0, color: null });
+      regionData.get(r).count++;
+      if (!regionData.get(r).color) {
+        // Try to grab color from inline style or compute from class.
+        const colorEl = n.querySelector('[style*="background"]');
+        if (colorEl) {
+          const m = colorEl.getAttribute('style')?.match(/background:\s*([^;]+)/);
+          if (m) regionData.get(r).color = m[1].trim();
+        }
+      }
+    });
+    const sorted = [...regionData.entries()].sort((a, b) => b[1].count - a[1].count);
+    // Phase 205: 폴더 모양 SVG swatch (region color = fill).
+    const folderSvg = `<svg viewBox="0 0 16 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path class="nf-cp-folder-fill" d="M1.5 3.2c0-.55.45-1 1-1h3.3l1.5 1.5h6.2c.55 0 1 .45 1 1v6.6c0 .55-.45 1-1 1H2.5c-.55 0-1-.45-1-1V3.2z"/></svg>`;
+    legend.innerHTML = sorted.map(([region, data]) => {
+      const color = data.color || '#94a3b8';
+      return `<div class="nf-cp-legend-row" data-region="${region}">
+        <div class="nf-cp-legend-swatch" style="--nf-cp-region-color:${color};">${folderSvg}</div>
+        <span class="nf-cp-legend-label">${region}</span>
+        <span class="nf-cp-legend-count">${data.count}</span>
+      </div>`;
+    }).join('');
+    // Click row → toggle dim (filter).
+    legend.querySelectorAll('.nf-cp-legend-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const r = row.dataset.region;
+        const dimmed = row.classList.toggle('dimmed');
+        canvas.querySelectorAll(`.drawflow-node[data-region="${r}"]`)
+          .forEach((n) => n.style.opacity = dimmed ? '0.15' : '');
+      });
+    });
+  };
+  // Search filter.
+  search?.addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const nodes = canvas.querySelectorAll('.drawflow-node[data-region]');
+    nodes.forEach((n) => {
+      const r = (n.dataset.region || '').toLowerCase();
+      const p = (n.dataset.population || '').toLowerCase();
+      const match = !q || r.includes(q) || p.includes(q);
+      n.style.opacity = match ? '' : '0.15';
+    });
+  });
+  // Initial + retry (drawflow async render).
+  refreshLegend();
+  setTimeout(refreshLegend, 400);
+  setTimeout(refreshLegend, 1200);
+  // Refresh on canvas update event.
+  window.addEventListener('snn-canvas:source-mounted', () => setTimeout(refreshLegend, 300));
+}
+
 window.addEventListener('snn-canvas:source-mounted', () => {
   tryMountAsciiCamera();
   tryMountHand();
@@ -4353,6 +8234,8 @@ window.addEventListener('snn-canvas:source-mounted', () => {
 
 // Session 36: header zoom control (− / input / + / reset).
 window.addEventListener('DOMContentLoaded', () => {
+  // Phase 201/204/205: canvas panel init.
+  setupCanvasPanel();
   const zoomInput = document.getElementById('nf-zoom-value');
   const zoomInBtn = document.getElementById('nf-zoom-in');
   const zoomOutBtn = document.getElementById('nf-zoom-out');

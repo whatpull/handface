@@ -39,6 +39,9 @@ export function initCanvas(containerId) {
   editor = new Drawflow(container);
   editor.reroute = true;
   editor.reroute_fix_curvature = true;
+  editor.zoom_min = 0.2;
+  editor.zoom_max = 9.99;
+  editor.zoom_value = 0.05;
   editor.start();
 
   for (const region of REGION_NODES) {
@@ -87,7 +90,7 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   editor.reroute_fix_curvature = false;
   editor.curvature = 0;                    // 직선 (사용자 catch 정합 — bezier 영역 cross 영역 영역 영역).
   editor.zoom_min = 0.2;
-  editor.zoom_max = 2.5;
+  editor.zoom_max = 9.99;
   editor.zoom_value = 0.05;
   editor.draggable_inputs = false;
   editor.force_first_input = false;
@@ -141,8 +144,16 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
     drawflowIdToName[id] = neuron.id;  // Session 39: drag end 역매핑.
     // direct DOM ref (drawflow render synchronous 통과 영역 영역 영역).
     const el = document.getElementById(`node-${id}`);
-    if (el) nodeRefMap[neuron.id] = el;
+    if (el) {
+      nodeRefMap[neuron.id] = el;
+      // Phase 201: data-region 속성 부여 + region prefix 별 그룹화 highlight.
+      el.dataset.region = neuron.region || '?';
+      el.dataset.population = neuron.population || '?';
+    }
   }
+
+  // Phase 201: region hover highlight — same region 노드 강조.
+  attachRegionHoverHighlight(container);
 
   // synapse edge (backend response 사용 + SOURCE + DECODE pathway 영역 frontend fixed).
   // Session 37 Phase 4: DECODE_EDGES = 직접 INPUT → OUT 영역 (D120 backend 영역 영역).
@@ -206,6 +217,28 @@ function openSubmenu(menuEl, nodeId, dfId) {
   // ... menu button 영역 자식 영역 영역 → button 영역 영역 dropdown + drawflow zoom transform 영역 영역.
   menuEl.appendChild(submenu);
   activeSubmenu = submenu;
+}
+
+// Phase 201: region hover highlight — mouseenter on node → 같은 region 모든 노드 강조.
+// CSS class .snn-canvas-region-highlight 를 사용해 시각 강조.
+function attachRegionHoverHighlight(container) {
+  if (!container) return;
+  container.addEventListener('mouseenter', (e) => {
+    const node = e.target?.closest?.('.drawflow-node');
+    if (!node) return;
+    const region = node.dataset?.region;
+    if (!region || region === '?') return;
+    container.classList.add('snn-region-hover-active');
+    container.querySelectorAll(`.drawflow-node[data-region="${region}"]`)
+      .forEach((n) => n.classList.add('snn-canvas-region-highlight'));
+  }, true);
+  container.addEventListener('mouseleave', (e) => {
+    const node = e.target?.closest?.('.drawflow-node');
+    if (!node) return;
+    container.classList.remove('snn-region-hover-active');
+    container.querySelectorAll('.snn-canvas-region-highlight')
+      .forEach((n) => n.classList.remove('snn-canvas-region-highlight'));
+  }, true);
 }
 
 function attachMenuHandler(container) {
@@ -625,6 +658,7 @@ function userInputNodeHtml(neuron, userBadge) {
     keyboard: '⌨️ keyboard + inject',
     mouse: '🖱️ mouse + inject',
     geo: '📍 위치 + inject',
+    eeg: '🧠 EEG capture + inject',
     custom: '✏️ 편집 + inject',
   };
   const btnLabel = labels[kind] || labels.custom;
@@ -654,6 +688,15 @@ function userOutputNodeHtml(neuron) {
   else if (kind === 'speak') cfgPreview = cfg.text || '(no text)';
   else if (kind === 'webhook') cfgPreview = cfg.url || '(no url)';
   else if (kind === 'console') cfgPreview = cfg.tag || 'log';
+  const editLabels = {
+    notification: '✏️ 알림 편집',
+    speak: '✏️ TTS 편집',
+    webhook: '✏️ Webhook 편집',
+    console: '✏️ Console 편집',
+    custom: '✏️ 편집',
+  };
+  const editLabel = editLabels[kind] || editLabels.custom;
+  const stop = 'onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"';
   return `
     <div class="snn-canvas-neuron-card snn-canvas-out-card snn-canvas-user-out-card">
       <div class="snn-canvas-neuron-header">
@@ -669,6 +712,11 @@ function userOutputNodeHtml(neuron) {
         <div class="snn-canvas-neuron-row">
           <span class="snn-canvas-neuron-row-label snn-canvas-out-cfg-preview" title="${cfgPreview}">${cfgPreview}</span>
           <span class="snn-canvas-neuron-row-value snn-canvas-out-status" id="snn-canvas-out-status-${id}">idle</span>
+        </div>
+      </div>
+      <div class="snn-canvas-user-body">
+        <div class="snn-canvas-user-actions">
+          <button class="snn-canvas-user-btn" data-action="edit-out" data-node="${id}" data-kind="${kind}" type="button" ${stop}>${editLabel}</button>
         </div>
       </div>
     </div>
@@ -797,6 +845,46 @@ export function updateCanvasFireNeuron(rates) {
       conn.classList.remove('fired');
       delete fireTimers[`__conn_${key}`];
     }, FIRE_DURATION_MS);
+  }
+}
+
+// Session 41+ Tier1-C: weight-delta heatmap overlay.
+// 학습 round 간 synapse weight 변화량을 캔버스 라인에 잠시 강조. Hebbian
+// "fire together wire together" 가시화 — 어느 시냅스가 강화되는지 직관적으로 보여줌.
+//
+// `deltas` = { 'pre->post': delta_w, ... }
+// 절대값이 클수록 더 밝게 강조. duration 후 자동 fade-out (CSS animation).
+const _learningTimers = {};
+const LEARNING_DURATION_MS = 1500;
+export function flashWeightDelta(deltas, opts = {}) {
+  if (!deltas || typeof deltas !== 'object') return;
+  const dur = opts.durationMs || LEARNING_DURATION_MS;
+  // 동적으로 max delta 찾아 normalize (시각적 대비 보장).
+  let maxAbs = 0;
+  for (const k in deltas) {
+    const d = Math.abs(deltas[k] || 0);
+    if (d > maxAbs) maxAbs = d;
+  }
+  if (maxAbs < 0.01) return;  // 의미있는 변화 없음.
+  for (const key in deltas) {
+    const d = deltas[key] || 0;
+    if (Math.abs(d) < 0.01) continue;
+    const conn = connRefMap[key];
+    if (!conn) continue;
+    const intensity = Math.min(1.0, Math.abs(d) / maxAbs);
+    // LTP (강화) = green, LTD (약화) = orange. opacity = intensity.
+    const color = d > 0 ? `rgba(16, 185, 129, ${0.4 + 0.6 * intensity})`
+                        : `rgba(245, 158, 11, ${0.4 + 0.6 * intensity})`;
+    conn.classList.add('learning');
+    conn.style.setProperty('--learning-color', color);
+    conn.style.setProperty('--learning-width', `${1.5 + 2 * intensity}px`);
+    if (_learningTimers[key]) clearTimeout(_learningTimers[key]);
+    _learningTimers[key] = setTimeout(() => {
+      conn.classList.remove('learning');
+      conn.style.removeProperty('--learning-color');
+      conn.style.removeProperty('--learning-width');
+      delete _learningTimers[key];
+    }, dur);
   }
 }
 

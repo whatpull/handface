@@ -2088,8 +2088,8 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="nf-user-input-row" data-name="${uo.name}">
           <span class="nf-ui-label" title="${uo.label} (${uo.kind})">${kindIcon[uo.kind] || '⚙️'} ${uo.label}</span>
           <span class="nf-ui-fanout">V2→ ${uo.fanin}</span>
-          <button type="button" class="nf-ui-del" data-uo-edit="${uo.name}" title="설정 편집" style="border-color:rgba(167,139,250,0.4);color:#c4b5fd;font-size:11px;">✏️</button>
-          <button type="button" class="nf-ui-del" data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
+          <button type="button" class="nf-ui-edit" data-uo-edit="${uo.name}" title="설정 편집">✏</button>
+          <button type="button" class="nf-ui-del"  data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
         </div>
       `).join('');
       // 편집 버튼 — action_config 수정 dialog.

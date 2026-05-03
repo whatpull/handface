@@ -253,7 +253,8 @@ function attachManualPan(container) {
 
   function isInteractive(target) {
     // input port + button + form control + Camera/Gesture source mount (enableCamera click 영역).
-    return !!target.closest('.input, .output, button, input, textarea, select, .snn-canvas-source-mount, .snn-canvas-source-card');
+    // Session 39: user-card (사용자 INPUT/OUTPUT 노드) 도 interactive — 클릭 시 dialog 열림 위해 panning 차단.
+    return !!target.closest('.input, .output, button, input, textarea, select, .snn-canvas-source-mount, .snn-canvas-source-card, .snn-canvas-user-card, .snn-canvas-user-out-card');
   }
 
   function isMenuTarget(target) {

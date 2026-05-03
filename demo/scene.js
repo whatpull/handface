@@ -3510,8 +3510,18 @@ function wireUserInputNodeHandlers() {
         console.debug('[user-node encode-text] response', r);
         if (r.ok) {
           const out = r.out_rates || {};
-          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : `→ inject ok (avg=${r.pattern_avg ?? '?'})`);
+          const sorted = Object.entries(out).sort((a, b) => b[1] - a[1]);
+          const winner = sorted[0];
+          // Saturation 감지: 다수 OUT 가 동일 rate (모두 발화) → untrained 안내.
+          const firingCount = sorted.filter(([_, v]) => v > 0).length;
+          const allSameRate = firingCount >= 3 && Math.abs(sorted[0][1] - sorted[firingCount - 1][1]) < 1;
+          if (allSameRate) {
+            setUserInputStatus(nodeId, `⚠ 미학습: ${firingCount} OUT 동시 발화 (Quick Learn 학습 필요)`);
+          } else if (winner && winner[1] > 0) {
+            setUserInputStatus(nodeId, `→ ${winner[0]}=${winner[1]}Hz`);
+          } else {
+            setUserInputStatus(nodeId, `→ inject ok (avg=${r.pattern_avg ?? '?'})`);
+          }
         } else {
           console.warn('[user-node encode-text] inject failed:', r);
           setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);

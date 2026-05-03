@@ -30,6 +30,7 @@ import {
   initCanvasNeuron,
   buildGrownNeuronNode,
   buildUserInputNode,
+  buildUserOutputNode,
   updateCanvasFire,
   updateCanvasFireNeuron,
   destroyCanvas,
@@ -1928,6 +1929,257 @@ window.addEventListener('DOMContentLoaded', () => {
     uiConfirmOk.addEventListener('click', () => setTimeout(saveUserInputsLocal, 300));
   }
 
+  // ────────────────────────────────────────────────────────
+  // Session 39 PR-N/O/P: USER OUTPUT (action selector) — Library + list + wizard
+  // ────────────────────────────────────────────────────────
+  const outLibBtns = document.querySelectorAll('.nf-out-lib-btn');
+  const uoList     = document.getElementById('nf-uo-list');
+  const qlFromSel  = document.getElementById('nf-ql-from');
+  const qlToSel    = document.getElementById('nf-ql-to');
+  const qlRoundsSel = document.getElementById('nf-ql-rounds');
+  const qlTrainBtn = document.getElementById('nf-ql-train');
+  const qlTestBtn  = document.getElementById('nf-ql-test');
+  const qlStatus   = document.getElementById('nf-ql-status');
+
+  function nextLabelForOutKind(kind) {
+    const existing = state.userOutputs || [];
+    const sameKind = existing.filter(uo => uo.kind === kind);
+    const titles = {
+      notification: 'Notify', speak: 'Speak', webhook: 'Webhook',
+      console: 'Console', custom: 'Custom',
+    };
+    return `${titles[kind] || kind} ${sameKind.length + 1}`;
+  }
+
+  // 기본 action_config kind별 prompt.
+  function defaultActionConfig(kind, label) {
+    if (kind === 'notification') return { title: label, body: `${label} fired` };
+    if (kind === 'speak') return { text: label, voice: 'ko-KR' };
+    if (kind === 'webhook') {
+      const url = prompt(`Webhook URL (POST):`, 'https://example.com/hook');
+      return { url: url || '', method: 'POST', body: { event: label } };
+    }
+    if (kind === 'console') return { tag: label };
+    return {};
+  }
+
+  async function refreshUserOutputList() {
+    if (!uoList) return;
+    const r = await backend.listUserOutputs();
+    if (!r.ok) {
+      uoList.innerHTML = '';
+      state.userOutputs = [];
+      if (qlToSel) qlToSel.innerHTML = '<option value="">(USER OUTPUT 선택)</option>';
+      // 백엔드 미지원 → OUT library disabled.
+      const reason = r.reason || '';
+      if (/not\s*found/i.test(reason) || reason.includes('404')) {
+        outLibBtns.forEach(b => { b.disabled = true; b.title = '백엔드 Session 39 미지원'; });
+      }
+      return;
+    }
+    outLibBtns.forEach(b => { b.disabled = false; b.title = ''; });
+    const outs = r.userOutputs || [];
+    state.userOutputs = outs;
+    const kindIcon = { notification: '🔔', speak: '🔊', webhook: '🌐', console: '📟', custom: '⚙️' };
+    if (outs.length === 0) {
+      uoList.innerHTML = '';
+    } else {
+      uoList.innerHTML = outs.map(uo => `
+        <div class="nf-user-input-row" data-name="${uo.name}">
+          <span class="nf-ui-label" title="${uo.label} (${uo.kind})">${kindIcon[uo.kind] || '⚙️'} ${uo.label}</span>
+          <span class="nf-ui-fanout">V2→ ${uo.fanin}</span>
+          <button type="button" class="nf-ui-del" data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
+        </div>
+      `).join('');
+      uoList.querySelectorAll('[data-uo-del]').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          const name = ev.currentTarget.getAttribute('data-uo-del');
+          const label = ev.currentTarget.getAttribute('data-label');
+          if (!confirm(`'${label}' (${name}) USER OUTPUT 삭제?`)) return;
+          const dr = await backend.deleteUserOutput(name);
+          if (dr.ok) {
+            await refreshUserOutputList();
+            const snap = await backend.getTrainingSnapshot();
+            if (snap.ok && snap.response?.synapses) {
+              if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+              else lastFireResponse = { synapses: snap.response.synapses };
+              state.synapses = snap.response.synapses;
+              if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+            }
+          }
+        });
+      });
+    }
+    // Quick Learn target dropdown 갱신.
+    if (qlToSel) {
+      qlToSel.innerHTML = '<option value="">(USER OUTPUT 선택)</option>'
+        + outs.map(uo => `<option value="${uo.name}">${uo.label} (${uo.name})</option>`).join('');
+    }
+    // From dropdown 도 동일 리프레시 (USER INPUT 변동 동기).
+    if (qlFromSel) {
+      const ins = state.userInputs || [];
+      qlFromSel.innerHTML = '<option value="">(USER INPUT 선택)</option>'
+        + ins.map(ui => `<option value="${ui.name}">${ui.label} (${ui.name})</option>`).join('');
+    }
+  }
+
+  // OUT Library 클릭 → 새 OUT 노드 추가.
+  outLibBtns.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const kind = btn.getAttribute('data-out-kind');
+      const label = nextLabelForOutKind(kind);
+      const cfg = defaultActionConfig(kind, label);
+      btn.disabled = true;
+      const r = await backend.addUserOutput(label, { kind, actionConfig: cfg });
+      btn.disabled = false;
+      if (r.ok) {
+        if (qlStatus) qlStatus.textContent = `+ ${r.label} [${r.kind}] (${r.name}) — V2 fanin ${r.synapses_added}.`;
+        await refreshUserOutputList();
+        const snap = await backend.getTrainingSnapshot();
+        if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
+          state.synapses = snap.response.synapses;
+          if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+        }
+      } else {
+        if (qlStatus) qlStatus.textContent = `실패: ${r.reason || ''}`;
+      }
+    });
+  });
+
+  // Quick Learn — 사용자 INPUT → 사용자 OUTPUT STDP 매핑 학습.
+  if (qlTrainBtn) {
+    qlTrainBtn.addEventListener('click', async () => {
+      const fromName = qlFromSel?.value;
+      const toName = qlToSel?.value;
+      const rounds = parseInt(qlRoundsSel?.value || '10', 10);
+      if (!fromName || !toName) {
+        if (qlStatus) qlStatus.textContent = 'From INPUT + To OUTPUT 모두 선택하세요.';
+        return;
+      }
+      qlTrainBtn.disabled = true;
+      let okCount = 0;
+      for (let i = 0; i < rounds; i++) {
+        // pattern uniform high (학습 시 안정적 firing).
+        const r = await backend.injectUserInputPattern(fromName, [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9], {
+          intensity: 2.0, stdp: true, targetOut: toName,
+        });
+        if (r.ok) okCount++;
+      }
+      qlTrainBtn.disabled = false;
+      if (qlStatus) qlStatus.textContent = `학습 ${okCount}/${rounds} (${fromName} → ${toName}). Test 버튼으로 검증.`;
+      // Synapse refresh (STDP 변경 weight).
+      const snap = await backend.getTrainingSnapshot();
+      if (snap.ok && snap.response?.synapses) {
+        if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+        else lastFireResponse = { synapses: snap.response.synapses };
+        state.synapses = snap.response.synapses;
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+      }
+    });
+  }
+
+  if (qlTestBtn) {
+    qlTestBtn.addEventListener('click', async () => {
+      const fromName = qlFromSel?.value;
+      const toName = qlToSel?.value;
+      if (!fromName || !toName) {
+        if (qlStatus) qlStatus.textContent = 'From INPUT + To OUTPUT 선택 필요.';
+        return;
+      }
+      // Inject only (no STDP, no supervisor) → cascade 자체로 OUT 발화하는지 검증.
+      const r = await backend.injectUserInputPattern(fromName, [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9], {
+        intensity: 2.0, stdp: false,
+      });
+      if (!r.ok) {
+        if (qlStatus) qlStatus.textContent = `Test 실패: ${r.reason || ''}`;
+        return;
+      }
+      const rates = r.rates || {};
+      const targetRate = rates[toName] || 0;
+      // 시스템 OUT + 다른 user OUT 중 winner.
+      const outRates = {};
+      Object.keys(rates).forEach(k => {
+        if (k.startsWith('out_') || k.startsWith('user_out_')) outRates[k] = rates[k];
+      });
+      const winner = Object.entries(outRates).sort((a,b) => b[1] - a[1])[0];
+      const ok = winner && winner[0] === toName;
+      if (qlStatus) qlStatus.textContent = `Test: ${toName}=${targetRate.toFixed(0)}Hz, winner=${winner ? winner[0]+'='+winner[1].toFixed(0)+'Hz' : '없음'} ${ok ? '✓ 학습됨' : '✗ 미학습'}.`;
+    });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Session 39 PR-O: action callbacks — user_out 발화 detection + execute.
+  // ────────────────────────────────────────────────────────
+  // edge-trigger: 직전 rate 0 → 현재 rate > 임계 → callback 1회.
+  const ACTION_FIRE_THRESHOLD = 10; // Hz
+  const ACTION_COOLDOWN_MS = 1000;
+  const _lastActionAt = {};
+
+  function executeAction(uo) {
+    const now = Date.now();
+    if (_lastActionAt[uo.name] && now - _lastActionAt[uo.name] < ACTION_COOLDOWN_MS) return;
+    _lastActionAt[uo.name] = now;
+    const cfg = uo.action_config || {};
+    try {
+      if (uo.kind === 'notification') {
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            new Notification(cfg.title || uo.label, { body: cfg.body || `${uo.label} fired` });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+              if (p === 'granted') new Notification(cfg.title || uo.label, { body: cfg.body || '' });
+            });
+          }
+        }
+      } else if (uo.kind === 'speak') {
+        if ('speechSynthesis' in window) {
+          const u = new SpeechSynthesisUtterance(cfg.text || uo.label);
+          if (cfg.voice) u.lang = cfg.voice;
+          window.speechSynthesis.speak(u);
+        }
+      } else if (uo.kind === 'webhook') {
+        if (cfg.url) {
+          fetch(cfg.url, {
+            method: cfg.method || 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg.body || { event: uo.label, name: uo.name, t: now }),
+          }).catch(e => console.warn('[action webhook] failed:', e));
+        }
+      } else if (uo.kind === 'console') {
+        console.log(`[ACTION ${cfg.tag || uo.label}]`, { name: uo.name, time: new Date(now).toISOString(), config: cfg });
+      }
+    } catch (e) {
+      console.warn('[action] execute failed:', e);
+    }
+  }
+
+  // 매 fire response 후 호출 (applyFireToCanvas 내부 또는 backend event).
+  function detectAndExecuteUserOutActions(rates) {
+    if (!rates) return;
+    const outs = state.userOutputs || [];
+    for (const uo of outs) {
+      const cur = rates[uo.name] || 0;
+      const prev = state.prevUserOutRates[uo.name] || 0;
+      if (prev <= ACTION_FIRE_THRESHOLD && cur > ACTION_FIRE_THRESHOLD) {
+        executeAction(uo);
+      }
+      state.prevUserOutRates[uo.name] = cur;
+    }
+  }
+
+  // backend event 'neuron-firing' 후 user OUT 발화 detect (전체 rates 사용).
+  backend.onEvent((ev) => {
+    if (ev.type !== 'neuron-firing') return;
+    const r = ev.response || {};
+    if (r.rates) detectAndExecuteUserOutActions(r.rates);
+  });
+
+  // 초기 OUT 목록 로드.
+  refreshUserOutputList();
+
   // Phase 2 audio modality: 마이크 → FFT 32 bin → 8 bin 평균 → injectPattern.
   const audioCapture = document.getElementById('nf-audio-capture');
   const audioStream  = document.getElementById('nf-audio-stream');
@@ -2940,10 +3192,12 @@ function mountCanvasForMode() {
       || [];
     // Phase 7: synapse 리스트에서 grown 뉴런 추출 + 시각화.
     const dynamicNeurons = buildDynamicNeuronsFromSynapses(synapses);
-    // Session 38: 사용자 추가 INPUT 노드를 canvas에 추가.
+    // Session 38/39: 사용자 추가 INPUT/OUTPUT 노드를 canvas에 추가.
     const userInputs = state.userInputs || [];
     const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx));
-    initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes]);
+    const userOutputs = state.userOutputs || [];
+    const userOutputNodes = userOutputs.map((uo, idx) => buildUserOutputNode(uo, idx));
+    initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes, ...userOutputNodes]);
     // Session 38 PR-K: 사용자 노드 inline widget event wiring.
     setTimeout(wireUserInputNodeHandlers, 50);
   }

@@ -539,7 +539,7 @@ var Tf=Object.defineProperty;var Mf=(t,e,n)=>e in t?Tf(t,e,{enumerable:!0,config
       <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--text">
         ${i}
         <div class="snn-canvas-user-body">
-          <input class="snn-canvas-user-input" id="snn-user-input-${s}" type="text" placeholder="텍스트 입력" maxlength="32" ${o} />
+          <input class="snn-canvas-user-input" id="snn-user-input-${s}" type="text" placeholder="텍스트 입력" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ${o} />
           <div class="snn-canvas-user-actions">
             <button class="snn-canvas-user-btn" data-action="encode-text" data-node="${s}" type="button" ${o}>📝 Encode + inject</button>
           </div>

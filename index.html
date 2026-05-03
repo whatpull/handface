@@ -2193,7 +2193,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-D8hZUuIa.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BemWO6hW.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-BD1RlCc8.css">
 </head>
 <body>
@@ -2205,7 +2205,7 @@
       <div class="nf-app-zoom-control">
         <button id="nf-zoom-out" type="button" class="nf-app-zoom-btn" title="Zoom out">−</button>
         <div class="nf-app-zoom-value-wrap">
-          <input id="nf-zoom-value" type="number" class="nf-app-zoom-input" min="20" max="250" step="5" value="100" title="Zoom percentage" aria-label="Zoom percentage" placeholder="100" />
+          <input id="nf-zoom-value" type="number" class="nf-app-zoom-input" min="20" max="250" step="5" value="100" title="Zoom percentage" aria-label="Zoom percentage" placeholder="100" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
           <span class="nf-app-zoom-pct">%</span>
         </div>
         <button id="nf-zoom-in" type="button" class="nf-app-zoom-btn" title="Zoom in">+</button>
@@ -2255,12 +2255,13 @@
     <div class="nf-field">
       <label>Endpoint</label>
       <input id="nf-endpoint" type="text"
-        placeholder="https://whatpull-neuronface.hf.space" />
+        placeholder="https://whatpull-neuronface.hf.space"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
     <div class="nf-field">
       <label>API Key</label>
       <input id="nf-apikey" type="password"
-        placeholder="nf_live_..." autocomplete="off" />
+        placeholder="nf_live_..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
     <div class="nf-actions">
       <button id="nf-save" type="button">Save</button>
@@ -2327,9 +2328,9 @@
       </div>
       <button id="nf-stats-export-csv" type="button" class="nf-induce-multi-btn">History CSV 다운로드</button>
       <div class="nf-syn-edit-row">
-        <input id="nf-syn-pre"  type="text" placeholder="pre 이름"  class="nf-multimodal-select nf-syn-edit-input">
-        <input id="nf-syn-post" type="text" placeholder="post 이름" class="nf-multimodal-select nf-syn-edit-input">
-        <input id="nf-syn-weight" type="number" step="0.5" placeholder="weight" class="nf-multimodal-select nf-syn-edit-input">
+        <input id="nf-syn-pre"  type="text" placeholder="pre 이름"  class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input id="nf-syn-post" type="text" placeholder="post 이름" class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input id="nf-syn-weight" type="number" step="0.5" placeholder="weight" class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button id="nf-syn-edit-btn" type="button" class="nf-induce-multi-btn">Synapse 편집</button>
       </div>
       <div id="nf-syn-edit-status" class="nf-mode-hint">특정 시냅스 weight 직접 편집. pre/post 뉴런 이름 + 새 weight 입력.</div>

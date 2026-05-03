@@ -3750,9 +3750,11 @@ function wireUserInputNodeHandlers() {
           console.warn('[user-node audio] inject failed:', r);
           setUserInputStatus(nodeId, '⚠ 실패', 'failed');
         }
-      } else if (action === 'edit-text') {
+      } else if (action === 'edit-node' || action === 'edit-text') {
+        // Session 39: 모든 modality 통일 — kind 별 dialog (text/audio/custom 등).
+        const kindAttr = btn.getAttribute('data-kind') || 'custom';
         btn.disabled = false;
-        await openUserInputDialog({ nodeId, label: nodeId, kind: 'text' });
+        await openUserInputDialog({ nodeId, label: nodeId, kind: kindAttr });
         return;
       } else if (action === 'encode-text') {
         const input = document.getElementById(`snn-user-input-${nodeId}`);
@@ -3800,6 +3802,7 @@ async function openUserInputDialog({ nodeId, label, kind }) {
   // 정확한 라벨 — state.userInputs 에서 lookup.
   const ui = (state.userInputs || []).find(u => u.name === nodeId);
   if (ui?.label) label = ui.label;
+  if (ui?.kind) kind = ui.kind;
   const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍' };
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;

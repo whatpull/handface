@@ -32,7 +32,7 @@ function pickAllowedOrigin(env, request) {
 function corsHeaders(env, request) {
   return {
     'access-control-allow-origin': pickAllowedOrigin(env, request),
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
     'vary': 'Origin',
@@ -172,6 +172,111 @@ async function handleTopologyPost(request, env, networkId) {
   }, 200, env, request);
 }
 
+// Session 42+ Tier3-G: Circuit Marketplace handlers.
+function genCircuitId() {
+  // 'cir_' + 16 random hex chars.
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return 'cir_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function handleCircuitsPublish(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'invalid json' }, 400, env, request); }
+  const { owner, name, neurons, synapses } = body;
+  if (!owner || typeof owner !== 'string' || owner.length > 200) {
+    return json({ error: 'owner required (≤200 chars)' }, 400, env, request);
+  }
+  if (!name || typeof name !== 'string' || name.length > 100) {
+    return json({ error: 'name required (≤100 chars)' }, 400, env, request);
+  }
+  if (!Array.isArray(neurons) || !Array.isArray(synapses)) {
+    return json({ error: 'neurons + synapses must be arrays' }, 400, env, request);
+  }
+  if (neurons.length > 5000 || synapses.length > 50000) {
+    return json({ error: 'circuit too large (max 5000 neurons / 50000 synapses)' }, 400, env, request);
+  }
+  const circuitId = genCircuitId();
+  const description = (body.description && typeof body.description === 'string')
+    ? body.description.slice(0, 500) : null;
+  const meta = body.meta ? JSON.stringify(body.meta).slice(0, 4000) : null;
+  const isPublic = body.public === false ? 0 : 1;
+  const createdAt = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    `INSERT INTO shared_circuits
+      (circuit_id, owner, name, description, neurons, synapses, meta, public, created_at, download_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+  ).bind(
+    circuitId, owner, name, description,
+    JSON.stringify(neurons), JSON.stringify(synapses), meta,
+    isPublic, createdAt
+  ).run();
+  return json({
+    circuit_id: circuitId, owner, name, public: !!isPublic, created_at: createdAt,
+    neuron_count: neurons.length, synapse_count: synapses.length,
+  }, 200, env, request);
+}
+
+async function handleCircuitsList(request, env) {
+  const url = new URL(request.url);
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
+  const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+  const ownerFilter = url.searchParams.get('owner');
+  let stmt, binds;
+  if (ownerFilter) {
+    // 본인 회로는 public 무관 list (private 도 노출).
+    stmt = `SELECT circuit_id, owner, name, description, public, created_at, download_count
+            FROM shared_circuits WHERE owner = ?
+            ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    binds = [ownerFilter, limit, offset];
+  } else {
+    stmt = `SELECT circuit_id, owner, name, description, public, created_at, download_count
+            FROM shared_circuits WHERE public = 1
+            ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    binds = [limit, offset];
+  }
+  const rs = await env.DB.prepare(stmt).bind(...binds).all();
+  return json({ circuits: rs.results || [], limit, offset }, 200, env, request);
+}
+
+async function handleCircuitsGet(request, env, circuitId) {
+  const row = await env.DB.prepare(
+    `SELECT circuit_id, owner, name, description, neurons, synapses, meta, public, created_at, download_count
+     FROM shared_circuits WHERE circuit_id = ?`
+  ).bind(circuitId).first();
+  if (!row) return json({ error: 'not found' }, 404, env, request);
+  // download counter 증가 (best-effort, fail 무시).
+  try {
+    await env.DB.prepare(
+      'UPDATE shared_circuits SET download_count = download_count + 1 WHERE circuit_id = ?'
+    ).bind(circuitId).run();
+  } catch (_) {}
+  return json({
+    circuit_id: row.circuit_id,
+    owner: row.owner,
+    name: row.name,
+    description: row.description,
+    neurons: JSON.parse(row.neurons),
+    synapses: JSON.parse(row.synapses),
+    meta: row.meta ? JSON.parse(row.meta) : null,
+    public: !!row.public,
+    created_at: row.created_at,
+    download_count: row.download_count + 1,
+  }, 200, env, request);
+}
+
+async function handleCircuitsDelete(request, env, circuitId) {
+  const url = new URL(request.url);
+  const owner = url.searchParams.get('owner');
+  if (!owner) return json({ error: 'owner query required for delete' }, 400, env, request);
+  const row = await env.DB.prepare(
+    'SELECT owner FROM shared_circuits WHERE circuit_id = ?'
+  ).bind(circuitId).first();
+  if (!row) return json({ error: 'not found' }, 404, env, request);
+  if (row.owner !== owner) return json({ error: 'not owner' }, 403, env, request);
+  await env.DB.prepare('DELETE FROM shared_circuits WHERE circuit_id = ?').bind(circuitId).run();
+  return json({ ok: true, deleted: circuitId }, 200, env, request);
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -201,6 +306,19 @@ export default {
       const datasetId = decodeURIComponent(mDs[2]);
       if (request.method === 'GET')  return handleDatasetGet(request, env, networkId, datasetId);
       if (request.method === 'POST') return handleDatasetPost(request, env, networkId, datasetId);
+      return json({ error: 'method not allowed' }, 405, env, request);
+    }
+    // Session 42+ Tier3-G: Circuit Marketplace.
+    if (url.pathname === '/circuits' || url.pathname === '/circuits/') {
+      if (request.method === 'GET')  return handleCircuitsList(request, env);
+      if (request.method === 'POST') return handleCircuitsPublish(request, env);
+      return json({ error: 'method not allowed' }, 405, env, request);
+    }
+    const mCir = url.pathname.match(/^\/circuits\/([^/]+)\/?$/);
+    if (mCir) {
+      const circuitId = decodeURIComponent(mCir[1]);
+      if (request.method === 'GET')    return handleCircuitsGet(request, env, circuitId);
+      if (request.method === 'DELETE') return handleCircuitsDelete(request, env, circuitId);
       return json({ error: 'method not allowed' }, 405, env, request);
     }
     return json({ error: 'not found' }, 404, env, request);

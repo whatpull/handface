@@ -116,9 +116,13 @@
       height: calc(100vh - 56px);
       overflow-y: auto;
       box-sizing: border-box;
-      /* Custom scrollbar — dark theme + violet accent */
-      scrollbar-width: thin;
-      scrollbar-color: rgba(167, 139, 250, 0.3) transparent;
+    }
+    /* Custom scrollbar — dark theme + violet accent. @supports 로 modern browsers 만 적용. */
+    @supports (scrollbar-width: thin) {
+      #neuronface-settings {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(167, 139, 250, 0.3) transparent;
+      }
     }
     #neuronface-settings::-webkit-scrollbar {
       width: 8px;
@@ -881,6 +885,214 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Session 40: toolbar 가 동일 동작 제공하는 section — DOM 은 유지 (toolbar fwdClick 가 원본 버튼 click() 위임), 시각적으로만 숨김. */
+    .nf-section.nf-tb-shadow { display: none !important; }
+
+    /* Session 42+ Brain Builder buttons — Edge no-inline-styles 대응. */
+    .nf-bb-btn {
+      padding: 10px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      text-align: left;
+    }
+    .nf-bb-btn--small { padding: 8px; font-size: 11px; }
+    .nf-bb-btn--disabled { opacity: 0.4; cursor: not-allowed; }
+    .nf-bb-btn-sub { font-size: 10px; opacity: 0.7; }
+    /* Color variants — bg=10% / border=35% / fg=주요. */
+    .nf-bb-btn--amber  { background: rgba(252, 211, 77, 0.10); color: #fcd34d; border-color: rgba(252, 211, 77, 0.35); }
+    .nf-bb-btn--violet { background: rgba(167, 139, 250, 0.10); color: #c4b5fd; border-color: rgba(167, 139, 250, 0.35); }
+    .nf-bb-btn--red    { background: rgba(239, 68, 68, 0.10); color: #fca5a5; border-color: rgba(252, 165, 165, 0.35); }
+    .nf-bb-btn--cyan   { background: rgba(34, 211, 238, 0.10); color: #67e8f9; border-color: rgba(34, 211, 238, 0.35); }
+    .nf-bb-btn--green  { background: rgba(34, 197, 94, 0.10); color: #86efac; border-color: rgba(34, 197, 94, 0.35); }
+    .nf-bb-btn--blue   { background: rgba(96, 165, 250, 0.10); color: #93c5fd; border-color: rgba(96, 165, 250, 0.35); }
+    .nf-bb-btn--yellow { background: rgba(250, 204, 21, 0.10); color: #fde047; border-color: rgba(250, 204, 21, 0.35); }
+    .nf-bb-btn--purple { background: rgba(192, 132, 252, 0.10); color: #d8b4fe; border-color: rgba(192, 132, 252, 0.35); }
+    .nf-bb-btn--amber2 { background: rgba(251, 191, 36, 0.10); color: #fde047; border-color: rgba(251, 191, 36, 0.35); }
+    .nf-bb-btn--pink   { background: rgba(244, 114, 182, 0.10); color: #f9a8d4; border-color: rgba(244, 114, 182, 0.35); }
+    .nf-bb-btn--ocean  { background: rgba(6, 182, 212, 0.10); color: #67e8f9; border-color: rgba(6, 182, 212, 0.35); }
+    .nf-bb-btn--emerald{ background: rgba(16, 185, 129, 0.10); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); }
+    .nf-bb-btn--magenta{ background: rgba(236, 72, 153, 0.10); color: #f9a8d4; border-color: rgba(236, 72, 153, 0.35); }
+    .nf-bb-btn--orange { background: rgba(251, 146, 60, 0.10); color: #fdba74; border-color: rgba(251, 146, 60, 0.35); }
+    .nf-bb-btn--fuchsia{ background: rgba(232, 121, 249, 0.10); color: #f0abfc; border-color: rgba(232, 121, 249, 0.35); }
+    /* Action variants (intensity 12% bg). */
+    .nf-bb-btn--violet-act  { background: rgba(167, 139, 250, 0.12); color: #e9e2ff; border-color: rgba(167, 139, 250, 0.35); }
+    .nf-bb-btn--emerald-act { background: rgba(16, 185, 129, 0.12); color: #a7f3d0; border-color: rgba(167, 243, 208, 0.35); }
+    .nf-bb-btn--orange-act  { background: rgba(249, 115, 22, 0.10); color: #fdba74; border-color: rgba(249, 115, 22, 0.35); }
+    .nf-bb-btn--red-act     { background: rgba(239, 68, 68, 0.10); color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+    .nf-bb-btn--gray        { background: rgba(163, 163, 163, 0.10); color: #d4d4d4; border-color: rgba(163, 163, 163, 0.35); }
+    /* Brain Builder layout helpers. */
+    /* Phase 204+205: canvas filter/legend panel — toolbar 와 동일 시각 언어 (subdued). */
+    .nf-canvas-panel {
+      position: absolute;
+      top: 64px;
+      right: 12px;
+      width: 220px;
+      max-height: 60vh;
+      background: rgba(15, 15, 18, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 3px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      padding: 5px 6px;
+      z-index: 50;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.65);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nf-cp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 2px;
+      letter-spacing: 0.02em;
+    }
+    .nf-cp-title { font-weight: 500; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
+    .nf-cp-toggle-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: rgba(255, 255, 255, 0.65);
+      width: 22px; height: 22px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .nf-cp-toggle-btn:hover {
+      background: rgba(167, 139, 250, 0.12);
+      color: #e9e2ff;
+      border-color: rgba(167, 139, 250, 0.28);
+    }
+    .nf-cp-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .nf-cp-body.collapsed { display: none; }
+    .nf-cp-search {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 4px 7px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 11px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .nf-cp-search::placeholder { color: rgba(255, 255, 255, 0.30); }
+    .nf-cp-search:hover, .nf-cp-search:focus {
+      border-color: rgba(167, 139, 250, 0.28);
+      background: rgba(167, 139, 250, 0.04);
+    }
+    .nf-cp-legend { display: flex; flex-direction: column; gap: 1px; }
+    .nf-cp-legend-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      color: rgba(255, 255, 255, 0.65);
+    }
+    .nf-cp-legend-row:hover {
+      background: rgba(167, 139, 250, 0.12);
+      color: #e9e2ff;
+    }
+    .nf-cp-legend-row.dimmed { opacity: 0.35; }
+    .nf-cp-legend-swatch {
+      width: 14px; height: 14px;
+      flex-shrink: 0;
+      opacity: 0.85;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nf-cp-legend-swatch svg {
+      width: 100%; height: 100%;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .nf-cp-legend-swatch svg .nf-cp-folder-fill {
+      fill: var(--nf-cp-region-color, currentColor);
+      fill-opacity: 0.35;
+      stroke: var(--nf-cp-region-color, currentColor);
+    }
+    .nf-cp-legend-label { flex: 1; font-size: 11px; }
+    .nf-cp-legend-count { color: rgba(255, 255, 255, 0.30); font-size: 10px; }
+    /* Mobile (≤768px): bottom sheet, 동일한 toolbar 컨셉 유지. */
+    @media (max-width: 768px) {
+      .nf-canvas-panel {
+        top: auto; right: 8px; left: 8px; bottom: 8px; width: auto;
+        max-height: 50vh; padding: 6px 8px; font-size: 12px;
+      }
+      .nf-cp-title { font-size: 12px; }
+      .nf-cp-toggle-btn { width: 32px; height: 32px; font-size: 16px; }
+      .nf-cp-search {
+        padding: 8px 10px; font-size: 13px; min-height: 36px;
+      }
+      .nf-cp-legend-row {
+        padding: 8px 8px; gap: 10px; min-height: 36px;
+      }
+      .nf-cp-legend-row:active { background: rgba(167, 139, 250, 0.18); }
+      .nf-cp-legend-swatch { width: 16px; height: 16px; }
+      .nf-cp-legend-label { font-size: 12px; }
+      .nf-cp-legend-count { font-size: 11px; }
+      .nf-canvas-panel:has(.nf-cp-body.collapsed) { max-height: 44px; }
+    }
+    @media (max-width: 480px) {
+      .nf-canvas-panel { font-size: 11px; max-height: 45vh; }
+    }
+    @media (max-height: 480px) and (orientation: landscape) {
+      .nf-canvas-panel {
+        top: 64px; bottom: 8px; right: 8px; left: auto;
+        width: 200px; max-height: calc(100vh - 72px);
+      }
+    }
+    .nf-bb-section-label { font-size: 11px; color: #94a3b8; margin: 16px 0 6px; padding-top: 6px; border-top: 1px solid rgba(167,139,250,0.10); font-weight: 600; letter-spacing: 0.02em; }
+    .nf-bb-section-label:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    .nf-bb-grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .nf-bb-grid-1  { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 6px; }
+    .nf-bb-status  { margin-top: 10px; font-size: 11px; color: #94a3b8; min-height: 18px; }
+    .nf-bb-divider { margin: 10px 0; border: none; border-top: 1px solid rgba(167, 139, 250, 0.18); }
+
+    /* Session 39+: NODES 탭 — 'Advanced — fanout 조정' 토글. */
+    .nf-advanced-details {
+      margin-top: 8px;
+      border: 1px solid rgba(167, 139, 250, 0.18);
+      border-radius: 4px;
+      padding: 0;
+      background: rgba(167, 139, 250, 0.03);
+    }
+    .nf-advanced-details[open] { padding: 6px 8px 8px; }
+    .nf-advanced-details > summary {
+      cursor: pointer;
+      padding: 6px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      font-family: monospace;
+      list-style: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .nf-advanced-details > summary::-webkit-details-marker { display: none; }
+    .nf-advanced-details > summary::before {
+      content: '▶ ';
+      display: inline-block;
+      transition: transform 0.15s ease;
+      margin-right: 4px;
+    }
+    .nf-advanced-details[open] > summary::before { transform: rotate(90deg); }
+    .nf-advanced-details > summary:hover { color: #c4b5fd; }
+
     /* Session 39: 통합 dialog (alert/confirm/prompt + node input). */
     .nf-dialog {
       position: fixed;
@@ -1350,12 +1562,12 @@
       left: 15%;
     }
     /* 활성 탭 외 카테고리 hide. */
+    #neuronface-settings[data-active-cat="nodes"] .nf-section[data-cat]:not([data-cat="nodes"]),
+    #neuronface-settings[data-active-cat="nodes"] .nf-section-group[data-cat]:not([data-cat="nodes"]) { display: none; }
     #neuronface-settings[data-active-cat="core"]  .nf-section[data-cat]:not([data-cat="core"]),
     #neuronface-settings[data-active-cat="core"]  .nf-section-group[data-cat]:not([data-cat="core"]) { display: none; }
     #neuronface-settings[data-active-cat="learn"] .nf-section[data-cat]:not([data-cat="learn"]),
     #neuronface-settings[data-active-cat="learn"] .nf-section-group[data-cat]:not([data-cat="learn"]) { display: none; }
-    #neuronface-settings[data-active-cat="input"] .nf-section[data-cat]:not([data-cat="input"]),
-    #neuronface-settings[data-active-cat="input"] .nf-section-group[data-cat]:not([data-cat="input"]) { display: none; }
     #neuronface-settings[data-active-cat="tools"] .nf-section[data-cat]:not([data-cat="tools"]),
     #neuronface-settings[data-active-cat="tools"] .nf-section-group[data-cat]:not([data-cat="tools"]) { display: none; }
 
@@ -1463,7 +1675,11 @@
       font-weight: 700;
       color: #a78bfa;
       font-family: monospace;
+      transition: color 0.2s, text-shadow 0.2s;
     }
+    /* Session 41+: Saturation 경고 — 다중 OUT fire 시 색 변경. */
+    .nf-kpi-value.warn { color: #f5b842; text-shadow: 0 0 6px rgba(245, 184, 66, 0.35); }
+    .nf-kpi-value.crit { color: #ef4444; text-shadow: 0 0 8px rgba(239, 68, 68, 0.45); }
 
     /* PATTERN 라이브러리 grid */
     .nf-preset-grid {
@@ -1538,9 +1754,13 @@
         overflow-x: auto;
         overflow-y: hidden;
         align-items: center;  /* body 가 icon 보다 클 때 세로 중앙 정렬 */
-        /* Custom scrollbar — dark theme 정합 (얇은 line, hover glow) */
-        scrollbar-width: thin;
-        scrollbar-color: rgba(183, 148, 244, 0.35) transparent;
+      }
+      /* Custom scrollbar — modern browsers 만 적용. */
+      @supports (scrollbar-width: thin) {
+        .snn-region-frame-gesture .snn-gesture-icons {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(183, 148, 244, 0.35) transparent;
+        }
       }
       .snn-region-frame-gesture .snn-gesture-icons::-webkit-scrollbar {
         height: 4px;
@@ -2306,11 +2526,11 @@
     }
 
     .nf-app-zoom-value-wrap {
-      display: flex;
+      display: inline-flex;
       align-items: baseline;
-      gap: 1px;
-      padding: 4px 6px;
-      min-width: 56px;
+      gap: 0;
+      padding: 4px 4px;
+      min-width: 44px;
       justify-content: center;
       cursor: text;
       border-radius: 3px;
@@ -2322,17 +2542,26 @@
     }
 
     .nf-app-zoom-input {
-      width: 32px;
+      /* width 28px fallback. text-align:right → digits + '%' 가 항상 flush. */
+      width: 28px;
+      min-width: 1ch;
+      max-width: 28px;
       background: transparent;
       border: none;
       color: #e1e8f5;
       font: inherit;
       font-size: 12px;
+      font-variant-numeric: tabular-nums;
       text-align: right;
       outline: none;
       padding: 0;
       -moz-appearance: textfield;
       appearance: textfield;
+    }
+    /* field-sizing: content → 입력 글자수만큼만 input 폭 (Chrome 123+, Edge 지원).
+       @supports 로 modern browsers 만 적용 — 미지원 브라우저는 위 width 28px fallback. */
+    @supports (field-sizing: content) {
+      .nf-app-zoom-input { field-sizing: content; }
     }
 
     .nf-app-zoom-input::-webkit-outer-spin-button,
@@ -2432,6 +2661,388 @@
       height: 100%;
       display: block !important;
     }
+
+    /* ─────────────────────────────────────────────────────────────
+       Session 40: 편집 toolbar — Top (desktop) / Bottom (mobile)
+       ───────────────────────────────────────────────────────────── */
+    .nf-toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 6px;
+      background: rgba(15, 15, 18, 0.78);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 3px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+    .nf-toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .nf-toolbar-sep {
+      width: 1px;
+      height: 22px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 0 3px;
+      flex-shrink: 0;
+    }
+    /* spacer 는 무효화 (wrap 모드에서 별도 row 점유 방지). Settings 는 margin-left:auto 로 우측 정렬. */
+    .nf-toolbar-spacer { display: none; }
+    .nf-toolbar-group[data-group="settings"] { margin-left: auto; }
+    .nf-toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.65);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.08s;
+      white-space: nowrap;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .nf-toolbar-btn:hover {
+      background: rgba(167, 139, 250, 0.12);
+      color: #e9e2ff;
+      border-color: rgba(167, 139, 250, 0.28);
+    }
+    .nf-toolbar-btn:active { transform: scale(0.94); }
+    .nf-toolbar-btn.active {
+      background: rgba(167, 139, 250, 0.20);
+      color: #e9e2ff;
+      border-color: rgba(167, 139, 250, 0.50);
+    }
+    /* Train (primary) — 라벨 보이는 유일한 버튼. */
+    .nf-toolbar-btn.nf-toolbar-btn--accent {
+      width: auto;
+      padding: 0 10px 0 8px;
+      color: #a7f3d0;
+      border-color: rgba(167, 243, 208, 0.35);
+      background: rgba(16, 185, 129, 0.10);
+    }
+    .nf-toolbar-btn.nf-toolbar-btn--accent:hover {
+      background: rgba(16, 185, 129, 0.18);
+      color: #d1fae5;
+      border-color: rgba(167, 243, 208, 0.60);
+    }
+    .nf-toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .nf-toolbar-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke-width: 1.6;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .nf-toolbar-btn .nf-toolbar-label { font-size: 11px; letter-spacing: 0.02em; }
+    /* 비-primary 버튼들은 라벨 hide (icon-only) — tooltip 으로 의미 전달. */
+    .nf-toolbar-btn:not(.nf-toolbar-btn--accent) .nf-toolbar-label { display: none; }
+
+    /* ─── Bottom 5-slot mobile toolbar ─── */
+    .nf-bottom-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 60;
+      display: none; /* mobile media query 에서 grid 로 활성화 */
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+      background: rgba(12, 12, 16, 0.94);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid rgba(167, 139, 250, 0.20);
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+    }
+    .nf-bb-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 4px;
+      min-height: 56px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.62);
+      cursor: pointer;
+      transition: color 0.12s, background 0.12s, transform 0.08s;
+      border-radius: 3px;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nf-bb-slot:active {
+      background: rgba(167, 139, 250, 0.12);
+      transform: scale(0.95);
+    }
+    .nf-bb-slot.active {
+      color: #c4b5fd;
+      background: rgba(167, 139, 250, 0.10);
+    }
+    .nf-bb-slot.nf-bb-slot--accent { color: #a7f3d0; }
+    .nf-bb-slot.nf-bb-slot--accent.active {
+      background: rgba(16, 185, 129, 0.16);
+      color: #d1fae5;
+    }
+    .nf-bb-slot.long-pressing {
+      background: rgba(245, 184, 66, 0.18);
+      color: #f5b842;
+    }
+    .nf-bb-icon { font-size: 18px; line-height: 1; }
+    .nf-bb-svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .nf-bb-label { font-size: 10px; letter-spacing: 0.02em; line-height: 1; }
+
+    /* ─── Bottom sheet (Add / More 진입점) ─── */
+    .nf-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      display: none;
+      pointer-events: none;
+    }
+    .nf-sheet.open { display: block; pointer-events: auto; }
+    .nf-sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 12, 0.55);
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+    .nf-sheet.open .nf-sheet-backdrop { opacity: 1; }
+    .nf-sheet-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 95vh;
+      min-height: 50vh;
+      background: rgba(15, 15, 18, 0.98);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      border-top: 1px solid rgba(167, 139, 250, 0.22);
+      padding: 8px 16px calc(20px + env(safe-area-inset-bottom)) 16px;
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.28s ease;
+      overflow-y: auto;
+      box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.5);
+      color: rgba(255, 255, 255, 0.85);
+      box-sizing: border-box;
+    }
+    .nf-sheet.open .nf-sheet-panel { transform: translateY(0); }
+    .nf-sheet.expanded .nf-sheet-panel { max-height: 95vh; min-height: 95vh; }
+    .nf-sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 2px;
+      margin: 6px auto 8px;
+      cursor: grab;
+    }
+    .nf-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      margin-bottom: 12px;
+    }
+    .nf-sheet-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #c4b5fd;
+      letter-spacing: 0.02em;
+    }
+    .nf-sheet-close {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 18px;
+      padding: 4px 8px;
+      cursor: pointer;
+      line-height: 1;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nf-sheet-close:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .nf-sheet-body { font-size: 13px; }
+    .nf-sheet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .nf-sheet-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 8px;
+      background: rgba(167, 139, 250, 0.06);
+      border: 1px solid rgba(167, 139, 250, 0.18);
+      color: rgba(255, 255, 255, 0.85);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: background 0.15s, border-color 0.15s, transform 0.08s;
+      min-height: 76px;
+    }
+    .nf-sheet-tile:active {
+      transform: scale(0.96);
+      background: rgba(167, 139, 250, 0.16);
+    }
+    .nf-sheet-tile:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nf-sheet-tile-icon { font-size: 22px; line-height: 1; }
+    .nf-sheet-tile-label { font-size: 11px; color: rgba(255, 255, 255, 0.85); }
+    .nf-sheet-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      margin: 14px 0 6px;
+    }
+    .nf-sheet-list-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 10px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 13px;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .nf-sheet-list-btn:active { background: rgba(167, 139, 250, 0.12); }
+    .nf-sheet-list-btn-icon { font-size: 16px; width: 24px; text-align: center; }
+
+    /* ─── Session 42+ Tier2-E: RL feedback prompt (floating, bottom-right) ─── */
+    .nf-rl-feedback {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      z-index: 55;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(15, 15, 18, 0.92);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(167, 139, 250, 0.30);
+      border-radius: 3px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.85);
+      animation: nf-rl-slide-in 0.25s ease-out;
+    }
+    .nf-rl-feedback.open { display: flex; }
+    @keyframes nf-rl-slide-in {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .nf-rl-feedback-msg { display: flex; align-items: center; gap: 6px; }
+    .nf-rl-feedback-label { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
+    .nf-rl-feedback-winner { color: #c4b5fd; font-weight: 600; }
+    .nf-rl-feedback-actions { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+    .nf-rl-feedback-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.85);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      font-family: inherit;
+    }
+    .nf-rl-feedback-btn--ok:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(167, 243, 208, 0.55);
+      color: #d1fae5;
+    }
+    .nf-rl-feedback-btn--no:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(252, 165, 165, 0.55);
+      color: #fee2e2;
+    }
+    .nf-rl-feedback-close {
+      padding: 2px 6px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      border-radius: 3px;
+    }
+    .nf-rl-feedback-close:hover { color: rgba(255, 255, 255, 0.85); background: rgba(255, 255, 255, 0.06); }
+
+    /* ─── Responsive: ≤768px = mobile mode ─── */
+    @media (max-width: 768px) {
+      .nf-toolbar { display: none !important; }
+      .nf-bottom-bar { display: grid; }
+      /* 우측 setting 패널 모바일에서 기본 숨김 (.open 시 endpoint 설정 등 임시 노출). */
+      #neuronface-settings:not(.open) { display: none !important; }
+      #neuronface-settings.open {
+        left: 0; right: 0; top: 0;
+        width: 100vw; height: calc(100vh - 72px - env(safe-area-inset-bottom));
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      /* 캔버스가 bottom-bar 가려지지 않도록 padding 추가. */
+      .nf-app-main { padding-bottom: 72px; }
+    }
+    @media (min-width: 769px) {
+      /* desktop 에서는 캔버스 위쪽 toolbar 가 떠 있으므로 추가 padding 불필요. */
+      .nf-bottom-bar { display: none !important; }
+      .nf-sheet { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -2443,7 +3054,7 @@
       <div class="nf-app-zoom-control">
         <button id="nf-zoom-out" type="button" class="nf-app-zoom-btn" title="Zoom out">−</button>
         <div class="nf-app-zoom-value-wrap">
-          <input id="nf-zoom-value" type="number" class="nf-app-zoom-input" min="20" max="250" step="5" value="100" title="Zoom percentage" aria-label="Zoom percentage" placeholder="100" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <input id="nf-zoom-value" type="number" class="nf-app-zoom-input" min="20" max="999" step="5" value="100" title="Zoom percentage" aria-label="Zoom percentage" placeholder="100" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
           <span class="nf-app-zoom-pct">%</span>
         </div>
         <button id="nf-zoom-in" type="button" class="nf-app-zoom-btn" title="Zoom in">+</button>
@@ -2480,12 +3091,158 @@
     </aside>
 
     <main class="nf-app-main">
+      <!-- Session 40: 편집 toolbar — 데스크톱 (>768px) top horizontal bar. Lucide-style SVG icon-only.
+           NOTE: Mode (Normal/Edit) 와 Settings 는 좌측 sidebar 의 wrench / gear 와 중복 → toolbar 에서 제거. -->
+      <div id="nf-toolbar" class="nf-toolbar nf-toolbar--top" role="toolbar" aria-label="Editor toolbar">
+        <div class="nf-toolbar-group" data-group="view">
+          <button id="nf-tb-view-region" class="nf-toolbar-btn" type="button" title="Region view (4 nodes)" aria-label="Region view">
+            <svg viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            <span class="nf-toolbar-label">Region</span>
+          </button>
+          <button id="nf-tb-view-neuron" class="nf-toolbar-btn active" type="button" title="Neuron view (52 nodes)" aria-label="Neuron view">
+            <svg viewBox="0 0 24 24"><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>
+            <span class="nf-toolbar-label">Neuron</span>
+          </button>
+        </div>
+        <div class="nf-toolbar-sep" aria-hidden="true"></div>
+        <div class="nf-toolbar-group" data-group="train">
+          <button id="nf-tb-train" class="nf-toolbar-btn nf-toolbar-btn--accent" type="button" title="Train cascade (20× induce + STDP)" aria-label="Train cascade">
+            <svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="currentColor"/></svg>
+            <span class="nf-toolbar-label">Train</span>
+          </button>
+          <button id="nf-tb-eval" class="nf-toolbar-btn" type="button" title="Eval — decode 정확도 측정 (4×5 trial)" aria-label="Evaluate decode accuracy">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <span class="nf-toolbar-label">Eval</span>
+          </button>
+          <button id="nf-tb-rl" class="nf-toolbar-btn" type="button" title="RL — supervised batch (4 gestures × 5 trials)" aria-label="Supervised RL batch">
+            <svg viewBox="0 0 24 24"><path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>
+            <span class="nf-toolbar-label">RL</span>
+          </button>
+          <button id="nf-tb-demo" class="nf-toolbar-btn" type="button" title="Demo — 회로 성장 + 학습 + 디코드 풀 시연" aria-label="Run demo scenario">
+            <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>
+            <span class="nf-toolbar-label">Demo</span>
+          </button>
+          <button id="nf-tb-bind" class="nf-toolbar-btn" type="button" title="Bind — cross-modal binding (여러 INPUT 동시 fire + STDP)" aria-label="Cross-modal binding">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span class="nf-toolbar-label">Bind</span>
+          </button>
+          <button id="nf-tb-seq" class="nf-toolbar-btn" type="button" title="Sequence — 순서 있는 INPUT (e.g., A→B→C) + triplet STDP 학습" aria-label="Sequence learning">
+            <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="nf-toolbar-label">Seq</span>
+          </button>
+          <button id="nf-tb-reset" class="nf-toolbar-btn" type="button" title="Reset circuit (initial topology)" aria-label="Reset circuit">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span class="nf-toolbar-label">Reset</span>
+          </button>
+        </div>
+        <div class="nf-toolbar-sep" aria-hidden="true"></div>
+        <div class="nf-toolbar-group" data-group="grow">
+          <button id="nf-tb-grow" class="nf-toolbar-btn" type="button" title="Grow network — 뉴런/시냅스 추가" aria-label="Grow network">
+            <svg viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg>
+            <span class="nf-toolbar-label">Grow</span>
+          </button>
+          <button id="nf-tb-hippo" class="nf-toolbar-btn" type="button" title="Brain Builder — Hippocampus + PFC + Amygdala 등 90+ region 회로 추가" aria-label="Brain Builder">
+            <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="0.5"/><path d="M9 2v4"/><path d="M15 2v4"/><path d="M9 18v4"/><path d="M15 18v4"/><path d="M2 9h4"/><path d="M2 15h4"/><path d="M18 9h4"/><path d="M18 15h4"/></svg>
+            <span class="nf-toolbar-label">Brain</span>
+          </button>
+          <button id="nf-tb-stats" class="nf-toolbar-btn" type="button" title="Stats — 대시보드 KPI 새로고침" aria-label="Refresh stats">
+            <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+            <span class="nf-toolbar-label">Stats</span>
+          </button>
+        </div>
+        <div class="nf-toolbar-sep" aria-hidden="true"></div>
+        <div class="nf-toolbar-group" data-group="persist">
+          <button id="nf-tb-save" class="nf-toolbar-btn" type="button" title="Save training (localStorage)" aria-label="Save training">
+            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-7H7v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+            <span class="nf-toolbar-label">Save</span>
+          </button>
+          <button id="nf-tb-load" class="nf-toolbar-btn" type="button" title="Load training (localStorage)" aria-label="Load training">
+            <svg viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>
+            <span class="nf-toolbar-label">Load</span>
+          </button>
+          <button id="nf-tb-export" class="nf-toolbar-btn" type="button" title="Export circuit (JSON 다운로드)" aria-label="Export JSON">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span class="nf-toolbar-label">Export</span>
+          </button>
+          <button id="nf-tb-import" class="nf-toolbar-btn" type="button" title="Import circuit (JSON 업로드)" aria-label="Import JSON">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <span class="nf-toolbar-label">Import</span>
+          </button>
+          <button id="nf-tb-share" class="nf-toolbar-btn" type="button" title="Share — D1 marketplace (회로 publish / browse / import)" aria-label="Share circuit">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span class="nf-toolbar-label">Share</span>
+          </button>
+        </div>
+      </div>
+
       <div id="snn-viz-root"></div>
+      <!-- Phase 204+205: floating canvas panel — region filter + legend. -->
+      <div id="nf-canvas-panel" class="nf-canvas-panel" aria-label="Canvas filter / legend">
+        <div class="nf-cp-header">
+          <span class="nf-cp-title">🔍 Filter / Legend</span>
+          <button id="nf-cp-toggle" class="nf-cp-toggle-btn" type="button" title="패널 접기/펼치기">−</button>
+        </div>
+        <div class="nf-cp-body" id="nf-cp-body">
+          <input id="nf-cp-search" type="search" placeholder="region 검색 (예: ca1, pfc, v4)" class="nf-cp-search">
+          <div id="nf-cp-legend" class="nf-cp-legend"></div>
+        </div>
+      </div>
       <div id="nf-snn-canvas"></div>
       <div id="nf-canvas-loading" class="nf-canvas-loading">
         <div class="nf-canvas-loading-content">
           <div class="nf-canvas-loading-spinner" aria-hidden="true"></div>
           <span class="nf-canvas-loading-text">Loading canvas…</span>
+        </div>
+      </div>
+
+      <!-- Session 40: 모바일 (≤768px) bottom 5-slot toolbar. 엄지 reach zone 표준.
+           Mode 는 좌측 sidebar wrench 와 중복이라 제거 → Eval slot 으로 대체. -->
+      <nav id="nf-bottom-bar" class="nf-bottom-bar" role="toolbar" aria-label="Mobile editor toolbar">
+        <button class="nf-bb-slot" data-slot="add" type="button" aria-label="Add node">
+          <svg viewBox="0 0 24 24" class="nf-bb-svg"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          <span class="nf-bb-label">Add</span>
+        </button>
+        <button class="nf-bb-slot nf-bb-slot--accent" data-slot="train" type="button" aria-label="Train (long-press for reset)">
+          <svg viewBox="0 0 24 24" class="nf-bb-svg"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="currentColor"/></svg>
+          <span class="nf-bb-label">Train</span>
+        </button>
+        <button class="nf-bb-slot" data-slot="eval" type="button" aria-label="Eval decode accuracy">
+          <svg viewBox="0 0 24 24" class="nf-bb-svg"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="nf-bb-label">Eval</span>
+        </button>
+        <button class="nf-bb-slot" data-slot="save" type="button" aria-label="Save (long-press for load/export)">
+          <svg viewBox="0 0 24 24" class="nf-bb-svg"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-7H7v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+          <span class="nf-bb-label">Save</span>
+        </button>
+        <button class="nf-bb-slot" data-slot="more" type="button" aria-label="More options">
+          <svg viewBox="0 0 24 24" class="nf-bb-svg"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
+          <span class="nf-bb-label">More</span>
+        </button>
+      </nav>
+
+      <!-- Session 42+ Tier2-E: RL feedback prompt (마지막 fire 결과에 ✅/❌ 피드백). -->
+      <div id="nf-rl-feedback" class="nf-rl-feedback" aria-hidden="true">
+        <div class="nf-rl-feedback-msg">
+          <span class="nf-rl-feedback-label">Winner:</span>
+          <span id="nf-rl-feedback-winner" class="nf-rl-feedback-winner">—</span>
+        </div>
+        <div class="nf-rl-feedback-actions">
+          <button id="nf-rl-correct" class="nf-rl-feedback-btn nf-rl-feedback-btn--ok" type="button" title="정답입니다 (+1 dopamine, LTP)">✅ 맞음</button>
+          <button id="nf-rl-wrong" class="nf-rl-feedback-btn nf-rl-feedback-btn--no" type="button" title="틀렸습니다 (정답 OUT 선택 → -1 dopamine + 정답 LTP)">❌ 틀림</button>
+          <button id="nf-rl-close" class="nf-rl-feedback-close" type="button" aria-label="Dismiss">✕</button>
+        </div>
+      </div>
+
+      <!-- Session 40: bottom sheet (Add / More 진입점). drag handle 으로 50%/95% snap. -->
+      <div id="nf-sheet" class="nf-sheet" aria-hidden="true">
+        <div class="nf-sheet-backdrop" data-sheet-close></div>
+        <div class="nf-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="nf-sheet-title">
+          <div class="nf-sheet-handle" aria-hidden="true"></div>
+          <div class="nf-sheet-header">
+            <span id="nf-sheet-title" class="nf-sheet-title">노드 추가</span>
+            <button class="nf-sheet-close" data-sheet-close type="button" aria-label="Close">✕</button>
+          </div>
+          <div id="nf-sheet-body" class="nf-sheet-body"></div>
         </div>
       </div>
     </main>
@@ -2514,11 +3271,10 @@
     <div id="nf-status">not tested</div>
 
     <div class="nf-tab-bar">
-      <button data-cat="core"  class="nf-tab-btn active" type="button">CORE</button>
+      <button data-cat="nodes" class="nf-tab-btn active" type="button">NODES</button>
+      <button data-cat="core"  class="nf-tab-btn" type="button">CORE</button>
       <button data-cat="learn" class="nf-tab-btn" type="button">LEARN</button>
-      <button data-cat="input" class="nf-tab-btn" type="button">INPUT</button>
-      <button data-cat="tools" class="nf-tab-btn" type="button">TOOLS</button>
-      <button data-cat="all"   class="nf-tab-btn" type="button">ALL</button>
+      <button data-cat="tools" class="nf-tab-btn" type="button">TOOL</button>
     </div>
 
     <div class="nf-section nf-dashboard-section" data-cat="core">
@@ -2542,14 +3298,20 @@
         <button id="nf-dashboard-refresh" type="button" class="nf-induce-multi-btn">대시보드 새로고침</button>
         <button id="nf-circuit-reset" type="button" class="nf-induce-multi-btn">회로 초기화</button>
       </div>
+      <!-- Session 41+: Homeostatic pruning — 학습 후 약한 시냅스 정리 (cascade saturation 방지). -->
+      <div class="nf-multimodal-row" style="margin-top:8px;">
+        <span class="nf-multimodal-label">Prune threshold</span>
+        <input id="nf-prune-threshold" type="number" min="0" max="50" step="0.5" value="1.0" class="nf-multimodal-select" style="flex:1;">
+      </div>
+      <button id="nf-prune-btn" type="button" class="nf-induce-multi-btn">약한 시냅스 정리 (homeostasis)</button>
+      <div id="nf-prune-status" class="nf-mode-hint">|w| &lt; threshold 시냅스를 제거합니다. user_in/user_out 관여 시냅스가 우선 정리되고, 시스템 baseline (in_*→v1_*→v2_*→out_*) 은 보존. cascade saturation 이 높을 때 (KPI Saturation 카드 노란/빨강) 실행 권장.</div>
     </div>
 
-    <div class="nf-section nf-train-cascade-section" data-cat="learn">
-      <label class="nf-section-label">TRAIN CASCADE (학습 발동)</label>
+    <div class="nf-section nf-train-cascade-section nf-tb-shadow" data-cat="learn">
+      <label class="nf-section-label">TRAIN CASCADE</label>
       <div class="nf-anchor-verify-buttons">
         <button id="nf-train-cascade" type="button" class="nf-induce-multi-btn">Run Training (20 induce + STDP)</button>
       </div>
-      <div class="nf-mode-hint">STDP on + 8 INPUT 동시 induce × 20회 → weight LTP 발동 → 단일 gesture click → cascade fire OUT 도달.</div>
     </div>
 
     <div class="nf-section nf-supervised-rl-section" data-cat="learn">
@@ -2570,23 +3332,14 @@
         <button id="nf-stats-refresh" type="button" class="nf-induce-multi-btn">통계 새로고침</button>
         <button id="nf-stats-clear-history" type="button" class="nf-induce-multi-btn">History 초기화</button>
       </div>
-      <button id="nf-stats-export-csv" type="button" class="nf-induce-multi-btn">History CSV 다운로드</button>
-      <div class="nf-syn-edit-row">
-        <input id="nf-syn-pre"  type="text" placeholder="pre 이름"  class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <input id="nf-syn-post" type="text" placeholder="post 이름" class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <input id="nf-syn-weight" type="number" step="0.5" placeholder="weight" class="nf-multimodal-select nf-syn-edit-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <button id="nf-syn-edit-btn" type="button" class="nf-induce-multi-btn">Synapse 편집</button>
-      </div>
-      <div id="nf-syn-edit-status" class="nf-mode-hint">특정 시냅스 weight 직접 편집. pre/post 뉴런 이름 + 새 weight 입력.</div>
       <svg id="nf-stats-histogram" class="nf-stats-histogram" viewBox="0 0 200 80" preserveAspectRatio="none"></svg>
       <svg id="nf-stats-history" class="nf-stats-histogram" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
       <pre id="nf-stats-output" class="nf-stats-output">버튼 클릭하여 통계 보기.</pre>
     </div>
 
-    <div class="nf-section nf-demo-section" data-cat="tools">
-      <label class="nf-section-label">DEMO 시나리오 (Phase 7 통합)</label>
-      <button id="nf-demo-large-train" type="button" class="nf-induce-multi-btn">시연: 회로 성장 → 학습 → 디코드 (벡터화)</button>
-      <div id="nf-demo-status" class="nf-mode-hint">버튼 클릭 시: 1) V1/V2 각 100 뉴런 성장 (총 ~452) 2) 4 gesture supervised RL 5 round 3) decode 검증 4) NN/Vec 시간 비교.</div>
+    <div class="nf-section nf-demo-section nf-tb-shadow" data-cat="tools">
+      <button id="nf-demo-large-train" type="button" class="nf-induce-multi-btn">Demo</button>
+      <div id="nf-demo-status" class="nf-mode-hint"></div>
     </div>
 
     <div class="nf-section nf-grow-section" data-cat="tools">
@@ -2622,8 +3375,8 @@
       <div id="nf-grow-status" class="nf-mode-hint">동적 성장 — 선택한 region/population에 N 뉴런 추가 + 시냅스 연결. canvas 자동 새로고침. Topology Save/Load: 성장된 회로 전체를 D1에 영구 저장 / 복원.</div>
     </div>
 
-    <div class="nf-section nf-user-input-section" data-cat="input">
-      <label class="nf-section-label">NODE LIBRARY — INPUT (사용자 입력 노드)</label>
+    <div class="nf-section nf-user-input-section" data-cat="nodes">
+      <label class="nf-section-label">NODE LIBRARY — INPUT</label>
       <div class="nf-node-library">
         <button class="nf-node-lib-btn" data-kind="audio"    type="button"><span class="nf-node-lib-icon">🎤</span><span class="nf-node-lib-label">Audio</span></button>
         <button class="nf-node-lib-btn" data-kind="text"     type="button"><span class="nf-node-lib-icon">📝</span><span class="nf-node-lib-label">Text</span></button>
@@ -2632,87 +3385,34 @@
         <button class="nf-node-lib-btn" data-kind="keyboard" type="button" disabled title="Session 40"><span class="nf-node-lib-icon">⌨️</span><span class="nf-node-lib-label">Keyboard</span></button>
         <button class="nf-node-lib-btn" data-kind="mouse"    type="button" disabled title="Session 40"><span class="nf-node-lib-icon">🖱️</span><span class="nf-node-lib-label">Mouse</span></button>
         <button class="nf-node-lib-btn" data-kind="geo"      type="button" disabled title="Session 40"><span class="nf-node-lib-icon">📍</span><span class="nf-node-lib-label">Geo</span></button>
+        <button class="nf-node-lib-btn" data-kind="eeg"      type="button" title="EEG — 8-band frequency power (delta/theta/alpha/beta/gamma)"><span class="nf-node-lib-icon">🧠</span><span class="nf-node-lib-label">EEG</span></button>
         <button class="nf-node-lib-btn" data-kind="custom"   type="button"><span class="nf-node-lib-icon">⚙️</span><span class="nf-node-lib-label">Custom</span></button>
       </div>
-      <label class="nf-section-label" style="margin-top:10px;">NODE LIBRARY — OUTPUT (사용자 액션 노드)</label>
+      <label class="nf-section-label" style="margin-top:10px;">NODE LIBRARY — OUTPUT</label>
       <div class="nf-node-library">
         <button class="nf-out-lib-btn" data-out-kind="notification" type="button"><span class="nf-node-lib-icon">🔔</span><span class="nf-node-lib-label">Notification</span></button>
         <button class="nf-out-lib-btn" data-out-kind="speak"        type="button"><span class="nf-node-lib-icon">🔊</span><span class="nf-node-lib-label">Speak</span></button>
         <button class="nf-out-lib-btn" data-out-kind="webhook"      type="button"><span class="nf-node-lib-icon">🌐</span><span class="nf-node-lib-label">Webhook</span></button>
         <button class="nf-out-lib-btn" data-out-kind="console"      type="button"><span class="nf-node-lib-icon">📟</span><span class="nf-node-lib-label">Console</span></button>
       </div>
-      <div class="nf-user-input-tune">
-        <label class="nf-ui-tune-label">fanout density
-          <input id="nf-ui-density" type="range" min="0.1" max="1.0" step="0.05" value="0.5">
-          <span id="nf-ui-density-val" class="nf-ui-tune-val">0.50</span>
-        </label>
-        <label class="nf-ui-tune-label">fanout weight
-          <input id="nf-ui-weight" type="range" min="4" max="40" step="1" value="16">
-          <span id="nf-ui-weight-val" class="nf-ui-tune-val">16</span>
-        </label>
-      </div>
+      <details class="nf-advanced-details">
+        <summary>Advanced — fanout 조정</summary>
+        <div class="nf-user-input-tune">
+          <label class="nf-ui-tune-label">fanout density
+            <input id="nf-ui-density" type="range" min="0.1" max="1.0" step="0.05" value="0.5">
+            <span id="nf-ui-density-val" class="nf-ui-tune-val">0.50</span>
+          </label>
+          <label class="nf-ui-tune-label">fanout weight
+            <input id="nf-ui-weight" type="range" min="4" max="40" step="1" value="16">
+            <span id="nf-ui-weight-val" class="nf-ui-tune-val">16</span>
+          </label>
+        </div>
+      </details>
+      <label class="nf-section-label" style="margin-top:10px;">SCENE — INPUT</label>
       <div id="nf-ui-list" class="nf-user-input-list"></div>
+      <label class="nf-section-label" style="margin-top:10px;">SCENE — OUTPUT</label>
       <div id="nf-uo-list" class="nf-user-input-list"></div>
-      <div id="nf-ui-status" class="nf-mode-hint">위 라이브러리에서 modality 노드 타입을 클릭 → 노드 자동 추가 (V1 L4_E에 sparse wiring). 추가된 노드는 캔버스에 자기 widget을 보유 (Audio: mic capture, Text: 입력 + Encode 등). 시스템 노드 (in_*, v1_*, v2_*, out_*) 는 변경되지 않음.</div>
-    </div>
-
-    <div class="nf-section nf-quick-learn-section" data-cat="input">
-      <label class="nf-section-label">QUICK LEARN (3-click 매핑 등록)</label>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">From INPUT</span>
-        <select id="nf-ql-from" class="nf-multimodal-select">
-          <option value="">(USER INPUT 선택)</option>
-        </select>
-      </div>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">To OUTPUT</span>
-        <select id="nf-ql-to" class="nf-multimodal-select">
-          <option value="">(USER OUTPUT 선택)</option>
-        </select>
-      </div>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">Rounds</span>
-        <select id="nf-ql-rounds" class="nf-multimodal-select">
-          <option value="10">10×</option>
-          <option value="20">20×</option>
-          <option value="30" selected>30× (권장)</option>
-          <option value="50">50×</option>
-          <option value="100">100×</option>
-        </select>
-      </div>
-      <button id="nf-ql-train" type="button" class="nf-induce-multi-btn">Train mapping</button>
-      <button id="nf-ql-test" type="button" class="nf-induce-multi-btn" style="margin-top:4px;">Test (training off)</button>
-      <div id="nf-ql-status" class="nf-mode-hint">선택한 USER INPUT 노드 → USER OUTPUT 노드 매핑을 STDP supervised RL 로 학습. From INPUT inject + To OUTPUT supervisor pulse 동시 자극 → 시냅스 강화. Test: 학습 후 input 만 inject → output 발화 검증 (action callback 트리거).</div>
-    </div>
-
-    <div class="nf-section nf-user-input-inject-section" data-cat="input">
-      <label class="nf-section-label">USER INPUT INJECT (단일 자극)</label>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">Target</span>
-        <select id="nf-ui-inject-target" class="nf-multimodal-select">
-          <option value="">(USER INPUT 노드 선택)</option>
-        </select>
-      </div>
-      <div class="nf-multimodal-row">
-        <span class="nf-multimodal-label">Weight</span>
-        <input id="nf-ui-inject-weight" type="range" min="10" max="100" step="5" value="50" style="flex:1;">
-        <span id="nf-ui-inject-weight-val" class="nf-ui-tune-val">50</span>
-      </div>
-      <div class="nf-supervised-grid">
-        <button id="nf-ui-inject" type="button" class="nf-induce-multi-btn">Inject (5ms)</button>
-        <button id="nf-ui-inject-train" type="button" class="nf-induce-multi-btn">Inject + train (10×)</button>
-      </div>
-      <div class="nf-multimodal-row" style="margin-top:6px;">
-        <span class="nf-multimodal-label">Train target</span>
-        <select id="nf-ui-train-target" class="nf-multimodal-select">
-          <option value="">(none — inject only)</option>
-          <option value="out_0">out_0 (Pointing)</option>
-          <option value="out_1">out_1 (Open palm)</option>
-          <option value="out_2">out_2 (Thumbs up)</option>
-          <option value="out_3">out_3 (Victory)</option>
-        </select>
-      </div>
-      <div id="nf-ui-inject-status" class="nf-mode-hint">선택한 사용자 INPUT 노드에 직접 자극 (단일). modality 인코딩이 필요한 경우 캔버스의 노드 자체 widget 사용 (Audio/Text 노드는 자기 자체 encoder를 보유).</div>
+      <div id="nf-ui-status" class="nf-mode-hint">노드 라이브러리에서 타입 클릭 → 캔버스에 자동 추가. 캔버스의 노드 자체에서 ✏️ 편집 / inject / 정답 OUT 학습 모두 수행 — 입력은 dialog, OUT은 결과값 셋팅 dialog.</div>
     </div>
 
     <div class="nf-section nf-neuromod-section" data-cat="learn">
@@ -2736,9 +3436,8 @@
       </div>
       <div class="nf-supervised-grid">
         <button id="nf-nm-reset" type="button" class="nf-induce-multi-btn">Reset all to 0</button>
-        <button id="nf-nm-cycle" type="button" class="nf-induce-multi-btn">Day cycle 시뮬레이션</button>
       </div>
-      <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor 영역. Day cycle: 30초 주기로 sine wave 변화 (낮=ACh+dopamine 활성, 밤=serotonin 활성).</div>
+      <div class="nf-mode-hint">Dopamine=STDP gain (Schultz 1997). ACh=V_th lower (Hasselmo 1999). Serotonin=inhibitory boost (Aghajanian 1990). 모두 0 = anchor.</div>
     </div>
 
     <div class="nf-section nf-decode-section" data-cat="learn">
@@ -2759,7 +3458,7 @@
       </div>
       <div id="nf-decode-headline" class="nf-decode-headline">—</div>
       <svg id="nf-decode-sparkline" class="nf-stats-histogram nf-decode-sparkline" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
-      <button id="nf-decode-eval" type="button" class="nf-induce-multi-btn">정확도 측정 (4×5 trial)</button>
+      <button id="nf-decode-eval" type="button" class="nf-induce-multi-btn" style="display:none;">정확도 측정 (4×5 trial)</button>
       <div id="nf-decode-eval-result" class="nf-mode-hint">측정 안 됨.</div>
       <div class="nf-decode-grid">
         <div class="nf-decode-cell" data-out="out_0"><span class="nf-decode-label">Pointing</span><span class="nf-decode-rate">—</span></div>
@@ -2770,34 +3469,23 @@
       <div class="nf-mode-hint">최근 cascade 의 OUT 발화율 (Hz). 가장 높은 OUT = decoded gesture (winner highlight).</div>
     </div>
 
-    <div class="nf-section nf-export-section" data-cat="tools">
-      <label class="nf-section-label">CIRCUIT EXPORT / IMPORT (JSON)</label>
-      <div class="nf-supervised-grid">
-        <button id="nf-circuit-export" type="button" class="nf-induce-multi-btn">Export JSON 다운로드</button>
-        <button id="nf-circuit-import" type="button" class="nf-induce-multi-btn">Import JSON 업로드</button>
-      </div>
+    <div class="nf-section nf-export-section nf-tb-shadow" data-cat="tools">
+      <button id="nf-circuit-export" type="button" class="nf-induce-multi-btn">Export</button>
+      <button id="nf-circuit-import" type="button" class="nf-induce-multi-btn">Import</button>
       <input id="nf-circuit-import-file" type="file" accept=".json,application/json" style="display:none;">
-      <div id="nf-circuit-export-status" class="nf-mode-hint">현재 회로 (neurons + synapses + 신경조절) 전체를 JSON으로 다운로드/업로드. 다른 사용자에게 회로 사양 공유 가능.</div>
+      <div id="nf-circuit-export-status" class="nf-mode-hint"></div>
     </div>
 
-    <div class="nf-section nf-training-save-section" data-cat="tools">
-      <label class="nf-section-label">TRAINING SAVE / LOAD</label>
-      <div class="nf-anchor-verify-buttons">
-        <button id="nf-training-save"  type="button" class="nf-induce-multi-btn">Save</button>
-        <button id="nf-training-load"  type="button" class="nf-induce-multi-btn">Load</button>
-        <button id="nf-training-clear" type="button" class="nf-induce-multi-btn">Clear</button>
-      </div>
-      <div class="nf-mode-hint">학습 결과 (synapse weight) localStorage 보존. 페이지 reload 시 자동 복원. Save = 즉시 저장, Load = 강제 복원, Clear = 보존 삭제.</div>
+    <div class="nf-section nf-training-save-section nf-tb-shadow" data-cat="tools">
+      <button id="nf-training-save"  type="button" class="nf-induce-multi-btn">Save</button>
+      <button id="nf-training-load"  type="button" class="nf-induce-multi-btn">Load</button>
+      <button id="nf-training-clear" type="button" class="nf-induce-multi-btn">Clear</button>
     </div>
 
-    <div class="nf-section nf-canvas-toggle-section" data-cat="tools">
-      <label class="nf-section-label">CIRCUIT CANVAS (drawflow)</label>
-      <div class="nf-canvas-mode-buttons">
-        <button id="nf-canvas-toggle"      type="button" class="nf-induce-multi-btn">Toggle Canvas View</button>
-        <button id="nf-canvas-mode-region" type="button" class="nf-induce-multi-btn active">Region (4)</button>
-        <button id="nf-canvas-mode-neuron" type="button" class="nf-induce-multi-btn">Neuron (52)</button>
-      </div>
-      <div class="nf-mode-hint">drawflow 기반 SNN canvas. Region (4 노드) 또는 Neuron (52 노드 + ~120 synapse). weight 색: red inhibitory / cyan 약 / yellow 중 / purple 강. Neuron mode 영역 = induce 통과 후 synapse weight + fire rate 갱신.</div>
+    <div class="nf-section nf-canvas-toggle-section nf-tb-shadow" data-cat="tools">
+      <button id="nf-canvas-toggle"      type="button" class="nf-induce-multi-btn">Toggle</button>
+      <button id="nf-canvas-mode-region" type="button" class="nf-induce-multi-btn active">Region</button>
+      <button id="nf-canvas-mode-neuron" type="button" class="nf-induce-multi-btn">Neuron</button>
     </div>
   </div>
 

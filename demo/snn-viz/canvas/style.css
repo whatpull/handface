@@ -169,6 +169,21 @@
   50%      { stroke-opacity: 0.7; stroke-width: 2.0; }
 }
 
+/* Session 41+ Tier1-C: weight-delta learning highlight (LTP=green, LTD=orange). */
+#nf-snn-canvas .drawflow .connection.learning .main-path {
+  stroke: var(--learning-color, rgba(16, 185, 129, 0.85)) !important;
+  stroke-width: var(--learning-width, 2.5px) !important;
+  stroke-opacity: 1;
+  animation: snn-learn-pulse 1.5s ease-out;
+  filter: drop-shadow(0 0 3px var(--learning-color, rgba(16, 185, 129, 0.6)));
+}
+
+@keyframes snn-learn-pulse {
+  0%   { stroke-opacity: 0.4; }
+  20%  { stroke-opacity: 1;   }
+  100% { stroke-opacity: 0;   }
+}
+
 /* drawflow node wrapper (영역 transparent). */
 #nf-snn-canvas .drawflow-node {
   background: transparent;
@@ -191,6 +206,18 @@
 }
 #nf-snn-canvas .drawflow-node:hover {
   cursor: grab;
+}
+/* Phase 201: region hover highlight */
+#nf-snn-canvas.snn-region-hover-active .drawflow-node:not(.snn-canvas-region-highlight) {
+  opacity: 0.35;
+  filter: saturate(0.4);
+  transition: opacity 0.12s ease, filter 0.12s ease;
+}
+#nf-snn-canvas .drawflow-node.snn-canvas-region-highlight {
+  outline: 2px solid #f5d020;
+  outline-offset: 2px;
+  z-index: 10;
+  filter: drop-shadow(0 0 6px rgba(245, 208, 32, 0.6));
 }
 
 /* Edit mode 영역만 = node drag 영역 → content node click 영역 영역. */

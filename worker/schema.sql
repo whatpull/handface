@@ -35,3 +35,25 @@ CREATE TABLE IF NOT EXISTS datasets (
 
 CREATE INDEX IF NOT EXISTS idx_datasets_updated
   ON datasets (updated_at);
+
+-- Session 42+ Tier3-G: Circuit Marketplace — 사용자가 회로를 공유 (read-only).
+-- circuit_id 는 Worker 가 random uuid 발급, owner 는 client-supplied (인증 X, ToS 수준).
+-- public=1 만 list 에 노출. neurons/synapses + meta (anchor, session, neuromod 등) 통째.
+CREATE TABLE IF NOT EXISTS shared_circuits (
+  circuit_id   TEXT PRIMARY KEY,           -- 'cir_<random>' (Worker 발급)
+  owner        TEXT NOT NULL,              -- client supplied (e.g., 'whatpull@gmail.com')
+  name         TEXT NOT NULL,              -- 사용자 지정 회로 이름
+  description  TEXT,                       -- optional 설명
+  neurons      TEXT NOT NULL,              -- JSON [{name, region, population, ...},...]
+  synapses     TEXT NOT NULL,              -- JSON [{pre, post, weight, ...},...]
+  meta         TEXT,                       -- optional JSON (kpi snapshot 등)
+  public       INTEGER NOT NULL DEFAULT 1, -- 1 = public list 노출 / 0 = direct link only
+  created_at   INTEGER NOT NULL,
+  download_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_shared_circuits_created
+  ON shared_circuits (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_shared_circuits_public_created
+  ON shared_circuits (public, created_at DESC);

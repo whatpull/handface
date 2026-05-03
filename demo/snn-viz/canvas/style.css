@@ -375,6 +375,12 @@
   font-family: monospace;
   outline: none;
   box-sizing: border-box;
+  /* Session 38 fix: drawflow drag 격리 — pointer events 보장. */
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  position: relative;
+  z-index: 2;
 }
 .snn-canvas-user-input:focus { border-color: #a78bfa; }
 .snn-canvas-user-actions {
@@ -392,6 +398,9 @@
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: all 0.15s;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 2;
 }
 .snn-canvas-user-btn:hover {
   background: rgba(167, 139, 250, 0.25);

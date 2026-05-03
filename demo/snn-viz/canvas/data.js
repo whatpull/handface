@@ -18,10 +18,10 @@ export const CASCADE_EDGES = [
 
 // Neuron 단위 layout (4 region column + SOURCE column, 좌→우. region 내부 population sub-column).
 // Session 36: SOURCE column 신규 (Camera + Gesture 영역 input 전 영역).
-// Session 38: USER_INPUT column — Camera/Gesture 와 같은 source 영역에 vertical center 정렬.
+// Session 38: USER_INPUT — Camera/Gesture 의 사이 column (160) + 위아래 alternating stacking.
 export const REGION_X = {
-  USER_INPUT:    -120,    // SOURCE_CAMERA(80) 왼쪽 별도 column — 사용자 추가 source.
-  SOURCE_CAMERA:   80,
+  USER_INPUT:    160,    // Camera(80) ↔ Gesture(240) 중앙 — source 영역 alternating stack.
+  SOURCE_CAMERA:  80,
   SOURCE_GESTURE: 240,
   INPUT:          440,
   V1_L4_E:        740,
@@ -225,18 +225,21 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
 
 /**
  * Session 38: 사용자 추가 INPUT 노드 (user_in_<idx>) → NEURON_NODES 동일 형식 변환.
- * Camera/Gesture (SOURCE column) 와 같은 source 영역에 배치, vertical center 정렬.
+ * Camera/Gesture column 사이 (x=160) 에 vertical alternating stack 배치 —
+ * idx 0 above, idx 1 below, idx 2 further above, idx 3 further below ...
  * @param {object} ui - { name, label, kind, fanout } from /user_inputs API
  * @param {number} stackIdx - 0-based 표시 순서.
- * @param {number} totalCount - 전체 user input 개수 (center 정렬용).
  * @returns {object} { id, label, region, population, color, x, y, kind, isUserInput, isSystem }
  */
-export function buildUserInputNode(ui, stackIdx = 0, totalCount = 1) {
-  const ROW_GAP = 130;
-  // Camera/Gesture 와 같은 vertical center 기준 정렬 (gridPos 와 동일 공식).
-  // CANVAS_CENTER_Y = TOP_PAD(80) + 5 * ROW_HEIGHT(110) = 630.
-  const CANVAS_CENTER_Y = 630;
-  const startY = CANVAS_CENTER_Y - ((totalCount - 1) / 2) * ROW_GAP;
+export function buildUserInputNode(ui, stackIdx = 0) {
+  const CANVAS_CENTER_Y = 630;          // Camera/Gesture y 정합.
+  const SAFE_OFFSET = 240;              // Camera 와 충돌 방지 거리.
+  const ROW_GAP = 150;
+  const half = Math.floor(stackIdx / 2);
+  const isAbove = stackIdx % 2 === 0;
+  const y = isAbove
+    ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
+    : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
   return {
     id: ui.name,
     label: ui.label || ui.name.replace('user_in_', 'U'),
@@ -244,7 +247,7 @@ export function buildUserInputNode(ui, stackIdx = 0, totalCount = 1) {
     population: 'user_input',
     color: '#a78bfa',
     x: REGION_X.USER_INPUT,
-    y: startY + stackIdx * ROW_GAP,
+    y,
     kind: ui.kind || 'custom',
     isUserInput: true,
     isSystem: false,

@@ -3596,6 +3596,12 @@ function wireUserInputNodeHandlers() {
           console.warn('[user-node audio] inject failed:', r);
           setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
         }
+      } else if (action === 'edit-text') {
+        // Session 39: Text 노드 ✏️ 편집 버튼 → 큰 dialog 로 입력 + inject.
+        // dialog 안에서 패턴 인코딩 + 백엔드 inject 후 자동 close + 노드 활성화.
+        btn.disabled = false;  // openUserInputDialog 가 자체 disable 처리.
+        await openUserInputDialog({ nodeId, label: nodeId, kind: 'text' });
+        return;
       } else if (action === 'encode-text') {
         const input = document.getElementById(`snn-user-input-${nodeId}`);
         const text = (input?.value || '').trim();
@@ -3650,38 +3656,6 @@ function wireUserInputNodeHandlers() {
     }
   });
 
-  // Session 39: 노드 카드 클릭 (위젯 외부 영역) → 큰 입력 dialog 열기.
-  // 모바일 친화 widget 표시 (Audio capture / Text input / Custom inject) +
-  // Inject 버튼 → dialog 닫기 + 노드 활성화 자동 실행.
-  document.addEventListener('click', async (ev) => {
-    const t = ev.target;
-    // 위젯 인터랙티브 요소 클릭은 inline 처리 → dialog 안 열기.
-    if (!t || !t.closest) return;
-    if (t.closest('.snn-canvas-user-btn, .snn-canvas-user-input')) return;
-    const card = t.closest('.snn-canvas-user-card');
-    if (!card) return;
-    // user_in 카드만 dialog (user_out 은 표시 전용).
-    const node = card.closest('[id^="node-"]');
-    if (!node) return;
-    // user_in 식별 — card class.
-    const nodeEl = card.parentElement;  // drawflow node container.
-    const inputEl = card.querySelector('.snn-canvas-user-input');
-    const captureBtn = card.querySelector('[data-action="capture"]');
-    const encodeBtn = card.querySelector('[data-action="encode-text"]');
-    const directBtn = card.querySelector('[data-action="inject-direct"]');
-    const anyBtn = captureBtn || encodeBtn || directBtn;
-    if (!anyBtn) return;
-    const nodeId = anyBtn.getAttribute('data-node');
-    if (!nodeId) return;
-    // 카드 헤더 라벨 추출.
-    const labelEl = card.querySelector('.snn-canvas-neuron-label');
-    const label = labelEl ? labelEl.textContent : nodeId;
-    // 모달리티 결정 — kind state 에서 lookup.
-    const ui = (state.userInputs || []).find(u => u.name === nodeId);
-    const kind = ui?.kind || 'custom';
-    await openUserInputDialog({ nodeId, label, kind });
-  });
-
   _userNodeHandlersBound = true;
   console.debug('[user-node] document-level click handler bound');
 }
@@ -3690,6 +3664,9 @@ function wireUserInputNodeHandlers() {
 async function openUserInputDialog({ nodeId, label, kind }) {
   const backend = window.__neuronfaceBackend;
   if (!backend) return;
+  // 정확한 라벨 — state.userInputs 에서 lookup.
+  const ui = (state.userInputs || []).find(u => u.name === nodeId);
+  if (ui?.label) label = ui.label;
   const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍' };
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;

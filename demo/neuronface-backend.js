@@ -944,10 +944,15 @@ export class NeuronFaceBackend {
 
   /**
    * Session 39: POST /networks/{id}/user_outputs/{name}/config — action_config + label 갱신.
+   * 첫 호출에서 endpoint 미지원 (404) 감지 시 _configEndpointMissing 플래그 set →
+   * 이후 호출은 fetch 자체 skip (콘솔 404 noise 방지).
    */
   async updateUserOutputConfig(name, actionConfig, label) {
     if (!this._networkId) return { ok: false, reason: 'no network' };
     if (!name || !name.startsWith('user_out_')) return { ok: false, reason: 'not a user output node' };
+    if (this._configEndpointMissing) {
+      return { ok: false, reason: 'endpoint not supported (cached)' };
+    }
     const body = { action_config: actionConfig || {} };
     if (label) body.label = label;
     try {
@@ -957,6 +962,10 @@ export class NeuronFaceBackend {
       );
       return { ok: true, ...data };
     } catch (err) {
+      const msg = String(err.message || '');
+      if (/not\s*found/i.test(msg) || msg.includes('404')) {
+        this._configEndpointMissing = true;
+      }
       return { ok: false, reason: err.message };
     }
   }

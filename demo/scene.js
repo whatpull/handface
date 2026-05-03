@@ -2163,13 +2163,9 @@ window.addEventListener('DOMContentLoaded', () => {
           // 3) backend 동기 (best-effort).
           const r = await backend.updateUserOutputConfig(name, newCfg);
           if (r.ok) {
-            // backend 도 동기 됨 → 안전하게 refresh.
             await refreshUserOutputList();
           } else {
-            // backend 미지원 — refresh 하면 backend 의 old data 로 state 가 덮어씌워짐.
-            // refresh 대신 list DOM 만 재 render (state 유지).
-            console.warn('[user-out] backend /config endpoint 미지원, frontend-only 적용:', r.reason);
-            // 동일 outs 배열로 list innerHTML 재구성 — kindIcon 표시 갱신.
+            // backend 미지원 (cached) — 콘솔 noise 없이 frontend-only 적용.
             await refreshUserOutputListFromState();
           }
         });

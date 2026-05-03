@@ -1,6 +1,7 @@
 // Session 33 drawflow PoC: 4 region node + 3 cascade edge (region 단위, 보존).
 // Session 34 추가: 52 neuron 단위 + weight gradient 색.
-// 2A neuron 단위 + 4-2 population grouping layout + 3A weight gradient edge.
+// Session 39: 사용자 노드 위치 — saved positions (드래그 후 저장된) 영역 우선.
+import { getNodePosition } from '../state.js';
 
 // Region 단위 (4 노드, 보존).
 export const REGION_NODES = [
@@ -209,13 +210,17 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
   const baseY = 1080;
   const col = Math.floor(stackOffset / PER_COL);
   const row = stackOffset % PER_COL;
-  const x = baseX + col * COL_GAP;
-  const y = baseY + row * ROW_GAP;
-  // color: region 기준.
+  let x = baseX + col * COL_GAP;
+  let y = baseY + row * ROW_GAP;
+  // Session 39: 저장된 위치 우선.
+  const saved = getNodePosition(name);
+  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+    x = saved.x; y = saved.y;
+  }
   const colorMap = { V1: '#4dd0e1', V2: '#b794f4' };
   return {
     id: name,
-    label: name.replace(/^v\d+_/, '').replace(/_/g, ''),  // 짧은 라벨.
+    label: name.replace(/^v\d+_/, '').replace(/_/g, ''),
     region: n.region || 'V1',
     population: popKey.split('_').slice(1).join('_'),
     color: colorMap[n.region] || '#94a3b8',
@@ -233,21 +238,27 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
  * @returns {object} { id, label, region, population, color, x, y, kind, isUserInput, isSystem }
  */
 export function buildUserInputNode(ui, stackIdx = 0) {
-  const CANVAS_CENTER_Y = 630;          // Camera/Gesture y 정합.
-  const SAFE_OFFSET = 240;              // Camera 와 충돌 방지 거리.
+  const CANVAS_CENTER_Y = 630;
+  const SAFE_OFFSET = 240;
   const ROW_GAP = 150;
   const half = Math.floor(stackIdx / 2);
   const isAbove = stackIdx % 2 === 0;
-  const y = isAbove
+  let x = REGION_X.USER_INPUT;
+  let y = isAbove
     ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
     : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
+  // Session 39: 저장된 위치 (사용자 드래그 결과) 우선.
+  const saved = getNodePosition(ui.name);
+  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+    x = saved.x; y = saved.y;
+  }
   return {
     id: ui.name,
     label: ui.label || ui.name.replace('user_in_', 'U'),
     region: 'USER_INPUT',
     population: 'user_input',
     color: '#a78bfa',
-    x: REGION_X.USER_INPUT,
+    x,
     y,
     kind: ui.kind || 'custom',
     isUserInput: true,
@@ -267,16 +278,22 @@ export function buildUserOutputNode(uo, stackIdx = 0) {
   const ROW_GAP = 150;
   const half = Math.floor(stackIdx / 2);
   const isAbove = stackIdx % 2 === 0;
-  const y = isAbove
+  let x = REGION_X.USER_OUTPUT;
+  let y = isAbove
     ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
     : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
+  // Session 39: 저장된 위치 우선.
+  const saved = getNodePosition(uo.name);
+  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+    x = saved.x; y = saved.y;
+  }
   return {
     id: uo.name,
     label: uo.label || uo.name.replace('user_out_', 'O'),
     region: 'USER_OUTPUT',
     population: 'user_output',
     color: '#5eead4',
-    x: REGION_X.USER_OUTPUT,
+    x,
     y,
     kind: uo.kind || 'notification',
     actionConfig: uo.action_config || {},

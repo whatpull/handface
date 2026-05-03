@@ -779,12 +779,41 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 39: GET /networks/{id}/user_inputs/{name}/route — 라우팅 조회.
+   */
+  async getUserInputRoute(name) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_in_')) return { ok: false, reason: 'not user input' };
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/user_inputs/${encodeURIComponent(name)}/route`);
+      return { ok: true, ...data };
+    } catch (err) { return { ok: false, reason: err.message }; }
+  }
+
+  /**
+   * Session 39: POST /networks/{id}/user_inputs/{name}/route — routed_to 설정.
+   * routedTo=null → routing 해제 (모든 OUT 자유). 옛 backend 미지원 캐싱.
+   */
+  async setUserInputRoute(name, routedTo) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_in_')) return { ok: false, reason: 'not user input' };
+    if (this._routeEndpointMissing) return { ok: false, reason: 'endpoint not supported (cached)' };
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs/${encodeURIComponent(name)}/route`,
+        { method: 'POST', body: { routed_to: routedTo } },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      const msg = String(err.message || '');
+      if (/not\s*found/i.test(msg) || msg.includes('404')) this._routeEndpointMissing = true;
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 38 PR-H: POST /networks/{id}/user_inputs/inject_pattern — 8-dim pattern
    * 가중 sum 으로 사용자 노드 1뉴런에 inject (modality encoder 결과).
-   * @param {string} name - user_in_<idx>
-   * @param {number[]} pattern - 8 floats [0,1]
-   * @param {object} opts - { intensity=1.0, durationMs=5, observeMs=50, stdp=false,
-   *                          targetOut, supervisorWeight=80, supervisorDelayMs=20 }
    */
   async injectUserInputPattern(name, pattern, opts = {}) {
     if (!this._networkId) {

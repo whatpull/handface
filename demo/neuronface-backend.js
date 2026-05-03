@@ -779,6 +779,21 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 39: GET /networks/{id}/user_inputs/{name}/path_strength — 학습 진척도.
+   * @returns { ok, name, path_strengths: { out_0: number, ..., user_out_X: number } }
+   */
+  async getUserInputPathStrength(name) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_in_')) return { ok: false, reason: 'not user input' };
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_inputs/${encodeURIComponent(name)}/path_strength`,
+      );
+      return { ok: true, ...data };
+    } catch (err) { return { ok: false, reason: err.message }; }
+  }
+
+  /**
    * Session 39: GET /networks/{id}/user_inputs/{name}/route — 라우팅 조회.
    */
   async getUserInputRoute(name) {

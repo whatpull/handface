@@ -512,6 +512,10 @@ function neuronNodeHtml(neuron) {
   if (neuron.isUserInput) {
     return userInputNodeHtml(neuron, userBadge);
   }
+  // Session 39 PR-N: 사용자 OUTPUT 노드 — action kind 표시 + status row.
+  if (neuron.isUserOutput) {
+    return userOutputNodeHtml(neuron);
+  }
 
   return `
     <div class="snn-canvas-neuron-card">
@@ -597,6 +601,41 @@ function userInputNodeHtml(neuron, userBadge) {
           <button class="snn-canvas-user-btn" data-action="inject-direct" data-node="${id}" type="button" ${stop}>▶ Inject (50w)</button>
         </div>
         <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
+      </div>
+    </div>
+  `;
+}
+
+// Session 39 PR-N: 사용자 OUT 노드 — action kind 표시 + 발화 시 status 갱신.
+// 발화 detection 은 scene.js applyFireToCanvas 가 firingRate > 0 시 trigger.
+function userOutputNodeHtml(neuron) {
+  const kind = neuron.kind || 'notification';
+  const id = neuron.id;
+  const kindIcon = {
+    notification: '🔔', speak: '🔊', webhook: '🌐', console: '📟', custom: '⚙️',
+  };
+  const cfg = neuron.actionConfig || {};
+  let cfgPreview = '';
+  if (kind === 'notification') cfgPreview = cfg.title || cfg.body || '(no msg)';
+  else if (kind === 'speak') cfgPreview = cfg.text || '(no text)';
+  else if (kind === 'webhook') cfgPreview = cfg.url || '(no url)';
+  else if (kind === 'console') cfgPreview = cfg.tag || 'log';
+  return `
+    <div class="snn-canvas-neuron-card snn-canvas-out-card snn-canvas-user-out-card">
+      <div class="snn-canvas-neuron-header">
+        <span class="snn-canvas-neuron-dot"></span>
+        <span class="snn-canvas-neuron-label">${neuron.label}</span>
+        <span class="snn-canvas-neuron-user-badge" title="사용자 추가 액션">ACT</span>
+      </div>
+      <div class="snn-canvas-neuron-body">
+        <div class="snn-canvas-neuron-row">
+          <span class="snn-canvas-neuron-row-label">${kindIcon[kind] || '⚙️'} ${kind}</span>
+          <span class="snn-canvas-neuron-row-value snn-canvas-out-rate" id="snn-canvas-out-rate-${id}">0</span>
+        </div>
+        <div class="snn-canvas-neuron-row">
+          <span class="snn-canvas-neuron-row-label snn-canvas-out-cfg-preview" title="${cfgPreview}">${cfgPreview}</span>
+          <span class="snn-canvas-neuron-row-value snn-canvas-out-status" id="snn-canvas-out-status-${id}">idle</span>
+        </div>
       </div>
     </div>
   `;

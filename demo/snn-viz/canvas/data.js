@@ -31,6 +31,7 @@ export const REGION_X = {
   V2_L23_E:      1640,
   V2_L5_E:       1840,
   OUT:           2140,
+  USER_OUTPUT:   2360,    // OUT(2140) 오른쪽 별도 column — action selector.
 };
 
 const ROW_HEIGHT = 110;     // 80 → 110 (vertical 영역 영역 영역)
@@ -250,6 +251,36 @@ export function buildUserInputNode(ui, stackIdx = 0) {
     y,
     kind: ui.kind || 'custom',
     isUserInput: true,
+    isSystem: false,
+  };
+}
+
+/**
+ * Session 39: 사용자 추가 OUT 노드 (user_out_<idx>) → NEURON_NODES 동일 형식.
+ * OUT column 오른쪽에 vertical alternating stack — system OUT (4개) 와 분리.
+ * @param {object} uo - { name, label, kind, fanin, action_config }
+ * @param {number} stackIdx - 0-based 표시 순서.
+ */
+export function buildUserOutputNode(uo, stackIdx = 0) {
+  const CANVAS_CENTER_Y = 630;
+  const SAFE_OFFSET = 240;
+  const ROW_GAP = 150;
+  const half = Math.floor(stackIdx / 2);
+  const isAbove = stackIdx % 2 === 0;
+  const y = isAbove
+    ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
+    : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
+  return {
+    id: uo.name,
+    label: uo.label || uo.name.replace('user_out_', 'O'),
+    region: 'USER_OUTPUT',
+    population: 'user_output',
+    color: '#5eead4',
+    x: REGION_X.USER_OUTPUT,
+    y,
+    kind: uo.kind || 'notification',
+    actionConfig: uo.action_config || {},
+    isUserOutput: true,
     isSystem: false,
   };
 }

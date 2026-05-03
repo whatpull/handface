@@ -874,6 +874,84 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 39: GET /networks/{id}/user_outputs — 사용자 OUT 노드 목록.
+   * @returns { ok, userOutputs: [{ name, label, kind, fanin, action_config }] }
+   */
+  async listUserOutputs() {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    try {
+      const data = await this._fetch(`/networks/${this._networkId}/user_outputs`);
+      return { ok: true, userOutputs: data.user_outputs || [] };
+    } catch (err) {
+      const msg = String(err.message || '');
+      if (/not\s*found/i.test(msg) || msg.includes('404')) {
+        const init = await this.initialize();
+        if (!init.ok) return { ok: false, reason: init.reason };
+        try {
+          const data = await this._fetch(`/networks/${this._networkId}/user_outputs`);
+          return { ok: true, userOutputs: data.user_outputs || [] };
+        } catch (err2) {
+          return { ok: false, reason: err2.message };
+        }
+      }
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 39: POST /networks/{id}/user_outputs — 사용자 OUT 노드 추가.
+   * V2 L5_E sparse fanin + WTA lateral inhibition 자동 wiring.
+   * @param {string} label
+   * @param {object} opts - { kind='notification', actionConfig={}, fanInDensity=0.6, fanInWeight=30 }
+   *   kind: 'notification' | 'speak' | 'webhook' | 'console' | 'custom'
+   */
+  async addUserOutput(label, opts = {}) {
+    if (!this._networkId) {
+      const init = await this.initialize();
+      if (!init.ok) return { ok: false, reason: init.reason };
+    }
+    const body = {
+      label,
+      kind:           opts.kind          ?? 'notification',
+      fanin_density:  opts.fanInDensity  ?? 0.6,
+      fanin_weight:   opts.fanInWeight   ?? 30.0,
+      action_config:  opts.actionConfig  ?? {},
+    };
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_outputs`,
+        { method: 'POST', body },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Session 39: DELETE /networks/{id}/user_outputs/{name} — 사용자 OUT 삭제.
+   * 시스템 OUT (out_0..3) 는 백엔드에서 403.
+   */
+  async deleteUserOutput(name) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_out_')) {
+      return { ok: false, reason: 'not a user output node' };
+    }
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_outputs/${encodeURIComponent(name)}`,
+        { method: 'DELETE' },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 38: DELETE /networks/{id}/user_inputs/{name} — 사용자 INPUT 삭제.
    * 시스템 노드는 백엔드에서 403. name prefix `user_in_` 강제.
    * @param {string} name - user_in_<idx>

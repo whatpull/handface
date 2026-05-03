@@ -918,6 +918,28 @@
     .nf-node-lib-label {
       letter-spacing: 0.04em;
     }
+    /* Session 39 OUT library 색감 (cyan/teal — action 의미). */
+    .nf-out-lib-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 8px 4px;
+      background: rgba(94, 234, 212, 0.08);
+      border: 1px solid rgba(94, 234, 212, 0.3);
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      font-size: 9px;
+      transition: all 0.15s;
+    }
+    .nf-out-lib-btn:hover:not(:disabled) {
+      background: rgba(94, 234, 212, 0.18);
+      border-color: rgba(94, 234, 212, 0.6);
+      color: #5eead4;
+    }
+    .nf-out-lib-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* Session 38 USER INPUT panel */
     .nf-user-input-add { margin-bottom: 8px; }
@@ -2193,7 +2215,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BemWO6hW.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-De_ZTdDr.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-BD1RlCc8.css">
 </head>
 <body>
@@ -2379,16 +2401,23 @@
     </div>
 
     <div class="nf-section nf-user-input-section" data-cat="input">
-      <label class="nf-section-label">NODE LIBRARY (사용자 INPUT 노드 추가)</label>
+      <label class="nf-section-label">NODE LIBRARY — INPUT (사용자 입력 노드)</label>
       <div class="nf-node-library">
         <button class="nf-node-lib-btn" data-kind="audio"    type="button"><span class="nf-node-lib-icon">🎤</span><span class="nf-node-lib-label">Audio</span></button>
         <button class="nf-node-lib-btn" data-kind="text"     type="button"><span class="nf-node-lib-icon">📝</span><span class="nf-node-lib-label">Text</span></button>
-        <button class="nf-node-lib-btn" data-kind="image"    type="button" disabled title="Session 39"><span class="nf-node-lib-icon">🖼️</span><span class="nf-node-lib-label">Image</span></button>
-        <button class="nf-node-lib-btn" data-kind="motion"   type="button" disabled title="Session 39"><span class="nf-node-lib-icon">📱</span><span class="nf-node-lib-label">Motion</span></button>
-        <button class="nf-node-lib-btn" data-kind="keyboard" type="button" disabled title="Session 39"><span class="nf-node-lib-icon">⌨️</span><span class="nf-node-lib-label">Keyboard</span></button>
-        <button class="nf-node-lib-btn" data-kind="mouse"    type="button" disabled title="Session 39"><span class="nf-node-lib-icon">🖱️</span><span class="nf-node-lib-label">Mouse</span></button>
-        <button class="nf-node-lib-btn" data-kind="geo"      type="button" disabled title="Session 39"><span class="nf-node-lib-icon">📍</span><span class="nf-node-lib-label">Geo</span></button>
+        <button class="nf-node-lib-btn" data-kind="image"    type="button" disabled title="Session 40"><span class="nf-node-lib-icon">🖼️</span><span class="nf-node-lib-label">Image</span></button>
+        <button class="nf-node-lib-btn" data-kind="motion"   type="button" disabled title="Session 40"><span class="nf-node-lib-icon">📱</span><span class="nf-node-lib-label">Motion</span></button>
+        <button class="nf-node-lib-btn" data-kind="keyboard" type="button" disabled title="Session 40"><span class="nf-node-lib-icon">⌨️</span><span class="nf-node-lib-label">Keyboard</span></button>
+        <button class="nf-node-lib-btn" data-kind="mouse"    type="button" disabled title="Session 40"><span class="nf-node-lib-icon">🖱️</span><span class="nf-node-lib-label">Mouse</span></button>
+        <button class="nf-node-lib-btn" data-kind="geo"      type="button" disabled title="Session 40"><span class="nf-node-lib-icon">📍</span><span class="nf-node-lib-label">Geo</span></button>
         <button class="nf-node-lib-btn" data-kind="custom"   type="button"><span class="nf-node-lib-icon">⚙️</span><span class="nf-node-lib-label">Custom</span></button>
+      </div>
+      <label class="nf-section-label" style="margin-top:10px;">NODE LIBRARY — OUTPUT (사용자 액션 노드)</label>
+      <div class="nf-node-library">
+        <button class="nf-out-lib-btn" data-out-kind="notification" type="button"><span class="nf-node-lib-icon">🔔</span><span class="nf-node-lib-label">Notification</span></button>
+        <button class="nf-out-lib-btn" data-out-kind="speak"        type="button"><span class="nf-node-lib-icon">🔊</span><span class="nf-node-lib-label">Speak</span></button>
+        <button class="nf-out-lib-btn" data-out-kind="webhook"      type="button"><span class="nf-node-lib-icon">🌐</span><span class="nf-node-lib-label">Webhook</span></button>
+        <button class="nf-out-lib-btn" data-out-kind="console"      type="button"><span class="nf-node-lib-icon">📟</span><span class="nf-node-lib-label">Console</span></button>
       </div>
       <div class="nf-user-input-tune">
         <label class="nf-ui-tune-label">fanout density
@@ -2401,7 +2430,36 @@
         </label>
       </div>
       <div id="nf-ui-list" class="nf-user-input-list"></div>
+      <div id="nf-uo-list" class="nf-user-input-list"></div>
       <div id="nf-ui-status" class="nf-mode-hint">위 라이브러리에서 modality 노드 타입을 클릭 → 노드 자동 추가 (V1 L4_E에 sparse wiring). 추가된 노드는 캔버스에 자기 widget을 보유 (Audio: mic capture, Text: 입력 + Encode 등). 시스템 노드 (in_*, v1_*, v2_*, out_*) 는 변경되지 않음.</div>
+    </div>
+
+    <div class="nf-section nf-quick-learn-section" data-cat="input">
+      <label class="nf-section-label">QUICK LEARN (3-click 매핑 등록)</label>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">From INPUT</span>
+        <select id="nf-ql-from" class="nf-multimodal-select">
+          <option value="">(USER INPUT 선택)</option>
+        </select>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">To OUTPUT</span>
+        <select id="nf-ql-to" class="nf-multimodal-select">
+          <option value="">(USER OUTPUT 선택)</option>
+        </select>
+      </div>
+      <div class="nf-multimodal-row">
+        <span class="nf-multimodal-label">Rounds</span>
+        <select id="nf-ql-rounds" class="nf-multimodal-select">
+          <option value="5">5×</option>
+          <option value="10" selected>10×</option>
+          <option value="20">20×</option>
+          <option value="50">50×</option>
+        </select>
+      </div>
+      <button id="nf-ql-train" type="button" class="nf-induce-multi-btn">Train mapping</button>
+      <button id="nf-ql-test" type="button" class="nf-induce-multi-btn" style="margin-top:4px;">Test (training off)</button>
+      <div id="nf-ql-status" class="nf-mode-hint">선택한 USER INPUT 노드 → USER OUTPUT 노드 매핑을 STDP supervised RL 로 학습. From INPUT inject + To OUTPUT supervisor pulse 동시 자극 → 시냅스 강화. Test: 학습 후 input 만 inject → output 발화 검증 (action callback 트리거).</div>
     </div>
 
     <div class="nf-section nf-user-input-inject-section" data-cat="input">

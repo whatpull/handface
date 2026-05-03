@@ -709,15 +709,17 @@ export function updateCanvasFireNeuron(rates) {
   if (!editor || mode !== 'neuron') return;
   const safeRates = rates || {};
 
-  // 1. neuron card fired pulse — fire 영역 영역 영역 영역 영역, 0.8s 후 자동 영역 (1회 신호 영역 영역).
+  // Session 39 fix: NEURON_NODES (preset 52) 만이 아니라 nodeRefMap 의 모든 노드
+  // (dynamic V1 grown + user_in_X + user_out_X) 까지 순회. 이전 버그: user_in 발화
+  // 해도 NEURON_NODES 에 없어서 highlight 무시 → 사용자가 'inject 반응 없음' 으로 인식.
   const firedSet = new Set();
-  for (const neuron of NEURON_NODES) {
-    const rate = safeRates[neuron.id] || 0;
+  for (const neuronId of Object.keys(nodeRefMap)) {
+    const rate = safeRates[neuronId] || 0;
     const fired = rate > 0;
-    // OUT 노드 영역 status / rate row 영역 갱신 (fired 영역 영역 영역 ACTIVE 영역).
-    if (neuron.population === 'output') {
-      const statusEl = document.getElementById(`snn-canvas-out-status-${neuron.id}`);
-      const rateEl = document.getElementById(`snn-canvas-out-rate-${neuron.id}`);
+    // OUT 노드 (system out_0..3 + user_out_X) status / rate row 갱신.
+    if (neuronId.startsWith('out_') || neuronId.startsWith('user_out_')) {
+      const statusEl = document.getElementById(`snn-canvas-out-status-${neuronId}`);
+      const rateEl = document.getElementById(`snn-canvas-out-rate-${neuronId}`);
       if (statusEl) {
         statusEl.textContent = fired ? 'ACTIVE' : 'idle';
         statusEl.classList.toggle('snn-canvas-out-status--active', fired);
@@ -725,15 +727,14 @@ export function updateCanvasFireNeuron(rates) {
       if (rateEl) rateEl.textContent = fired ? rate.toFixed(1) : '0';
     }
     if (!fired) continue;
-    firedSet.add(neuron.id);
-    const nodeEl = nodeRefMap[neuron.id];
+    firedSet.add(neuronId);
+    const nodeEl = nodeRefMap[neuronId];
     if (!nodeEl) continue;
     nodeEl.classList.add('snn-canvas-neuron--fired');
-    // 직전 timer clear (재 fire 영역 영역 영역 영역).
-    if (fireTimers[neuron.id]) clearTimeout(fireTimers[neuron.id]);
-    fireTimers[neuron.id] = setTimeout(() => {
+    if (fireTimers[neuronId]) clearTimeout(fireTimers[neuronId]);
+    fireTimers[neuronId] = setTimeout(() => {
       nodeEl.classList.remove('snn-canvas-neuron--fired');
-      delete fireTimers[neuron.id];
+      delete fireTimers[neuronId];
     }, FIRE_DURATION_MS);
   }
 

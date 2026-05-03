@@ -2053,12 +2053,12 @@ window.addEventListener('DOMContentLoaded', () => {
     return `${titles[kind] || kind} ${sameKind.length + 1}`;
   }
 
-  // 기본 action_config kind별 prompt. webhook 취소 시 null 반환 → 노드 추가 abort.
+  // 기본 action_config — notification/speak/webhook 은 dialog 로 사용자 입력.
+  // {text} 토큰: 발화 시 마지막 inject 한 user_in 텍스트로 동적 치환.
   function defaultActionConfig(kind, label) {
-    if (kind === 'notification') return { title: label, body: `${label} fired` };
-    if (kind === 'speak') return { text: label, voice: 'ko-KR' };
-    // webhook 은 비동기 prompt 가 필요하므로 별도 함수에서 처리. 여기서 return 'pending'.
-    if (kind === 'webhook') return 'pending';
+    if (kind === 'notification') return 'pending';  // dialog 로 title/body.
+    if (kind === 'speak')        return 'pending';  // dialog 로 text.
+    if (kind === 'webhook')      return 'pending';  // dialog 로 URL.
     if (kind === 'console') return { tag: label };
     return {};
   }
@@ -2130,14 +2130,13 @@ window.addEventListener('DOMContentLoaded', () => {
       const kind = btn.getAttribute('data-out-kind');
       const label = nextLabelForOutKind(kind);
       let cfg = defaultActionConfig(kind, label);
-      // webhook 은 dialog prompt 필요.
-      if (cfg === 'pending' && kind === 'webhook') {
-        const url = await dialogPrompt('Webhook URL (POST 호출 대상):', 'https://example.com/hook', 'Webhook 노드 추가', 'https://...');
-        if (url === null || !String(url).trim()) {
+      // dialog 로 action_config 설정 — notification/speak/webhook.
+      if (cfg === 'pending') {
+        cfg = await openActionConfigDialog(kind, label);
+        if (!cfg) {
           if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
           return;
         }
-        cfg = { url: String(url).trim(), method: 'POST', body: { event: label } };
       } else if (cfg === null) {
         if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
         return;
@@ -2230,6 +2229,18 @@ window.addEventListener('DOMContentLoaded', () => {
   const ACTION_COOLDOWN_MS = 1000;
   const _lastActionAt = {};
 
+  // {text} 토큰 치환 — 가장 최근 inject 된 USER INPUT 의 텍스트 사용.
+  // window.__lastInjectedTextByNode 에서 가장 최근 항목 (또는 빈 문자열).
+  function lastInjectedText() {
+    const map = window.__lastInjectedTextByNode || {};
+    const keys = Object.keys(map);
+    if (keys.length === 0) return '';
+    return map[keys[keys.length - 1]] || '';
+  }
+  function substitute(template) {
+    if (!template) return template;
+    return String(template).replace(/\{text\}/gi, lastInjectedText());
+  }
   function executeAction(uo) {
     const now = Date.now();
     if (_lastActionAt[uo.name] && now - _lastActionAt[uo.name] < ACTION_COOLDOWN_MS) return;
@@ -2237,31 +2248,44 @@ window.addEventListener('DOMContentLoaded', () => {
     const cfg = uo.action_config || {};
     try {
       if (uo.kind === 'notification') {
+        const title = substitute(cfg.title || uo.label);
+        const body  = substitute(cfg.body || `${uo.label} fired`);
         if ('Notification' in window) {
           if (Notification.permission === 'granted') {
-            new Notification(cfg.title || uo.label, { body: cfg.body || `${uo.label} fired` });
+            new Notification(title, { body });
           } else if (Notification.permission !== 'denied') {
             Notification.requestPermission().then(p => {
-              if (p === 'granted') new Notification(cfg.title || uo.label, { body: cfg.body || '' });
+              if (p === 'granted') new Notification(title, { body });
             });
           }
         }
       } else if (uo.kind === 'speak') {
         if ('speechSynthesis' in window) {
-          const u = new SpeechSynthesisUtterance(cfg.text || uo.label);
+          const u = new SpeechSynthesisUtterance(substitute(cfg.text || uo.label));
           if (cfg.voice) u.lang = cfg.voice;
           window.speechSynthesis.speak(u);
         }
       } else if (uo.kind === 'webhook') {
         if (cfg.url) {
+          const bodyObj = cfg.body || { event: uo.label, name: uo.name, t: now };
+          // body 안 string 값들에도 {text} 치환 적용.
+          const substitutedBody = JSON.parse(JSON.stringify(bodyObj), null);
+          const walk = (o) => {
+            if (typeof o === 'string') return substitute(o);
+            if (Array.isArray(o)) return o.map(walk);
+            if (o && typeof o === 'object') {
+              const r = {}; for (const k in o) r[k] = walk(o[k]); return r;
+            }
+            return o;
+          };
           fetch(cfg.url, {
             method: cfg.method || 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cfg.body || { event: uo.label, name: uo.name, t: now }),
+            body: JSON.stringify({ ...walk(substitutedBody), text: lastInjectedText() }),
           }).catch(e => console.warn('[action webhook] failed:', e));
         }
       } else if (uo.kind === 'console') {
-        console.log(`[ACTION ${cfg.tag || uo.label}]`, { name: uo.name, time: new Date(now).toISOString(), config: cfg });
+        console.log(`[ACTION ${cfg.tag || uo.label}]`, { name: uo.name, text: lastInjectedText(), time: new Date(now).toISOString(), config: cfg });
       }
     } catch (e) {
       console.warn('[action] execute failed:', e);
@@ -3531,9 +3555,27 @@ function paintUserInputBins(nodeId, pattern) {
   });
 }
 
-function setUserInputStatus(nodeId, msg) {
+// Session 39: 미니멀 상태 표시 — 짧은 메시지 + 발화/실패 시 시각 효과 + 자동 복귀.
+const _statusRevertTimers = {};
+function setUserInputStatus(nodeId, msg, kind = '') {
   const el = document.getElementById(`snn-user-status-${nodeId}`);
-  if (el) el.textContent = msg;
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('fired', 'failed');
+  if (kind) el.classList.add(kind);
+  // pulse animation 재시작 (DOM reflow 유발).
+  if (kind === 'fired') {
+    void el.offsetWidth;
+  }
+  // 자동 복귀: fired/failed → 2.5s 후 '대기' 무상태.
+  if (_statusRevertTimers[nodeId]) clearTimeout(_statusRevertTimers[nodeId]);
+  if (kind === 'fired' || kind === 'failed') {
+    _statusRevertTimers[nodeId] = setTimeout(() => {
+      el.textContent = '대기';
+      el.classList.remove('fired', 'failed');
+      delete _statusRevertTimers[nodeId];
+    }, 2500);
+  }
 }
 
 let _userNodeHandlersBound = false;
@@ -3571,7 +3613,7 @@ function wireUserInputNodeHandlers() {
     if (!nodeId) return;
     const backend = window.__neuronfaceBackend;
     if (!backend) {
-      setUserInputStatus(nodeId, 'backend 없음');
+      setUserInputStatus(nodeId, '⚠ backend', 'failed');
       console.warn('[user-node] backend not initialized');
       return;
     }
@@ -3579,78 +3621,54 @@ function wireUserInputNodeHandlers() {
     btn.disabled = true;
     try {
       if (action === 'capture' && btn.getAttribute('data-kind') === 'audio') {
-        setUserInputStatus(nodeId, '🎤 capturing 1s...');
+        setUserInputStatus(nodeId, '🎤 capturing…');
         const cap = await captureMicTo8Bin(1);
         if (!cap.ok) {
-          setUserInputStatus(nodeId, cap.reason);
+          setUserInputStatus(nodeId, '⚠ mic 거부', 'failed');
           return;
         }
         paintUserInputBins(nodeId, cap.pattern);
-        // Session 39 fix: intensity 0.5 — saturation 방지 (Quick Learn 학습 후 OUT 발화).
         const r = await backend.injectUserInputPattern(nodeId, cap.pattern, { intensity: 1.0 });
         if (r.ok) {
-          const out = r.out_rates || {};
-          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
+          setUserInputStatus(nodeId, '⚡ injected', 'fired');
         } else {
           console.warn('[user-node audio] inject failed:', r);
-          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+          setUserInputStatus(nodeId, '⚠ 실패', 'failed');
         }
       } else if (action === 'edit-text') {
-        // Session 39: Text 노드 ✏️ 편집 버튼 → 큰 dialog 로 입력 + inject.
-        // dialog 안에서 패턴 인코딩 + 백엔드 inject 후 자동 close + 노드 활성화.
-        btn.disabled = false;  // openUserInputDialog 가 자체 disable 처리.
+        btn.disabled = false;
         await openUserInputDialog({ nodeId, label: nodeId, kind: 'text' });
         return;
       } else if (action === 'encode-text') {
         const input = document.getElementById(`snn-user-input-${nodeId}`);
         const text = (input?.value || '').trim();
         if (!text) {
-          setUserInputStatus(nodeId, '텍스트 입력하세요');
+          setUserInputStatus(nodeId, '⚠ 텍스트 필요', 'failed');
           return;
         }
         const pattern = textTo8Bin(text);
         paintUserInputBins(nodeId, pattern);
-        setUserInputStatus(nodeId, '📝 encoding...');
-        console.debug('[user-node encode-text]', { nodeId, text, pattern });
-        // Session 39 fix: intensity 0.5 — moderate cascade for visible V1/V2 propagation,
-        // but OUT layer 미도달 (untrained 시 saturation 방지). Quick Learn 학습 후 강화된
-        // path 만 OUT 발화 → 단일 winner 분리.
+        setUserInputStatus(nodeId, '📝 encoding…');
         const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
-        console.debug('[user-node encode-text] response', r);
         if (r.ok) {
-          const out = r.out_rates || {};
-          const sorted = Object.entries(out).sort((a, b) => b[1] - a[1]);
-          const winner = sorted[0];
-          // Saturation 감지: 다수 OUT 가 동일 rate (모두 발화) → untrained 안내.
-          const firingCount = sorted.filter(([_, v]) => v > 0).length;
-          const allSameRate = firingCount >= 3 && Math.abs(sorted[0][1] - sorted[firingCount - 1][1]) < 1;
-          if (allSameRate) {
-            setUserInputStatus(nodeId, `⚠ 미학습: ${firingCount} OUT 동시 발화 (Quick Learn 학습 필요)`);
-          } else if (winner && winner[1] > 0) {
-            setUserInputStatus(nodeId, `→ ${winner[0]}=${winner[1]}Hz`);
-          } else {
-            setUserInputStatus(nodeId, `→ inject ok (avg=${r.pattern_avg ?? '?'})`);
-          }
+          setUserInputStatus(nodeId, '⚡ injected', 'fired');
         } else {
           console.warn('[user-node encode-text] inject failed:', r);
-          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+          setUserInputStatus(nodeId, '⚠ 실패', 'failed');
         }
       } else if (action === 'inject-direct') {
-        setUserInputStatus(nodeId, 'injecting...');
+        setUserInputStatus(nodeId, 'injecting…');
         const r = await backend.injectUserInput(nodeId, { weight: 50, durationMs: 5 });
         if (r.ok) {
-          const out = r.out_rates || {};
-          const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : '→ ok');
+          setUserInputStatus(nodeId, '⚡ injected', 'fired');
         } else {
           console.warn('[user-node inject-direct] failed:', r);
-          setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
+          setUserInputStatus(nodeId, '⚠ 실패', 'failed');
         }
       }
     } catch (err) {
       console.error('[user-node] handler error:', err);
-      setUserInputStatus(nodeId, `에러: ${err.message || err}`);
+      setUserInputStatus(nodeId, '⚠ 에러', 'failed');
     } finally {
       btn.disabled = false;
     }
@@ -3707,8 +3725,10 @@ async function openUserInputDialog({ nodeId, label, kind }) {
             if (status) status.textContent = '📝 encoding…';
             const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
             if (r.ok) {
-              setUserInputStatus(nodeId, `→ inject ok (${text.slice(0, 12)})`);
-              return true;  // close dialog.
+              window.__lastInjectedTextByNode = window.__lastInjectedTextByNode || {};
+              window.__lastInjectedTextByNode[nodeId] = text;
+              setUserInputStatus(nodeId, '⚡ injected', 'fired');
+              return true;
             } else {
               if (status) status.textContent = `실패: ${r.reason || ''}`;
               return undefined;
@@ -3720,7 +3740,7 @@ async function openUserInputDialog({ nodeId, label, kind }) {
             paintDialogBins(cap.pattern);
             const r = await backend.injectUserInputPattern(nodeId, cap.pattern, { intensity: 1.0 });
             if (r.ok) {
-              setUserInputStatus(nodeId, `→ audio inject ok`);
+              setUserInputStatus(nodeId, '⚡ injected', 'fired');
               return true;
             } else {
               if (status) status.textContent = `실패: ${r.reason || ''}`;
@@ -3730,7 +3750,7 @@ async function openUserInputDialog({ nodeId, label, kind }) {
             if (status) status.textContent = 'injecting...';
             const r = await backend.injectUserInput(nodeId, { weight: 50, durationMs: 5 });
             if (r.ok) {
-              setUserInputStatus(nodeId, '→ ok');
+              setUserInputStatus(nodeId, '⚡ injected', 'fired');
               return true;
             } else {
               if (status) status.textContent = `실패: ${r.reason || ''}`;
@@ -3752,6 +3772,70 @@ function paintDialogBins(pattern) {
   container.querySelectorAll('.nf-dialog-node-bin').forEach((el, i) => {
     el.style.height = `${Math.round((pattern[i] || 0) * 100)}%`;
   });
+}
+
+// Session 39: OUT 노드 추가 시 action_config dialog (title/body/text/url 입력).
+// {text} 토큰: 발화 시 마지막 inject 된 user_in 텍스트로 치환.
+async function openActionConfigDialog(kind, label) {
+  if (kind === 'notification') {
+    const cfg = await openDialog({
+      title: `🔔 ${label} — 알림 설정`,
+      bodyHTML: `
+        <p>알림 제목과 본문을 설정하세요. 본문에 <code>{text}</code> 입력 시 발화할 때 마지막 USER INPUT 의 텍스트로 자동 치환됩니다.</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">제목</p>
+        <input id="nf-dlg-cfg-title" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${label}" placeholder="알림 제목" />
+        <p style="margin-top:10px;font-size:11px;color:#94a3b8;">본문 (텍스트 토큰 {text} 지원)</p>
+        <input id="nf-dlg-cfg-body" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="입력: {text}" placeholder="알림 본문" />
+      `,
+      buttons: [
+        { label: '취소', kind: 'cancel', value: null },
+        { label: '추가', kind: 'primary', onClick: () => {
+          const title = (document.getElementById('nf-dlg-cfg-title')?.value || label).trim();
+          const body  = (document.getElementById('nf-dlg-cfg-body')?.value || '').trim();
+          return { title: title || label, body: body || `${label} fired` };
+        }},
+      ],
+    });
+    return cfg;
+  }
+  if (kind === 'speak') {
+    const cfg = await openDialog({
+      title: `🔊 ${label} — TTS 설정`,
+      bodyHTML: `
+        <p>발화 시 음성 합성으로 읽어줄 텍스트. <code>{text}</code> 토큰 지원.</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">텍스트</p>
+        <input id="nf-dlg-cfg-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="입력: {text}" placeholder="읽어줄 문장" />
+      `,
+      buttons: [
+        { label: '취소', kind: 'cancel', value: null },
+        { label: '추가', kind: 'primary', onClick: () => {
+          const text = (document.getElementById('nf-dlg-cfg-text')?.value || '').trim();
+          return { text: text || label, voice: 'ko-KR' };
+        }},
+      ],
+    });
+    return cfg;
+  }
+  if (kind === 'webhook') {
+    const cfg = await openDialog({
+      title: `🌐 ${label} — Webhook 설정`,
+      bodyHTML: `
+        <p>발화 시 POST 호출할 URL.</p>
+        <p style="margin-top:8px;font-size:11px;color:#94a3b8;">URL</p>
+        <input id="nf-dlg-cfg-url" type="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="https://example.com/hook" placeholder="https://..." />
+      `,
+      buttons: [
+        { label: '취소', kind: 'cancel', value: null },
+        { label: '추가', kind: 'primary', onClick: () => {
+          const url = (document.getElementById('nf-dlg-cfg-url')?.value || '').trim();
+          if (!url) return null;
+          return { url, method: 'POST', body: { event: label } };
+        }},
+      ],
+    });
+    return cfg;
+  }
+  return {};
 }
 
 function toggleCanvasView() {

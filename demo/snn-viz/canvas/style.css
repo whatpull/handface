@@ -408,10 +408,42 @@
 }
 .snn-canvas-user-btn:disabled { opacity: 0.5; cursor: wait; }
 .snn-canvas-user-status {
-  font-size: 9px;
+  position: relative;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.45);
   font-family: monospace;
   text-align: center;
+  /* 긴 텍스트 ellipsis (한줄) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.snn-canvas-user-status.fired {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.18);
+}
+.snn-canvas-user-status.failed {
+  color: #fca5a5;
+  background: rgba(231, 111, 111, 0.12);
+}
+/* opacity + transform pulse — composite-only (성능 최적). */
+.snn-canvas-user-status.fired::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  border: 1px solid rgba(167, 139, 250, 0.7);
+  pointer-events: none;
+  opacity: 1;
+  transform: scale(1);
+  animation: nf-status-pulse 1.0s ease-out forwards;
+}
+@keyframes nf-status-pulse {
+  to { opacity: 0; transform: scale(1.15); }
 }
 .snn-canvas-user-row {
   display: flex;

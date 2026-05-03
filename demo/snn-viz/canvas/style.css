@@ -426,6 +426,12 @@
   color: #c4b5fd;
   background: rgba(167, 139, 250, 0.18);
 }
+/* Session 39: routed 외 OUT dim — user_in.routed_to 활성 시 비라우팅 OUT 흐릿. */
+.snn-canvas-neuron--routed-dim .snn-canvas-neuron-card {
+  opacity: 0.35;
+  filter: saturate(0.5);
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
 .snn-canvas-user-status.failed {
   color: #fca5a5;
   background: rgba(231, 111, 111, 0.12);

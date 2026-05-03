@@ -1964,6 +1964,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const raw = state.userInputs.map(ui => ({
         label: ui.label,
         kind:  ui.kind || 'custom',
+        routed_to: ui.routed_to || null,
       }));
       localStorage.setItem(USER_INPUTS_LS_KEY, JSON.stringify(raw));
     } catch (e) {
@@ -1984,9 +1985,12 @@ window.addEventListener('DOMContentLoaded', () => {
       for (const item of arr) {
         if (!item.label) continue;
         const ar = await backend.addUserInput(item.label, { kind: item.kind || 'custom' });
-        // 백엔드 미지원 → 즉시 중단 (반복 실패 메시지 방지).
         if (!ar.ok && (/not\s*found/i.test(ar.reason || '') || (ar.reason || '').includes('404'))) {
           return false;
+        }
+        // Session 39: 라우팅 복원 (best-effort).
+        if (ar.ok && item.routed_to) {
+          await backend.setUserInputRoute(ar.name, item.routed_to);
         }
       }
       return true;
@@ -2259,8 +2263,16 @@ window.addEventListener('DOMContentLoaded', () => {
         if (r.ok) okCount++;
       }
       qlTrainBtn.disabled = false;
-      if (qlStatus) qlStatus.textContent = `학습 ${okCount}/${rounds} (${fromName} → ${toName}). Test 버튼으로 검증.`;
-      // Synapse refresh (STDP 변경 weight).
+      // Session 39: Quick Learn 학습 직후 auto-route — 학습된 input → 학습된 output 만 발화.
+      const routeR = await backend.setUserInputRoute(fromName, toName);
+      // 프런트 state.userInputs 도 즉시 갱신 (LS 보존 위해 다음 saveUserInputsLocal 에서 사용).
+      const fromUI = (state.userInputs || []).find(u => u.name === fromName);
+      if (fromUI) fromUI.routed_to = toName;
+      saveUserInputsLocal();
+      if (qlStatus) {
+        qlStatus.textContent = `학습 ${okCount}/${rounds} ✓ ${fromName} → ${toName} (라우팅${routeR.ok ? '' : ' frontend-only'} 적용).`;
+      }
+      // Synapse refresh.
       const snap = await backend.getTrainingSnapshot();
       if (snap.ok && snap.response?.synapses) {
         if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
@@ -3576,8 +3588,32 @@ function mountCanvasForMode() {
     initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes, ...userOutputNodes]);
     // Session 38 PR-K: 사용자 노드 inline widget event wiring.
     setTimeout(wireUserInputNodeHandlers, 50);
+    // Session 39: routed_to 가 활성인 user_in 들의 비라우팅 OUT 노드 dim 적용.
+    setTimeout(applyRoutedDimming, 60);
   }
   applyFireToCanvas();
+}
+
+// Session 39: 활성 라우팅 기준으로 비라우팅 OUT 노드에 dim 클래스 적용.
+function applyRoutedDimming() {
+  const routedTargets = new Set(
+    (state.userInputs || []).map(ui => ui.routed_to).filter(Boolean)
+  );
+  // routed_to 사용자 없으면 dim 제거.
+  const dimAll = routedTargets.size === 0;
+  // 모든 OUT 노드 (system + user) 순회.
+  document.querySelectorAll('.snn-canvas-neuron[class*="snn-canvas-node-out_"], .snn-canvas-neuron[class*="snn-canvas-node-user_out_"]').forEach(el => {
+    const m = el.className.match(/snn-canvas-node-(out_\d+|user_out_\d+)/);
+    if (!m) return;
+    const name = m[1];
+    if (dimAll) {
+      el.classList.remove('snn-canvas-neuron--routed-dim');
+    } else if (routedTargets.has(name)) {
+      el.classList.remove('snn-canvas-neuron--routed-dim');
+    } else {
+      el.classList.add('snn-canvas-neuron--routed-dim');
+    }
+  });
 }
 
 // Session 38 PR-K: 사용자 노드 inline widget 핸들러 — modality별 capture/encode + inject_pattern.
@@ -3768,22 +3804,40 @@ async function openUserInputDialog({ nodeId, label, kind }) {
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;
   const statusHTML = `<div class="nf-dialog-node-status" id="nf-dlg-status">대기</div>`;
+  // Session 39: Route to dropdown — 학습된 매핑 (routed_to) 또는 수동 지정.
+  const allOutOptions = [
+    ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: `${uo.label} (사용자 액션)` })),
+    { name: 'out_0', label: 'out_0 — Pointing (시스템)' },
+    { name: 'out_1', label: 'out_1 — Open palm (시스템)' },
+    { name: 'out_2', label: 'out_2 — Thumbs up (시스템)' },
+    { name: 'out_3', label: 'out_3 — Victory (시스템)' },
+  ];
+  const currentRoute = ui?.routed_to || '';
+  const routeOptionsHTML = allOutOptions.map(o =>
+    `<option value="${o.name}" ${o.name === currentRoute ? 'selected' : ''}>${o.label}</option>`
+  ).join('');
+  const routeHTML = `
+    <p style="margin-top:14px;font-size:11px;color:#94a3b8;">Route to OUTPUT (이 노드 발화 시 단일 winner)</p>
+    <select id="nf-dlg-route" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+      <option value="" ${!currentRoute ? 'selected' : ''}>(라우팅 없음 — 모든 OUT 자유)</option>
+      ${routeOptionsHTML}
+    </select>
+  `;
   let bodyHTML, primaryLabel, action;
   if (kind === 'text') {
     bodyHTML = `<p>텍스트 입력 후 Inject 클릭. 패턴이 노드에 주입되고 캐스케이드 실행됩니다.</p>`
       + `<input id="nf-dlg-text" type="text" placeholder="입력할 텍스트" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />`
-      + binsHTML + statusHTML;
+      + binsHTML + statusHTML + routeHTML;
     primaryLabel = '📝 Encode + inject';
     action = 'text';
   } else if (kind === 'audio') {
     bodyHTML = `<p>마이크 1초 capture 후 8-bin FFT 패턴으로 inject.</p>`
-      + binsHTML + statusHTML;
+      + binsHTML + statusHTML + routeHTML;
     primaryLabel = '🎤 Capture + inject';
     action = 'audio';
   } else {
-    // custom / 미구현 modality.
     bodyHTML = `<p>현재 modality (${kind}) 는 직접 inject 만 지원. weight=50, 5ms.</p>`
-      + statusHTML;
+      + statusHTML + routeHTML;
     primaryLabel = '▶ Inject (50w)';
     action = 'direct';
   }
@@ -3794,6 +3848,14 @@ async function openUserInputDialog({ nodeId, label, kind }) {
       { label: '닫기', kind: 'cancel', value: false },
       { label: primaryLabel, kind: 'primary', onClick: async () => {
         const status = document.getElementById('nf-dlg-status');
+        // Session 39: Route to dropdown 의 선택값 적용 (inject 전).
+        const routeSel = document.getElementById('nf-dlg-route');
+        const newRoute = routeSel ? routeSel.value : '';
+        if ((ui?.routed_to || '') !== newRoute) {
+          if (ui) ui.routed_to = newRoute || null;
+          saveUserInputsLocal();
+          await backend.setUserInputRoute(nodeId, newRoute || null);
+        }
         try {
           if (action === 'text') {
             const inp = document.getElementById('nf-dlg-text');

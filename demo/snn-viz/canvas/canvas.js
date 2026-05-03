@@ -615,46 +615,26 @@ function userInputNodeHtml(neuron, userBadge) {
       ${userBadge}
     </div>
   `;
-  if (kind === 'audio') {
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--audio">
-        ${headerCommon}
-        <div class="snn-canvas-user-body">
-          <div class="snn-canvas-user-bins" id="snn-user-bins-${id}">
-            ${Array.from({length: 8}).map((_, i) => `<span class="snn-canvas-user-bin" data-bin="${i}"></span>`).join('')}
-          </div>
-          <div class="snn-canvas-user-actions">
-            <button class="snn-canvas-user-btn" data-action="capture" data-node="${id}" data-kind="audio" type="button" ${stop}>🎤 Capture 1s</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-  if (kind === 'text') {
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--text">
-        ${headerCommon}
-        <div class="snn-canvas-user-body">
-          <div class="snn-canvas-user-actions">
-            <button class="snn-canvas-user-btn" data-action="edit-text" data-node="${id}" type="button" ${stop}>✏️ 텍스트 편집 + inject</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-  // custom / 미구현 modality fallback — 8 thin slider.
+  // Session 39: 모든 USER INPUT modality 통일 — ✏️ 편집 버튼 → dialog 흐름.
+  // dialog 에서 modality widget (mic capture / text input / custom slider) + Route to OUTPUT 선택.
+  const labels = {
+    audio: '🎤 마이크 capture + inject',
+    text: '✏️ 텍스트 편집 + inject',
+    image: '🖼️ 이미지 편집 + inject',
+    motion: '📱 motion + inject',
+    keyboard: '⌨️ keyboard + inject',
+    mouse: '🖱️ mouse + inject',
+    geo: '📍 위치 + inject',
+    custom: '✏️ 편집 + inject',
+  };
+  const btnLabel = labels[kind] || labels.custom;
   return `
-    <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--custom">
+    <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--${kind}">
       ${headerCommon}
       <div class="snn-canvas-user-body">
-        <div class="snn-canvas-user-row">
-          <span class="snn-canvas-neuron-row-label">kind</span>
-          <span class="snn-canvas-neuron-row-value">${kind}</span>
-        </div>
         <div class="snn-canvas-user-actions">
-          <button class="snn-canvas-user-btn" data-action="inject-direct" data-node="${id}" type="button" ${stop}>▶ Inject (50w)</button>
+          <button class="snn-canvas-user-btn" data-action="edit-node" data-node="${id}" data-kind="${kind}" type="button" ${stop}>${btnLabel}</button>
         </div>
-        <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
       </div>
     </div>
   `;

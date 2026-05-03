@@ -2926,7 +2926,7 @@ function mountCanvasForMode() {
     const dynamicNeurons = buildDynamicNeuronsFromSynapses(synapses);
     // Session 38: 사용자 추가 INPUT 노드를 canvas에 추가.
     const userInputs = state.userInputs || [];
-    const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx, userInputs.length));
+    const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx));
     initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes]);
     // Session 38 PR-K: 사용자 노드 inline widget event wiring.
     setTimeout(wireUserInputNodeHandlers, 50);
@@ -2999,6 +2999,29 @@ function wireUserInputNodeHandlers() {
   if (_userNodeHandlersBound) return;
   const root = document.getElementById('nf-snn-canvas');
   if (!root) return;
+
+  // Session 38 PR-K (강화): drawflow 가 노드 mousedown 을 drag 시작으로 가로채는
+  // 문제 해결을 capture phase 로 강화. 'mousedown'/'pointerdown'/'touchstart' 모두
+  // document level capture phase 에서 가로채 → drawflow 가 이벤트 자체를 못 봄.
+  const interactiveSelector = '.snn-canvas-user-input, .snn-canvas-user-btn, .snn-canvas-user-card input, .snn-canvas-user-card button';
+  const stopForWidget = (ev) => {
+    const t = ev.target;
+    if (t && t.closest && t.closest(interactiveSelector.split(',').join(',').trim())) {
+      ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+    }
+  };
+  // 다양한 input 디바이스 + 모바일 터치까지 커버.
+  document.addEventListener('mousedown',  stopForWidget, true);
+  document.addEventListener('pointerdown', stopForWidget, true);
+  document.addEventListener('touchstart', stopForWidget, { capture: true, passive: true });
+  // dblclick/click 도 capture 차단 (drawflow 의 select on click 방지).
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    if (t && t.closest && t.closest('.snn-canvas-user-card input')) {
+      ev.stopPropagation();
+    }
+  }, true);
   root.addEventListener('click', async (ev) => {
     const btn = ev.target.closest('.snn-canvas-user-btn');
     if (!btn) return;

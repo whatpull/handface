@@ -1735,6 +1735,13 @@ window.addEventListener('DOMContentLoaded', () => {
       uiInjectTarget.innerHTML = '<option value="">(USER INPUT 노드 선택)</option>'
         + inputs.map(ui => `<option value="${ui.name}">${ui.label} (${ui.name})</option>`).join('');
     }
+    // Session 39 fix: Quick Learn 'From INPUT' dropdown 도 동기 (이전: refreshUserOutputList
+    // 안에만 있어서 user_input 변동 시 갱신 안됨).
+    const qlFromEl = document.getElementById('nf-ql-from');
+    if (qlFromEl) {
+      qlFromEl.innerHTML = '<option value="">(USER INPUT 선택)</option>'
+        + inputs.map(ui => `<option value="${ui.name}">${ui.label} (${ui.name})</option>`).join('');
+    }
   }
 
   // Node Library catalog 클릭 → kind에 맞는 노드 추가.

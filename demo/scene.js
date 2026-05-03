@@ -3806,10 +3806,16 @@ async function openUserInputDialog({ nodeId, label, kind }) {
             const pattern = textTo8Bin(text);
             paintDialogBins(pattern);
             if (status) status.textContent = '📝 encoding…';
+            // Session 39 fix: text 저장은 inject 호출 BEFORE 실행해야 함. inject 응답
+            // 직후 backend.emit('neuron-firing') 이 동기 실행되며 그 안에서 user_out
+            // action callback 이 substitute({text}) 호출 → lastInjectedText() 가 NEW
+            // 값을 보려면 미리 저장돼야 함.
+            window.__lastInjectedTextByNode = window.__lastInjectedTextByNode || {};
+            // 가장 최근 entry 가 마지막에 오도록 — 기존 키 삭제 후 재삽입.
+            delete window.__lastInjectedTextByNode[nodeId];
+            window.__lastInjectedTextByNode[nodeId] = text;
             const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
             if (r.ok) {
-              window.__lastInjectedTextByNode = window.__lastInjectedTextByNode || {};
-              window.__lastInjectedTextByNode[nodeId] = text;
               setUserInputStatus(nodeId, '⚡ injected', 'fired');
               return true;
             } else {

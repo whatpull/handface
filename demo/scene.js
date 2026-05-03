@@ -3333,8 +3333,27 @@ function setCanvasLoading(visible) {
   else el.classList.add('nf-canvas-loading--hidden');
 }
 
+// Session 39 fix: fit-complete 이벤트로 정확한 hide timing — 자동 축소/center 완료 직후.
+// fallback timeout 도 유지 (이벤트 미발생 시 1.5s 후 강제 hide).
+let _canvasLoadingFallbackTimer = null;
+function scheduleCanvasLoadingHide() {
+  if (_canvasLoadingFallbackTimer) clearTimeout(_canvasLoadingFallbackTimer);
+  _canvasLoadingFallbackTimer = setTimeout(() => {
+    setCanvasLoading(false);
+    _canvasLoadingFallbackTimer = null;
+  }, 1500);
+}
+window.addEventListener('snn-canvas:fit-complete', () => {
+  if (_canvasLoadingFallbackTimer) {
+    clearTimeout(_canvasLoadingFallbackTimer);
+    _canvasLoadingFallbackTimer = null;
+  }
+  setCanvasLoading(false);
+});
+
 function mountCanvasForMode() {
   setCanvasLoading(true);
+  scheduleCanvasLoadingHide();
   if (canvasMode === 'region') {
     initCanvas('nf-snn-canvas');
   } else {
@@ -3354,8 +3373,6 @@ function mountCanvasForMode() {
     setTimeout(wireUserInputNodeHandlers, 50);
   }
   applyFireToCanvas();
-  // initCanvasNeuron 의 fitCanvasToNodes setTimeout(0.9, 200) 완료 후 hide.
-  setTimeout(() => setCanvasLoading(false), 280);
 }
 
 // Session 38 PR-K: 사용자 노드 inline widget 핸들러 — modality별 capture/encode + inject_pattern.

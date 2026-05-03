@@ -881,24 +881,28 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
-    /* Session 39: Canvas loading overlay */
+    /* Session 39: Canvas loading overlay — 페이지 로드 시점부터 즉시 표시,
+       fit 완료 시 부드럽게 fade-out. 재 mount 시도 즉시 다시 표시 (fade-in 없음). */
     .nf-canvas-loading {
       position: absolute;
       inset: 0;
-      background: rgba(15, 15, 18, 0.7);
-      -webkit-backdrop-filter: blur(2px);
-      backdrop-filter: blur(2px);
+      /* 불투명 배경 — 캔버스 노드 추가/축소/이동 변화 모두 가림. */
+      background: #0f0f12;
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 50;
-      pointer-events: none;
       opacity: 1;
-      transition: opacity 0.18s ease;
+      visibility: visible;
+      pointer-events: auto;
+      /* show 는 즉시 (transition 0), hide 는 부드러운 fade-out. */
+      transition: opacity 0s linear 0s, visibility 0s linear 0s;
     }
     .nf-canvas-loading--hidden {
       opacity: 0;
+      visibility: hidden;
       pointer-events: none;
+      transition: opacity 0.35s ease, visibility 0s linear 0.35s;
     }
     .nf-canvas-loading-content {
       display: flex;
@@ -2308,7 +2312,7 @@
     <main class="nf-app-main">
       <div id="snn-viz-root"></div>
       <div id="nf-snn-canvas"></div>
-      <div id="nf-canvas-loading" class="nf-canvas-loading nf-canvas-loading--hidden">
+      <div id="nf-canvas-loading" class="nf-canvas-loading">
         <div class="nf-canvas-loading-content">
           <div class="nf-canvas-loading-spinner" aria-hidden="true"></div>
           <span class="nf-canvas-loading-text">Loading canvas…</span>

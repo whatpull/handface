@@ -884,6 +884,17 @@ export class NeuronFaceBackend {
     }
     try {
       const data = await this._fetch(`/networks/${this._networkId}/user_outputs`);
+      // Session 39 fix: 첫 호출 시 (한 번만) cross-WTA 정리 — 이전 버전이 생성한
+      // user_out ↔ system out 양방향 inhibitory edges 제거.
+      if (!this._wta_cleaned && (data.user_outputs || []).length > 0) {
+        this._wta_cleaned = true;
+        try {
+          await this._fetch(
+            `/networks/${this._networkId}/user_outputs/cleanup_wta`,
+            { method: 'POST', body: {} },
+          );
+        } catch (_) { /* ignore */ }
+      }
       return { ok: true, userOutputs: data.user_outputs || [] };
     } catch (err) {
       const msg = String(err.message || '');

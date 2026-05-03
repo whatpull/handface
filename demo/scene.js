@@ -3486,6 +3486,7 @@ function wireUserInputNodeHandlers() {
           return;
         }
         paintUserInputBins(nodeId, cap.pattern);
+        // Session 39 fix: intensity 0.5 — saturation 방지 (Quick Learn 학습 후 OUT 발화).
         const r = await backend.injectUserInputPattern(nodeId, cap.pattern, { intensity: 1.0 });
         if (r.ok) {
           const out = r.out_rates || {};
@@ -3506,7 +3507,10 @@ function wireUserInputNodeHandlers() {
         paintUserInputBins(nodeId, pattern);
         setUserInputStatus(nodeId, '📝 encoding...');
         console.debug('[user-node encode-text]', { nodeId, text, pattern });
-        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 2.0 });
+        // Session 39 fix: intensity 0.5 — moderate cascade for visible V1/V2 propagation,
+        // but OUT layer 미도달 (untrained 시 saturation 방지). Quick Learn 학습 후 강화된
+        // path 만 OUT 발화 → 단일 winner 분리.
+        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
         console.debug('[user-node encode-text] response', r);
         if (r.ok) {
           const out = r.out_rates || {};

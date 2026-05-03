@@ -684,17 +684,31 @@ function applyStepPaths() {
   connections.forEach((conn) => {
     const path = conn.querySelector('.main-path');
     if (!path) return;
-    // drawflow bezier path "M x1,y1 C cx1,cy1 cx2,cy2 x2,y2" 영역 endpoint (x1,y1, x2,y2) 영역 영역.
+    // drawflow path 변형 — "M x1,y1 C cx1,cy1 cx2,cy2 x2,y2" (bezier) OR
+    // "M x1,y1 L x2,y2" (straight, curvature=0 또는 long-distance fallback).
+    // 두 형식 모두에서 endpoint (x1,y1, x2,y2) 추출.
     const d = path.getAttribute('d') || '';
-    const m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+C[\s\S]*?(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
+    // 1차 시도: bezier 형식.
+    let m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+C[\s\S]*?(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
+    // 2차 시도: straight line 형식 (Session 39 fix — Audio/Console 노드 등).
+    if (!m) {
+      m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+L\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
+    }
+    // 3차 시도: 일반 fallback — 첫 두 숫자 쌍과 마지막 두 숫자 쌍 (모든 명령어 무시).
+    if (!m) {
+      const nums = d.match(/-?[\d.]+/g);
+      if (nums && nums.length >= 4) {
+        m = [d, nums[0], nums[1], nums[nums.length - 2], nums[nums.length - 1]];
+      }
+    }
     if (!m) return;
     const x1 = parseFloat(m[1]);
     const y1 = parseFloat(m[2]);
     const x2 = parseFloat(m[3]);
     const y2 = parseFloat(m[4]);
+    if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) return;
     const midX = (x1 + x2) / 2;
     // step path: output (right edge) → mid x (vertical) → input (left edge).
-    // 3-segment: H midX, V y2, H x2.
     const stepD = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
     path.setAttribute('d', stepD);
   });

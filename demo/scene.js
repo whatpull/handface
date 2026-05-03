@@ -10,7 +10,9 @@ import { initAsciiCamera } from './snn-viz/ascii-camera.js';
 import { mountHand } from './snn-viz/hand.js';
 import { onGestureToggle } from './snn-viz/gesture.js';
 import { highlightInputs } from './snn-viz/circuit.js';
-import { state } from './snn-viz/state.js';
+import { state, loadPositions } from './snn-viz/state.js';
+// Session 39: 저장된 노드 위치 (사용자 드래그 결과) 즉시 로드 — 모듈 import 시점.
+loadPositions();
 import { renderCascadeWeightHistory, exportCascadeWeightHistoryCsv } from './snn-viz/node-interaction.js';
 import {
   renderAnchorVerification,

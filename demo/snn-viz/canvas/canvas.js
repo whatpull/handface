@@ -12,12 +12,15 @@ import {
   weightColor,
 } from './data.js';
 import { regionNodeHtml } from './nodes.js';
+// Session 39: 사용자 노드 위치 저장 (edit mode 드래그 후 영구 보존).
+import { setNodePosition, loadPositions } from '../state.js';
 
 let editor = null;
 let mode = 'region'; // 'region' | 'neuron'
 const nodeIdMap = {};   // neuron id -> drawflow node id (number)
 const nodeRefMap = {};  // neuron id -> direct DOM element ref (drawflow auto-id catch 회피)
 const connRefMap = {};  // 'pre->post' -> connection SVG element ref
+const drawflowIdToName = {};  // drawflow node id (number) → neuron name (reverse lookup).
 
 export function getCanvasMode() {
   return mode;
@@ -92,6 +95,20 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   editor.start();
   editor.editor_mode = 'view';
 
+  // Session 39: 노드 드래그 후 위치 영구 저장 (edit mode 에서 사용자 직접 이동).
+  // drawflow 'nodeMoved' 이벤트 (drag end 시 발화) → drawflow id 를 neuron name 으로
+  // 역매핑 → setNodePosition 호출 (state.positions Map 갱신 + localStorage save).
+  editor.on('nodeMoved', (id) => {
+    const name = drawflowIdToName[id];
+    if (!name) return;
+    try {
+      const node = editor.getNodeFromId(id);
+      if (node && typeof node.pos_x === 'number' && typeof node.pos_y === 'number') {
+        setNodePosition(name, node.pos_x, node.pos_y);
+      }
+    } catch (_) { /* ignore */ }
+  });
+
   // Session 36: 본격 manual pan handler 영역 (drawflow 'view' mode pan 영역 catch 회피).
   // mousedown + mousemove + mouseup 영역 직접 영역 → editor.canvas_x/y + transform 갱신.
   attachManualPan(container);
@@ -121,6 +138,7 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
       false,
     );
     nodeIdMap[neuron.id] = id;
+    drawflowIdToName[id] = neuron.id;  // Session 39: drag end 역매핑.
     // direct DOM ref (drawflow render synchronous 통과 영역 영역 영역).
     const el = document.getElementById(`node-${id}`);
     if (el) nodeRefMap[neuron.id] = el;

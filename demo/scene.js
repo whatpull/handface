@@ -1672,11 +1672,35 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!uiList) return;
     const r = await backend.listUserInputs();
     if (!r.ok) {
-      uiList.innerHTML = `<div class="nf-user-input-empty">로드 실패: ${r.reason || ''}</div>`;
+      // Session 38 PR-D fix: 백엔드가 user_inputs endpoint 미지원 (Not Found) →
+      // 사용자 로컬 backend가 옛 버전. Node Library 비활성화 + 명확한 안내.
+      const reason = r.reason || '';
+      const endpointMissing = /not\s*found/i.test(reason) || reason.includes('404');
+      if (endpointMissing) {
+        const ep = (loadNeuronFaceSettings && loadNeuronFaceSettings().endpoint) || '?';
+        uiList.innerHTML = `<div class="nf-user-input-empty" style="color:#fbbf24;line-height:1.5;">
+          ⚠ 백엔드가 Session 38 USER INPUT 기능을 지원하지 않습니다.<br>
+          현재 endpoint: <code>${ep}</code><br>
+          → neuronface 백엔드 업데이트 필요 또는 endpoint를<br>
+          <code>https://whatpull-neuronface.hf.space</code> 로 변경
+        </div>`;
+        // Node Library 버튼 비활성화 (사용자 클릭 시 실패 방지).
+        nodeLibBtns.forEach(b => { b.disabled = true; b.title = '백엔드 미지원'; });
+      } else {
+        uiList.innerHTML = `<div class="nf-user-input-empty">로드 실패: ${reason}</div>`;
+      }
       if (uiInjectTarget) uiInjectTarget.innerHTML = '<option value="">(USER INPUT 노드 선택)</option>';
       state.userInputs = [];
       return;
     }
+    // 백엔드 호환 확인됨 — 비활성화됐던 라이브러리 버튼 복원.
+    nodeLibBtns.forEach(b => {
+      const k = b.getAttribute('data-kind');
+      if (['audio','text','custom'].includes(k)) {
+        b.disabled = false;
+        b.title = '';
+      }
+    });
     const inputs = r.userInputs || [];
     state.userInputs = inputs;
     if (inputs.length === 0) {
@@ -1847,12 +1871,17 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!raw) return false;
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr) || arr.length === 0) return false;
-      // backend의 현재 user_inputs 확인 — 이미 있으면 skip (서버 재시작 후 빈 상태일 때만 restore).
       const r = await backend.listUserInputs();
-      if (r.ok && r.userInputs.length > 0) return false;
+      // 백엔드 미지원 (404) → restore 시도 자체가 의미 없음 (실패 메시지 방지).
+      if (!r.ok) return false;
+      if (r.userInputs.length > 0) return false;
       for (const item of arr) {
         if (!item.label) continue;
-        await backend.addUserInput(item.label, { kind: item.kind || 'custom' });
+        const ar = await backend.addUserInput(item.label, { kind: item.kind || 'custom' });
+        // 백엔드 미지원 → 즉시 중단 (반복 실패 메시지 방지).
+        if (!ar.ok && (/not\s*found/i.test(ar.reason || '') || (ar.reason || '').includes('404'))) {
+          return false;
+        }
       }
       return true;
     } catch (e) {
@@ -1863,12 +1892,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 초기 로드: localStorage restore → backend 동기 → 패널 + canvas 갱신.
   (async () => {
+    // 먼저 listUserInputs 으로 백엔드 호환 확인 — 미지원이면 restore 건너뜀 (조용히).
+    const probe = await backend.listUserInputs();
+    if (!probe.ok) {
+      // 미지원 메시지는 refreshUserInputList 가 처리.
+      await refreshUserInputList();
+      return;
+    }
     const restored = await restoreUserInputsLocal();
     await refreshUserInputList();
     if (restored && uiStatus) {
       uiStatus.textContent = `${state.userInputs.length}개 사용자 INPUT 노드 복원됨 (localStorage).`;
     }
-    // 추가/삭제 후 자동 LS 저장 hook — refreshUserInputList 이후 호출.
   })();
 
   // add/delete 핸들러 직후 LS 동기. nodeLibBtns 클릭 + uiConfirmOk 클릭 후 자동 호출.

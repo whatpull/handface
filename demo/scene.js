@@ -2926,7 +2926,7 @@ function mountCanvasForMode() {
     const dynamicNeurons = buildDynamicNeuronsFromSynapses(synapses);
     // Session 38: 사용자 추가 INPUT 노드를 canvas에 추가.
     const userInputs = state.userInputs || [];
-    const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx));
+    const userInputNodes = userInputs.map((ui, idx) => buildUserInputNode(ui, idx, userInputs.length));
     initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes]);
     // Session 38 PR-K: 사용자 노드 inline widget event wiring.
     setTimeout(wireUserInputNodeHandlers, 50);

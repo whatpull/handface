@@ -2263,14 +2263,21 @@ window.addEventListener('DOMContentLoaded', () => {
         if (r.ok) okCount++;
       }
       qlTrainBtn.disabled = false;
-      // Session 39: Quick Learn 학습 직후 auto-route — 학습된 input → 학습된 output 만 발화.
-      const routeR = await backend.setUserInputRoute(fromName, toName);
-      // 프런트 state.userInputs 도 즉시 갱신 (LS 보존 위해 다음 saveUserInputsLocal 에서 사용).
-      const fromUI = (state.userInputs || []).find(u => u.name === fromName);
-      if (fromUI) fromUI.routed_to = toName;
-      saveUserInputsLocal();
+      // Session 39 revised: auto-route 제거 — STDP 학습 가중치만으로 winner 결정.
+      // 학습 후 path strength 조회로 결과 정량 확인.
+      let pathInfo = '';
+      try {
+        const ps = await backend.getUserInputPathStrength(fromName);
+        if (ps?.ok && ps.path_strengths) {
+          const target = ps.path_strengths[toName] || 0;
+          const others = Object.entries(ps.path_strengths)
+            .filter(([k]) => k !== toName).map(([_, v]) => v);
+          const othersAvg = others.length ? others.reduce((a,b)=>a+b,0) / others.length : 0;
+          pathInfo = ` | 경로강도 ${toName}=${target.toFixed(0)} (others avg ${othersAvg.toFixed(0)})`;
+        }
+      } catch (_) { /* ignore */ }
       if (qlStatus) {
-        qlStatus.textContent = `학습 ${okCount}/${rounds} ✓ ${fromName} → ${toName} (라우팅${routeR.ok ? '' : ' frontend-only'} 적용).`;
+        qlStatus.textContent = `학습 ${okCount}/${rounds} ✓ ${fromName} → ${toName}${pathInfo}`;
       }
       // Synapse refresh.
       const snap = await backend.getTrainingSnapshot();
@@ -2308,7 +2315,21 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       const winner = Object.entries(outRates).sort((a,b) => b[1] - a[1])[0];
       const ok = winner && winner[0] === toName;
-      if (qlStatus) qlStatus.textContent = `Test: ${toName}=${targetRate.toFixed(0)}Hz, winner=${winner ? winner[0]+'='+winner[1].toFixed(0)+'Hz' : '없음'} ${ok ? '✓ 학습됨' : '✗ 미학습'}.`;
+      // path strength 비교 — 학습 진척 정량.
+      let pathInfo = '';
+      try {
+        const ps = await backend.getUserInputPathStrength(fromName);
+        if (ps?.ok && ps.path_strengths) {
+          const targetPS = ps.path_strengths[toName] || 0;
+          const others = Object.entries(ps.path_strengths)
+            .filter(([k]) => k !== toName).map(([_, v]) => v);
+          const othersAvg = others.length ? others.reduce((a,b)=>a+b,0) / others.length : 0;
+          pathInfo = ` | 경로강도 target=${targetPS.toFixed(0)} vs others avg=${othersAvg.toFixed(0)}`;
+        }
+      } catch (_) {}
+      if (qlStatus) {
+        qlStatus.textContent = `Test: winner=${winner ? winner[0]+'='+winner[1].toFixed(0)+'Hz' : '없음'} ${ok ? '✓ 학습됨' : '✗ 미학습'}${pathInfo}`;
+      }
     });
   }
 
@@ -2383,14 +2404,27 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 매 fire response 후 호출 (applyFireToCanvas 내부 또는 backend event).
+  // Session 39 revised: cascade saturation 시 다중 OUT fire 가능 — 그러나 action callback 은
+  // winner (가장 높은 rate user_out) 만 trigger. STDP 학습이 trained path 강화하면
+  // winner = trained out_X. perception/action level WTA — bio-plausible (cortical decision).
   function detectAndExecuteUserOutActions(rates) {
     if (!rates) return;
     const outs = state.userOutputs || [];
+    // 가장 높은 rate user_out 찾기.
+    let winner = null;
+    let winnerRate = ACTION_FIRE_THRESHOLD;  // threshold 이상만 winner 대상.
+    for (const uo of outs) {
+      const cur = rates[uo.name] || 0;
+      if (cur > winnerRate) {
+        winner = uo;
+        winnerRate = cur;
+      }
+    }
+    // edge-trigger: prev winner != cur winner (또는 같은 winner 가 다시 발화 — cooldown 으로 차단).
     for (const uo of outs) {
       const cur = rates[uo.name] || 0;
       const prev = state.prevUserOutRates[uo.name] || 0;
-      if (prev <= ACTION_FIRE_THRESHOLD && cur > ACTION_FIRE_THRESHOLD) {
+      if (uo === winner && prev <= ACTION_FIRE_THRESHOLD && cur > ACTION_FIRE_THRESHOLD) {
         executeAction(uo);
       }
       state.prevUserOutRates[uo.name] = cur;
@@ -3588,8 +3622,7 @@ function mountCanvasForMode() {
     initCanvasNeuron('nf-snn-canvas', synapses, [...dynamicNeurons, ...userInputNodes, ...userOutputNodes]);
     // Session 38 PR-K: 사용자 노드 inline widget event wiring.
     setTimeout(wireUserInputNodeHandlers, 50);
-    // Session 39: routed_to 가 활성인 user_in 들의 비라우팅 OUT 노드 dim 적용.
-    setTimeout(applyRoutedDimming, 60);
+    // Session 39 revised: routed_to 제거 — dim 시각화 비활성. 학습 진척은 path_strength 로 표시.
   }
   applyFireToCanvas();
 }
@@ -3807,25 +3840,9 @@ async function openUserInputDialog({ nodeId, label, kind }) {
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;
   const statusHTML = `<div class="nf-dialog-node-status" id="nf-dlg-status">대기</div>`;
-  // Session 39: Route to dropdown — 학습된 매핑 (routed_to) 또는 수동 지정.
-  const allOutOptions = [
-    ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: `${uo.label} (사용자 액션)` })),
-    { name: 'out_0', label: 'out_0 — Pointing (시스템)' },
-    { name: 'out_1', label: 'out_1 — Open palm (시스템)' },
-    { name: 'out_2', label: 'out_2 — Thumbs up (시스템)' },
-    { name: 'out_3', label: 'out_3 — Victory (시스템)' },
-  ];
-  const currentRoute = ui?.routed_to || '';
-  const routeOptionsHTML = allOutOptions.map(o =>
-    `<option value="${o.name}" ${o.name === currentRoute ? 'selected' : ''}>${o.label}</option>`
-  ).join('');
-  const routeHTML = `
-    <p style="margin-top:14px;font-size:11px;color:#94a3b8;">Route to OUTPUT (이 노드 발화 시 단일 winner)</p>
-    <select id="nf-dlg-route" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
-      <option value="" ${!currentRoute ? 'selected' : ''}>(라우팅 없음 — 모든 OUT 자유)</option>
-      ${routeOptionsHTML}
-    </select>
-  `;
+  // Session 39 revised: routing dropdown 제거 — 학습 결과만으로 winner 결정.
+  // 학습 supervisor target 은 Quick Learn 패널에서 별도 선택. 노드 dialog 는 입력만.
+  const routeHTML = '';
   let bodyHTML, primaryLabel, action;
   if (kind === 'text') {
     bodyHTML = `<p>텍스트 입력 후 Inject 클릭. 패턴이 노드에 주입되고 캐스케이드 실행됩니다.</p>`
@@ -3851,14 +3868,6 @@ async function openUserInputDialog({ nodeId, label, kind }) {
       { label: '닫기', kind: 'cancel', value: false },
       { label: primaryLabel, kind: 'primary', onClick: async () => {
         const status = document.getElementById('nf-dlg-status');
-        // Session 39: Route to dropdown 의 선택값 적용 (inject 전).
-        const routeSel = document.getElementById('nf-dlg-route');
-        const newRoute = routeSel ? routeSel.value : '';
-        if ((ui?.routed_to || '') !== newRoute) {
-          if (ui) ui.routed_to = newRoute || null;
-          saveUserInputsLocal();
-          await backend.setUserInputRoute(nodeId, newRoute || null);
-        }
         try {
           if (action === 'text') {
             const inp = document.getElementById('nf-dlg-text');

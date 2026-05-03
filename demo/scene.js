@@ -3280,14 +3280,11 @@ function setUserInputStatus(nodeId, msg) {
 
 let _userNodeHandlersBound = false;
 function wireUserInputNodeHandlers() {
-  // Delegate clicks at canvas root → 모든 user input 노드 버튼 처리 (단일 listener).
+  // Document-level handlers — 단일 등록 (canvas remount 영향 X).
   if (_userNodeHandlersBound) return;
-  const root = document.getElementById('nf-snn-canvas');
-  if (!root) return;
 
   // Session 38 PR-K (강화): drawflow 가 노드 mousedown 을 drag 시작으로 가로채는
-  // 문제 해결을 capture phase 로 강화. 'mousedown'/'pointerdown'/'touchstart' 모두
-  // document level capture phase 에서 가로채 → drawflow 가 이벤트 자체를 못 봄.
+  // 문제 해결을 capture phase 로 강화.
   const interactiveSelector = '.snn-canvas-user-input, .snn-canvas-user-btn, .snn-canvas-user-card input, .snn-canvas-user-card button';
   const stopForWidget = (ev) => {
     const t = ev.target;
@@ -3296,19 +3293,20 @@ function wireUserInputNodeHandlers() {
       if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
     }
   };
-  // 다양한 input 디바이스 + 모바일 터치까지 커버.
   document.addEventListener('mousedown',  stopForWidget, true);
   document.addEventListener('pointerdown', stopForWidget, true);
   document.addEventListener('touchstart', stopForWidget, { capture: true, passive: true });
-  // dblclick/click 도 capture 차단 (drawflow 의 select on click 방지).
   document.addEventListener('click', (ev) => {
     const t = ev.target;
     if (t && t.closest && t.closest('.snn-canvas-user-card input')) {
       ev.stopPropagation();
     }
   }, true);
-  root.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('.snn-canvas-user-btn');
+  // Document-level click delegation — canvas remount 영향 없음.
+  // 이전 버전 buggy: const root 선언 제거됐는데 root.addEventListener 사용 →
+  // ReferenceError 로 전체 함수 throw → 모든 handler 미등록 (Text encode/inject 무반응 root cause).
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest && ev.target.closest('.snn-canvas-user-btn');
     if (!btn) return;
     const action = btn.getAttribute('data-action');
     const nodeId = btn.getAttribute('data-node');
@@ -3316,8 +3314,10 @@ function wireUserInputNodeHandlers() {
     const backend = window.__neuronfaceBackend;
     if (!backend) {
       setUserInputStatus(nodeId, 'backend 없음');
+      console.warn('[user-node] backend not initialized');
       return;
     }
+    console.debug('[user-node] click', { action, nodeId });
     btn.disabled = true;
     try {
       if (action === 'capture' && btn.getAttribute('data-kind') === 'audio') {
@@ -3332,8 +3332,9 @@ function wireUserInputNodeHandlers() {
         if (r.ok) {
           const out = r.out_rates || {};
           const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
+          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
         } else {
+          console.warn('[user-node audio] inject failed:', r);
           setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
         }
       } else if (action === 'encode-text') {
@@ -3346,12 +3347,15 @@ function wireUserInputNodeHandlers() {
         const pattern = textTo8Bin(text);
         paintUserInputBins(nodeId, pattern);
         setUserInputStatus(nodeId, '📝 encoding...');
-        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
+        console.debug('[user-node encode-text]', { nodeId, text, pattern });
+        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 2.0 });
+        console.debug('[user-node encode-text] response', r);
         if (r.ok) {
           const out = r.out_rates || {};
           const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ inject ok');
+          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : `→ inject ok (avg=${r.pattern_avg ?? '?'})`);
         } else {
+          console.warn('[user-node encode-text] inject failed:', r);
           setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
         }
       } else if (action === 'inject-direct') {
@@ -3360,16 +3364,21 @@ function wireUserInputNodeHandlers() {
         if (r.ok) {
           const out = r.out_rates || {};
           const winner = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
-          setUserInputStatus(nodeId, winner ? `→ ${winner[0]}=${winner[1]}Hz` : '→ ok');
+          setUserInputStatus(nodeId, winner && winner[1] > 0 ? `→ ${winner[0]}=${winner[1]}Hz` : '→ ok');
         } else {
+          console.warn('[user-node inject-direct] failed:', r);
           setUserInputStatus(nodeId, `실패: ${r.reason || ''}`);
         }
       }
+    } catch (err) {
+      console.error('[user-node] handler error:', err);
+      setUserInputStatus(nodeId, `에러: ${err.message || err}`);
     } finally {
       btn.disabled = false;
     }
   });
   _userNodeHandlersBound = true;
+  console.debug('[user-node] document-level click handler bound');
 }
 
 function toggleCanvasView() {

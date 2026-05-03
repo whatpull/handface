@@ -881,6 +881,47 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Session 39: Canvas loading overlay */
+    .nf-canvas-loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 15, 18, 0.7);
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.18s ease;
+    }
+    .nf-canvas-loading--hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .nf-canvas-loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: #c4b5fd;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nf-canvas-loading-spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid rgba(167, 139, 250, 0.25);
+      border-top-color: #a78bfa;
+      animation: nf-canvas-spin 0.8s linear infinite;
+    }
+    @keyframes nf-canvas-spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Session 38 PR-I: Node Library catalog */
     .nf-node-library {
       display: grid;
@@ -2216,7 +2257,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-BZEvISZp.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-BAd-er8F.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-BD1RlCc8.css">
 </head>
 <body>
@@ -2267,6 +2308,12 @@
     <main class="nf-app-main">
       <div id="snn-viz-root"></div>
       <div id="nf-snn-canvas"></div>
+      <div id="nf-canvas-loading" class="nf-canvas-loading nf-canvas-loading--hidden">
+        <div class="nf-canvas-loading-content">
+          <div class="nf-canvas-loading-spinner" aria-hidden="true"></div>
+          <span class="nf-canvas-loading-text">Loading canvas…</span>
+        </div>
+      </div>
     </main>
   </div>
 

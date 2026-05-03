@@ -575,7 +575,7 @@ function userInputNodeHtml(neuron, userBadge) {
       <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--text">
         ${headerCommon}
         <div class="snn-canvas-user-body">
-          <input class="snn-canvas-user-input" id="snn-user-input-${id}" type="text" placeholder="텍스트 입력" maxlength="32" ${stop} />
+          <input class="snn-canvas-user-input" id="snn-user-input-${id}" type="text" placeholder="텍스트 입력" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ${stop} />
           <div class="snn-canvas-user-actions">
             <button class="snn-canvas-user-btn" data-action="encode-text" data-node="${id}" type="button" ${stop}>📝 Encode + inject</button>
           </div>

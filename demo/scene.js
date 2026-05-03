@@ -1930,6 +1930,144 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // ────────────────────────────────────────────────────────
+  // Session 39: USER OUTPUT + 연결 weight localStorage persistence
+  // ────────────────────────────────────────────────────────
+  const USER_OUTPUTS_LS_KEY  = 'handface.user_outputs.v1';
+  const USER_SYNAPSES_LS_KEY = 'handface.user_synapses.v1';
+
+  function saveUserOutputsLocal() {
+    try {
+      const raw = (state.userOutputs || []).map(uo => ({
+        label: uo.label,
+        kind: uo.kind || 'notification',
+        action_config: uo.action_config || {},
+      }));
+      localStorage.setItem(USER_OUTPUTS_LS_KEY, JSON.stringify(raw));
+    } catch (e) {
+      console.warn('[user_outputs] save failed:', e);
+    }
+  }
+
+  // user_in / user_out 가 관여하는 모든 synapse weight 저장.
+  // pre 또는 post 가 user_in_X / user_out_X 인 시냅스 — fanout / fanin / 학습 변형 weight.
+  async function saveUserSynapsesLocal() {
+    try {
+      const snap = await backend.getTrainingSnapshot();
+      if (!snap.ok || !snap.response?.synapses) return;
+      const userSyn = snap.response.synapses.filter(s => {
+        const a = s.pre, b = s.post;
+        return (a.startsWith('user_in_') || a.startsWith('user_out_')
+             || b.startsWith('user_in_') || b.startsWith('user_out_'));
+      });
+      // 라벨 매핑도 같이 저장 — 복원 시 다른 user_in_<idx> 로 재매핑되어도 라벨로 추적 가능.
+      const labelMap = {};
+      (state.userInputs  || []).forEach(ui => labelMap[ui.name] = { kind: 'in', label: ui.label });
+      (state.userOutputs || []).forEach(uo => labelMap[uo.name] = { kind: 'out', label: uo.label });
+      const raw = userSyn.map(s => ({
+        pre: s.pre, post: s.post, weight: s.weight,
+        pre_label: labelMap[s.pre]?.label || null,
+        post_label: labelMap[s.post]?.label || null,
+      }));
+      localStorage.setItem(USER_SYNAPSES_LS_KEY, JSON.stringify(raw));
+    } catch (e) {
+      console.warn('[user_synapses] save failed:', e);
+    }
+  }
+
+  async function restoreUserOutputsLocal() {
+    try {
+      const raw = localStorage.getItem(USER_OUTPUTS_LS_KEY);
+      if (!raw) return false;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      const r = await backend.listUserOutputs();
+      if (!r.ok) return false;
+      if (r.userOutputs.length > 0) return false;
+      for (const item of arr) {
+        if (!item.label) continue;
+        const ar = await backend.addUserOutput(item.label, {
+          kind: item.kind || 'notification',
+          actionConfig: item.action_config || {},
+        });
+        if (!ar.ok && (/not\s*found/i.test(ar.reason || '') || (ar.reason || '').includes('404'))) {
+          return false;
+        }
+      }
+      return true;
+    } catch (e) {
+      console.warn('[user_outputs] restore failed:', e);
+      return false;
+    }
+  }
+
+  // 학습된 user 시냅스 weight 복원 — 노드 복원 후 호출.
+  // 노드 이름 (user_in_<idx>) 가 idx 보존 결정론으로 동일하게 재배치되므로 바로 매핑 가능.
+  async function restoreUserSynapsesLocal() {
+    try {
+      const raw = localStorage.getItem(USER_SYNAPSES_LS_KEY);
+      if (!raw) return false;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      // 백엔드의 현재 user_in/out 이름이 같은 것만 적용 (idempotent).
+      const validNames = new Set();
+      (state.userInputs  || []).forEach(ui => validNames.add(ui.name));
+      (state.userOutputs || []).forEach(uo => validNames.add(uo.name));
+      const filtered = arr.filter(s => {
+        // user 가 관여하는 시냅스만 — 한쪽이 user_in/out 이고 그 이름이 현재 백엔드에 존재해야 함.
+        const aUser = s.pre.startsWith('user_in_') || s.pre.startsWith('user_out_');
+        const bUser = s.post.startsWith('user_in_') || s.post.startsWith('user_out_');
+        if (aUser && !validNames.has(s.pre)) return false;
+        if (bUser && !validNames.has(s.post)) return false;
+        return aUser || bUser;
+      });
+      if (filtered.length === 0) return false;
+      const lr = await backend.loadTrainingSnapshot(filtered);
+      return lr.ok;
+    } catch (e) {
+      console.warn('[user_synapses] restore failed:', e);
+      return false;
+    }
+  }
+
+  // OUT Library 클릭 + delete 후 자동 LS 저장 (시냅스도 함께).
+  outLibBtns.forEach(btn => btn.addEventListener('click', () => {
+    setTimeout(() => { saveUserOutputsLocal(); saveUserSynapsesLocal(); }, 400);
+  }));
+  // Quick Learn 학습 후에도 시냅스 weight 저장.
+  if (qlTrainBtn) {
+    qlTrainBtn.addEventListener('click', () => setTimeout(saveUserSynapsesLocal, 600));
+  }
+  // user input add/delete 후에도 시냅스 저장 (fanout 갱신 반영).
+  nodeLibBtns.forEach(btn => btn.addEventListener('click', () => setTimeout(saveUserSynapsesLocal, 400)));
+  if (uiConfirmOk) {
+    uiConfirmOk.addEventListener('click', () => setTimeout(() => { saveUserOutputsLocal(); saveUserSynapsesLocal(); }, 400));
+  }
+
+  // 초기 로드: USER OUTPUT + 학습 weight 복원.
+  (async () => {
+    const probe = await backend.listUserOutputs();
+    if (!probe.ok) {
+      await refreshUserOutputList();
+      return;
+    }
+    const restored = await restoreUserOutputsLocal();
+    await refreshUserOutputList();
+    // 시냅스 weight 복원 — INPUT/OUTPUT 노드 모두 복원된 후.
+    const synRestored = await restoreUserSynapsesLocal();
+    if (qlStatus && (restored || synRestored)) {
+      qlStatus.textContent = `복원됨 — outputs ${state.userOutputs.length}, ${synRestored ? '학습 weight 적용됨' : '학습 weight 없음'}.`;
+    }
+    // canvas 갱신 (synapses 반영).
+    const snap = await backend.getTrainingSnapshot();
+    if (snap.ok && snap.response?.synapses) {
+      if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+      else lastFireResponse = { synapses: snap.response.synapses };
+      state.synapses = snap.response.synapses;
+      if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+    }
+  })();
+
+  // ────────────────────────────────────────────────────────
   // Session 39 PR-N/O/P: USER OUTPUT (action selector) — Library + list + wizard
   // ────────────────────────────────────────────────────────
   const outLibBtns = document.querySelectorAll('.nf-out-lib-btn');
@@ -3197,7 +3335,16 @@ function buildDynamicNeuronsFromSynapses(synapses) {
   return result;
 }
 
+// Session 39: Canvas loading overlay show/hide.
+function setCanvasLoading(visible) {
+  const el = document.getElementById('nf-canvas-loading');
+  if (!el) return;
+  if (visible) el.classList.remove('nf-canvas-loading--hidden');
+  else el.classList.add('nf-canvas-loading--hidden');
+}
+
 function mountCanvasForMode() {
+  setCanvasLoading(true);
   if (canvasMode === 'region') {
     initCanvas('nf-snn-canvas');
   } else {
@@ -3217,6 +3364,8 @@ function mountCanvasForMode() {
     setTimeout(wireUserInputNodeHandlers, 50);
   }
   applyFireToCanvas();
+  // initCanvasNeuron 의 fitCanvasToNodes setTimeout(0.9, 200) 완료 후 hide.
+  setTimeout(() => setCanvasLoading(false), 280);
 }
 
 // Session 38 PR-K: 사용자 노드 inline widget 핸들러 — modality별 capture/encode + inject_pattern.

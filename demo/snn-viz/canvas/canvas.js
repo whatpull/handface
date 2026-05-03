@@ -540,9 +540,13 @@ function neuronNodeHtml(neuron) {
 // Session 38 PR-J: 사용자 INPUT 노드 — modality kind별 inline widget 템플릿.
 // 각 노드는 자기 modality 인코더 UI 보유 (Audio: mic capture, Text: input + Encode 등).
 // 클릭 이벤트는 PR-K (scene.js) 에서 wireUserInputNodeHandlers 로 attach.
+// drawflow 가 노드 자체를 drag 대상으로 잡으므로, widget 요소 (input/button) 의
+// pointerdown/mousedown 을 stopPropagation 해서 drag 시작 차단 (focus/click 가능).
 function userInputNodeHtml(neuron, userBadge) {
   const kind = neuron.kind || 'custom';
   const id = neuron.id;
+  // 노드 widget 인터랙션을 drawflow drag 로부터 격리.
+  const stop = 'onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"';
   const headerCommon = `
     <div class="snn-canvas-neuron-header">
       <span class="snn-canvas-neuron-dot"></span>
@@ -559,7 +563,7 @@ function userInputNodeHtml(neuron, userBadge) {
             ${Array.from({length: 8}).map((_, i) => `<span class="snn-canvas-user-bin" data-bin="${i}"></span>`).join('')}
           </div>
           <div class="snn-canvas-user-actions">
-            <button class="snn-canvas-user-btn" data-action="capture" data-node="${id}" data-kind="audio" type="button">🎤 Capture 1s</button>
+            <button class="snn-canvas-user-btn" data-action="capture" data-node="${id}" data-kind="audio" type="button" ${stop}>🎤 Capture 1s</button>
           </div>
           <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
         </div>
@@ -571,9 +575,9 @@ function userInputNodeHtml(neuron, userBadge) {
       <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--text">
         ${headerCommon}
         <div class="snn-canvas-user-body">
-          <input class="snn-canvas-user-input" id="snn-user-input-${id}" type="text" placeholder="텍스트 입력" maxlength="32" />
+          <input class="snn-canvas-user-input" id="snn-user-input-${id}" type="text" placeholder="텍스트 입력" maxlength="32" ${stop} />
           <div class="snn-canvas-user-actions">
-            <button class="snn-canvas-user-btn" data-action="encode-text" data-node="${id}" type="button">📝 Encode + inject</button>
+            <button class="snn-canvas-user-btn" data-action="encode-text" data-node="${id}" type="button" ${stop}>📝 Encode + inject</button>
           </div>
           <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
         </div>
@@ -590,7 +594,7 @@ function userInputNodeHtml(neuron, userBadge) {
           <span class="snn-canvas-neuron-row-value">${kind}</span>
         </div>
         <div class="snn-canvas-user-actions">
-          <button class="snn-canvas-user-btn" data-action="inject-direct" data-node="${id}" type="button">▶ Inject (50w)</button>
+          <button class="snn-canvas-user-btn" data-action="inject-direct" data-node="${id}" type="button" ${stop}>▶ Inject (50w)</button>
         </div>
         <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
       </div>

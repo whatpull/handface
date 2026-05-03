@@ -1951,13 +1951,15 @@ window.addEventListener('DOMContentLoaded', () => {
     return `${titles[kind] || kind} ${sameKind.length + 1}`;
   }
 
-  // 기본 action_config kind별 prompt.
+  // 기본 action_config kind별 prompt. webhook 취소 시 null 반환 → 노드 추가 abort.
   function defaultActionConfig(kind, label) {
     if (kind === 'notification') return { title: label, body: `${label} fired` };
     if (kind === 'speak') return { text: label, voice: 'ko-KR' };
     if (kind === 'webhook') {
       const url = prompt(`Webhook URL (POST):`, 'https://example.com/hook');
-      return { url: url || '', method: 'POST', body: { event: label } };
+      // 취소 (null) 또는 빈 문자열 → 노드 생성 자체를 취소.
+      if (url === null || !url.trim()) return null;
+      return { url: url.trim(), method: 'POST', body: { event: label } };
     }
     if (kind === 'console') return { tag: label };
     return {};
@@ -2030,6 +2032,11 @@ window.addEventListener('DOMContentLoaded', () => {
       const kind = btn.getAttribute('data-out-kind');
       const label = nextLabelForOutKind(kind);
       const cfg = defaultActionConfig(kind, label);
+      // null = 사용자가 prompt 취소 → 노드 추가 abort (예: webhook URL 미입력).
+      if (cfg === null) {
+        if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
+        return;
+      }
       btn.disabled = true;
       const r = await backend.addUserOutput(label, { kind, actionConfig: cfg });
       btn.disabled = false;
@@ -2170,10 +2177,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // backend event 'neuron-firing' 후 user OUT 발화 detect (전체 rates 사용).
+  // Session 39 PR-O: backend 'neuron-firing' 이벤트 발생 시 (USER INPUT inject /
+  // train 등) →
+  //   1) 캔버스 fire 시각화 갱신 (시냅스 라인 violet + active 노드 dot).
+  //   2) user OUT edge-trigger detect → action callback 실행.
   backend.onEvent((ev) => {
     if (ev.type !== 'neuron-firing') return;
     const r = ev.response || {};
+    // [1] canvas fire 시각화 트리거 (induce_fire / handfaceTrain 과 동일 흐름).
+    if (r.rates || r.active_neurons_by_region) {
+      window.dispatchEvent(new CustomEvent('snn-viz:fire-update', { detail: { response: r } }));
+    }
+    // [2] user OUT action callback edge-trigger.
     if (r.rates) detectAndExecuteUserOutActions(r.rates);
   });
 

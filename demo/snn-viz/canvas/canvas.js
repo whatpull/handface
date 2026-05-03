@@ -337,14 +337,45 @@ function attachManualPan(container) {
     }
   }
 
-  function onWheel() {
+  // Session 39: 마우스 위치 기준 zoom — Figma/draw.io 표준. drawflow native wheel
+  // 비활성화 + 직접 transform 적용 → 마우스 아래 데이터 점이 화면 같은 위치 유지.
+  function onWheel(e) {
+    if (!editor) return;
     closeSubmenu();
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', {
-        detail: { zoom: editor?.zoom || 1 },
-      }));
-      applyStepPaths();
-    }, 0);
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const oldZoom = editor.zoom || 1;
+    const oldCx = editor.canvas_x || 0;
+    const oldCy = editor.canvas_y || 0;
+    // transform-origin '0 0' 기준 데이터 좌표 (마우스 아래 데이터 점).
+    const dataX = (mouseX - oldCx) / oldZoom;
+    const dataY = (mouseY - oldCy) / oldZoom;
+    // zoom 변화량 — 부드러운 step.
+    const step = editor.zoom_value || 0.05;
+    const direction = e.deltaY > 0 ? -1 : 1;
+    const newZoom = Math.max(
+      editor.zoom_min || 0.2,
+      Math.min(editor.zoom_max || 2.5, oldZoom + step * direction),
+    );
+    if (Math.abs(newZoom - oldZoom) < 1e-6) return;
+    // 마우스 위치 고정: canvas_x = mouseX - dataX * newZoom.
+    const newCx = mouseX - dataX * newZoom;
+    const newCy = mouseY - dataY * newZoom;
+    editor.zoom = newZoom;
+    editor.canvas_x = newCx;
+    editor.canvas_y = newCy;
+    if (editor.precanvas) {
+      editor.precanvas.style.transformOrigin = '0 0';
+      editor.precanvas.style.transform =
+        `translate(${newCx}px, ${newCy}px) scale(${newZoom})`;
+    }
+    applyStepPaths();
+    window.dispatchEvent(new CustomEvent('snn-canvas:zoom-changed', { detail: { zoom: newZoom } }));
   }
 
   // pointer events (mouse + touch 통합).
@@ -360,8 +391,8 @@ function attachManualPan(container) {
   container.addEventListener('touchend', onTouchEnd);
   container.addEventListener('touchcancel', onTouchEnd);
 
-  // wheel zoom (desktop).
-  container.addEventListener('wheel', onWheel, { passive: true });
+  // wheel zoom (desktop) — capture phase + non-passive 로 drawflow native handler 우선 차단.
+  container.addEventListener('wheel', onWheel, { capture: true, passive: false });
 
   // touch-action 영역 = 영역 영역 영역 0 (browser native scroll/zoom 영역 영역).
   container.style.touchAction = 'none';

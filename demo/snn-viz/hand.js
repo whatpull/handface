@@ -75,10 +75,12 @@ function drawHand() {
 
   if (hands.length === 0) {
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.font = '10px monospace';
+    // 캔버스 크기에 비례한 작은 글자 (최소 7px, 최대 10px).
+    const fs = Math.max(7, Math.min(10, Math.round(w / 22)));
+    ctx.font = `${fs}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('no hand detected', w / 2, h / 2);
+    ctx.fillText('no hand', w / 2, h / 2);
     return;
   }
 

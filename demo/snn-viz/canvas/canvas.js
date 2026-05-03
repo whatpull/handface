@@ -595,7 +595,6 @@ function userInputNodeHtml(neuron, userBadge) {
           <div class="snn-canvas-user-actions">
             <button class="snn-canvas-user-btn" data-action="capture" data-node="${id}" data-kind="audio" type="button" ${stop}>🎤 Capture 1s</button>
           </div>
-          <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
         </div>
       </div>
     `;
@@ -608,7 +607,6 @@ function userInputNodeHtml(neuron, userBadge) {
           <div class="snn-canvas-user-actions">
             <button class="snn-canvas-user-btn" data-action="edit-text" data-node="${id}" type="button" ${stop}>✏️ 텍스트 편집 + inject</button>
           </div>
-          <div class="snn-canvas-user-status" id="snn-user-status-${id}">대기</div>
         </div>
       </div>
     `;

@@ -2063,6 +2063,62 @@ window.addEventListener('DOMContentLoaded', () => {
     return {};
   }
 
+  // backend fetch 없이 state.userOutputs 만으로 list DOM 재 render. 편집 시 backend
+  // /config endpoint 미지원 환경에서 frontend 변경 보존용.
+  async function refreshUserOutputListFromState() {
+    // 가짜 응답 객체 만들어 기존 refresh 로직 우회 — 단순 setTimeout 으로 list redraw.
+    // 가장 간단: 기존 refreshUserOutputList 동작 모방하되 backend.listUserOutputs 호출 skip.
+    // → 그냥 동일 코드 inline 호출. 우선 list innerHTML 만 재 render.
+    if (!uoList) return;
+    const outs = state.userOutputs || [];
+    const kindIcon = { notification: '🔔', speak: '🔊', webhook: '🌐', console: '📟', custom: '⚙️' };
+    if (outs.length === 0) {
+      uoList.innerHTML = '';
+    } else {
+      uoList.innerHTML = outs.map(uo => `
+        <div class="nf-user-input-row" data-name="${uo.name}">
+          <span class="nf-ui-label" title="${uo.label} (${uo.kind})">${kindIcon[uo.kind] || '⚙️'} ${uo.label}</span>
+          <span class="nf-ui-fanout">V2→ ${uo.fanin}</span>
+          <button type="button" class="nf-ui-edit" data-uo-edit="${uo.name}" title="설정 편집">✏</button>
+          <button type="button" class="nf-ui-del"  data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
+        </div>
+      `).join('');
+      // edit/delete 핸들러 재 wiring — 기존 refreshUserOutputList 와 동일.
+      uoList.querySelectorAll('[data-uo-edit]').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          const name = ev.currentTarget.getAttribute('data-uo-edit');
+          const uo2 = (state.userOutputs || []).find(u => u.name === name);
+          if (!uo2) return;
+          const newCfg = await openActionConfigDialog(uo2.kind, uo2.label, uo2.action_config);
+          if (!newCfg) return;
+          uo2.action_config = newCfg;
+          saveUserOutputsLocal();
+          const r2 = await backend.updateUserOutputConfig(name, newCfg);
+          if (r2.ok) await refreshUserOutputList();
+          else await refreshUserOutputListFromState();
+        });
+      });
+      uoList.querySelectorAll('[data-uo-del]').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          const name = ev.currentTarget.getAttribute('data-uo-del');
+          const label = ev.currentTarget.getAttribute('data-label');
+          if (!await dialogConfirm(`'${label}' (${name}) USER OUTPUT 노드를 삭제할까요?`, 'USER OUTPUT 삭제')) return;
+          const dr = await backend.deleteUserOutput(name);
+          if (dr.ok) {
+            await refreshUserOutputList();
+            const snap = await backend.getTrainingSnapshot();
+            if (snap.ok && snap.response?.synapses) {
+              if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+              else lastFireResponse = { synapses: snap.response.synapses };
+              state.synapses = snap.response.synapses;
+              if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+            }
+          }
+        });
+      });
+    }
+  }
+
   async function refreshUserOutputList() {
     if (!uoList) return;
     const r = await backend.listUserOutputs();
@@ -2092,7 +2148,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <button type="button" class="nf-ui-del"  data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
         </div>
       `).join('');
-      // 편집 버튼 — action_config 수정 dialog.
+      // 편집 버튼 — action_config 수정 dialog. Optimistic update — 프런트 즉시 반영.
       uoList.querySelectorAll('[data-uo-edit]').forEach(btn => {
         btn.addEventListener('click', async (ev) => {
           const name = ev.currentTarget.getAttribute('data-uo-edit');
@@ -2100,10 +2156,21 @@ window.addEventListener('DOMContentLoaded', () => {
           if (!uo) return;
           const newCfg = await openActionConfigDialog(uo.kind, uo.label, uo.action_config);
           if (!newCfg) return;
+          // 1) 프런트 state 즉시 갱신 — action callback 이 새 cfg 사용 (backend 와 무관).
+          uo.action_config = newCfg;
+          // 2) localStorage 즉시 저장 — 페이지 reload 후에도 유지.
+          saveUserOutputsLocal();
+          // 3) backend 동기 (best-effort).
           const r = await backend.updateUserOutputConfig(name, newCfg);
           if (r.ok) {
+            // backend 도 동기 됨 → 안전하게 refresh.
             await refreshUserOutputList();
-            saveUserOutputsLocal();
+          } else {
+            // backend 미지원 — refresh 하면 backend 의 old data 로 state 가 덮어씌워짐.
+            // refresh 대신 list DOM 만 재 render (state 유지).
+            console.warn('[user-out] backend /config endpoint 미지원, frontend-only 적용:', r.reason);
+            // 동일 outs 배열로 list innerHTML 재구성 — kindIcon 표시 갱신.
+            await refreshUserOutputListFromState();
           }
         });
       });

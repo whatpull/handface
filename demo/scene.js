@@ -13,6 +13,96 @@ import { highlightInputs } from './snn-viz/circuit.js';
 import { state, loadPositions } from './snn-viz/state.js';
 // Session 39: 저장된 노드 위치 (사용자 드래그 결과) 즉시 로드 — 모듈 import 시점.
 loadPositions();
+
+// ────────────────────────────────────────────────────────
+// Session 39: 통합 dialog helpers — alert/confirm/prompt 대체 + node input.
+// 다크 테마 정합 + 모바일 친화 큰 widget. Promise 기반.
+// ────────────────────────────────────────────────────────
+function getDialogEls() {
+  return {
+    root: document.getElementById('nf-dialog'),
+    title: document.getElementById('nf-dialog-title'),
+    body: document.getElementById('nf-dialog-body'),
+    actions: document.getElementById('nf-dialog-actions'),
+    closeBtn: document.getElementById('nf-dialog-close'),
+  };
+}
+function closeDialog() {
+  const els = getDialogEls();
+  if (els.root) els.root.classList.remove('open');
+}
+function openDialog({ title, bodyHTML, buttons }) {
+  const els = getDialogEls();
+  if (!els.root) return Promise.resolve(null);
+  els.title.textContent = title || '';
+  els.body.innerHTML = bodyHTML || '';
+  els.actions.innerHTML = '';
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finalize = (v) => {
+      if (resolved) return;
+      resolved = true;
+      closeDialog();
+      resolve(v);
+    };
+    (buttons || []).forEach(b => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = b.label;
+      btn.className = `nf-dialog-btn nf-dialog-btn--${b.kind || 'primary'}`;
+      btn.addEventListener('click', async () => {
+        const result = b.onClick ? await b.onClick(els) : b.value;
+        if (result !== undefined) finalize(result);
+        else if (b.value !== undefined) finalize(b.value);
+        else finalize(null);
+      });
+      els.actions.appendChild(btn);
+    });
+    els.closeBtn.onclick = () => finalize(null);
+    els.root.querySelector('.nf-dialog-backdrop').onclick = () => finalize(null);
+    els.root.classList.add('open');
+    // Auto-focus first input.
+    setTimeout(() => {
+      const firstInput = els.body.querySelector('input, textarea');
+      if (firstInput) firstInput.focus();
+    }, 50);
+  });
+}
+function dialogAlert(message, title = '알림') {
+  return openDialog({
+    title,
+    bodyHTML: `<p>${message}</p>`,
+    buttons: [{ label: '확인', kind: 'primary', value: true }],
+  });
+}
+function dialogConfirm(message, title = '확인') {
+  return openDialog({
+    title,
+    bodyHTML: `<p>${message}</p>`,
+    buttons: [
+      { label: '취소', kind: 'cancel', value: false },
+      { label: '확인', kind: 'primary', value: true },
+    ],
+  });
+}
+function dialogPrompt(message, defaultValue = '', title = '입력', placeholder = '') {
+  const inputId = 'nf-dialog-prompt-input';
+  return openDialog({
+    title,
+    bodyHTML: `<p>${message}</p><input id="${inputId}" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${(defaultValue || '').replace(/"/g, '&quot;')}" placeholder="${placeholder}" />`,
+    buttons: [
+      { label: '취소', kind: 'cancel', value: null },
+      { label: '확인', kind: 'primary', onClick: () => {
+        const el = document.getElementById(inputId);
+        return el ? el.value : null;
+      }},
+    ],
+  });
+}
+// Expose to window for global use (action callbacks 등에서 활용).
+window.dialogAlert = dialogAlert;
+window.dialogConfirm = dialogConfirm;
+window.dialogPrompt = dialogPrompt;
 import { renderCascadeWeightHistory, exportCascadeWeightHistoryCsv } from './snn-viz/node-interaction.js';
 import {
   renderAnchorVerification,
@@ -1156,7 +1246,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const circuitResetBtn = document.getElementById('nf-circuit-reset');
   if (circuitResetBtn) {
     circuitResetBtn.addEventListener('click', async () => {
-      if (!confirm('회로 초기화: 모든 grown 뉴런 + 학습된 weight 제거. 진행?')) return;
+      if (!await dialogConfirm('회로 초기화: 모든 grown 뉴런 + 학습된 weight 제거. 진행하시겠어요?', '회로 초기화')) return;
       circuitResetBtn.disabled = true;
       const orig = circuitResetBtn.textContent;
       circuitResetBtn.textContent = 'Resetting...';
@@ -1967,12 +2057,8 @@ window.addEventListener('DOMContentLoaded', () => {
   function defaultActionConfig(kind, label) {
     if (kind === 'notification') return { title: label, body: `${label} fired` };
     if (kind === 'speak') return { text: label, voice: 'ko-KR' };
-    if (kind === 'webhook') {
-      const url = prompt(`Webhook URL (POST):`, 'https://example.com/hook');
-      // 취소 (null) 또는 빈 문자열 → 노드 생성 자체를 취소.
-      if (url === null || !url.trim()) return null;
-      return { url: url.trim(), method: 'POST', body: { event: label } };
-    }
+    // webhook 은 비동기 prompt 가 필요하므로 별도 함수에서 처리. 여기서 return 'pending'.
+    if (kind === 'webhook') return 'pending';
     if (kind === 'console') return { tag: label };
     return {};
   }
@@ -2009,7 +2095,7 @@ window.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', async (ev) => {
           const name = ev.currentTarget.getAttribute('data-uo-del');
           const label = ev.currentTarget.getAttribute('data-label');
-          if (!confirm(`'${label}' (${name}) USER OUTPUT 삭제?`)) return;
+          if (!await dialogConfirm(`'${label}' (${name}) USER OUTPUT 노드를 삭제할까요?<br/>연결된 시냅스도 함께 제거됩니다.`, 'USER OUTPUT 삭제')) return;
           const dr = await backend.deleteUserOutput(name);
           if (dr.ok) {
             await refreshUserOutputList();
@@ -2043,9 +2129,16 @@ window.addEventListener('DOMContentLoaded', () => {
       if (btn.disabled) return;
       const kind = btn.getAttribute('data-out-kind');
       const label = nextLabelForOutKind(kind);
-      const cfg = defaultActionConfig(kind, label);
-      // null = 사용자가 prompt 취소 → 노드 추가 abort (예: webhook URL 미입력).
-      if (cfg === null) {
+      let cfg = defaultActionConfig(kind, label);
+      // webhook 은 dialog prompt 필요.
+      if (cfg === 'pending' && kind === 'webhook') {
+        const url = await dialogPrompt('Webhook URL (POST 호출 대상):', 'https://example.com/hook', 'Webhook 노드 추가', 'https://...');
+        if (url === null || !String(url).trim()) {
+          if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
+          return;
+        }
+        cfg = { url: String(url).trim(), method: 'POST', body: { event: label } };
+      } else if (cfg === null) {
         if (qlStatus) qlStatus.textContent = '취소됨 — 노드 추가하지 않음.';
         return;
       }
@@ -3556,8 +3649,132 @@ function wireUserInputNodeHandlers() {
       btn.disabled = false;
     }
   });
+
+  // Session 39: 노드 카드 클릭 (위젯 외부 영역) → 큰 입력 dialog 열기.
+  // 모바일 친화 widget 표시 (Audio capture / Text input / Custom inject) +
+  // Inject 버튼 → dialog 닫기 + 노드 활성화 자동 실행.
+  document.addEventListener('click', async (ev) => {
+    const t = ev.target;
+    // 위젯 인터랙티브 요소 클릭은 inline 처리 → dialog 안 열기.
+    if (!t || !t.closest) return;
+    if (t.closest('.snn-canvas-user-btn, .snn-canvas-user-input')) return;
+    const card = t.closest('.snn-canvas-user-card');
+    if (!card) return;
+    // user_in 카드만 dialog (user_out 은 표시 전용).
+    const node = card.closest('[id^="node-"]');
+    if (!node) return;
+    // user_in 식별 — card class.
+    const nodeEl = card.parentElement;  // drawflow node container.
+    const inputEl = card.querySelector('.snn-canvas-user-input');
+    const captureBtn = card.querySelector('[data-action="capture"]');
+    const encodeBtn = card.querySelector('[data-action="encode-text"]');
+    const directBtn = card.querySelector('[data-action="inject-direct"]');
+    const anyBtn = captureBtn || encodeBtn || directBtn;
+    if (!anyBtn) return;
+    const nodeId = anyBtn.getAttribute('data-node');
+    if (!nodeId) return;
+    // 카드 헤더 라벨 추출.
+    const labelEl = card.querySelector('.snn-canvas-neuron-label');
+    const label = labelEl ? labelEl.textContent : nodeId;
+    // 모달리티 결정 — kind state 에서 lookup.
+    const ui = (state.userInputs || []).find(u => u.name === nodeId);
+    const kind = ui?.kind || 'custom';
+    await openUserInputDialog({ nodeId, label, kind });
+  });
+
   _userNodeHandlersBound = true;
   console.debug('[user-node] document-level click handler bound');
+}
+
+// Session 39: 노드 모달리티별 입력 dialog 열기. 모바일 친화 widget + Inject 버튼.
+async function openUserInputDialog({ nodeId, label, kind }) {
+  const backend = window.__neuronfaceBackend;
+  if (!backend) return;
+  const kindIcon = { audio: '🎤', text: '📝', custom: '⚙️', image: '🖼️', motion: '📱', keyboard: '⌨️', mouse: '🖱️', geo: '📍' };
+  const icon = kindIcon[kind] || '⚙️';
+  const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;
+  const statusHTML = `<div class="nf-dialog-node-status" id="nf-dlg-status">대기</div>`;
+  let bodyHTML, primaryLabel, action;
+  if (kind === 'text') {
+    bodyHTML = `<p>텍스트 입력 후 Inject 클릭. 패턴이 노드에 주입되고 캐스케이드 실행됩니다.</p>`
+      + `<input id="nf-dlg-text" type="text" placeholder="입력할 텍스트" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />`
+      + binsHTML + statusHTML;
+    primaryLabel = '📝 Encode + inject';
+    action = 'text';
+  } else if (kind === 'audio') {
+    bodyHTML = `<p>마이크 1초 capture 후 8-bin FFT 패턴으로 inject.</p>`
+      + binsHTML + statusHTML;
+    primaryLabel = '🎤 Capture + inject';
+    action = 'audio';
+  } else {
+    // custom / 미구현 modality.
+    bodyHTML = `<p>현재 modality (${kind}) 는 직접 inject 만 지원. weight=50, 5ms.</p>`
+      + statusHTML;
+    primaryLabel = '▶ Inject (50w)';
+    action = 'direct';
+  }
+  await openDialog({
+    title: `${icon} ${label} (${kind})`,
+    bodyHTML,
+    buttons: [
+      { label: '닫기', kind: 'cancel', value: false },
+      { label: primaryLabel, kind: 'primary', onClick: async () => {
+        const status = document.getElementById('nf-dlg-status');
+        try {
+          if (action === 'text') {
+            const inp = document.getElementById('nf-dlg-text');
+            const text = (inp?.value || '').trim();
+            if (!text) { if (status) status.textContent = '텍스트 입력 필요'; return undefined; }
+            const pattern = textTo8Bin(text);
+            paintDialogBins(pattern);
+            if (status) status.textContent = '📝 encoding…';
+            const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0 });
+            if (r.ok) {
+              setUserInputStatus(nodeId, `→ inject ok (${text.slice(0, 12)})`);
+              return true;  // close dialog.
+            } else {
+              if (status) status.textContent = `실패: ${r.reason || ''}`;
+              return undefined;
+            }
+          } else if (action === 'audio') {
+            if (status) status.textContent = '🎤 capturing 1s...';
+            const cap = await captureMicTo8Bin(1);
+            if (!cap.ok) { if (status) status.textContent = cap.reason; return undefined; }
+            paintDialogBins(cap.pattern);
+            const r = await backend.injectUserInputPattern(nodeId, cap.pattern, { intensity: 1.0 });
+            if (r.ok) {
+              setUserInputStatus(nodeId, `→ audio inject ok`);
+              return true;
+            } else {
+              if (status) status.textContent = `실패: ${r.reason || ''}`;
+              return undefined;
+            }
+          } else {
+            if (status) status.textContent = 'injecting...';
+            const r = await backend.injectUserInput(nodeId, { weight: 50, durationMs: 5 });
+            if (r.ok) {
+              setUserInputStatus(nodeId, '→ ok');
+              return true;
+            } else {
+              if (status) status.textContent = `실패: ${r.reason || ''}`;
+              return undefined;
+            }
+          }
+        } catch (err) {
+          if (status) status.textContent = `에러: ${err.message || err}`;
+          return undefined;
+        }
+      }},
+    ],
+  });
+}
+
+function paintDialogBins(pattern) {
+  const container = document.getElementById('nf-dlg-bins');
+  if (!container) return;
+  container.querySelectorAll('.nf-dialog-node-bin').forEach((el, i) => {
+    el.style.height = `${Math.round((pattern[i] || 0) * 100)}%`;
+  });
 }
 
 function toggleCanvasView() {

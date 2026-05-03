@@ -3840,24 +3840,51 @@ async function openUserInputDialog({ nodeId, label, kind }) {
   const icon = kindIcon[kind] || '⚙️';
   const binsHTML = `<div class="nf-dialog-node-bins" id="nf-dlg-bins">${Array.from({length:8}).map((_,i)=>`<span class="nf-dialog-node-bin" data-bin="${i}"></span>`).join('')}</div>`;
   const statusHTML = `<div class="nf-dialog-node-status" id="nf-dlg-status">대기</div>`;
-  // Session 39 revised: routing dropdown 제거 — 학습 결과만으로 winner 결정.
-  // 학습 supervisor target 은 Quick Learn 패널에서 별도 선택. 노드 dialog 는 입력만.
-  const routeHTML = '';
+  // Session 39 revised: dialog 안에서 Quick Learn 직접 수행 — To OUTPUT 선택 + Train/Test.
+  const targetOptions = [
+    ...(state.userOutputs || []).map(uo => ({ name: uo.name, label: `${uo.label} (사용자 액션)` })),
+    { name: 'out_0', label: 'out_0 — Pointing (시스템)' },
+    { name: 'out_1', label: 'out_1 — Open palm (시스템)' },
+    { name: 'out_2', label: 'out_2 — Thumbs up (시스템)' },
+    { name: 'out_3', label: 'out_3 — Victory (시스템)' },
+  ];
+  const targetOptionsHTML = targetOptions.map(o =>
+    `<option value="${o.name}">${o.label}</option>`
+  ).join('');
+  const learnHTML = `
+    <hr style="margin:14px 0 8px;border:none;border-top:1px solid rgba(167,139,250,0.18);">
+    <p style="margin:6px 0;font-size:11px;color:#94a3b8;">정답 OUTPUT (학습 target) — STDP 로 이 OUT 으로 발화하도록 강화</p>
+    <select id="nf-dlg-learn-target" class="nf-multimodal-select" style="width:100%;padding:8px 10px;font-size:13px;">
+      <option value="">(선택 — 정답 OUT 지정 시 Train 가능)</option>
+      ${targetOptionsHTML}
+    </select>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
+      <span style="font-size:11px;color:#94a3b8;">Rounds</span>
+      <select id="nf-dlg-learn-rounds" class="nf-multimodal-select" style="flex:1;padding:6px 8px;font-size:12px;">
+        <option value="10">10×</option>
+        <option value="20">20×</option>
+        <option value="30" selected>30× (권장)</option>
+        <option value="50">50×</option>
+        <option value="100">100×</option>
+      </select>
+    </div>
+    <div id="nf-dlg-learn-status" style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.5);min-height:14px;"></div>
+  `;
   let bodyHTML, primaryLabel, action;
   if (kind === 'text') {
-    bodyHTML = `<p>텍스트 입력 후 Inject 클릭. 패턴이 노드에 주입되고 캐스케이드 실행됩니다.</p>`
+    bodyHTML = `<p>텍스트 입력 → Train (정답 OUT 학습) 또는 Inject (학습 결과 검증).</p>`
       + `<input id="nf-dlg-text" type="text" placeholder="입력할 텍스트" maxlength="64" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />`
-      + binsHTML + statusHTML + routeHTML;
+      + binsHTML + statusHTML + learnHTML;
     primaryLabel = '📝 Encode + inject';
     action = 'text';
   } else if (kind === 'audio') {
-    bodyHTML = `<p>마이크 1초 capture 후 8-bin FFT 패턴으로 inject.</p>`
-      + binsHTML + statusHTML + routeHTML;
+    bodyHTML = `<p>마이크 1초 capture 후 Train (학습) 또는 Inject (검증).</p>`
+      + binsHTML + statusHTML + learnHTML;
     primaryLabel = '🎤 Capture + inject';
     action = 'audio';
   } else {
-    bodyHTML = `<p>현재 modality (${kind}) 는 직접 inject 만 지원. weight=50, 5ms.</p>`
-      + statusHTML + routeHTML;
+    bodyHTML = `<p>${kind} modality — Train (학습) 또는 Inject (직접 자극).</p>`
+      + statusHTML + learnHTML;
     primaryLabel = '▶ Inject (50w)';
     action = 'direct';
   }
@@ -3866,6 +3893,87 @@ async function openUserInputDialog({ nodeId, label, kind }) {
     bodyHTML,
     buttons: [
       { label: '닫기', kind: 'cancel', value: false },
+      // Train — supervised STDP N rounds with target OUT.
+      { label: '🎓 Train', kind: 'cancel', onClick: async () => {
+        const learnTarget = document.getElementById('nf-dlg-learn-target')?.value;
+        const learnRounds = parseInt(document.getElementById('nf-dlg-learn-rounds')?.value || '30', 10);
+        const learnStatus = document.getElementById('nf-dlg-learn-status');
+        if (!learnTarget) {
+          if (learnStatus) learnStatus.textContent = '⚠ 정답 OUT 선택 필요';
+          return undefined;
+        }
+        // pattern 결정 — modality 별.
+        let pattern;
+        if (action === 'text') {
+          const t = (document.getElementById('nf-dlg-text')?.value || '').trim();
+          if (!t) {
+            if (learnStatus) learnStatus.textContent = '⚠ 텍스트 입력 필요';
+            return undefined;
+          }
+          pattern = textTo8Bin(t);
+        } else if (action === 'audio') {
+          if (learnStatus) learnStatus.textContent = '🎤 mic capture (학습 패턴)…';
+          const cap = await captureMicTo8Bin(1);
+          if (!cap.ok) { if (learnStatus) learnStatus.textContent = `⚠ ${cap.reason}`; return undefined; }
+          pattern = cap.pattern;
+          paintDialogBins(pattern);
+        } else {
+          pattern = [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
+        }
+        if (learnStatus) learnStatus.textContent = `🎓 학습 0/${learnRounds}…`;
+        let okCount = 0;
+        for (let i = 0; i < learnRounds; i++) {
+          const r = await backend.injectUserInputPattern(nodeId, pattern, {
+            intensity: 1.5, stdp: true, targetOut: learnTarget,
+          });
+          if (r.ok) okCount++;
+          if (learnStatus && (i + 1) % 5 === 0) learnStatus.textContent = `🎓 학습 ${i+1}/${learnRounds}…`;
+        }
+        // path strength 측정.
+        let pathInfo = '';
+        try {
+          const ps = await backend.getUserInputPathStrength(nodeId);
+          if (ps?.ok && ps.path_strengths) {
+            const targetPS = ps.path_strengths[learnTarget] || 0;
+            const others = Object.entries(ps.path_strengths).filter(([k]) => k !== learnTarget).map(([_,v]) => v);
+            const avg = others.length ? others.reduce((a,b)=>a+b,0)/others.length : 0;
+            pathInfo = ` | 경로강도 target=${targetPS.toFixed(0)} vs others avg=${avg.toFixed(0)}`;
+          }
+        } catch (_) {}
+        if (learnStatus) learnStatus.textContent = `✓ 학습 ${okCount}/${learnRounds}${pathInfo}`;
+        // dialog 유지 (학습 후 추가 학습/Test/Inject 가능).
+        return undefined;
+      }},
+      // Test — STDP off, supervisor 없이 inject. 학습 결과 winner 검증.
+      { label: '🧪 Test', kind: 'cancel', onClick: async () => {
+        const learnTarget = document.getElementById('nf-dlg-learn-target')?.value;
+        const learnStatus = document.getElementById('nf-dlg-learn-status');
+        let pattern;
+        if (action === 'text') {
+          const t = (document.getElementById('nf-dlg-text')?.value || '').trim();
+          if (!t) { if (learnStatus) learnStatus.textContent = '⚠ 텍스트 필요'; return undefined; }
+          pattern = textTo8Bin(t);
+        } else if (action === 'audio') {
+          if (learnStatus) learnStatus.textContent = '🎤 mic capture (test)…';
+          const cap = await captureMicTo8Bin(1);
+          if (!cap.ok) { if (learnStatus) learnStatus.textContent = `⚠ ${cap.reason}`; return undefined; }
+          pattern = cap.pattern;
+          paintDialogBins(pattern);
+        } else {
+          pattern = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9];
+        }
+        const r = await backend.injectUserInputPattern(nodeId, pattern, { intensity: 1.0, stdp: false });
+        if (!r.ok) { if (learnStatus) learnStatus.textContent = `⚠ ${r.reason}`; return undefined; }
+        const rates = r.rates || {};
+        const outR = {};
+        for (const k in rates) if (k.startsWith('out_') || k.startsWith('user_out_')) outR[k] = rates[k];
+        const sorted = Object.entries(outR).sort((a,b) => b[1] - a[1]);
+        const winner = sorted[0];
+        const winStr = winner ? `${winner[0]}=${winner[1].toFixed(0)}Hz` : '없음';
+        const ok = learnTarget && winner && winner[0] === learnTarget;
+        if (learnStatus) learnStatus.textContent = `🧪 Test winner=${winStr} ${ok ? '✓ 학습됨' : (learnTarget ? '✗ 더 학습 필요' : '')}`;
+        return undefined;  // dialog 유지.
+      }},
       { label: primaryLabel, kind: 'primary', onClick: async () => {
         const status = document.getElementById('nf-dlg-status');
         try {

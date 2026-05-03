@@ -881,6 +881,159 @@
     }
     .nf-section-group-summary:hover { color: #c4b5fd; }
 
+    /* Session 39: 통합 dialog (alert/confirm/prompt + node input). */
+    .nf-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .nf-dialog.open { display: flex; }
+    .nf-dialog-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 12, 0.7);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .nf-dialog-panel {
+      position: relative;
+      background: #0f1729;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      border-radius: 8px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(167, 139, 250, 0.1);
+      min-width: 320px;
+      max-width: 92vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      animation: nf-dialog-pop 0.18s ease-out;
+    }
+    @keyframes nf-dialog-pop {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .nf-dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 8px;
+      border-bottom: 1px solid rgba(167, 139, 250, 0.12);
+    }
+    .nf-dialog-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #c4b5fd;
+      letter-spacing: 0.06em;
+    }
+    .nf-dialog-close {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 16px;
+      line-height: 1;
+      padding: 4px 6px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .nf-dialog-close:hover { color: rgba(255, 255, 255, 0.95); }
+    .nf-dialog-body {
+      padding: 14px 16px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-y: auto;
+      min-width: 280px;
+    }
+    .nf-dialog-body p { margin: 0 0 10px; }
+    .nf-dialog-body input[type="text"],
+    .nf-dialog-body input[type="url"],
+    .nf-dialog-body input[type="number"],
+    .nf-dialog-body textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+    }
+    .nf-dialog-body input:focus,
+    .nf-dialog-body textarea:focus { border-color: #a78bfa; }
+    .nf-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 16px 14px;
+      border-top: 1px solid rgba(167, 139, 250, 0.08);
+    }
+    .nf-dialog-btn {
+      padding: 8px 16px;
+      border: 1px solid;
+      background: transparent;
+      border-radius: 4px;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .nf-dialog-btn--cancel {
+      border-color: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .nf-dialog-btn--cancel:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .nf-dialog-btn--primary {
+      border-color: #a78bfa;
+      color: #c4b5fd;
+      background: rgba(167, 139, 250, 0.1);
+    }
+    .nf-dialog-btn--primary:hover {
+      background: rgba(167, 139, 250, 0.25);
+    }
+    .nf-dialog-btn--danger {
+      border-color: #e76f6f;
+      color: #fca5a5;
+      background: rgba(231, 111, 111, 0.08);
+    }
+    .nf-dialog-btn--danger:hover { background: rgba(231, 111, 111, 0.2); }
+    /* Node input dialog — 모바일 친화 큰 widget. */
+    .nf-dialog-node-bins {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 60px;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 4px;
+      margin: 8px 0;
+    }
+    .nf-dialog-node-bin {
+      flex: 1;
+      background: linear-gradient(to top, #a78bfa, #c4b5fd);
+      height: 0%;
+      min-height: 2px;
+      border-radius: 2px;
+      transition: height 0.18s;
+    }
+    .nf-dialog-node-status {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: monospace;
+      text-align: center;
+      margin-top: 6px;
+    }
+
     /* Session 39: Canvas loading overlay — 페이지 로드 시점부터 즉시 표시,
        fit 완료 시 부드럽게 fade-out. 재 mount 시도 즉시 다시 표시 (fade-in 없음). */
     .nf-canvas-loading {
@@ -2261,7 +2414,7 @@
       display: block !important;
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-CjCmMUHV.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-CC6nJB5B.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-BD1RlCc8.css">
 </head>
 <body>
@@ -2649,6 +2802,19 @@
         <button id="nf-ui-confirm-cancel" type="button" class="nf-ui-confirm-cancel">취소</button>
         <button id="nf-ui-confirm-ok"     type="button" class="nf-ui-confirm-ok">삭제</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Session 39: 통합 dialog (alert/confirm/prompt + 노드 입력 widget). -->
+  <div id="nf-dialog" class="nf-dialog">
+    <div class="nf-dialog-backdrop"></div>
+    <div class="nf-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="nf-dialog-title">
+      <div class="nf-dialog-header">
+        <h3 id="nf-dialog-title" class="nf-dialog-title">Title</h3>
+        <button id="nf-dialog-close" type="button" class="nf-dialog-close" aria-label="Close">✕</button>
+      </div>
+      <div id="nf-dialog-body" class="nf-dialog-body"></div>
+      <div id="nf-dialog-actions" class="nf-dialog-actions"></div>
     </div>
   </div>
 

@@ -1,36 +1,62 @@
 // Cloudflare Worker (Phase 2 D1 scaffold).
 // handface localStorage 영역 D1 영역 mirror — training snapshot 영역 저장 / 영역 영역.
-// CORS 영역 GitHub Pages origin 영역만 영역 (vars.ALLOWED_ORIGIN).
+// CORS — production (GitHub Pages) + localhost dev (5173/8080/3000) whitelist.
+// Session 39 fix: 정적 ALLOWED_ORIGIN 만 허용하면 dev 환경 (localhost:5173) CORS error.
+// 요청 Origin 을 whitelist 와 비교하여 매칭되는 origin 을 그대로 echo.
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
-function corsHeaders(env) {
+function pickAllowedOrigin(env, request) {
+  const origin = request.headers.get('Origin') || '';
+  // env.ALLOWED_ORIGIN 은 production 기본 (https://whatpull.github.io).
+  const prod = env.ALLOWED_ORIGIN || 'https://whatpull.github.io';
+  // dev whitelist — localhost 개발 서버 + 사용자 정의.
+  const devAllowed = [
+    'http://localhost:5173',  // vite default
+    'http://localhost:8080',  // 일반 dev
+    'http://localhost:3000',  // CRA / next
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:3000',
+  ];
+  if (origin === prod) return prod;
+  if (devAllowed.includes(origin)) return origin;
+  // env.DEV_ORIGINS (옵션, 콤마 구분) 도 허용.
+  if (env.DEV_ORIGINS) {
+    const list = env.DEV_ORIGINS.split(',').map(s => s.trim());
+    if (list.includes(origin)) return origin;
+  }
+  return prod;  // unknown origin → production 응답 (브라우저가 차단).
+}
+
+function corsHeaders(env, request) {
   return {
-    'access-control-allow-origin': env.ALLOWED_ORIGIN || '*',
+    'access-control-allow-origin': pickAllowedOrigin(env, request),
     'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
+    'vary': 'Origin',
   };
 }
 
-function json(body, status, env) {
+function json(body, status, env, request) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...JSON_HEADERS, ...corsHeaders(env) },
+    headers: { ...JSON_HEADERS, ...corsHeaders(env, request) },
   });
 }
 
-async function handleGet(env, networkId) {
+async function handleGet(request, env, networkId) {
   const row = await env.DB.prepare(
     'SELECT weights, updated_at, meta FROM training_snapshots WHERE network_id = ?'
   ).bind(networkId).first();
-  if (!row) return json({ network_id: networkId, weights: [], updated_at: null, meta: null }, 200, env);
+  if (!row) return json({ network_id: networkId, weights: [], updated_at: null, meta: null }, 200, env, request);
   return json({
     network_id: networkId,
     weights: JSON.parse(row.weights),
     updated_at: row.updated_at,
     meta: row.meta ? JSON.parse(row.meta) : null,
-  }, 200, env);
+  }, 200, env, request);
 }
 
 async function handlePost(request, env, networkId) {
@@ -38,11 +64,11 @@ async function handlePost(request, env, networkId) {
   try {
     body = await request.json();
   } catch (e) {
-    return json({ error: 'invalid json' }, 400, env);
+    return json({ error: 'invalid json' }, 400, env, request);
   }
   const weights = body.weights;
   if (!Array.isArray(weights)) {
-    return json({ error: 'weights must be array' }, 400, env);
+    return json({ error: 'weights must be array' }, 400, env, request);
   }
   const updatedAt = Math.floor(Date.now() / 1000);
   const meta = body.meta ? JSON.stringify(body.meta) : null;
@@ -54,16 +80,16 @@ async function handlePost(request, env, networkId) {
        updated_at = excluded.updated_at,
        meta = excluded.meta`
   ).bind(networkId, JSON.stringify(weights), updatedAt, meta).run();
-  return json({ network_id: networkId, updated_at: updatedAt, count: weights.length }, 200, env);
+  return json({ network_id: networkId, updated_at: updatedAt, count: weights.length }, 200, env, request);
 }
 
 // Phase 7 topology endpoints (Session 37).
-async function handleTopologyGet(env, networkId) {
+async function handleTopologyGet(request, env, networkId) {
   const row = await env.DB.prepare(
     'SELECT neurons, synapses, updated_at, meta FROM topologies WHERE network_id = ?'
   ).bind(networkId).first();
   if (!row) {
-    return json({ network_id: networkId, neurons: [], synapses: [], updated_at: null, meta: null }, 200, env);
+    return json({ network_id: networkId, neurons: [], synapses: [], updated_at: null, meta: null }, 200, env, request);
   }
   return json({
     network_id: networkId,
@@ -71,16 +97,16 @@ async function handleTopologyGet(env, networkId) {
     synapses: JSON.parse(row.synapses),
     updated_at: row.updated_at,
     meta: row.meta ? JSON.parse(row.meta) : null,
-  }, 200, env);
+  }, 200, env, request);
 }
 
 // Phase 7 datasets endpoints (Session 37).
-async function handleDatasetGet(env, networkId, datasetId) {
+async function handleDatasetGet(request, env, networkId, datasetId) {
   const row = await env.DB.prepare(
     'SELECT samples, updated_at, meta FROM datasets WHERE network_id = ? AND dataset_id = ?'
   ).bind(networkId, datasetId).first();
   if (!row) {
-    return json({ network_id: networkId, dataset_id: datasetId, samples: [], updated_at: null, meta: null }, 200, env);
+    return json({ network_id: networkId, dataset_id: datasetId, samples: [], updated_at: null, meta: null }, 200, env, request);
   }
   return json({
     network_id: networkId,
@@ -88,15 +114,15 @@ async function handleDatasetGet(env, networkId, datasetId) {
     samples: JSON.parse(row.samples),
     updated_at: row.updated_at,
     meta: row.meta ? JSON.parse(row.meta) : null,
-  }, 200, env);
+  }, 200, env, request);
 }
 
 async function handleDatasetPost(request, env, networkId, datasetId) {
   let body;
-  try { body = await request.json(); } catch (e) { return json({ error: 'invalid json' }, 400, env); }
+  try { body = await request.json(); } catch (e) { return json({ error: 'invalid json' }, 400, env, request); }
   const { samples } = body;
   if (!Array.isArray(samples)) {
-    return json({ error: 'samples must be array' }, 400, env);
+    return json({ error: 'samples must be array' }, 400, env, request);
   }
   const updatedAt = Math.floor(Date.now() / 1000);
   const meta = body.meta ? JSON.stringify(body.meta) : null;
@@ -113,7 +139,7 @@ async function handleDatasetPost(request, env, networkId, datasetId) {
     dataset_id: datasetId,
     updated_at: updatedAt,
     sample_count: samples.length,
-  }, 200, env);
+  }, 200, env, request);
 }
 
 async function handleTopologyPost(request, env, networkId) {
@@ -121,11 +147,11 @@ async function handleTopologyPost(request, env, networkId) {
   try {
     body = await request.json();
   } catch (e) {
-    return json({ error: 'invalid json' }, 400, env);
+    return json({ error: 'invalid json' }, 400, env, request);
   }
   const { neurons, synapses } = body;
   if (!Array.isArray(neurons) || !Array.isArray(synapses)) {
-    return json({ error: 'neurons and synapses must be arrays' }, 400, env);
+    return json({ error: 'neurons and synapses must be arrays' }, 400, env, request);
   }
   const updatedAt = Math.floor(Date.now() / 1000);
   const meta = body.meta ? JSON.stringify(body.meta) : null;
@@ -143,40 +169,40 @@ async function handleTopologyPost(request, env, networkId) {
     updated_at: updatedAt,
     neuron_count: neurons.length,
     synapse_count: synapses.length,
-  }, 200, env);
+  }, 200, env, request);
 }
 
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(env) });
+      return new Response(null, { status: 204, headers: corsHeaders(env, request) });
     }
     const url = new URL(request.url);
     // training snapshot.
     const mTrain = url.pathname.match(/^\/networks\/([^/]+)\/training\/snapshot\/?$/);
     if (mTrain) {
       const networkId = decodeURIComponent(mTrain[1]);
-      if (request.method === 'GET')  return handleGet(env, networkId);
+      if (request.method === 'GET')  return handleGet(request, env, networkId);
       if (request.method === 'POST') return handlePost(request, env, networkId);
-      return json({ error: 'method not allowed' }, 405, env);
+      return json({ error: 'method not allowed' }, 405, env, request);
     }
     // Phase 7 topology.
     const mTopo = url.pathname.match(/^\/networks\/([^/]+)\/topology\/?$/);
     if (mTopo) {
       const networkId = decodeURIComponent(mTopo[1]);
-      if (request.method === 'GET')  return handleTopologyGet(env, networkId);
+      if (request.method === 'GET')  return handleTopologyGet(request, env, networkId);
       if (request.method === 'POST') return handleTopologyPost(request, env, networkId);
-      return json({ error: 'method not allowed' }, 405, env);
+      return json({ error: 'method not allowed' }, 405, env, request);
     }
     // Phase 7 datasets.
     const mDs = url.pathname.match(/^\/networks\/([^/]+)\/datasets\/([^/]+)\/?$/);
     if (mDs) {
       const networkId = decodeURIComponent(mDs[1]);
       const datasetId = decodeURIComponent(mDs[2]);
-      if (request.method === 'GET')  return handleDatasetGet(env, networkId, datasetId);
+      if (request.method === 'GET')  return handleDatasetGet(request, env, networkId, datasetId);
       if (request.method === 'POST') return handleDatasetPost(request, env, networkId, datasetId);
-      return json({ error: 'method not allowed' }, 405, env);
+      return json({ error: 'method not allowed' }, 405, env, request);
     }
-    return json({ error: 'not found' }, 404, env);
+    return json({ error: 'not found' }, 404, env, request);
   },
 };

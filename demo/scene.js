@@ -2088,9 +2088,25 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="nf-user-input-row" data-name="${uo.name}">
           <span class="nf-ui-label" title="${uo.label} (${uo.kind})">${kindIcon[uo.kind] || '⚙️'} ${uo.label}</span>
           <span class="nf-ui-fanout">V2→ ${uo.fanin}</span>
+          <button type="button" class="nf-ui-del" data-uo-edit="${uo.name}" title="설정 편집" style="border-color:rgba(167,139,250,0.4);color:#c4b5fd;font-size:11px;">✏️</button>
           <button type="button" class="nf-ui-del" data-uo-del="${uo.name}" data-label="${uo.label}" title="삭제">×</button>
         </div>
       `).join('');
+      // 편집 버튼 — action_config 수정 dialog.
+      uoList.querySelectorAll('[data-uo-edit]').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          const name = ev.currentTarget.getAttribute('data-uo-edit');
+          const uo = (state.userOutputs || []).find(u => u.name === name);
+          if (!uo) return;
+          const newCfg = await openActionConfigDialog(uo.kind, uo.label, uo.action_config);
+          if (!newCfg) return;
+          const r = await backend.updateUserOutputConfig(name, newCfg);
+          if (r.ok) {
+            await refreshUserOutputList();
+            saveUserOutputsLocal();
+          }
+        });
+      });
       uoList.querySelectorAll('[data-uo-del]').forEach(btn => {
         btn.addEventListener('click', async (ev) => {
           const name = ev.currentTarget.getAttribute('data-uo-del');
@@ -3774,68 +3790,74 @@ function paintDialogBins(pattern) {
   });
 }
 
-// Session 39: OUT 노드 추가 시 action_config dialog (title/body/text/url 입력).
+// Session 39: OUT 노드 추가 + 편집 시 action_config dialog (title/body/text/url 입력).
 // {text} 토큰: 발화 시 마지막 inject 된 user_in 텍스트로 치환.
-async function openActionConfigDialog(kind, label) {
+// existing 가 있으면 기존 값으로 prefill (편집 mode), 없으면 default (추가 mode).
+function escAttr(s) { return String(s ?? '').replace(/"/g, '&quot;'); }
+async function openActionConfigDialog(kind, label, existing) {
+  const isEdit = !!existing;
+  const primaryLabel = isEdit ? '저장' : '추가';
   if (kind === 'notification') {
-    const cfg = await openDialog({
+    const t = existing?.title ?? label;
+    const b = existing?.body ?? `입력: {text}`;
+    return await openDialog({
       title: `🔔 ${label} — 알림 설정`,
       bodyHTML: `
-        <p>알림 제목과 본문을 설정하세요. 본문에 <code>{text}</code> 입력 시 발화할 때 마지막 USER INPUT 의 텍스트로 자동 치환됩니다.</p>
+        <p>알림 제목과 본문. 본문에 <code>{text}</code> 입력 시 발화할 때 마지막 USER INPUT 텍스트로 치환됩니다.</p>
         <p style="margin-top:8px;font-size:11px;color:#94a3b8;">제목</p>
-        <input id="nf-dlg-cfg-title" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${label}" placeholder="알림 제목" />
-        <p style="margin-top:10px;font-size:11px;color:#94a3b8;">본문 (텍스트 토큰 {text} 지원)</p>
-        <input id="nf-dlg-cfg-body" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="입력: {text}" placeholder="알림 본문" />
+        <input id="nf-dlg-cfg-title" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(t)}" placeholder="알림 제목" />
+        <p style="margin-top:10px;font-size:11px;color:#94a3b8;">본문 ({text} 토큰)</p>
+        <input id="nf-dlg-cfg-body" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(b)}" placeholder="알림 본문" />
       `,
       buttons: [
         { label: '취소', kind: 'cancel', value: null },
-        { label: '추가', kind: 'primary', onClick: () => {
+        { label: primaryLabel, kind: 'primary', onClick: () => {
           const title = (document.getElementById('nf-dlg-cfg-title')?.value || label).trim();
           const body  = (document.getElementById('nf-dlg-cfg-body')?.value || '').trim();
           return { title: title || label, body: body || `${label} fired` };
         }},
       ],
     });
-    return cfg;
   }
   if (kind === 'speak') {
-    const cfg = await openDialog({
+    const t = existing?.text ?? `입력: {text}`;
+    const v = existing?.voice ?? 'ko-KR';
+    return await openDialog({
       title: `🔊 ${label} — TTS 설정`,
       bodyHTML: `
         <p>발화 시 음성 합성으로 읽어줄 텍스트. <code>{text}</code> 토큰 지원.</p>
         <p style="margin-top:8px;font-size:11px;color:#94a3b8;">텍스트</p>
-        <input id="nf-dlg-cfg-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="입력: {text}" placeholder="읽어줄 문장" />
+        <input id="nf-dlg-cfg-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(t)}" placeholder="읽어줄 문장" />
       `,
       buttons: [
         { label: '취소', kind: 'cancel', value: null },
-        { label: '추가', kind: 'primary', onClick: () => {
+        { label: primaryLabel, kind: 'primary', onClick: () => {
           const text = (document.getElementById('nf-dlg-cfg-text')?.value || '').trim();
-          return { text: text || label, voice: 'ko-KR' };
+          return { text: text || label, voice: v };
         }},
       ],
     });
-    return cfg;
   }
   if (kind === 'webhook') {
-    const cfg = await openDialog({
+    const u = existing?.url ?? 'https://example.com/hook';
+    return await openDialog({
       title: `🌐 ${label} — Webhook 설정`,
       bodyHTML: `
         <p>발화 시 POST 호출할 URL.</p>
         <p style="margin-top:8px;font-size:11px;color:#94a3b8;">URL</p>
-        <input id="nf-dlg-cfg-url" type="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="https://example.com/hook" placeholder="https://..." />
+        <input id="nf-dlg-cfg-url" type="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escAttr(u)}" placeholder="https://..." />
       `,
       buttons: [
         { label: '취소', kind: 'cancel', value: null },
-        { label: '추가', kind: 'primary', onClick: () => {
+        { label: primaryLabel, kind: 'primary', onClick: () => {
           const url = (document.getElementById('nf-dlg-cfg-url')?.value || '').trim();
           if (!url) return null;
-          return { url, method: 'POST', body: { event: label } };
+          return { url, method: 'POST', body: existing?.body || { event: label } };
         }},
       ],
     });
-    return cfg;
   }
-  return {};
+  return existing || {};
 }
 
 function toggleCanvasView() {

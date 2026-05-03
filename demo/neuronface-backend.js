@@ -943,6 +943,25 @@ export class NeuronFaceBackend {
   }
 
   /**
+   * Session 39: POST /networks/{id}/user_outputs/{name}/config — action_config + label 갱신.
+   */
+  async updateUserOutputConfig(name, actionConfig, label) {
+    if (!this._networkId) return { ok: false, reason: 'no network' };
+    if (!name || !name.startsWith('user_out_')) return { ok: false, reason: 'not a user output node' };
+    const body = { action_config: actionConfig || {} };
+    if (label) body.label = label;
+    try {
+      const data = await this._fetch(
+        `/networks/${this._networkId}/user_outputs/${encodeURIComponent(name)}/config`,
+        { method: 'POST', body },
+      );
+      return { ok: true, ...data };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  /**
    * Session 39: DELETE /networks/{id}/user_outputs/{name} — 사용자 OUT 삭제.
    * 시스템 OUT (out_0..3) 는 백엔드에서 403.
    */

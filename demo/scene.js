@@ -1752,6 +1752,10 @@ window.addEventListener('DOMContentLoaded', () => {
         await refreshUserInputList();
         const snap = await backend.getTrainingSnapshot();
         if (snap.ok && snap.response?.synapses) {
+          // Session 38 fix: lastFireResponse 도 갱신해야 mountCanvasForMode 가
+          // 새 synapses (user_in fanout 포함) 를 사용함.
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
           state.synapses = snap.response.synapses;
           if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
         }
@@ -1784,6 +1788,8 @@ window.addEventListener('DOMContentLoaded', () => {
         await refreshUserInputList();
         const snap = await backend.getTrainingSnapshot();
         if (snap.ok && snap.response?.synapses) {
+          if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+          else lastFireResponse = { synapses: snap.response.synapses };
           state.synapses = snap.response.synapses;
           if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
         }
@@ -1903,6 +1909,16 @@ window.addEventListener('DOMContentLoaded', () => {
     await refreshUserInputList();
     if (restored && uiStatus) {
       uiStatus.textContent = `${state.userInputs.length}개 사용자 INPUT 노드 복원됨 (localStorage).`;
+    }
+    // Session 38 fix: restore 후 canvas 의 lastFireResponse 도 최신 synapses 로 동기.
+    if (restored) {
+      const snap = await backend.getTrainingSnapshot();
+      if (snap.ok && snap.response?.synapses) {
+        if (lastFireResponse) lastFireResponse.synapses = snap.response.synapses;
+        else lastFireResponse = { synapses: snap.response.synapses };
+        state.synapses = snap.response.synapses;
+        if (canvasShown && canvasMode === 'neuron') mountCanvasForMode();
+      }
     }
   })();
 

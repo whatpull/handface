@@ -51,6 +51,15 @@ const GESTURE_TO_OUT: Record<string, string> = {
   victory:  'out_3',
 };
 
+// gesture → input neuron name 매핑 (백엔드 HANDFACE_INPUT_MAP 정합).
+// induce_fire 직접 호출 시 사용 — handface_train 의 weight 상한 (25) 우회.
+const GESTURE_TO_INPUT: Record<string, string> = {
+  pointing: 'in_point',
+  openpalm: 'in_palm',
+  thumbsup: 'in_thumbsup',
+  victory:  'in_victory',
+};
+
 export class NeuronFaceClient {
   endpoint: string;
   apiKey: string;
@@ -157,15 +166,18 @@ export class NeuronFaceClient {
     return { ok: true, data: { id: r.data } };
   }
 
-  // 단일 gesture inject (학습 없이) — 캔버스 발화 시각화 트리거.
+  // 단일 gesture inject (학습 없이) — induce_fire 로 V_th=-55 cascade 가능한 weight=80 사용.
   async sendGesture(gesture: string, intensity = 1.0): Promise<Result<FireResponse>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
-    const r = await this.request<FireResponse>(`/networks/${net.data}/handface_train`, {
+    const target = GESTURE_TO_INPUT[gesture];
+    if (!target) return { ok: false, reason: `unknown gesture: ${gesture}` };
+    const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
       method: 'POST',
       body: {
-        type: 'gesture', name: gesture, intensity,
-        observe_ms: 200, stimulus_duration_ms: 30, stdp: false, stdp_mode: 'pair',
+        neuron_name: target, weight: 80 * intensity,
+        stimulus_duration_ms: 30, observe_ms: 200,
+        stdp: false, stdp_mode: 'pair',
       },
     });
     if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture, intensity });
@@ -181,8 +193,8 @@ export class NeuronFaceClient {
     return { ok: true, data: out };
   }
 
-  // Train — N trial × gestures 각각 STDP 학습 (target_out supervisor pulse 동반).
-  // observe_ms 200, stimulus 30 으로 확장 → cascade 가 V1/V2/OUT 까지 도달할 시간 충분히 확보.
+  // Train — induce_fire 로 cascade 트리거 + STDP 학습.
+  // weight=80 (V_th=-55mV cascade 발동) + observe_ms=200 (V2/OUT 도달 시간).
   async trainCascade(gestures: string[], trials = 5): Promise<Result<{ trained: number; failed: number; total: number }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
@@ -190,11 +202,13 @@ export class NeuronFaceClient {
     let failed = 0;
     for (let t = 0; t < trials; t += 1) {
       for (const g of gestures) {
-        const r = await this.request<FireResponse>(`/networks/${net.data}/handface_train`, {
+        const target = GESTURE_TO_INPUT[g];
+        if (!target) { failed += 1; continue; }
+        const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
           method: 'POST',
           body: {
-            type: 'gesture', name: g, intensity: 1.0,
-            observe_ms: 200, stimulus_duration_ms: 30,
+            neuron_name: target, weight: 80,
+            stimulus_duration_ms: 30, observe_ms: 200,
             stdp: true, stdp_mode: 'pair',
           },
         });
@@ -210,7 +224,7 @@ export class NeuronFaceClient {
     return { ok: true, data: { trained, failed, total: trials * gestures.length } };
   }
 
-  // Eval — STDP 없이 inject → out_rates winner 와 정답 비교.
+  // Eval — STDP 없이 inject → out_rates winner 와 정답 비교 (induce_fire weight=80).
   async evalDecode(gestures: string[], trials = 5): Promise<Result<{ correct: number; total: number; accuracy: number }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
@@ -218,11 +232,14 @@ export class NeuronFaceClient {
     let total = 0;
     for (let t = 0; t < trials; t += 1) {
       for (const g of gestures) {
-        const r = await this.request<FireResponse>(`/networks/${net.data}/handface_train`, {
+        const target = GESTURE_TO_INPUT[g];
+        if (!target) continue;
+        const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
           method: 'POST',
           body: {
-            type: 'gesture', name: g, intensity: 1.0,
-            observe_ms: 200, stimulus_duration_ms: 30, stdp: false, stdp_mode: 'pair',
+            neuron_name: target, weight: 80,
+            stimulus_duration_ms: 30, observe_ms: 200,
+            stdp: false, stdp_mode: 'pair',
           },
         });
         if (!r.ok || r.data.ok === false) continue;

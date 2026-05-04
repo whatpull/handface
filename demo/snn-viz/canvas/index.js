@@ -10,5 +10,6 @@ export {
   getCanvasZoom,
   fitCanvasToNodes,
   flashWeightDelta,
+  autoLayoutByRegion,
 } from './canvas.js';
 export { buildGrownNeuronNode, buildUserInputNode, buildUserOutputNode } from './data.js';

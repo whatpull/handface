@@ -131,6 +131,7 @@ import {
   getCanvasZoom,
   fitCanvasToNodes,
   flashWeightDelta,
+  autoLayoutByRegion,
 } from './snn-viz/canvas/index.js';
 import './snn-viz/canvas/style.css';
 
@@ -8154,6 +8155,27 @@ function setupCanvasPanel() {
   toggle?.addEventListener('click', () => {
     const collapsed = body.classList.toggle('collapsed');
     toggle.textContent = collapsed ? '+' : '−';
+  });
+  // Phase 206: auto-layout button (region+population 그룹 별 동일 간격 수직 정렬).
+  const autoLayoutBtn = document.getElementById('nf-cp-autolayout');
+  autoLayoutBtn?.addEventListener('click', () => {
+    canvas.classList.add('snn-canvas-autolayout');
+    try {
+      const r = autoLayoutByRegion({ rowSpacing: 90 });
+      if (r?.ok) {
+        // Status flash via legend label area.
+        const oldTitle = document.querySelector('.nf-cp-title')?.textContent;
+        const titleEl = document.querySelector('.nf-cp-title');
+        if (titleEl) {
+          titleEl.textContent = `✓ ${r.nodes_moved}개 노드 정렬 (${r.groups} 그룹)`;
+          setTimeout(() => { titleEl.textContent = oldTitle || '🔍 Filter / Legend'; }, 2000);
+        }
+      }
+    } catch (e) {
+      console.warn('[autoLayout] failed:', e);
+    }
+    // 트랜지션 완료 후 class 제거 (drag latency 방지).
+    setTimeout(() => canvas.classList.remove('snn-canvas-autolayout'), 600);
   });
   // Build legend from current canvas nodes.
   const refreshLegend = () => {

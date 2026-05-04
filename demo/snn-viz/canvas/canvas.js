@@ -564,32 +564,30 @@ function doFit(padding) {
   // container 영역 = #nf-snn-canvas (.nf-app-main grid 1fr 영역 영역).
   const rect = container.getBoundingClientRect();
   const viewportW = rect.width;
-  // Phase 208 (re-do): 로딩 오버레이와 동일한 방식 — visible top + bottom 을
-  // 명시적으로 측정 후 중앙 = (top + bottom) / 2. 이렇게 하면 URL bar (위) 와
-  // bottom-bar (아래) 모두 정확히 차감되어 visible 가운데 정렬.
-  // visibleTop: container 상단 (rect.top) 와 visualViewport.offsetTop 중 큰 쪽.
-  //   - URL bar 가 화면 위에 있으면 visualViewport.offsetTop > 0 (해당 영역 가려짐).
-  // visibleBottom: container 하단 (rect.bottom), bottom-bar.top, visualViewport bottom 중 작은 쪽.
-  let visibleTopAbs = rect.top;
-  let visibleBottomAbs = rect.bottom;
-  if (window.visualViewport && window.visualViewport.height > 0) {
-    const vv = window.visualViewport;
-    visibleTopAbs = Math.max(visibleTopAbs, vv.offsetTop);
-    visibleBottomAbs = Math.min(visibleBottomAbs, vv.offsetTop + vv.height);
-  }
-  // 모바일 footer (.nf-bottom-bar) 가 visible 영역 안에 overlay 시 visible bottom 위로 끌어올림.
+  // Phase 208 (final): 화면 *절대 visible 영역* 기준 (visualViewport - URL bar - footer).
+  // 컨테이너 박스가 URL bar 위까지 늘어나도, 사용자가 실제로 보는 영역의 중앙에 정렬.
+  // visualViewport 가 URL bar 변동 자동 반영 → 그 영역에서 footer 만 추가 차감.
+  const vvH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const vvTop = (window.visualViewport && window.visualViewport.offsetTop) || 0;
+  // 모바일 footer (.nf-bottom-bar) 측정.
   const footerEl = document.querySelector('.nf-bottom-bar:not([style*="display: none"])')
     || document.querySelector('.nf-mobile-footer, .nf-app-footer, [data-canvas-footer]')
     || document.querySelector('footer');
+  let bottomBarH = 0;
   if (footerEl && footerEl.offsetParent !== null) {
     const fr = footerEl.getBoundingClientRect();
-    if (fr.top > visibleTopAbs && fr.top < visibleBottomAbs) {
-      visibleBottomAbs = fr.top;
+    // footer 가 visible 영역 안에 overlay 되는 경우만.
+    const visualBottom = vvTop + vvH;
+    if (fr.height > 0 && fr.top < visualBottom && fr.bottom > vvTop) {
+      bottomBarH = Math.min(fr.height, visualBottom - fr.top);
     }
   }
+  // 화면 절대 좌표계의 visible 영역.
+  const visibleTopAbs = vvTop;
+  const visibleBottomAbs = vvTop + vvH - bottomBarH;
   // container 좌표계 (rect.top 기준 상대값) 변환.
-  const visibleTop = Math.max(0, visibleTopAbs - rect.top);
-  const visibleBottom = Math.max(0, visibleBottomAbs - rect.top);
+  const visibleTop = visibleTopAbs - rect.top;
+  const visibleBottom = visibleBottomAbs - rect.top;
   const viewportH = Math.max(0, visibleBottom - visibleTop);
   if (bboxW <= 0 || bboxH <= 0 || viewportW <= 0 || viewportH <= 0) return;
 

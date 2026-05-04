@@ -8188,7 +8188,7 @@ function setupCanvasPanel() {
   autoLayoutBtn?.addEventListener('click', () => {
     canvas.classList.add('snn-canvas-autolayout');
     try {
-      const r = autoLayoutByRegion({ rowSpacing: 90 });
+      const r = autoLayoutByRegion({ minGap: 16 });
       if (r?.ok) {
         // Status flash via legend label area.
         const oldTitle = document.querySelector('.nf-cp-title')?.textContent;

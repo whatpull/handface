@@ -3182,22 +3182,7 @@
       </div>
 
       <div id="snn-viz-root"></div>
-      <!-- Phase 204+205+206: floating canvas panel — region filter + legend + auto layout. -->
-      <div id="nf-canvas-panel" class="nf-canvas-panel" aria-label="Canvas filter / legend / auto layout">
-        <div class="nf-cp-header">
-          <span class="nf-cp-title">🔍 Filter / Legend</span>
-          <div class="nf-cp-header-actions">
-            <button id="nf-cp-autolayout" class="nf-cp-toggle-btn nf-cp-toggle-btn--svg" type="button" title="자동 레이아웃 — 같은 region+population 그룹 동일 간격 정렬" aria-label="Auto layout">
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            </button>
-            <button id="nf-cp-toggle" class="nf-cp-toggle-btn" type="button" title="패널 접기/펼치기">−</button>
-          </div>
-        </div>
-        <div class="nf-cp-body" id="nf-cp-body">
-          <input id="nf-cp-search" type="search" placeholder="region 검색 (예: ca1, pfc, v4)" class="nf-cp-search">
-          <div id="nf-cp-legend" class="nf-cp-legend"></div>
-        </div>
-      </div>
+      <!-- Filter/Legend 패널 제거 (사용자 요청). 자동정렬 + region 검색 모두 비활성. -->
       <div id="nf-snn-canvas"></div>
       <div id="nf-canvas-loading" class="nf-canvas-loading">
         <div class="nf-canvas-loading-content">

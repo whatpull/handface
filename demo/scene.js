@@ -8168,10 +8168,11 @@ function flashCanvasRegion(prefix) {
   return count;
 }
 
-// Phase 201/204/205: canvas panel (filter + legend) init.
+// Phase 201/204/205: canvas panel (filter + legend) — 사용자 요청으로 제거됨.
+// 함수 호출은 안전하게 no-op (DOM 없으면 즉시 return).
 function setupCanvasPanel() {
   const panel = document.getElementById('nf-canvas-panel');
-  if (!panel) return;
+  if (!panel) return;   // 패널 제거 후 항상 여기서 return.
   const canvas = document.getElementById('nf-snn-canvas');
   if (!canvas) return;
   const search = document.getElementById('nf-cp-search');

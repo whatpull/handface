@@ -101,33 +101,19 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   // Session 39: 노드 드래그 후 위치 영구 저장 (edit mode 에서 사용자 직접 이동).
   // drawflow 'nodeMoved' 이벤트 (drag end 시 발화) → drawflow id 를 neuron name 으로
   // 역매핑 → setNodePosition 호출 (state.positions Map 갱신 + localStorage save).
-  // P206 ext: 편집 모드 드래그 후 같은 그룹 자동 snap (300ms debounce).
-  let dragSnapTimer = null;
+  // 사용자 요청: 그룹 자동 snap 제거. 자유 이동 + 노드 겹침 방지만 적용.
   editor.on('nodeMoved', (id) => {
     const name = drawflowIdToName[id];
     if (!name) return;
     try {
+      // 노드 겹침 방지: 옮긴 노드와 충돌하는 다른 노드를 push.
+      resolveNodeOverlap(id);
+      // 위치 저장 (resolveNodeOverlap 후 새 좌표).
       const node = editor.getNodeFromId(id);
       if (node && typeof node.pos_x === 'number' && typeof node.pos_y === 'number') {
         setNodePosition(name, node.pos_x, node.pos_y);
       }
     } catch (_) { /* ignore */ }
-    // 자동 snap — 같은 (region, population) 그룹의 다른 노드들 등간격 재배치.
-    clearTimeout(dragSnapTimer);
-    dragSnapTimer = setTimeout(() => {
-      try {
-        const el = document.getElementById(`node-${id}`);
-        if (!el) return;
-        const region = el.dataset.region;
-        const population = el.dataset.population;
-        if (!region || region === '?') return;
-        // 이 그룹만 정렬 (전체 X 다른 그룹 영향 X).
-        autoLayoutByRegion({
-          minGap: 16,
-          onlyGroup: `${region}:${population}`,
-        });
-      } catch (_) { /* ignore */ }
-    }, 300);
   });
 
   // Session 36: 본격 manual pan handler 영역 (drawflow 'view' mode pan 영역 catch 회피).
@@ -452,6 +438,105 @@ function attachManualPan(container) {
 // Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
 // bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
 // container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
+// 노드 겹침 방지 — 드래그한 노드와 충돌하는 다른 노드를 가까운 빈 공간으로 push.
+// 옮긴 노드 자체는 사용자 의도 보존 (이동 위치 그대로).
+// 알고리즘:
+//   1. 드래그 노드 A 의 bbox 측정.
+//   2. 다른 노드 B 마다 bbox overlap 검사.
+//   3. 충돌 시 A↔B 중심 차이 벡터로 push 방향 결정 (수평/수직 중 작은 거리).
+//   4. B 를 그 방향으로 충돌 안 할 때까지 이동 + drawflow data 갱신.
+//   5. push 된 B 가 다른 노드 C 와 새 충돌 시 1회 추가 resolve (cascade 일부 대응).
+function resolveNodeOverlap(draggedId, opts = {}) {
+  if (!editor) return;
+  const container = document.getElementById('nf-snn-canvas');
+  if (!container) return;
+  const GAP = opts.gap ?? 16;
+  const draggedEl = document.getElementById(`node-${draggedId}`);
+  if (!draggedEl) return;
+  const draggedBox = nodeBox(draggedEl);
+  if (!draggedBox) return;
+  // 다른 노드 충돌 검출.
+  const allNodes = [...container.querySelectorAll('.drawflow-node')]
+    .filter(el => el.id !== `node-${draggedId}`);
+  const moved = [];
+  for (const el of allNodes) {
+    const b = nodeBox(el);
+    if (!b) continue;
+    if (!boxesOverlap(draggedBox, b)) continue;
+    // 중심 차이 벡터로 push 방향.
+    const cdx = b.cx - draggedBox.cx;
+    const cdy = b.cy - draggedBox.cy;
+    let newX = b.x;
+    let newY = b.y;
+    // 가장 적은 push 거리: 수평 vs 수직 중 작은 쪽 선택.
+    const pushRight = draggedBox.right + GAP - b.x;          // B 를 우측으로 얼마나 push
+    const pushLeft = b.right - (draggedBox.x - GAP);         // 좌측으로
+    const pushDown = draggedBox.bottom + GAP - b.y;
+    const pushUp = b.bottom - (draggedBox.y - GAP);
+    const opts = [
+      { dx: pushRight, dy: 0, dist: Math.abs(pushRight) },
+      { dx: -pushLeft, dy: 0, dist: Math.abs(pushLeft) },
+      { dx: 0, dy: pushDown, dist: Math.abs(pushDown) },
+      { dx: 0, dy: -pushUp, dist: Math.abs(pushUp) },
+    ].filter(o => o.dist > 0);
+    // 중심 차이 방향과 일치하는 push 우선 (자연스러움).
+    opts.sort((a, b) => {
+      const aMatch = (a.dx > 0 && cdx > 0) || (a.dx < 0 && cdx < 0)
+                  || (a.dy > 0 && cdy > 0) || (a.dy < 0 && cdy < 0);
+      const bMatch = (b.dx > 0 && cdx > 0) || (b.dx < 0 && cdx < 0)
+                  || (b.dy > 0 && cdy > 0) || (b.dy < 0 && cdy < 0);
+      if (aMatch !== bMatch) return aMatch ? -1 : 1;
+      return a.dist - b.dist;
+    });
+    const pick = opts[0];
+    if (!pick) continue;
+    newX = b.x + pick.dx;
+    newY = b.y + pick.dy;
+    // drawflow data + DOM 갱신.
+    const nid = parseInt(el.id.replace('node-', ''), 10);
+    if (isNaN(nid)) continue;
+    try {
+      const nd = editor.getNodeFromId(nid);
+      if (nd) {
+        nd.pos_x = newX;
+        nd.pos_y = newY;
+      }
+      el.style.left = `${newX}px`;
+      el.style.top = `${newY}px`;
+      const name = drawflowIdToName[nid];
+      if (name) setNodePosition(name, newX, newY);
+      moved.push(nid);
+    } catch (_) {}
+  }
+  // Connection redraw (드래그 노드 + 이동된 노드들).
+  try {
+    if (typeof editor.updateConnectionNodes === 'function') {
+      editor.updateConnectionNodes(`node-${draggedId}`);
+      moved.forEach(nid => editor.updateConnectionNodes(`node-${nid}`));
+    }
+    if (typeof editor.zoom_refresh === 'function') editor.zoom_refresh();
+    applyStepPaths();
+  } catch (_) {}
+  return { moved_count: moved.length };
+}
+
+function nodeBox(el) {
+  if (!el) return null;
+  const x = parseFloat(el.style.left) || 0;
+  const y = parseFloat(el.style.top) || 0;
+  const w = el.offsetWidth || 160;
+  const h = el.offsetHeight || 60;
+  return {
+    x, y, w, h,
+    right: x + w, bottom: y + h,
+    cx: x + w / 2, cy: y + h / 2,
+  };
+}
+
+function boxesOverlap(a, b) {
+  return a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y;
+}
+
 // Phase 206 (final): Auto-layout — 모든 그룹 정렬 + X 충돌 자동 spread.
 // 사용자 의도: "노드끼리 겹침 불가, 아름답게 배치".
 // 1. (region, population) 단위 그룹 → 각 그룹 X median + Y 그룹 중심 보존.

@@ -452,13 +452,12 @@ function attachManualPan(container) {
 // Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
 // bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
 // container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
-// Phase 206 (revised): Auto-layout — region + population 단위 그룹 별 수직 동일 간격 정렬.
-// USER_INPUT, USER_OUTPUT, SOURCE 는 alternating stack 의도된 layout 이라 제외.
-// (자동정렬이 평균 Y 로 모으면 X 가 가까운 그룹들끼리 가로 겹침 발생.)
-// excludeRegions 옵션으로 사용자 override 가능.
-const AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT = new Set([
-  '?', 'USER_INPUT', 'USER_OUTPUT', 'SOURCE',
-]);
+// Phase 206 (final): Auto-layout — 모든 그룹 정렬 + X 충돌 자동 spread.
+// 사용자 의도: "노드끼리 겹침 불가, 아름답게 배치".
+// 1. (region, population) 단위 그룹 → 각 그룹 X median + Y 그룹 중심 보존.
+// 2. 그룹 내 동적 spacing (offsetHeight 기반).
+// 3. **X 충돌 spread**: 그룹들을 X 순으로 정렬, 인접 그룹간 겹침 검출 시 우측으로 push.
+const AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT = new Set(['?']);   // unknown 만 제외.
 
 export function autoLayoutByRegion(opts = {}) {
   if (!editor) return { ok: false, reason: 'editor not initialized' };
@@ -491,12 +490,63 @@ export function autoLayoutByRegion(opts = {}) {
   });
   let touched = 0;
   const movedIds = [];
+
+  // P206 final: X 충돌 자동 spread.
+  // 모든 그룹의 X median + 노드 width 측정 → 인접 그룹간 겹침 검출 시 우측 push.
+  // onlyGroup 모드 (드래그 snap) 에서는 X spread 비활성 (다른 그룹 영향 X).
+  const X_MIN_GAP = opts.xMinGap ?? 24;   // 그룹 간 최소 X gap.
+  const groupTargetX = new Map();         // key → adjusted X
+  if (!onlyGroup) {
+    const groupMeta = [];
+    for (const [key, nodes] of groups) {
+      if (nodes.length < 1) continue;
+      const xs = nodes.map(n => n.x).sort((a, b) => a - b);
+      const x = xs[Math.floor(xs.length / 2)];
+      const widths = nodes.map(n => n.el.offsetWidth || 160);
+      const maxW = Math.max(...widths);
+      groupMeta.push({ key, nodes, x, width: maxW });
+    }
+    groupMeta.sort((a, b) => a.x - b.x);
+    // 인접 그룹간 겹침 spread.
+    for (let i = 1; i < groupMeta.length; i++) {
+      const prev = groupMeta[i - 1];
+      const minX = (groupTargetX.get(prev.key) ?? prev.x) + prev.width + X_MIN_GAP;
+      const newX = Math.max(groupMeta[i].x, minX);
+      groupTargetX.set(groupMeta[i].key, newX);
+      // prev 도 등록 (첫 항목 보장).
+      if (!groupTargetX.has(prev.key)) groupTargetX.set(prev.key, prev.x);
+    }
+    // 첫 항목만 있는 경우 fallback.
+    if (groupMeta.length === 1) {
+      groupTargetX.set(groupMeta[0].key, groupMeta[0].x);
+    }
+  }
+
   for (const [key, nodes] of groups) {
     if (onlyGroup && key !== onlyGroup) continue;
-    if (nodes.length < 2) continue;   // 단일 노드는 건드릴 필요 없음.
-    // X median 으로 정렬 (같은 그룹은 같은 X 여야 함).
+    if (nodes.length < 2 && !onlyGroup) {
+      // 단일 노드도 X spread 필요 시 X 만 갱신.
+      if (groupTargetX.has(key) && nodes.length === 1) {
+        const node = nodes[0];
+        const newX = groupTargetX.get(key);
+        if (Math.abs(node.x - newX) > 1) {
+          try {
+            const nd = editor.getNodeFromId?.(node.id);
+            if (nd) nd.pos_x = newX;
+            node.el.style.left = `${newX}px`;
+            setNodePosition(node.name, newX, node.y);
+            movedIds.push(node.id);
+            touched++;
+          } catch (_) {}
+        }
+      }
+      continue;
+    }
+    // X 결정: spread 결과 또는 median.
     const xs = nodes.map(n => n.x).sort((a, b) => a - b);
-    const targetX = xs[Math.floor(xs.length / 2)];
+    const targetX = groupTargetX.has(key)
+      ? groupTargetX.get(key)
+      : xs[Math.floor(xs.length / 2)];
     // Sort by current Y → 기존 상대 순서 유지.
     nodes.sort((a, b) => a.y - b.y);
     // Dynamic spacing: 각 인접 쌍 간격 = (prev.h + curr.h)/2 + MIN_GAP.

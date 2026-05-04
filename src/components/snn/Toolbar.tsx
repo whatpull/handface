@@ -1,17 +1,34 @@
 'use client';
 
+import { useState } from 'react';
+import { createActions } from '@/lib/snn/actions';
+
 interface ToolbarProps {
   view: 'region' | 'neuron';
   onViewChange: (v: 'region' | 'neuron') => void;
+  onStatusChange?: (msg: string) => void;
+  onStatsResult?: (data: unknown) => void;
+  onBrainBuilder?: () => void;
 }
 
 const groupCls = 'flex items-center gap-1';
 const sepCls   = 'mx-2 h-5 w-px bg-white/10';
 const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs ' +
-  'text-white/70 hover:bg-white/10 hover:text-white transition-colors';
+  'text-white/70 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent';
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
-export default function Toolbar({ view, onViewChange }: ToolbarProps) {
+export default function Toolbar({
+  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder,
+}: ToolbarProps) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const actions = createActions({
+    busy,
+    setBusy,
+    status: (m) => onStatusChange?.(m),
+    onStatsResult,
+  });
+  const onBrain = () => onBrainBuilder?.();
+
   return (
     <div
       role="toolbar"
@@ -22,7 +39,8 @@ export default function Toolbar({ view, onViewChange }: ToolbarProps) {
           type="button"
           className={`${btnCls} ${view === 'region' ? activeCls : ''}`}
           onClick={() => onViewChange('region')}
-          aria-pressed={view === 'region'}
+          aria-pressed={!!(view === 'region')}
+          disabled={!!busy}
         >
           <Icon kind="region" /> Region
         </button>
@@ -30,44 +48,50 @@ export default function Toolbar({ view, onViewChange }: ToolbarProps) {
           type="button"
           className={`${btnCls} ${view === 'neuron' ? activeCls : ''}`}
           onClick={() => onViewChange('neuron')}
-          aria-pressed={view === 'neuron'}
+          aria-pressed={!!(view === 'neuron')}
+          disabled={!!busy}
         >
           <Icon kind="neuron" /> Neuron
         </button>
       </div>
       <div className={sepCls} aria-hidden />
       <div className={groupCls}>
-        <button type="button" className={btnCls + ' bg-emerald-500/15 text-emerald-200'}>
+        <button
+          type="button"
+          className={btnCls + ' bg-emerald-500/15 text-emerald-200'}
+          onClick={actions.train}
+          disabled={busy === 'Train'}
+        >
           <Icon kind="play" /> Train
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.eval} disabled={busy === 'Eval'}>
           <Icon kind="target" /> Eval
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.grow} disabled={busy === 'Grow'}>
           <Icon kind="grow" /> Grow
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={onBrain}>
           <Icon kind="brain" /> Brain
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.stats} disabled={busy === 'Stats'}>
           <Icon kind="stats" /> Stats
         </button>
       </div>
       <div className={sepCls} aria-hidden />
       <div className={groupCls}>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.save} disabled={busy === 'Save'}>
           <Icon kind="save" /> Save
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.load} disabled={busy === 'Load'}>
           <Icon kind="load" /> Load
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.exportCircuit} disabled={busy === 'Export'}>
           <Icon kind="export" /> Export
         </button>
-        <button type="button" className={btnCls}>
+        <button type="button" className={btnCls} onClick={actions.importCircuit} disabled={busy === 'Import'}>
           <Icon kind="import" /> Import
         </button>
       </div>

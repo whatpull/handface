@@ -1,30 +1,50 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'drawflow/dist/drawflow.min.css';
-import { NEURON_NODES, PRESET_SYNAPSES, SOURCE_EDGES, weightColor } from '@/lib/snn/data';
+import { weightColor } from '@/lib/snn/data';
 import { getPosition, setPosition } from '@/lib/snn/positions';
+import { layoutSnapshot, type LayoutNode } from '@/lib/snn/layout';
+import { onBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
+import { getClient } from '@/lib/backend/client';
 
 interface CanvasProps {
   editMode: boolean;
   cameraConnected: boolean;
+  view: 'region' | 'neuron';
 }
 
-export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
+type LoadState = 'loading' | 'ready' | 'error';
+
+export default function Canvas({ editMode, cameraConnected, view }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Editor 인스턴스는 Drawflow 라이브러리 type 으로 보관.
   const editorRef = useRef<unknown>(null);
   const connRefMap = useRef<Record<string, Element>>({});
+  const nodeRefMap = useRef<Record<string, HTMLElement>>({});
   const drawflowIdToName = useRef<Record<number, string>>({});
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [loadError, setLoadError] = useState<string>('');
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let cancelled = false;
     let editor: import('drawflow').default | null = null;
-    const nameToDfId: Record<string, number> = {};
 
     (async () => {
+      // 백엔드에서 실제 회로 로드 — frontend 고정 노드 폐기.
+      const client = getClient();
+      const r = await client.getFullSnapshot();
+      if (cancelled) return;
+      if (!r.ok) {
+        setLoadError(r.reason);
+        setLoadState('error');
+        return;
+      }
+      const layout = view === 'region'
+        ? buildRegionLayout(r.data.neurons || [])
+        : layoutSnapshot(r.data.neurons || [], r.data.synapses || []);
+
       const Drawflow = (await import('drawflow')).default;
       if (cancelled) return;
 
@@ -43,26 +63,45 @@ export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
       editor = ed;
       editorRef.current = ed;
 
+      const nameToDfId: Record<string, number> = {};
+      const regionCounts = (layout as { regionCounts?: Record<string, number> }).regionCounts;
+
       // 노드 추가.
-      for (const n of NEURON_NODES) {
+      for (const n of layout.nodes) {
         const saved = getPosition(n.id);
         const x = saved?.x ?? n.x;
         const y = saved?.y ?? n.y;
         const id = ed.addNode(
           n.id, 1, 1, x, y,
-          `snn-canvas-neuron snn-canvas-neuron--${n.population} snn-canvas-node-${n.id}` +
-            (n.isSystem ? ' snn-canvas-neuron--locked' : ''),
+          buildNodeClass(n),
           { neuron: n.id, region: n.region, population: n.population },
           renderNodeHtml(n),
           false,
         );
         nameToDfId[n.id] = id;
         drawflowIdToName.current[id] = n.id;
+        const el = container.querySelector(`#node-${id}`) as HTMLElement | null;
+        if (el) {
+          nodeRefMap.current[n.id] = el;
+          // Region 뷰: 카드 active count 를 전체 neuron 수 (idle baseline) 가 아닌 0 으로 시작.
+          // 단 footer 는 region 의 총 neuron 수를 보조 표시.
+          if (n.population === 'region' && regionCounts) {
+            const body = el.querySelector('.snn-canvas-neuron-body');
+            if (body) {
+              const total = regionCounts[n.region] || 0;
+              body.insertAdjacentHTML('beforeend', `
+                <div class="snn-canvas-neuron-row">
+                  <span class="snn-canvas-neuron-row-label">total</span>
+                  <span class="snn-canvas-neuron-row-value">${total}</span>
+                </div>
+              `);
+            }
+          }
+        }
       }
 
-      // 시냅스 추가.
-      const allSyn = [...SOURCE_EDGES, ...PRESET_SYNAPSES];
-      for (const syn of allSyn) {
+      // 시냅스 추가 — 보이는 노드 사이만.
+      for (const syn of layout.synapses) {
         const fromId = nameToDfId[syn.pre];
         const toId = nameToDfId[syn.post];
         if (!fromId || !toId) continue;
@@ -75,7 +114,7 @@ export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
         }
       }
 
-      // 드래그 끝나면 좌표 저장.
+      // 드래그 끝 → 좌표 저장.
       ed.on('nodeMoved', (dfId: number) => {
         const name = drawflowIdToName.current[dfId];
         if (!name || !editor) return;
@@ -83,18 +122,12 @@ export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
         if (node && typeof node.pos_x === 'number') setPosition(name, node.pos_x, node.pos_y);
       });
 
-      // step path 적용.
       applyStepPaths(container);
       patchUpdateConnection(ed, container);
-
-      // pan + wheel zoom (manual handler — drawflow view mode 의 기본 pan 우회).
       attachManualPan(container, ed);
-
-      // fit-to-view (double RAF for layout settle).
       requestAnimationFrame(() => requestAnimationFrame(() => fitToView(ed, container)));
-
-      // 카메라 미연결 dim 적용.
       applyCameraConnected(connRefMap.current, cameraConnected);
+      setLoadState('ready');
     })();
 
     return () => {
@@ -104,11 +137,12 @@ export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
         container.innerHTML = '';
       }
       connRefMap.current = {};
+      nodeRefMap.current = {};
       drawflowIdToName.current = {};
     };
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // editMode 변경 시 view ↔ edit 토글.
+  // editMode 토글.
   useEffect(() => {
     const ed = editorRef.current as import('drawflow').default | null;
     if (!ed) return;
@@ -116,22 +150,159 @@ export default function Canvas({ editMode, cameraConnected }: CanvasProps) {
     containerRef.current?.classList.toggle('snn-canvas-edit', editMode);
   }, [editMode]);
 
-  // 카메라 연결 상태 변경 시 dim 토글.
+  // 카메라 연결 상태 토글.
   useEffect(() => {
     applyCameraConnected(connRefMap.current, cameraConnected);
   }, [cameraConnected]);
 
+  // 발화 시각화 — fired class + synapse pulse.
+  // Region 뷰에서는 active_neurons_by_region 으로 region 카드를 빛나게 함.
+  useEffect(() => {
+    const FIRE_DURATION_MS = 800;
+    const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
+      // Region 뷰: active_neurons_by_region 의 region 키 → region 노드 fire.
+      if (view === 'region') {
+        const byRegion = d.active_neurons_by_region || {};
+        for (const region of Object.keys(byRegion)) {
+          const count = (byRegion[region] || []).length;
+          const card = nodeRefMap.current[`region_${region}`];
+          if (!card) continue;
+          const countEl = card.querySelector('.snn-canvas-region-count');
+          if (countEl) countEl.textContent = String(count);
+          if (count > 0) {
+            card.classList.add('snn-canvas-neuron--fired');
+            if (fireTimers[region]) clearTimeout(fireTimers[region]);
+            fireTimers[region] = setTimeout(() => {
+              card.classList.remove('snn-canvas-neuron--fired');
+              delete fireTimers[region];
+            }, FIRE_DURATION_MS);
+          }
+        }
+        return;
+      }
+
+      // Neuron 뷰: 각 neuron rate 별 처리.
+      const rates = d.rates || {};
+      const firedSet = new Set<string>();
+      for (const id of Object.keys(rates)) {
+        const rate = rates[id] || 0;
+        if (rate > 0) firedSet.add(id);
+        if (id.startsWith('out_')) {
+          const card = nodeRefMap.current[id];
+          if (card) {
+            const rows = card.querySelectorAll('.snn-canvas-neuron-row-value');
+            if (rows[0]) rows[0].textContent = rate > 0 ? 'ACTIVE' : 'idle';
+            if (rows[1]) rows[1].textContent = rate > 0 ? rate.toFixed(1) : '0';
+            card.classList.toggle('snn-canvas-out--active', rate > 0);
+          }
+        }
+        if (rate > 0) {
+          const el = nodeRefMap.current[id];
+          if (!el) continue;
+          el.classList.add('snn-canvas-neuron--fired');
+          if (fireTimers[id]) clearTimeout(fireTimers[id]);
+          fireTimers[id] = setTimeout(() => {
+            el.classList.remove('snn-canvas-neuron--fired');
+            delete fireTimers[id];
+          }, FIRE_DURATION_MS);
+        }
+      }
+      for (const key in connRefMap.current) {
+        const [pre] = key.split('->');
+        if (!firedSet.has(pre)) continue;
+        const conn = connRefMap.current[key];
+        conn.classList.add('fired');
+        const tk = `__conn_${key}`;
+        if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
+        fireTimers[tk] = setTimeout(() => {
+          conn.classList.remove('fired');
+          delete fireTimers[tk];
+        }, FIRE_DURATION_MS);
+      }
+    });
+    return () => {
+      off();
+      for (const k of Object.keys(fireTimers)) clearTimeout(fireTimers[k]);
+    };
+  }, [view]);
+
   return (
-    <div
-      ref={containerRef}
-      id="nf-snn-canvas"
-      className="absolute inset-0 cursor-grab"
-    />
+    <>
+      <div ref={containerRef} id="nf-snn-canvas" className="absolute inset-0 cursor-grab" />
+      {loadState !== 'ready' && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="rounded border border-white/10 bg-[#0f1117]/95 px-3 py-1.5 font-mono text-[11px] text-white/70 shadow-lg">
+            {loadState === 'loading' ? 'Loading circuit…' : `✗ ${loadError}`}
+          </span>
+        </div>
+      )}
+    </>
   );
 }
 
-function renderNodeHtml(n: { id: string; label: string; region: string; population: string; isSystem: boolean }): string {
+function buildNodeClass(n: LayoutNode): string {
+  const popClass = n.population.toLowerCase().replace(/\W+/g, '_');
+  const lock = n.isSystem ? ' snn-canvas-neuron--locked' : '';
+  return `snn-canvas-neuron snn-canvas-neuron--${popClass} snn-canvas-node-${n.id}${lock}`;
+}
+
+// Region 뷰: 4 개 영역 카드만 렌더 (cascade 흐름 표시).
+function buildRegionLayout(neurons: Array<{ region?: string | null }>) {
+  const REGIONS = [
+    { id: 'INPUT', label: 'INPUT', x: 200, y: 240 },
+    { id: 'V1',    label: 'V1',    x: 600, y: 240 },
+    { id: 'V2',    label: 'V2',    x: 1000, y: 240 },
+    { id: 'OUT',   label: 'OUT',   x: 1400, y: 240 },
+  ];
+  const counts: Record<string, number> = {};
+  for (const n of neurons) {
+    const r = n.region || 'OTHER';
+    counts[r] = (counts[r] || 0) + 1;
+  }
+  const nodes: LayoutNode[] = REGIONS.map((r) => ({
+    id: `region_${r.id}`,
+    label: r.label,
+    region: r.id,
+    population: 'region',
+    x: r.x,
+    y: r.y,
+    isSystem: true,
+  }));
+  // region count 를 노드 data 에 실어 전달 — render 시 사용.
+  const regionCounts: Record<string, number> = {};
+  for (const r of REGIONS) regionCounts[r.id] = counts[r.id] || 0;
+  return {
+    nodes,
+    synapses: [
+      { pre: 'region_INPUT', post: 'region_V1', weight: 50 },
+      { pre: 'region_V1', post: 'region_V2', weight: 50 },
+      { pre: 'region_V2', post: 'region_OUT', weight: 50 },
+    ],
+    visibleNames: new Set(REGIONS.map((r) => `region_${r.id}`)),
+    regionCounts,
+  };
+}
+
+function renderNodeHtml(n: LayoutNode & { count?: number }): string {
+  if (n.population === 'region') {
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-region-card">
+        <div class="snn-canvas-neuron-header">
+          <span class="snn-canvas-neuron-dot"></span>
+          <span class="snn-canvas-neuron-label">${n.label}</span>
+        </div>
+        <div class="snn-canvas-neuron-body">
+          <div class="snn-canvas-neuron-row">
+            <span class="snn-canvas-neuron-row-label">active</span>
+            <span class="snn-canvas-neuron-row-value snn-canvas-region-count">0</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
   if (n.population === 'camera' || n.population === 'gesture') {
+    const placeholder = n.population === 'camera' ? 'Camera disabled' : 'Hand detection disabled';
     return `
       <div class="snn-canvas-neuron-card snn-canvas-source-card">
         <div class="snn-canvas-neuron-header">
@@ -140,14 +311,14 @@ function renderNodeHtml(n: { id: string; label: string; region: string; populati
         </div>
         <div class="snn-canvas-source-mount">
           <div class="snn-canvas-source-empty">
-            <div>${n.population === 'camera' ? 'Camera disabled' : 'Hand detection disabled'}</div>
-            <div class="snn-canvas-source-empty-hint">Enable camera from sidebar</div>
+            <div>${placeholder}</div>
+            <div class="snn-canvas-source-empty-hint">Enable from sidebar</div>
           </div>
         </div>
       </div>
     `;
   }
-  if (n.population === 'output') {
+  if (n.population === 'output' || n.id.startsWith('out_')) {
     return `
       <div class="snn-canvas-neuron-card snn-canvas-out-card">
         <div class="snn-canvas-neuron-header">
@@ -304,7 +475,7 @@ function fitToView(ed: import('drawflow').default, container: HTMLElement) {
   const bboxW = maxX - minX, bboxH = maxY - minY;
   const rect = container.getBoundingClientRect();
   if (bboxW <= 0 || bboxH <= 0 || rect.width <= 0 || rect.height <= 0) return;
-  const padding = 0.9;
+  const padding = 0.92;
   const zoomX = rect.width / bboxW, zoomY = rect.height / bboxH;
   const targetZoom = Math.max(ed.zoom_min || 0.2,
     Math.min(ed.zoom_max || 4, Math.min(zoomX, zoomY) * padding));

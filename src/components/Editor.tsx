@@ -1,10 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
+import StatsPanel from '@/components/snn/StatsPanel';
+import RlFeedbackPanel from '@/components/snn/RlFeedbackPanel';
+import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
+import MobileBottomBar from '@/components/snn/MobileBottomBar';
+import { onBackendEvent } from '@/lib/backend/events';
+import { createActions } from '@/lib/snn/actions';
 import './snn-canvas.css';
 
 export default function Editor() {
@@ -12,6 +18,27 @@ export default function Editor() {
   const [cameraConnected, setCameraConnected] = useState(false);
   const [view, setView] = useState<'region' | 'neuron'>('neuron');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsData, setStatsData] = useState<unknown>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [brainOpen, setBrainOpen] = useState(false);
+  const [status, setStatus] = useState<string>('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [canvasNonce, setCanvasNonce] = useState(0);
+
+  // 모바일 bottom-bar 가 사용할 액션 (Toolbar 와 동일).
+  const mobileActions = createActions({
+    busy,
+    setBusy,
+    status: setStatus,
+    onStatsResult: (d) => { setStatsData(d); setStatsOpen(true); },
+  });
+
+  useEffect(() => {
+    const off = onBackendEvent('circuit-changed', () => {
+      setCanvasNonce((n) => n + 1);
+    });
+    return off;
+  }, []);
 
   return (
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
@@ -28,13 +55,47 @@ export default function Editor() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <main className="relative flex flex-1 flex-col min-w-0">
-          <Toolbar view={view} onViewChange={setView} />
+          <Toolbar
+            view={view}
+            onViewChange={setView}
+            onStatusChange={setStatus}
+            onStatsResult={(d) => { setStatsData(d); setStatsOpen(true); }}
+            onBrainBuilder={() => setBrainOpen(true)}
+          />
           <div className="relative flex-1 min-h-0 overflow-hidden">
-            <Canvas editMode={editMode} cameraConnected={cameraConnected} />
+            <Canvas
+              key={`${view}-${canvasNonce}`}
+              editMode={editMode}
+              cameraConnected={cameraConnected}
+              view={view}
+            />
+            <RlFeedbackPanel />
+            <StatsPanel
+              open={statsOpen}
+              data={statsData as Parameters<typeof StatsPanel>[0]['data']}
+              onClose={() => setStatsOpen(false)}
+            />
           </div>
+          {status && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none absolute bottom-14 left-1/2 z-10 -translate-x-1/2 rounded border border-white/10 bg-[#0f1117]/95 px-3 py-1 font-mono text-[11px] text-white/70 shadow-lg md:bottom-2"
+            >
+              {status}
+            </div>
+          )}
+          <MobileBottomBar
+            onTrain={mobileActions.train}
+            onEval={mobileActions.eval}
+            onSave={mobileActions.save}
+            onReset={mobileActions.reset}
+            onMore={() => setBrainOpen(true)}
+          />
         </main>
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <BrainBuilderDialog open={brainOpen} onClose={() => setBrainOpen(false)} />
     </div>
   );
 }

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const ENDPOINT_KEY = 'handface.settings.endpoint';
-const APIKEY_KEY   = 'handface.settings.apikey';
+import { getClient } from '@/lib/backend/client';
+import {
+  loadBackendSettings, normalizeEndpoint, saveBackendSettings,
+} from '@/lib/backend/settings';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -16,27 +17,27 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [status, setStatus] = useState('not tested');
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setEndpoint(localStorage.getItem(ENDPOINT_KEY) ?? 'https://whatpull-neuronface.hf.space');
-    setApiKey(localStorage.getItem(APIKEY_KEY) ?? '');
+    const s = loadBackendSettings();
+    setEndpoint(s.endpoint);
+    setApiKey(s.apiKey);
   }, []);
 
   const save = () => {
-    localStorage.setItem(ENDPOINT_KEY, endpoint);
-    localStorage.setItem(APIKEY_KEY, apiKey);
-    setStatus('saved');
+    const url = normalizeEndpoint(endpoint);
+    if (url !== endpoint) setEndpoint(url);
+    saveBackendSettings({ endpoint: url, apiKey });
+    getClient().setSettings(url, apiKey);
+    setStatus(`saved (${url})`);
   };
 
   const test = async () => {
     setStatus('testing…');
-    try {
-      const r = await fetch(`${endpoint.replace(/\/$/, '')}/health`, {
-        headers: apiKey ? { 'x-api-key': apiKey } : {},
-      });
-      setStatus(r.ok ? `✓ ${r.status}` : `✗ ${r.status}`);
-    } catch (e) {
-      setStatus(`✗ ${(e as Error).message}`);
-    }
+    const url = normalizeEndpoint(endpoint);
+    if (url !== endpoint) setEndpoint(url);
+    const client = getClient();
+    client.setSettings(url, apiKey);
+    const r = await client.health();
+    setStatus(r.ok ? `✓ ${url}` : `✗ ${r.reason}`);
   };
 
   if (!open) return null;
@@ -98,7 +99,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               Test
             </button>
           </div>
-          <div className="text-[11px] font-mono text-white/50">{status}</div>
+          <div className="break-all text-[11px] font-mono text-white/50">{status}</div>
         </div>
       </div>
     </div>

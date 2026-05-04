@@ -20,7 +20,7 @@ export default function Sidebar({
         type="button"
         title={cameraConnected ? 'Disable camera' : 'Enable camera'}
         aria-label="Toggle camera"
-        aria-pressed={cameraConnected}
+        aria-pressed={!!cameraConnected}
         className={btn(cameraConnected)}
         onClick={onToggleCamera}
       >
@@ -33,7 +33,7 @@ export default function Sidebar({
         type="button"
         title="Toggle edit mode"
         aria-label="Toggle edit mode"
-        aria-pressed={editMode}
+        aria-pressed={!!editMode}
         className={btn(editMode)}
         onClick={onToggleEdit}
       >

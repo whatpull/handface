@@ -15,14 +15,17 @@
 #nf-snn-canvas .drawflow-node .drawflow_content_node { pointer-events: none; }
 
 #nf-snn-canvas .drawflow .connection .main-path {
-  stroke: rgba(255, 255, 255, 0.06);
-  stroke-width: 0.5;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
   fill: none;
-  transition: stroke 200ms, stroke-width 200ms;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition: stroke 150ms, stroke-width 150ms;
 }
 #nf-snn-canvas .drawflow .connection .main-path:hover {
-  stroke: rgba(94, 234, 212, 0.9);
-  stroke-width: 1.2;
+  stroke: rgba(94, 234, 212, 0.95);
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.6));
 }
 #nf-snn-canvas .drawflow .connection.fired .main-path {
   stroke: #5eead4 !important;
@@ -123,14 +126,21 @@
 }
 
 /* population별 색감. */
-.snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
-.snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
-.snn-canvas-neuron--input   .snn-canvas-neuron-card { --neuron-color: #93c5fd; }
-.snn-canvas-neuron--l4_e    .snn-canvas-neuron-card { --neuron-color: #67e8f9; }
-.snn-canvas-neuron--l4_i    .snn-canvas-neuron-card { --neuron-color: #fda4af; }
-.snn-canvas-neuron--l23_e   .snn-canvas-neuron-card { --neuron-color: #c4b5fd; }
-.snn-canvas-neuron--l5_e    .snn-canvas-neuron-card { --neuron-color: #f5b842; }
-.snn-canvas-neuron--output  .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+.snn-canvas-neuron--camera   .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
+.snn-canvas-neuron--gesture  .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
+.snn-canvas-neuron--input    .snn-canvas-neuron-card { --neuron-color: #93c5fd; }
+.snn-canvas-neuron--l4_e     .snn-canvas-neuron-card { --neuron-color: #67e8f9; }
+.snn-canvas-neuron--l4_i     .snn-canvas-neuron-card { --neuron-color: #fda4af; }
+.snn-canvas-neuron--l23_e    .snn-canvas-neuron-card { --neuron-color: #c4b5fd; }
+.snn-canvas-neuron--l23_i    .snn-canvas-neuron-card { --neuron-color: #fda4af; }
+.snn-canvas-neuron--l5_e     .snn-canvas-neuron-card { --neuron-color: #f5b842; }
+.snn-canvas-neuron--l5_i     .snn-canvas-neuron-card { --neuron-color: #fda4af; }
+.snn-canvas-neuron--l6_e     .snn-canvas-neuron-card { --neuron-color: #fde68a; }
+.snn-canvas-neuron--l6_i     .snn-canvas-neuron-card { --neuron-color: #fda4af; }
+.snn-canvas-neuron--output   .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+.snn-canvas-neuron--region   .snn-canvas-neuron-card { --neuron-color: #c4b5fd; min-width: 160px; }
+.snn-canvas-region-card { padding: 4px 0; }
+.snn-canvas-region-count { font-family: ui-monospace, monospace; font-weight: 700; color: #c4b5fd; }
 
 /* SOURCE 카드 (Camera/Gesture) — placeholder body. */
 .snn-canvas-source-card { min-width: 160px; }

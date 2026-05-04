@@ -1251,6 +1251,12 @@
       /* show 는 즉시 (transition 0), hide 는 부드러운 fade-out. */
       transition: opacity 0s linear 0s, visibility 0s linear 0s;
     }
+    /* 모바일: nf-bottom-bar (fixed) 영역만큼 padding 추가 → 가시 영역 중앙 정렬. */
+    @media (max-width: 768px) {
+      .nf-canvas-loading {
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
+      }
+    }
     .nf-canvas-loading--hidden {
       opacity: 0;
       visibility: hidden;
@@ -3032,7 +3038,7 @@
       .nf-sheet { display: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-r7y-PPmH.js"></script>
+  <script type="module" crossorigin src="/handface/assets/index-D46ZwlqN.js"></script>
   <link rel="stylesheet" crossorigin href="/handface/assets/index-Dvd4VJ6C.css">
 </head>
 <body>

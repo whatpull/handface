@@ -36,13 +36,20 @@ export function createActions(h: ActionHooks) {
       h.status(`✓ Eval ${correct}/${total} (${(accuracy * 100).toFixed(0)}%)`);
     }),
 
+    // Reset = 전체 회로 초기화 (누적 뉴런/시냅스 폐기 → base cortical preset 만).
+    // 학습된 weight + 추가된 region (Brain/Grow) 전부 손실.
     reset: () => run('Reset', async () => {
-      if (!confirm('회로를 초기 상태로 reset 할까요? 학습된 weight 모두 손실됩니다.')) {
+      if (!confirm(
+        '회로를 초기 상태(base cortical preset)로 재구성합니다.\n\n' +
+        '· 학습된 weight 모두 손실\n' +
+        '· Brain Builder 로 추가한 region 모두 폐기\n' +
+        '· Grow 로 추가한 뉴런 모두 폐기\n\n계속할까요?',
+      )) {
         h.status('cancelled');
         return;
       }
-      const r = await getClient().reset();
-      h.status(r.ok ? '✓ Reset' : `✗ Reset: ${r.reason}`);
+      const r = await getClient().rebuildToBaseline();
+      h.status(r.ok ? '✓ Reset (base cortical preset)' : `✗ Reset: ${r.reason}`);
     }),
 
     save: () => run('Save', async () => {

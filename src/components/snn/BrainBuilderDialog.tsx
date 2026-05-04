@@ -109,9 +109,23 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
   const applySelected = async () => {
     if (!selectedItem) return;
     if (!confirm(
-      `${selectedItem.label} 회로를 추가합니다.\n` +
-      `이미 빌드된 region 은 백엔드가 거부할 수 있습니다 (overwrite 미지원).`,
+      `${selectedItem.label} 회로를 추가합니다.\n\n` +
+      `회로를 base cortical preset 으로 초기화한 뒤 선택한 region 만 추가합니다.\n` +
+      `(누적 빌드 방지 — 항상 "base + 1 region" 조합 유지)\n\n` +
+      `· 학습된 weight 손실\n· 다른 Brain Builder 로 추가한 region 폐기\n\n계속할까요?`,
     )) return;
+    setBusy(selectedItem.id);
+    pushLog(`… rebuild → ${selectedItem.label}`);
+    // 1. 회로를 base 로 초기화.
+    const rb = await getClient().rebuildToBaseline();
+    if (!rb.ok) {
+      pushLog(`✗ rebuild: ${rb.reason}`);
+      setBusy(null);
+      return;
+    }
+    pushLog(`✓ rebuild (base cortical preset)`);
+    setBusy(null);
+    // 2. 선택한 region 만 추가.
     await buildOne(selectedItem.id, selectedItem.label, selectedItem.path, selectedItem.body);
   };
 

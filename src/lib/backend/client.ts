@@ -243,6 +243,23 @@ export class NeuronFaceClient {
     return r;
   }
 
+  // 전체 회로 초기화 — 누적된 뉴런/시냅스 모두 폐기 후 base cortical preset 만 유지.
+  // BrainBuilder 빌드 누적, Grow 누적 등으로 회로가 비대해진 경우 사용.
+  async rebuildToBaseline(): Promise<Result<{ networkId: string }>> {
+    // 1. 기존 네트워크 폐기 시도 (네트워크 없을 수도 있어 실패 무시).
+    if (this.networkId) {
+      await this.request(`/networks/${this.networkId}`, { method: 'DELETE' }).catch(() => null);
+    }
+    this.networkId = null;
+    this.presetEnsured = false;
+    if (typeof window !== 'undefined') localStorage.removeItem(NETWORK_KEY);
+    // 2. 신규 네트워크 + cortical preset.
+    const r = await this.ensureNetwork();
+    if (!r.ok) return r;
+    emitBackendEvent('circuit-changed', {});
+    return { ok: true, data: { networkId: r.data } };
+  }
+
   // Save 용 — 학습된 시냅스 weight 영구 저장.
   async getSnapshot(): Promise<Result<{
     ok: boolean; network_id: string; synapse_count: number;

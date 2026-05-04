@@ -9,6 +9,7 @@ interface ToolbarProps {
   onStatusChange?: (msg: string) => void;
   onStatsResult?: (data: unknown) => void;
   onBrainBuilder?: () => void;
+  onPredict?: () => void;
 }
 
 const groupCls = 'flex items-center gap-1';
@@ -18,7 +19,7 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
 export default function Toolbar({
-  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder,
+  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict,
 }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = createActions({
@@ -39,7 +40,7 @@ export default function Toolbar({
           type="button"
           className={`${btnCls} ${view === 'region' ? activeCls : ''}`}
           onClick={() => onViewChange('region')}
-          aria-pressed={!!(view === 'region')}
+          aria-pressed={view === 'region' ? true : false}
           disabled={!!busy}
         >
           <Icon kind="region" /> Region
@@ -48,7 +49,7 @@ export default function Toolbar({
           type="button"
           className={`${btnCls} ${view === 'neuron' ? activeCls : ''}`}
           onClick={() => onViewChange('neuron')}
-          aria-pressed={!!(view === 'neuron')}
+          aria-pressed={view === 'neuron' ? true : false}
           disabled={!!busy}
         >
           <Icon kind="neuron" /> Neuron
@@ -66,6 +67,9 @@ export default function Toolbar({
         </button>
         <button type="button" className={btnCls} onClick={actions.eval} disabled={busy === 'Eval'}>
           <Icon kind="target" /> Eval
+        </button>
+        <button type="button" className={btnCls} onClick={() => onPredict?.()}>
+          <Icon kind="predict" /> Predict
         </button>
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
@@ -128,6 +132,13 @@ function Icon({ kind }: { kind: string }) {
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+        </svg>
+      );
+    case 'predict':
+      return (
+        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
+          <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6z" />
         </svg>
       );
     case 'brain':

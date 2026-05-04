@@ -346,6 +346,52 @@ export class NeuronFaceClient {
     return r;
   }
 
+  // 단일 gesture 예측 — induce_fire (STDP off) → winner + OUT rates 4개.
+  // gesture: 'pointing' | 'openpalm' | 'thumbsup' | 'victory'
+  async predict(gesture: string): Promise<Result<{
+    gesture: string;
+    expectedOut: string;
+    winner: string | null;
+    winnerRate: number;
+    outRates: Record<string, number>;
+    correct: boolean;
+    confidence: number;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const target = GESTURE_TO_INPUT[gesture];
+    const expectedOut = GESTURE_TO_OUT[gesture] || '';
+    if (!target) return { ok: false, reason: `unknown gesture: ${gesture}` };
+    const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
+      method: 'POST',
+      body: {
+        neuron_name: target, weight: 80,
+        stimulus_duration_ms: 15, observe_ms: 60,
+        stdp: false, stdp_mode: 'pair',
+      },
+    });
+    if (!r.ok || r.data.ok === false) return { ok: false, reason: r.ok ? 'backend rejected' : r.reason };
+    emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture });
+    const rates = r.data.rates || {};
+    const outRates = filterOut(rates);
+    const winner = pickWinner(outRates);
+    const winnerRate = winner ? (outRates[winner] || 0) : 0;
+    const totalRate = Object.values(outRates).reduce((s, v) => s + v, 0);
+    const confidence = totalRate > 0 ? winnerRate / totalRate : 0;
+    return {
+      ok: true,
+      data: {
+        gesture,
+        expectedOut,
+        winner,
+        winnerRate,
+        outRates,
+        correct: winner === expectedOut,
+        confidence,
+      },
+    };
+  }
+
   async getStats(): Promise<Result<unknown>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;

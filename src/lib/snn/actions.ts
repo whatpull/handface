@@ -25,12 +25,16 @@ export function createActions(h: ActionHooks) {
 
   return {
     train: () => run('Train', async () => {
-      const r = await getClient().trainCascade(GESTURES, 5);
-      h.status(r.ok ? `✓ Train (${r.data.trained} trials)` : `✗ Train: ${r.reason}`);
+      const r = await getClient().trainCascade(GESTURES, 3, (done, total) => {
+        h.status(`Train ${done}/${total}…`);
+      });
+      h.status(r.ok ? `✓ Train (${r.data.trained}/${r.data.total} trials)` : `✗ Train: ${r.reason}`);
     }),
 
     eval: () => run('Eval', async () => {
-      const r = await getClient().evalDecode(GESTURES, 5);
+      const r = await getClient().evalDecode(GESTURES, 3, (done, total) => {
+        h.status(`Eval ${done}/${total}…`);
+      });
       if (!r.ok) { h.status(`✗ Eval: ${r.reason}`); return; }
       const { correct, total, accuracy } = r.data;
       h.status(`✓ Eval ${correct}/${total} (${(accuracy * 100).toFixed(0)}%)`);

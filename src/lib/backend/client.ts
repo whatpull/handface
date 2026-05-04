@@ -193,22 +193,28 @@ export class NeuronFaceClient {
     return { ok: true, data: out };
   }
 
-  // Train — induce_fire 로 cascade 트리거 + STDP 학습.
-  // weight=80 (V_th=-55mV cascade 발동) + observe_ms=200 (V2/OUT 도달 시간).
-  async trainCascade(gestures: string[], trials = 5): Promise<Result<{ trained: number; failed: number; total: number }>> {
+  // Train — induce_fire cascade + STDP. observe_ms=120 으로 단축 (cascade 6단계 + 시냅스 지연 감안 충분).
+  // onProgress 콜백으로 진행률 보고 (UI 가 status bar 갱신).
+  async trainCascade(
+    gestures: string[],
+    trials = 3,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<Result<{ trained: number; failed: number; total: number }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
     let trained = 0;
     let failed = 0;
+    let done = 0;
+    const total = trials * gestures.length;
     for (let t = 0; t < trials; t += 1) {
       for (const g of gestures) {
         const target = GESTURE_TO_INPUT[g];
-        if (!target) { failed += 1; continue; }
+        if (!target) { failed += 1; done += 1; onProgress?.(done, total); continue; }
         const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
           method: 'POST',
           body: {
             neuron_name: target, weight: 80,
-            stimulus_duration_ms: 30, observe_ms: 200,
+            stimulus_duration_ms: 30, observe_ms: 120,
             stdp: true, stdp_mode: 'pair',
           },
         });
@@ -218,30 +224,40 @@ export class NeuronFaceClient {
         } else {
           failed += 1;
         }
+        done += 1;
+        onProgress?.(done, total);
       }
     }
     emitBackendEvent('training-changed', { trained });
-    return { ok: true, data: { trained, failed, total: trials * gestures.length } };
+    return { ok: true, data: { trained, failed, total } };
   }
 
-  // Eval — STDP 없이 inject → out_rates winner 와 정답 비교 (induce_fire weight=80).
-  async evalDecode(gestures: string[], trials = 5): Promise<Result<{ correct: number; total: number; accuracy: number }>> {
+  // Eval — STDP 없이 inject → out_rates winner 와 정답 비교.
+  async evalDecode(
+    gestures: string[],
+    trials = 3,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<Result<{ correct: number; total: number; accuracy: number }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
     let correct = 0;
     let total = 0;
+    let done = 0;
+    const totalCalls = trials * gestures.length;
     for (let t = 0; t < trials; t += 1) {
       for (const g of gestures) {
         const target = GESTURE_TO_INPUT[g];
-        if (!target) continue;
+        if (!target) { done += 1; onProgress?.(done, totalCalls); continue; }
         const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
           method: 'POST',
           body: {
             neuron_name: target, weight: 80,
-            stimulus_duration_ms: 30, observe_ms: 200,
+            stimulus_duration_ms: 30, observe_ms: 120,
             stdp: false, stdp_mode: 'pair',
           },
         });
+        done += 1;
+        onProgress?.(done, totalCalls);
         if (!r.ok || r.data.ok === false) continue;
         total += 1;
         emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture: g });

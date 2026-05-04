@@ -249,17 +249,24 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
           }, FIRE_DURATION_MS);
         }
       }
-      for (const key in connRefMap.current) {
-        const [pre] = key.split('->');
-        if (!firedSet.has(pre)) continue;
-        const conn = connRefMap.current[key];
-        conn.classList.add('fired');
-        const tk = `__conn_${key}`;
-        if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
-        fireTimers[tk] = setTimeout(() => {
-          conn.classList.remove('fired');
-          delete fireTimers[tk];
-        }, FIRE_DURATION_MS);
+      // 시냅스 pulse — fired pre 만 처리 (전체 connection 순회 대신).
+      // connRefMap 키는 "pre->post" — fired 인 pre 마다 prefix 매칭으로 일부만 hit.
+      if (firedSet.size > 0) {
+        const connKeys = Object.keys(connRefMap.current);
+        for (const key of connKeys) {
+          const sep = key.indexOf('->');
+          if (sep < 0) continue;
+          const pre = key.slice(0, sep);
+          if (!firedSet.has(pre)) continue;
+          const conn = connRefMap.current[key];
+          conn.classList.add('fired');
+          const tk = `__conn_${key}`;
+          if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
+          fireTimers[tk] = setTimeout(() => {
+            conn.classList.remove('fired');
+            delete fireTimers[tk];
+          }, FIRE_DURATION_MS);
+        }
       }
     });
     return () => {

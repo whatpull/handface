@@ -160,19 +160,45 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
   useEffect(() => {
     const FIRE_DURATION_MS = 800;
     const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+    let regionDebugCount = 0;
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // Region 뷰: rates 의 prefix 로 region 추론 (백엔드의 rates_by_region 응답이 없을 때 대비).
-      // 각 region 의 활성 neuron 수 (rate > 0) 를 직접 집계 → 카드 active count + fire toggle.
+      // Region 뷰: 세 데이터 소스 통합 → V1/V2 누락 케이스 모두 cover.
+      //  1) rates: neuron name prefix 로 직접 집계 (가장 신뢰)
+      //  2) active_neurons_by_region: 백엔드가 명시한 region 키별 active list
+      //  3) rates_by_region: region 평균 Hz (0 초과면 fire)
       if (view === 'region') {
         const rates = d.rates || {};
+        const byActive = d.active_neurons_by_region || {};
+        const byRegionRate = d.rates_by_region || {};
         const counts: Record<string, number> = { INPUT: 0, V1: 0, V2: 0, OUT: 0 };
+        // 1) prefix 집계
         for (const [name, rate] of Object.entries(rates)) {
           if (rate <= 0) continue;
           const region = inferRegion(name);
           if (region in counts) counts[region] += 1;
         }
-        // 백엔드 rates_by_region 도 있으면 보조 사용 (avg Hz > 0 이면 fire).
-        const byRegionRate = d.rates_by_region || {};
+        // 2) active list 합산 (max 사용 — 두 소스 중 큰 값)
+        for (const region of Object.keys(counts)) {
+          const fromActive = (byActive[region] || []).length;
+          if (fromActive > counts[region]) counts[region] = fromActive;
+        }
+        // 진단: 응답 구조 + 집계 결과 출력 (V1/V2 발화 디버깅).
+        // 콘솔에서 window.__snnDebug = false 로 끄거나, 호출 너무 많으면 5번까지만.
+        regionDebugCount += 1;
+        const dbg = typeof window !== 'undefined'
+          ? (window as { __snnDebug?: boolean }).__snnDebug
+          : undefined;
+        if (dbg !== false && regionDebugCount <= 5) {
+          console.log('[snn region]', regionDebugCount, {
+            counts,
+            activeKeys: Object.keys(byActive),
+            activeLens: Object.fromEntries(Object.entries(byActive).map(([k, v]) => [k, v.length])),
+            byRegionRate,
+            rateSample: Object.entries(rates)
+              .filter(([, r]) => (r as number) > 0)
+              .slice(0, 8),
+          });
+        }
         for (const region of Object.keys(counts)) {
           const card = nodeRefMap.current[`region_${region}`];
           if (!card) continue;

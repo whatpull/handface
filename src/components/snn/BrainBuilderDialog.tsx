@@ -92,11 +92,27 @@ const BUILDERS: Array<{ category: string; items: Array<{ id: string; label: stri
 export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialogProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  // 라디오 선택 — 한 번에 1개만.
+  const [selected, setSelected] = useState<string | null>(null);
 
   if (!open) return null;
 
   const pushLog = (line: string) => {
     setLog((l) => [line, ...l].slice(0, 30));
+  };
+
+  // 선택된 항목 lookup.
+  const selectedItem = selected
+    ? BUILDERS.flatMap((c) => c.items).find((it) => it.id === selected) || null
+    : null;
+
+  const applySelected = async () => {
+    if (!selectedItem) return;
+    if (!confirm(
+      `${selectedItem.label} 회로를 추가합니다.\n` +
+      `이미 빌드된 region 은 백엔드가 거부할 수 있습니다 (overwrite 미지원).`,
+    )) return;
+    await buildOne(selectedItem.id, selectedItem.label, selectedItem.path, selectedItem.body);
   };
 
   const buildOne = async (id: string, label: string, path: string, body: object = {}) => {
@@ -143,17 +159,32 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/10 p-4">
-          <span id="brain-dialog-title" className="text-xs font-semibold tracking-wider text-violet-300">
-            🧠 BRAIN BUILDER
-          </span>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="rounded px-2 text-white/50 hover:bg-white/10 hover:text-white"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            <span id="brain-dialog-title" className="text-xs font-semibold tracking-wider text-violet-300">
+              🧠 BRAIN BUILDER
+            </span>
+            <span className="text-[11px] text-white/40">
+              {selectedItem ? `→ ${selectedItem.label}` : '라디오 선택 후 Apply'}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={applySelected}
+              disabled={!selectedItem || !!busy}
+              className="rounded bg-violet-500/20 px-3 py-1 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 disabled:opacity-40"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="rounded px-2 text-white/50 hover:bg-white/10 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-4">
@@ -164,15 +195,29 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {cat.items.map((it) => (
-                    <button
+                    <label
                       key={it.id}
-                      type="button"
-                      onClick={() => buildOne(it.id, it.label, it.path, it.body)}
-                      disabled={!!busy}
-                      className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-left text-[11px] text-white/80 hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-violet-200 disabled:opacity-50"
+                      className={
+                        `flex items-center gap-2 rounded border px-2.5 py-1.5 text-left text-[11px] cursor-pointer transition-colors ` +
+                        (selected === it.id
+                          ? 'border-violet-400/60 bg-violet-500/15 text-violet-200'
+                          : 'border-white/10 bg-white/5 text-white/80 hover:border-violet-400/40 hover:bg-violet-500/5') +
+                        (busy ? ' pointer-events-none opacity-50' : '')
+                      }
                     >
-                      {busy === it.id ? '⏳ ' : '+ '}{it.label}
-                    </button>
+                      <input
+                        type="radio"
+                        name="brain-region"
+                        value={it.id}
+                        checked={selected === it.id}
+                        onChange={() => setSelected(it.id)}
+                        disabled={!!busy}
+                        className="h-3 w-3 accent-violet-400"
+                      />
+                      <span className="flex-1 truncate">
+                        {busy === it.id ? '⏳ ' : ''}{it.label}
+                      </span>
+                    </label>
                   ))}
                 </div>
               </div>

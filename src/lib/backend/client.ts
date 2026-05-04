@@ -126,22 +126,28 @@ export class NeuronFaceClient {
   }
 
   // cortical preset 적용 — INPUT 8개 + V1/V2 다층 + OUT 4개 시냅스 회로 구축.
-  // 네트워크에 in_pinch 등 입력 뉴런이 이미 있으면 skip.
+  // 네트워크에 이미 회로가 있으면 skip (snapshot 으로 검사 + 409 응답도 성공 취급).
   private async ensureCorticalPreset(): Promise<Result<unknown>> {
     if (this.presetEnsured || !this.networkId) return { ok: true, data: null };
+    // 1. snapshot 로 in_pinch / 다수 neuron 존재 확인 (구버전 회로도 인정).
     const snap = await this.request<NetworkSnapshot>(`/networks/${this.networkId}`);
     if (snap.ok) {
-      const has = (snap.data.neurons || []).some((n) => n.name === 'in_pinch');
-      if (has) {
+      const neurons = snap.data.neurons || [];
+      const hasInputs = neurons.some((n) => n.name?.startsWith('in_'));
+      if (hasInputs || neurons.length > 0) {
         this.presetEnsured = true;
         return { ok: true, data: null };
       }
     }
+    // 2. 비어 있으면 신규 적용 시도. 409 는 "이미 회로 있음" → 성공 취급.
     const r = await this.request(`/networks/${this.networkId}/presets/cortical`, {
       method: 'POST',
       body: { overwrite: false, v_threshold: -55.0, v1_l4e_count: 200 },
     });
-    if (r.ok) this.presetEnsured = true;
+    if (r.ok || (!r.ok && r.status === 409)) {
+      this.presetEnsured = true;
+      return { ok: true, data: null };
+    }
     return r;
   }
 

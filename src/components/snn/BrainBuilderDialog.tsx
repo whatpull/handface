@@ -95,15 +95,19 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
 
   if (!open) return null;
 
-  // batch 모드: true 면 circuit-changed emit 을 마지막에 한 번만.
-  const buildOne = async (id: string, path: string, body: object = {}, batch = false) => {
+  const pushLog = (line: string) => {
+    setLog((l) => [line, ...l].slice(0, 30));
+  };
+
+  const buildOne = async (id: string, label: string, path: string, body: object = {}) => {
     setBusy(id);
+    pushLog(`… ${label}`);
     const client = getClient();
     const net = await client.ensureNetwork();
     if (!net.ok) {
-      setLog((l) => [...l, `✗ ${id}: ${net.reason}`]);
+      pushLog(`✗ ${label}: ${net.reason}`);
       setBusy(null);
-      return false;
+      return;
     }
     try {
       const r = await fetch(`${client.endpoint}/networks/${net.data}${path}`, {
@@ -117,40 +121,16 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
         const added = (data.neurons_added ?? data.synapses_added ?? '?');
-        setLog((l) => [...l, `✓ ${id} +${added}`]);
-        if (!batch) emitBackendEvent('circuit-changed', {});
-        return true;
+        pushLog(`✓ ${label} +${added}`);
+        emitBackendEvent('circuit-changed', {});
       } else {
-        setLog((l) => [...l, `✗ ${id}: HTTP ${r.status} ${(data.detail || data.reason || '').toString().slice(0, 60)}`]);
-        return false;
+        pushLog(`✗ ${label}: HTTP ${r.status} ${(data.detail || data.reason || '').toString().slice(0, 80)}`);
       }
     } catch (e) {
-      setLog((l) => [...l, `✗ ${id}: ${(e as Error).message}`]);
-      return false;
+      pushLog(`✗ ${label}: ${(e as Error).message}`);
     } finally {
       setBusy(null);
     }
-  };
-
-  const buildAll = async () => {
-    const total = BUILDERS.reduce((s, c) => s + c.items.length, 0);
-    if (!confirm(
-      `Build All: ${total}개 region 일괄 추가합니다.\n` +
-      `완료까지 30~60초 걸리고 회로가 매우 커집니다 (캔버스 sampling 으로 일부만 표시).\n\n계속할까요?`,
-    )) return;
-    setLog((l) => [...l, `— Build All 시작 (${total}개) —`]);
-    let okCount = 0;
-    for (const cat of BUILDERS) {
-      for (const item of cat.items) {
-        const ok = await buildOne(item.id, item.path, item.body, true);
-        if (ok) okCount += 1;
-        // 각 빌드 사이 microtask yield — UI 반응성 유지.
-        await new Promise<void>((res) => setTimeout(res, 0));
-      }
-    }
-    setLog((l) => [...l, `— Build All 완료 (${okCount}건 성공) —`]);
-    // 마지막에 한 번만 remount 트리거 → snapshot 1회 로드.
-    emitBackendEvent('circuit-changed', {});
   };
 
   return (
@@ -166,24 +146,14 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
           <span id="brain-dialog-title" className="text-xs font-semibold tracking-wider text-violet-300">
             🧠 BRAIN BUILDER
           </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={buildAll}
-              disabled={!!busy}
-              className="rounded bg-violet-500/20 px-3 py-1 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 disabled:opacity-50"
-            >
-              Build All
-            </button>
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={onClose}
-              className="rounded px-2 text-white/50 hover:bg-white/10 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="rounded px-2 text-white/50 hover:bg-white/10 hover:text-white"
+          >
+            ✕
+          </button>
         </div>
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-4">
@@ -197,7 +167,7 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
                     <button
                       key={it.id}
                       type="button"
-                      onClick={() => buildOne(it.id, it.path, it.body)}
+                      onClick={() => buildOne(it.id, it.label, it.path, it.body)}
                       disabled={!!busy}
                       className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-left text-[11px] text-white/80 hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-violet-200 disabled:opacity-50"
                     >

@@ -161,16 +161,22 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     const FIRE_DURATION_MS = 800;
     const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // Region 뷰: active_neurons_by_region (count) + rates_by_region (avg Hz) 합쳐서 region 카드 갱신.
-      // active 카운트가 1개라도 있거나 rates_by_region 값이 0 이상이면 카드 빛남.
+      // Region 뷰: rates 의 prefix 로 region 추론 (백엔드의 rates_by_region 응답이 없을 때 대비).
+      // 각 region 의 활성 neuron 수 (rate > 0) 를 직접 집계 → 카드 active count + fire toggle.
       if (view === 'region') {
-        const byRegionActive = d.active_neurons_by_region || {};
+        const rates = d.rates || {};
+        const counts: Record<string, number> = { INPUT: 0, V1: 0, V2: 0, OUT: 0 };
+        for (const [name, rate] of Object.entries(rates)) {
+          if (rate <= 0) continue;
+          const region = inferRegion(name);
+          if (region in counts) counts[region] += 1;
+        }
+        // 백엔드 rates_by_region 도 있으면 보조 사용 (avg Hz > 0 이면 fire).
         const byRegionRate = d.rates_by_region || {};
-        const allRegions = new Set([...Object.keys(byRegionActive), ...Object.keys(byRegionRate)]);
-        for (const region of allRegions) {
+        for (const region of Object.keys(counts)) {
           const card = nodeRefMap.current[`region_${region}`];
           if (!card) continue;
-          const count = (byRegionActive[region] || []).length;
+          const count = counts[region];
           const avgRate = byRegionRate[region] || 0;
           const countEl = card.querySelector('.snn-canvas-region-count');
           if (countEl) countEl.textContent = String(count);
@@ -243,6 +249,15 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       )}
     </>
   );
+}
+
+// 백엔드 neuron name 에서 region 추론 (rates_by_region 미제공 케이스 대비).
+function inferRegion(name: string): string {
+  if (name.startsWith('in_')) return 'INPUT';
+  if (name.startsWith('out_')) return 'OUT';
+  if (name.startsWith('v1_')) return 'V1';
+  if (name.startsWith('v2_')) return 'V2';
+  return 'OTHER';
 }
 
 function buildNodeClass(n: LayoutNode): string {

@@ -101,6 +101,8 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   // Session 39: 노드 드래그 후 위치 영구 저장 (edit mode 에서 사용자 직접 이동).
   // drawflow 'nodeMoved' 이벤트 (drag end 시 발화) → drawflow id 를 neuron name 으로
   // 역매핑 → setNodePosition 호출 (state.positions Map 갱신 + localStorage save).
+  // P206 ext: 편집 모드 드래그 후 같은 그룹 자동 snap (300ms debounce).
+  let dragSnapTimer = null;
   editor.on('nodeMoved', (id) => {
     const name = drawflowIdToName[id];
     if (!name) return;
@@ -110,6 +112,22 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
         setNodePosition(name, node.pos_x, node.pos_y);
       }
     } catch (_) { /* ignore */ }
+    // 자동 snap — 같은 (region, population) 그룹의 다른 노드들 등간격 재배치.
+    clearTimeout(dragSnapTimer);
+    dragSnapTimer = setTimeout(() => {
+      try {
+        const el = document.getElementById(`node-${id}`);
+        if (!el) return;
+        const region = el.dataset.region;
+        const population = el.dataset.population;
+        if (!region || region === '?') return;
+        // 이 그룹만 정렬 (전체 X 다른 그룹 영향 X).
+        autoLayoutByRegion({
+          minGap: 16,
+          onlyGroup: `${region}:${population}`,
+        });
+      } catch (_) { /* ignore */ }
+    }, 300);
   });
 
   // Session 36: 본격 manual pan handler 영역 (drawflow 'view' mode pan 영역 catch 회피).
@@ -434,17 +452,14 @@ function attachManualPan(container) {
 // Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
 // bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
 // container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
-// Phase 206: Auto-layout — region + population 단위 그룹 별 수직 동일 간격 정렬.
-// 큰 회로에서 사용자가 모든 노드 위치를 직접 잡기 어려운 문제 해결.
-// 1. (region, population) 그룹에 속한 노드 수집 — canonical/system 그룹은 제외 (의도된 layout 보존).
+// Phase 206 (revised): Auto-layout — region + population 단위 그룹 별 수직 동일 간격 정렬.
+// 모든 노드 (canonical 포함) 정렬. 사용자 의도: "항상 반듯하고 좋은 간격".
+// 1. (region, population) 그룹에 속한 노드 수집.
 // 2. 그룹 내 X 는 median 으로 정렬 (defensive — 같은 그룹은 같은 X 여야 정상).
-// 3. Y 는 canvas 중심 기준 등간격 재배치 → 겹침 방지.
-// 4. drawflow data + DOM 직접 갱신 + updateConnectionNodes (patched: applyStepPaths 자동) 호출.
-// Canonical 그룹 (V1/V2 INPUT/OUT/SOURCE/USER_*) 은 NEURON_NODES gridPos 로 이미 정렬돼 있어 제외.
-const AUTOLAYOUT_EXCLUDE_REGIONS = new Set([
-  'INPUT', 'OUT', 'SOURCE', 'USER_INPUT', 'USER_OUTPUT', '?',
-]);
-const CANONICAL_NEURON_PREFIXES = ['v1_L', 'v2_L', 'in_', 'out_', 'user_in_', 'user_out_', 'src_'];
+// 3. Y 는 canvas 중심 기준 동적 spacing (각 노드 height + MIN_GAP 누적).
+// 4. drawflow data + DOM 직접 갱신 + updateConnectionNodes (patched: applyStepPaths 자동).
+// excludeRegions 옵션으로 특정 region 제외 가능 (default: 비어있음).
+const AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT = new Set(['?']);   // unknown 만 제외.
 
 export function autoLayoutByRegion(opts = {}) {
   if (!editor) return { ok: false, reason: 'editor not initialized' };
@@ -453,18 +468,17 @@ export function autoLayoutByRegion(opts = {}) {
   const MIN_GAP = opts.minGap ?? 16;                 // 노드 간 최소 여백 (px).
   const FALLBACK_HEIGHT = opts.fallbackHeight ?? 60; // offsetHeight 0 일 때 fallback.
   const CANVAS_CENTER_Y = opts.centerY ?? 630;       // gridPos 와 동일 (TOP_PAD 80 + 5 * ROW_HEIGHT 110).
-  const includeCanonical = opts.includeCanonical === true;
+  const excludeRegions = new Set(opts.excludeRegions || AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT);
+  const onlyGroup = opts.onlyGroup || null;          // 'region:population' 한 그룹만 (드래그 후 snap).
+  const useGroupCenter = opts.useGroupCenter !== false && !!onlyGroup;
   const groups = new Map();   // 'region:population' → [{ id, name, el, x, y, h }]
   container.querySelectorAll('.drawflow-node[data-region]').forEach((el) => {
     const region = el.dataset.region || '?';
     const population = el.dataset.population || '?';
-    // Canonical 그룹 제외 (이미 등간격, USER_* alternating stack 의도 보존).
-    if (!includeCanonical && AUTOLAYOUT_EXCLUDE_REGIONS.has(region)) return;
+    if (excludeRegions.has(region)) return;
     const id = parseInt(el.id?.replace('node-', ''), 10);
     const name = drawflowIdToName[id];
     if (!name || isNaN(id)) return;
-    // 추가 보호: canonical neuron name prefix 매칭이면 제외.
-    if (!includeCanonical && CANONICAL_NEURON_PREFIXES.some(p => name.startsWith(p))) return;
     const key = `${region}:${population}`;
     const x = parseFloat(el.style.left) || 0;
     const y = parseFloat(el.style.top) || 0;
@@ -476,6 +490,7 @@ export function autoLayoutByRegion(opts = {}) {
   let touched = 0;
   const movedIds = [];
   for (const [key, nodes] of groups) {
+    if (onlyGroup && key !== onlyGroup) continue;
     if (nodes.length < 2) continue;   // 단일 노드는 건드릴 필요 없음.
     // X median 으로 정렬 (같은 그룹은 같은 X 여야 함).
     const xs = nodes.map(n => n.x).sort((a, b) => a - b);
@@ -498,7 +513,11 @@ export function autoLayoutByRegion(opts = {}) {
       }
     });
     const totalHeight = cursor;   // 마지막 노드 bottom = 그룹 전체 height.
-    const groupTopY = CANVAS_CENTER_Y - totalHeight / 2;
+    // 단일 그룹 (드래그 snap) 시 그룹 현재 중심 보존, 전체 정렬은 canvas center 기준.
+    const groupCenterY = useGroupCenter
+      ? nodes.reduce((s, n) => s + (n.y + n.h / 2), 0) / nodes.length
+      : CANVAS_CENTER_Y;
+    const groupTopY = groupCenterY - totalHeight / 2;
     nodes.forEach((node, i) => {
       const newX = targetX;
       const newY = groupTopY + yPositions[i];
@@ -532,7 +551,6 @@ export function autoLayoutByRegion(opts = {}) {
     groups: groups.size,
     nodes_moved: touched,
     min_gap: MIN_GAP,
-    excluded_canonical: !includeCanonical,
   };
 }
 

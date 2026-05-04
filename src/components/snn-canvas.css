@@ -73,38 +73,47 @@
   stroke-width: 0.6;
 }
 
-/* port dot (input/output) — 시냅스 라인이 닷 중심으로 자연스럽게 들어가도록.
-   외곽 다크 ring 제거 (라인 occlusion 방지) + 8px 작은 닷. */
+/* port dot (input/output) — main-rollback "port socket" 형태 (concentric ring).
+   크기 축소 (10→7px) + 깔끔한 색감 유지. */
 #nf-snn-canvas .drawflow-node .input,
 #nf-snn-canvas .drawflow-node .output {
-  background: rgba(255, 255, 255, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  width: 8px;
-  height: 8px;
+  background: rgba(40, 40, 48, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   margin: 0;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
-  box-shadow: none;
-  transition: background 200ms, border-color 200ms, box-shadow 200ms;
+  /* 내부 dark ring 2px + 외곽 subtle white ring 1px = port socket 느낌, 단 두께 절반. */
+  box-shadow:
+    0 0 0 2px rgba(20, 20, 24, 0.95),
+    0 0 0 3px rgba(255, 255, 255, 0.06);
+  transition: box-shadow 200ms, background 200ms, border-color 200ms;
 }
 /* 닷 중심을 카드 edge 에 정렬 → 라인이 닷 중심에 정확히 종착. */
-#nf-snn-canvas .drawflow-node .input  { left: -4px; }
-#nf-snn-canvas .drawflow-node .output { right: -4px; }
+#nf-snn-canvas .drawflow-node .input  { left: -3.5px; }
+#nf-snn-canvas .drawflow-node .output { right: -3.5px; }
 
 #nf-snn-canvas .drawflow-node .input:hover,
 #nf-snn-canvas .drawflow-node .output:hover {
   background: var(--neuron-color, #5eead4);
   border-color: var(--neuron-color, #5eead4);
-  box-shadow: 0 0 6px var(--neuron-color, #5eead4);
+  box-shadow:
+    0 0 0 2px rgba(20, 20, 24, 0.95),
+    0 0 0 4px var(--neuron-color, #5eead4),
+    0 0 6px var(--neuron-color, #5eead4);
 }
 #nf-snn-canvas .snn-canvas-neuron--fired .input,
 #nf-snn-canvas .snn-canvas-neuron--fired .output {
   background: var(--neuron-color, #5eead4);
   border-color: var(--neuron-color, #5eead4);
-  box-shadow: 0 0 8px var(--neuron-color, #5eead4);
+  box-shadow:
+    0 0 0 2px rgba(20, 20, 24, 0.95),
+    0 0 0 4px var(--neuron-color, #5eead4),
+    0 0 8px var(--neuron-color, #5eead4);
 }
 
 /* Neuron card — main-rollback 정합 (ComfyUI/Weavy 디자인). */

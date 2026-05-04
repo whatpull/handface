@@ -112,13 +112,39 @@ export function applyCameraConnected(map: Record<string, Element>, connected: bo
   }
 }
 
-// drawflow view-mode pan + wheel zoom (drawflow 기본 pan 우회).
+// drawflow view-mode pan + wheel/pinch zoom (drawflow 기본 pan 우회).
+// 모바일: 1 finger = pan, 2 fingers = pinch zoom (pan 차단).
 export function attachManualPan(container: HTMLElement, ed: Drawflow) {
   let panning = false;
+  let pinching = false;
   let startX = 0, startY = 0, startCx = 0, startCy = 0;
+  // pinch state — 두 손가락 사이 거리 + 중심 기준 zoom.
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
+  let pinchStartCx = 0, pinchStartCy = 0;
+  let pinchAnchorDataX = 0, pinchAnchorDataY = 0;
 
+  const applyTransform = () => {
+    if (!ed.precanvas) return;
+    ed.precanvas.style.transformOrigin = '0 0';
+    ed.precanvas.style.transform =
+      `translate(${ed.canvas_x}px, ${ed.canvas_y}px) scale(${ed.zoom})`;
+  };
+
+  const setZoomAtPoint = (mx: number, my: number, newZoom: number) => {
+    const oldZoom = ed.zoom || 1;
+    const dataX = (mx - (ed.canvas_x || 0)) / oldZoom;
+    const dataY = (my - (ed.canvas_y || 0)) / oldZoom;
+    ed.zoom = newZoom;
+    ed.canvas_x = mx - dataX * newZoom;
+    ed.canvas_y = my - dataY * newZoom;
+    applyTransform();
+  };
+
+  // ── Pointer (mouse + 단일 터치 fallback) ──
   const onDown = (e: PointerEvent) => {
     if (ed.editor_mode === 'edit') return;
+    if (pinching) return;
     if ((e.target as HTMLElement)?.closest('.input, .output, button')) return;
     panning = true;
     startX = e.clientX; startY = e.clientY;
@@ -127,46 +153,90 @@ export function attachManualPan(container: HTMLElement, ed: Drawflow) {
     e.preventDefault();
   };
   const onMove = (e: PointerEvent) => {
-    if (!panning) return;
+    if (!panning || pinching) return;
     ed.canvas_x = startCx + (e.clientX - startX);
     ed.canvas_y = startCy + (e.clientY - startY);
-    if (ed.precanvas) {
-      ed.precanvas.style.transform =
-        `translate(${ed.canvas_x}px, ${ed.canvas_y}px) scale(${ed.zoom})`;
-    }
+    applyTransform();
   };
   const onUp = () => {
     panning = false;
     container.style.cursor = 'grab';
   };
+
+  // ── Touch (모바일 pinch zoom) ──
+  const dist = (t1: Touch, t2: Touch) =>
+    Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+  const center = (t1: Touch, t2: Touch, rect: DOMRect) => ({
+    x: (t1.clientX + t2.clientX) / 2 - rect.left,
+    y: (t1.clientY + t2.clientY) / 2 - rect.top,
+  });
+
+  const onTouchStart = (e: TouchEvent) => {
+    if (e.touches.length === 2) {
+      // 핀치 시작 → 진행 중이던 pan 무효화.
+      panning = false;
+      pinching = true;
+      const rect = container.getBoundingClientRect();
+      const c = center(e.touches[0], e.touches[1], rect);
+      pinchStartDist = dist(e.touches[0], e.touches[1]);
+      pinchStartZoom = ed.zoom || 1;
+      pinchStartCx = ed.canvas_x || 0;
+      pinchStartCy = ed.canvas_y || 0;
+      pinchAnchorDataX = (c.x - pinchStartCx) / pinchStartZoom;
+      pinchAnchorDataY = (c.y - pinchStartCy) / pinchStartZoom;
+      e.preventDefault();
+    }
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    if (!pinching || e.touches.length !== 2) return;
+    const rect = container.getBoundingClientRect();
+    const c = center(e.touches[0], e.touches[1], rect);
+    const d = dist(e.touches[0], e.touches[1]);
+    const ratio = d / (pinchStartDist || 1);
+    const newZoom = Math.max(
+      ed.zoom_min || 0.2,
+      Math.min(ed.zoom_max || 4, pinchStartZoom * ratio),
+    );
+    // 핀치 중심을 anchor 로 zoom + 핀치 중심 이동도 함께 추적 (pan-zoom 동시).
+    ed.zoom = newZoom;
+    ed.canvas_x = c.x - pinchAnchorDataX * newZoom;
+    ed.canvas_y = c.y - pinchAnchorDataY * newZoom;
+    applyTransform();
+    e.preventDefault();
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    if (e.touches.length < 2) {
+      pinching = false;
+      // 1 finger 만 남으면 다음 pointer 이벤트가 자연스럽게 pan 재개.
+      // 0 finger 이면 종료.
+    }
+  };
+
+  // ── Wheel (desktop zoom) ──
   const onWheel = (e: WheelEvent) => {
     e.preventDefault(); e.stopPropagation();
     const rect = container.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const oldZoom = ed.zoom || 1;
-    const oldCx = ed.canvas_x || 0;
-    const oldCy = ed.canvas_y || 0;
-    const dataX = (mx - oldCx) / oldZoom;
-    const dataY = (my - oldCy) / oldZoom;
     const step = ed.zoom_value || 0.05;
     const dir = e.deltaY > 0 ? -1 : 1;
     const newZoom = Math.max(ed.zoom_min || 0.2, Math.min(ed.zoom_max || 4, oldZoom + step * dir));
     if (Math.abs(newZoom - oldZoom) < 1e-6) return;
-    ed.zoom = newZoom;
-    ed.canvas_x = mx - dataX * newZoom;
-    ed.canvas_y = my - dataY * newZoom;
-    if (ed.precanvas) {
-      ed.precanvas.style.transformOrigin = '0 0';
-      ed.precanvas.style.transform =
-        `translate(${ed.canvas_x}px, ${ed.canvas_y}px) scale(${newZoom})`;
-    }
+    setZoomAtPoint(mx, my, newZoom);
   };
 
+  // pointer (mouse + touch fallback)
   container.addEventListener('pointerdown', onDown);
   container.addEventListener('pointermove', onMove);
   container.addEventListener('pointerup', onUp);
   container.addEventListener('pointercancel', onUp);
+  // touch (pinch zoom 전용 — pan 충돌 방지)
+  container.addEventListener('touchstart', onTouchStart, { passive: false });
+  container.addEventListener('touchmove', onTouchMove, { passive: false });
+  container.addEventListener('touchend', onTouchEnd);
+  container.addEventListener('touchcancel', onTouchEnd);
+  // wheel (desktop)
   container.addEventListener('wheel', onWheel, { capture: true, passive: false });
 }
 

@@ -21,7 +21,7 @@ import {
   DECODE_EDGES,
   weightColor,
 } from './data.js';
-import { setNodePosition, loadPositions } from '../state.js';
+import { setNodePosition, loadPositions, getNodePosition } from '../state.js';
 
 cytoscape.use(dagre);
 
@@ -229,11 +229,11 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
       ...n, isSystem: n.isSystem !== false,
     })),
   ];
-  // Saved positions (사용자 드래그 후 저장된 위치).
-  const saved = loadPositions();
+  // Saved positions (사용자 드래그 후 저장된 위치) — Map 갱신만, 직접 접근은 getNodePosition.
+  loadPositions();
 
   for (const n of allNeurons) {
-    const pos = saved[n.id] || { x: n.x, y: n.y };
+    const pos = getNodePosition(n.id) || { x: n.x, y: n.y };
     elements.push({
       group: 'nodes',
       data: {

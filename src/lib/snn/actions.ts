@@ -116,16 +116,5 @@ export function createActions(h: ActionHooks) {
       h.onStatsResult?.(r.data);
       h.status('✓ Stats opened');
     }),
-
-    grow: () => run('Grow', async () => {
-      const region = prompt('Region (V1/V2)?', 'V1');
-      if (region !== 'V1' && region !== 'V2') { h.status('cancelled (region)'); return; }
-      const pop = prompt('Population (L4_E/L23_E/L5_E)?', 'L4_E');
-      if (pop !== 'L4_E' && pop !== 'L23_E' && pop !== 'L5_E') { h.status('cancelled (population)'); return; }
-      const count = parseInt(prompt('Count?', '5') || '0', 10);
-      if (!count) { h.status('cancelled'); return; }
-      const r = await getClient().growRegion(region, pop, count);
-      h.status(r.ok ? `✓ Grow +${count} ${region}/${pop}` : `✗ Grow: ${r.reason}`);
-    }),
   };
 }

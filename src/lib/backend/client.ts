@@ -346,17 +346,6 @@ export class NeuronFaceClient {
     return r;
   }
 
-  async growRegion(region: 'V1' | 'V2', population: 'L4_E' | 'L23_E' | 'L5_E', count: number): Promise<Result<unknown>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const r = await this.request(`/networks/${net.data}/grow_region`, {
-      method: 'POST',
-      body: { region, population, count, connect_density: 0.3 },
-    });
-    if (r.ok) emitBackendEvent('circuit-changed', {});
-    return r;
-  }
-
   async getStats(): Promise<Result<unknown>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;

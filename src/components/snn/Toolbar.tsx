@@ -70,9 +70,6 @@ export default function Toolbar({
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
         </button>
-        <button type="button" className={btnCls} onClick={actions.grow} disabled={busy === 'Grow'}>
-          <Icon kind="grow" /> Grow
-        </button>
         <button type="button" className={btnCls} onClick={onBrain}>
           <Icon kind="brain" /> Brain
         </button>
@@ -131,13 +128,6 @@ function Icon({ kind }: { kind: string }) {
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
-        </svg>
-      );
-    case 'grow':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M7 20h10" /><path d="M10 20c5.5-2.5.8-6.4 3-10" />
-          <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z" />
         </svg>
       );
     case 'brain':

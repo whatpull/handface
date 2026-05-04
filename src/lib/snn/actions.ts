@@ -26,7 +26,8 @@ export function createActions(h: ActionHooks) {
   return {
     train: () => run('Train', async () => {
       const t0 = performance.now();
-      const r = await getClient().trainCascade(GESTURES, 2, (done, total) => {
+      // supervised 학습 — 3 trials × 4 gestures = 12 호출.
+      const r = await getClient().trainCascade(GESTURES, 3, (done, total) => {
         const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
         h.status(`Train ${done}/${total}… (${elapsed}s)`);
       });

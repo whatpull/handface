@@ -196,13 +196,12 @@ export class NeuronFaceClient {
     return { ok: true, data: out };
   }
 
-  // Train — induce_fire cascade + STDP. 백엔드 simulation 부하 최소화:
-  //  observe_ms=60 (cascade 6단계 × ~5ms delay = ~30ms + 안전 margin)
-  //  stim=15ms (handface_and_observe 기본값)
-  //  trials=2 (4 gestures × 2 = 8 호출 — STDP 반복 효과 유지)
+  // Train — handface_train_supervised: gesture INPUT + target_out supervisor 동시 자극.
+  // Hebbian co-activation 으로 gesture→OUT 매핑 학습.
+  // 이전 induce_fire (target_out 없음) 는 모든 gesture 가 동일 OUT 에 수렴하는 문제.
   async trainCascade(
     gestures: string[],
-    trials = 2,
+    trials = 3,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Result<{ trained: number; failed: number; total: number }>> {
     const net = await this.ensureNetwork();
@@ -213,14 +212,20 @@ export class NeuronFaceClient {
     const total = trials * gestures.length;
     for (let t = 0; t < trials; t += 1) {
       for (const g of gestures) {
-        const target = GESTURE_TO_INPUT[g];
-        if (!target) { failed += 1; done += 1; onProgress?.(done, total); continue; }
-        const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
+        const targetOut = GESTURE_TO_OUT[g];
+        if (!targetOut) { failed += 1; done += 1; onProgress?.(done, total); continue; }
+        const r = await this.request<FireResponse>(`/networks/${net.data}/handface_train_supervised`, {
           method: 'POST',
           body: {
-            neuron_name: target, weight: 80,
-            stimulus_duration_ms: 15, observe_ms: 60,
-            stdp: true, stdp_mode: 'pair',
+            type: 'gesture', name: g,
+            intensity: 3.75,                 // weight = 5 + 3.75*20 = 80 (V_th=-55 cascade)
+            observe_ms: 80,
+            stimulus_duration_ms: 15,
+            target_out: targetOut,
+            stdp: true,
+            stdp_mode: 'pair',
+            supervisor_weight: 60,           // OUT 강제 fire 보장
+            supervisor_delay_ms: 30,         // cascade arrival 정합
           },
         });
         if (r.ok && r.data.ok !== false) {

@@ -25,15 +25,20 @@ export function createActions(h: ActionHooks) {
 
   return {
     train: () => run('Train', async () => {
-      const r = await getClient().trainCascade(GESTURES, 3, (done, total) => {
-        h.status(`Train ${done}/${total}…`);
+      const t0 = performance.now();
+      const r = await getClient().trainCascade(GESTURES, 2, (done, total) => {
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+        h.status(`Train ${done}/${total}… (${elapsed}s)`);
       });
-      h.status(r.ok ? `✓ Train (${r.data.trained}/${r.data.total} trials)` : `✗ Train: ${r.reason}`);
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      h.status(r.ok ? `✓ Train (${r.data.trained}/${r.data.total} trials, ${dt}s)` : `✗ Train: ${r.reason}`);
     }),
 
     eval: () => run('Eval', async () => {
-      const r = await getClient().evalDecode(GESTURES, 3, (done, total) => {
-        h.status(`Eval ${done}/${total}…`);
+      const t0 = performance.now();
+      const r = await getClient().evalDecode(GESTURES, 2, (done, total) => {
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+        h.status(`Eval ${done}/${total}… (${elapsed}s)`);
       });
       if (!r.ok) { h.status(`✗ Eval: ${r.reason}`); return; }
       const { correct, total, accuracy } = r.data;

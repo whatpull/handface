@@ -193,11 +193,13 @@ export class NeuronFaceClient {
     return { ok: true, data: out };
   }
 
-  // Train — induce_fire cascade + STDP. observe_ms=120 으로 단축 (cascade 6단계 + 시냅스 지연 감안 충분).
-  // onProgress 콜백으로 진행률 보고 (UI 가 status bar 갱신).
+  // Train — induce_fire cascade + STDP. 백엔드 simulation 부하 최소화:
+  //  observe_ms=60 (cascade 6단계 × ~5ms delay = ~30ms + 안전 margin)
+  //  stim=15ms (handface_and_observe 기본값)
+  //  trials=2 (4 gestures × 2 = 8 호출 — STDP 반복 효과 유지)
   async trainCascade(
     gestures: string[],
-    trials = 3,
+    trials = 2,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Result<{ trained: number; failed: number; total: number }>> {
     const net = await this.ensureNetwork();
@@ -214,7 +216,7 @@ export class NeuronFaceClient {
           method: 'POST',
           body: {
             neuron_name: target, weight: 80,
-            stimulus_duration_ms: 30, observe_ms: 120,
+            stimulus_duration_ms: 15, observe_ms: 60,
             stdp: true, stdp_mode: 'pair',
           },
         });
@@ -235,7 +237,7 @@ export class NeuronFaceClient {
   // Eval — STDP 없이 inject → out_rates winner 와 정답 비교.
   async evalDecode(
     gestures: string[],
-    trials = 3,
+    trials = 2,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Result<{ correct: number; total: number; accuracy: number }>> {
     const net = await this.ensureNetwork();
@@ -252,7 +254,7 @@ export class NeuronFaceClient {
           method: 'POST',
           body: {
             neuron_name: target, weight: 80,
-            stimulus_duration_ms: 30, observe_ms: 120,
+            stimulus_duration_ms: 15, observe_ms: 60,
             stdp: false, stdp_mode: 'pair',
           },
         });

@@ -158,6 +158,7 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
 
   // Phase 201: region hover highlight — same region 노드 강조.
   attachRegionHoverHighlight(container);
+  attachDragStepPathLoop(container);   // drag 중 step path 유지.
 
   // synapse edge (backend response 사용 + SOURCE + DECODE pathway 영역 frontend fixed).
   // Session 37 Phase 4: DECODE_EDGES = 직접 INPUT → OUT 영역 (D120 backend 영역 영역).
@@ -221,6 +222,40 @@ function openSubmenu(menuEl, nodeId, dfId) {
   // ... menu button 영역 자식 영역 영역 → button 영역 영역 dropdown + drawflow zoom transform 영역 영역.
   menuEl.appendChild(submenu);
   activeSubmenu = submenu;
+}
+
+// 노드 드래그 중 시냅스 step path 유지.
+// drawflow 가 mousemove 마다 connection 의 d 를 bezier/straight 로 다시 그림 →
+// pointerdown ~ pointerup 동안 RAF loop 으로 매 frame applyStepPaths 호출.
+function attachDragStepPathLoop(container) {
+  if (!container) return;
+  let dragging = false;
+  let rafId = null;
+  const tick = () => {
+    if (!dragging) return;
+    try { applyStepPaths(); } catch (_) {}
+    rafId = requestAnimationFrame(tick);
+  };
+  container.addEventListener('pointerdown', (ev) => {
+    // 노드 드래그만 (connection 추가 등은 무관).
+    const node = ev.target?.closest?.('.drawflow-node');
+    if (!node) return;
+    if (dragging) return;
+    dragging = true;
+    rafId = requestAnimationFrame(tick);
+  }, true);
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    // 마지막 한 번 적용 (drag end 후 drawflow 가 추가 redraw 할 수 있음).
+    requestAnimationFrame(() => {
+      try { applyStepPaths(); } catch (_) {}
+    });
+  };
+  window.addEventListener('pointerup', stop, true);
+  window.addEventListener('pointercancel', stop, true);
 }
 
 // Phase 201: region hover highlight — mouseenter on node → 같은 region 모든 노드 강조.

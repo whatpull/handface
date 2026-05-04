@@ -16,7 +16,13 @@
       color: rgba(255, 255, 255, 0.85);
       font-family: 'Inter', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       overflow: hidden;
+      /* Phase 208: 모바일 URL bar dynamic visibility 대응.
+         - 100vh: URL bar 숨김 시 height (max viewport) → URL bar 보일 때 잘림.
+         - 100dvh: dynamic viewport height (URL bar 변동 자동 반영, modern browsers).
+         - --app-vh: JS visualViewport API fallback (구형 브라우저). */
       min-height: 100vh;
+      min-height: 100dvh;
+      min-height: calc(var(--app-vh, 1vh) * 100);
     }
     .snn-mono,
     .snn-layer-label,
@@ -1251,10 +1257,14 @@
       /* show 는 즉시 (transition 0), hide 는 부드러운 fade-out. */
       transition: opacity 0s linear 0s, visibility 0s linear 0s;
     }
-    /* 모바일: nf-bottom-bar (fixed) 영역만큼 padding 추가 → 가시 영역 중앙 정렬. */
+    /* 모바일: nf-bottom-bar (fixed) 영역만큼 padding 추가 → 가시 영역 중앙 정렬.
+       URL bar 동적 변동 대응 — dvh + --app-vh JS fallback. */
     @media (max-width: 768px) {
       .nf-canvas-loading {
         padding-bottom: calc(72px + env(safe-area-inset-bottom));
+        /* 부모 (#nf-snn-canvas) 가 100dvh 기반이면 URL bar 변동 자동 반영. */
+        max-height: 100dvh;
+        max-height: calc(var(--app-vh, 1vh) * 100);
       }
     }
     .nf-canvas-loading--hidden {
@@ -2433,6 +2443,8 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      height: 100dvh;
+      height: calc(var(--app-vh, 1vh) * 100);
       min-height: 0;
     }
 
@@ -3025,7 +3037,7 @@
       #neuronface-settings:not(.open) { display: none !important; }
       #neuronface-settings.open {
         left: 0; right: 0; top: 0;
-        width: 100vw; height: calc(100vh - 72px - env(safe-area-inset-bottom));
+        width: 100vw; height: calc(100dvh - 72px - env(safe-area-inset-bottom));
         border-right: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }

@@ -530,6 +530,15 @@ export function fitCanvasToNodes(padding = 0.9) {
   });
 }
 
+// Phase 208: viewport 변경 (URL bar 변동, 회전, 키보드 등) 시 자동 re-fit.
+// debounce 200ms 로 과도한 재계산 방지.
+let viewportRefitTimer = null;
+window.addEventListener('snn-canvas:viewport-changed', () => {
+  if (!editor) return;
+  clearTimeout(viewportRefitTimer);
+  viewportRefitTimer = setTimeout(() => fitCanvasToNodes(0.9), 200);
+});
+
 function doFit(padding) {
   if (!editor || !editor.precanvas) return;
   const container = editor.container;
@@ -555,7 +564,17 @@ function doFit(padding) {
   // container 영역 = #nf-snn-canvas (.nf-app-main grid 1fr 영역 영역).
   const rect = container.getBoundingClientRect();
   const viewportW = rect.width;
-  const viewportHRaw = rect.height;
+  // Phase 208: 모바일 URL bar 가 보일 때 rect.height 가 실제 가시 영역보다 클 수 있음.
+  // visualViewport.height (URL bar 제외 실제 visible) 와 비교해 작은 쪽 사용.
+  let viewportHRaw = rect.height;
+  if (window.visualViewport && window.visualViewport.height > 0) {
+    // container top 부터 visualViewport 하단까지의 거리.
+    const vvBottom = window.visualViewport.offsetTop + window.visualViewport.height;
+    const visibleH = vvBottom - rect.top;
+    if (visibleH > 0 && visibleH < viewportHRaw) {
+      viewportHRaw = visibleH;
+    }
+  }
   // Phase 207: 모바일 푸터 (Add/Train/Eval/Save/More) 가 캔버스 위에 overlay 되어
   // 실제 가시 영역이 줄어듦 → footer 높이만큼 보정.
   // .nf-bottom-bar 가 실제 모바일 footer (다른 selectors 는 fallback).

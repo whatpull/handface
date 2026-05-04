@@ -776,6 +776,33 @@ const TRAIN_ALL_8_INPUTS = [
   'in_pinch', 'in_fist', 'in_palm', 'in_point',
   'in_gaze', 'in_blink', 'in_thumbsup', 'in_victory',
 ];
+// Phase 208: 모바일 URL bar dynamic visibility 대응.
+// 100vh 가 URL bar 보이는 상태에서 화면보다 길어 잘리는 흔한 모바일 버그.
+// 1차 해결: CSS 100dvh (modern browser 자동).
+// 2차 fallback: window.visualViewport API → --app-vh custom property 갱신.
+// fitCanvasToNodes 도 visualViewport.height 우선 사용.
+(function setupViewportHeightSync() {
+  const updateVh = () => {
+    let h = window.innerHeight;
+    // visualViewport 있으면 (모바일 URL bar 변동 정확) 사용.
+    if (window.visualViewport && window.visualViewport.height) {
+      h = window.visualViewport.height;
+    }
+    document.documentElement.style.setProperty('--app-vh', `${h * 0.01}px`);
+    // 캔버스 fit 재계산 트리거 (URL bar 변동 시 노드 중앙 재정렬).
+    window.dispatchEvent(new CustomEvent('snn-canvas:viewport-changed', {
+      detail: { height: h },
+    }));
+  };
+  updateVh();
+  window.addEventListener('resize', updateVh, { passive: true });
+  window.addEventListener('orientationchange', updateVh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateVh, { passive: true });
+    window.visualViewport.addEventListener('scroll', updateVh, { passive: true });
+  }
+})();
+
 window.addEventListener('DOMContentLoaded', () => {
   const trainBtn = document.getElementById('nf-train-cascade');
   if (!trainBtn) return;

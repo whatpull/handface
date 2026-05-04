@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
+import { emitBackendEvent } from '@/lib/backend/events';
 import {
   loadBackendSettings, normalizeEndpoint, saveBackendSettings,
 } from '@/lib/backend/settings';
@@ -22,12 +23,21 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     setApiKey(s.apiKey);
   }, []);
 
-  const save = () => {
+  const save = async () => {
     const url = normalizeEndpoint(endpoint);
     if (url !== endpoint) setEndpoint(url);
     saveBackendSettings({ endpoint: url, apiKey });
     getClient().setSettings(url, apiKey);
-    setStatus(`saved (${url})`);
+    // 연결 성공 검증 → 성공 시 캔버스에 회로 갱신 신호.
+    setStatus(`saved (${url}) — testing…`);
+    const r = await getClient().health();
+    if (r.ok) {
+      setStatus(`✓ saved + connected (${url})`);
+      // Canvas remount → 새 endpoint 의 회로 로드.
+      emitBackendEvent('circuit-changed', {});
+    } else {
+      setStatus(`saved, but connection failed: ${r.reason}`);
+    }
   };
 
   const test = async () => {
@@ -37,7 +47,12 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     const client = getClient();
     client.setSettings(url, apiKey);
     const r = await client.health();
-    setStatus(r.ok ? `✓ ${url}` : `✗ ${r.reason}`);
+    if (r.ok) {
+      setStatus(`✓ ${url}`);
+      emitBackendEvent('circuit-changed', {});
+    } else {
+      setStatus(`✗ ${r.reason}`);
+    }
   };
 
   if (!open) return null;

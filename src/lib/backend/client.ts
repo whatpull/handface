@@ -75,8 +75,18 @@ export class NeuronFaceClient {
   }
 
   setSettings(endpoint: string, apiKey: string) {
-    this.endpoint = normalizeEndpoint(endpoint);
+    const newEndpoint = normalizeEndpoint(endpoint);
+    const endpointChanged = this.endpoint !== newEndpoint;
+    const apiKeyChanged = this.apiKey !== apiKey;
+    this.endpoint = newEndpoint;
     this.apiKey = apiKey;
+    // endpoint 또는 API key 가 바뀌면 캐시된 networkId 폐기
+    // → 다음 ensureNetwork 호출 시 새 endpoint 에서 신규 발급.
+    if (endpointChanged || apiKeyChanged) {
+      this.networkId = null;
+      this.presetEnsured = false;
+      if (typeof window !== 'undefined') localStorage.removeItem(NETWORK_KEY);
+    }
   }
 
   private async request<T = unknown>(path: string, opts: FetchOpts = {}): Promise<Result<T>> {

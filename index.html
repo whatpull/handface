@@ -953,8 +953,12 @@
       padding: 0 2px;
       letter-spacing: 0.02em;
     }
+    .nf-cp-header-actions { display: flex; gap: 2px; align-items: center; }
     .nf-cp-title { font-weight: 500; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
     .nf-cp-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: transparent;
       border: 1px solid transparent;
       color: rgba(255, 255, 255, 0.65);
@@ -963,12 +967,21 @@
       cursor: pointer;
       font-size: 14px;
       line-height: 1;
+      padding: 0;
       transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
     .nf-cp-toggle-btn:hover {
       background: rgba(167, 139, 250, 0.12);
       color: #e9e2ff;
       border-color: rgba(167, 139, 250, 0.28);
+    }
+    .nf-cp-toggle-btn--svg svg {
+      width: 13px; height: 13px;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .nf-cp-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
     .nf-cp-body.collapsed { display: none; }
@@ -1027,34 +1040,9 @@
     }
     .nf-cp-legend-label { flex: 1; font-size: 11px; }
     .nf-cp-legend-count { color: rgba(255, 255, 255, 0.30); font-size: 10px; }
-    /* Mobile (≤768px): bottom sheet, 동일한 toolbar 컨셉 유지. */
+    /* Mobile (≤768px): 필터 패널 숨김 — 작은 화면에서는 캔버스 가시성 우선. */
     @media (max-width: 768px) {
-      .nf-canvas-panel {
-        top: auto; right: 8px; left: 8px; bottom: 8px; width: auto;
-        max-height: 50vh; padding: 6px 8px; font-size: 12px;
-      }
-      .nf-cp-title { font-size: 12px; }
-      .nf-cp-toggle-btn { width: 32px; height: 32px; font-size: 16px; }
-      .nf-cp-search {
-        padding: 8px 10px; font-size: 13px; min-height: 36px;
-      }
-      .nf-cp-legend-row {
-        padding: 8px 8px; gap: 10px; min-height: 36px;
-      }
-      .nf-cp-legend-row:active { background: rgba(167, 139, 250, 0.18); }
-      .nf-cp-legend-swatch { width: 16px; height: 16px; }
-      .nf-cp-legend-label { font-size: 12px; }
-      .nf-cp-legend-count { font-size: 11px; }
-      .nf-canvas-panel:has(.nf-cp-body.collapsed) { max-height: 44px; }
-    }
-    @media (max-width: 480px) {
-      .nf-canvas-panel { font-size: 11px; max-height: 45vh; }
-    }
-    @media (max-height: 480px) and (orientation: landscape) {
-      .nf-canvas-panel {
-        top: 64px; bottom: 8px; right: 8px; left: auto;
-        width: 200px; max-height: calc(100vh - 72px);
-      }
+      .nf-canvas-panel { display: none !important; }
     }
     .nf-bb-section-label { font-size: 11px; color: #94a3b8; margin: 16px 0 6px; padding-top: 6px; border-top: 1px solid rgba(167,139,250,0.10); font-weight: 600; letter-spacing: 0.02em; }
     .nf-bb-section-label:first-child { margin-top: 0; padding-top: 0; border-top: none; }
@@ -3044,8 +3032,8 @@
       .nf-sheet { display: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/handface/assets/index-CpM_xYeE.js"></script>
-  <link rel="stylesheet" crossorigin href="/handface/assets/index-CfOPNCj0.css">
+  <script type="module" crossorigin src="/handface/assets/index-r7y-PPmH.js"></script>
+  <link rel="stylesheet" crossorigin href="/handface/assets/index-Dvd4VJ6C.css">
 </head>
 <body>
   <header class="nf-app-header">
@@ -3178,11 +3166,16 @@
       </div>
 
       <div id="snn-viz-root"></div>
-      <!-- Phase 204+205: floating canvas panel — region filter + legend. -->
-      <div id="nf-canvas-panel" class="nf-canvas-panel" aria-label="Canvas filter / legend">
+      <!-- Phase 204+205+206: floating canvas panel — region filter + legend + auto layout. -->
+      <div id="nf-canvas-panel" class="nf-canvas-panel" aria-label="Canvas filter / legend / auto layout">
         <div class="nf-cp-header">
           <span class="nf-cp-title">🔍 Filter / Legend</span>
-          <button id="nf-cp-toggle" class="nf-cp-toggle-btn" type="button" title="패널 접기/펼치기">−</button>
+          <div class="nf-cp-header-actions">
+            <button id="nf-cp-autolayout" class="nf-cp-toggle-btn nf-cp-toggle-btn--svg" type="button" title="자동 레이아웃 — 같은 region+population 그룹 동일 간격 정렬" aria-label="Auto layout">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </button>
+            <button id="nf-cp-toggle" class="nf-cp-toggle-btn" type="button" title="패널 접기/펼치기">−</button>
+          </div>
         </div>
         <div class="nf-cp-body" id="nf-cp-body">
           <input id="nf-cp-search" type="search" placeholder="region 검색 (예: ca1, pfc, v4)" class="nf-cp-search">

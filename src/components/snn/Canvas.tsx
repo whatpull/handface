@@ -51,13 +51,14 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       const ed = new Drawflow(container);
       ed.reroute = false;
       ed.reroute_fix_curvature = false;
-      ed.curvature = 0;
+      // 부드러운 베지에 곡선 — 시냅스 라인이 닷 angle 에 맞게 자연스럽게 진입.
+      ed.curvature = 0.5;
       ed.zoom_min = 0.2;
       ed.zoom_max = 4;
       ed.zoom_value = 0.05;
       ed.draggable_inputs = false;
       ed.force_first_input = false;
-      ed.line_path = 2;
+      ed.line_path = 5;
       ed.start();
       ed.editor_mode = editMode ? 'edit' : 'view';
       editor = ed;
@@ -122,8 +123,6 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         if (node && typeof node.pos_x === 'number') setPosition(name, node.pos_x, node.pos_y);
       });
 
-      applyStepPaths(container);
-      patchUpdateConnection(ed, container);
       attachManualPan(container, ed);
       requestAnimationFrame(() => requestAnimationFrame(() => fitToView(ed, container)));
       applyCameraConnected(connRefMap.current, cameraConnected);
@@ -421,35 +420,6 @@ function renderNodeHtml(n: LayoutNode & { count?: number }): string {
   `;
 }
 
-function applyStepPaths(container: HTMLElement) {
-  const conns = container.querySelectorAll('.connection');
-  conns.forEach((conn) => {
-    const path = conn.querySelector('.main-path');
-    if (!path) return;
-    const d = path.getAttribute('d') || '';
-    let m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+C[\s\S]*?(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
-    if (!m) m = d.match(/M\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s+L\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s*$/);
-    if (!m) {
-      const nums = d.match(/-?[\d.]+/g);
-      if (nums && nums.length >= 4) m = [d, nums[0], nums[1], nums[nums.length - 2], nums[nums.length - 1]];
-    }
-    if (!m) return;
-    const x1 = parseFloat(m[1]), y1 = parseFloat(m[2]);
-    const x2 = parseFloat(m[3]), y2 = parseFloat(m[4]);
-    if (![x1, y1, x2, y2].every(Number.isFinite)) return;
-    const midX = (x1 + x2) / 2;
-    path.setAttribute('d', `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`);
-  });
-}
-
-function patchUpdateConnection(ed: import('drawflow').default, container: HTMLElement) {
-  const original = ed.updateConnectionNodes.bind(ed);
-  ed.updateConnectionNodes = (id: string) => {
-    original(id);
-    applyStepPaths(container);
-  };
-}
-
 function applyCameraConnected(map: Record<string, Element>, connected: boolean) {
   for (const key in map) {
     const [pre] = key.split('->');
@@ -507,7 +477,6 @@ function attachManualPan(container: HTMLElement, ed: import('drawflow').default)
       ed.precanvas.style.transform =
         `translate(${ed.canvas_x}px, ${ed.canvas_y}px) scale(${newZoom})`;
     }
-    applyStepPaths(container);
   };
 
   container.addEventListener('pointerdown', onDown);
@@ -548,5 +517,4 @@ function fitToView(ed: import('drawflow').default, container: HTMLElement) {
   ed.precanvas.style.transformOrigin = '0 0';
   ed.precanvas.style.transform =
     `translate(${ed.canvas_x}px, ${ed.canvas_y}px) scale(${targetZoom})`;
-  applyStepPaths(container);
 }

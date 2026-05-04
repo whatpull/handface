@@ -4,11 +4,8 @@ import dynamic from 'next/dynamic';
 
 const Editor = dynamic(() => import('@/components/Editor'), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-dvh w-dvw items-center justify-center bg-[#0a0a0c] text-white/50">
-      <span className="font-mono text-xs tracking-wider">Loading editor…</span>
-    </div>
-  ),
+  // 모듈 로드 중 빈 다크 배경만 — 'Loading editor…' 텍스트 노출 안 함.
+  loading: () => <div className="h-dvh w-dvw bg-[#0a0a0c]" />,
 });
 
 export default function EditorClient() {

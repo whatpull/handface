@@ -149,9 +149,12 @@ export class NeuronFaceClient {
       }
     }
     // 2. 비어 있으면 신규 적용 시도. 409 는 "이미 회로 있음" → 성공 취급.
+    // v1_l4e_count=50 (백엔드 min): lateral recurrent (~10% density of N×N)
+    // 4000 → 250 시냅스로 16x 감소, simulation 속도 약 5x 향상.
+    // 시각화는 어차피 population 당 12개만 sampling 하므로 손실 없음.
     const r = await this.request(`/networks/${this.networkId}/presets/cortical`, {
       method: 'POST',
-      body: { overwrite: false, v_threshold: -55.0, v1_l4e_count: 200 },
+      body: { overwrite: false, v_threshold: -55.0, v1_l4e_count: 50 },
     });
     if (r.ok || (!r.ok && r.status === 409)) {
       this.presetEnsured = true;

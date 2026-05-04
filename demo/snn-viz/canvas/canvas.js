@@ -470,7 +470,10 @@ export function autoLayoutByRegion(opts = {}) {
   const CANVAS_CENTER_Y = opts.centerY ?? 630;       // gridPos 와 동일 (TOP_PAD 80 + 5 * ROW_HEIGHT 110).
   const excludeRegions = new Set(opts.excludeRegions || AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT);
   const onlyGroup = opts.onlyGroup || null;          // 'region:population' 한 그룹만 (드래그 후 snap).
-  const useGroupCenter = opts.useGroupCenter !== false && !!onlyGroup;
+  // P206 ext: useGroupCenter default true — 각 그룹의 현재 중심 보존.
+  // 모든 그룹을 canvas Y=630 으로 모으면 가로 X 충돌 두드러짐 → 사용자 의도된 layout 유지.
+  // false 강제 시 (예: 첫 빌드 직후) canvas center 사용.
+  const useGroupCenter = opts.useGroupCenter !== false;
   const groups = new Map();   // 'region:population' → [{ id, name, el, x, y, h }]
   container.querySelectorAll('.drawflow-node[data-region]').forEach((el) => {
     const region = el.dataset.region || '?';
@@ -538,14 +541,25 @@ export function autoLayoutByRegion(opts = {}) {
       } catch (_) { /* ignore */ }
     });
   }
-  // Connection 위치 업데이트 — patched updateConnectionNodes 가 applyStepPaths 자동 실행.
+  // P206 fix: Connection 위치 업데이트 — *모든 노드* 의 connection 강제 재계산.
+  // movedIds 만 갱신하면 노드 A 가 안 옮겨졌는데 A→B connection 의 B 가 옮겨진 경우
+  // A 쪽 endpoint 가 stale 함. 모든 노드 순회해서 깨끗이 갱신.
   try {
     if (typeof editor.updateConnectionNodes === 'function') {
-      movedIds.forEach((id) => editor.updateConnectionNodes(`node-${id}`));
+      container.querySelectorAll('.drawflow-node').forEach((el) => {
+        const nid = parseInt(el.id?.replace('node-', ''), 10);
+        if (!isNaN(nid)) {
+          editor.updateConnectionNodes(`node-${nid}`);
+        }
+      });
     }
   } catch (_) { /* ignore */ }
-  // 명시적 step path 재적용 (안전장치).
+  // 명시적 step path 재적용 (안전장치 + double-buffer 대응).
   try { applyStepPaths(); } catch (_) { /* ignore */ }
+  // 다음 frame 에 한번 더 (drawflow async render 대비).
+  requestAnimationFrame(() => {
+    try { applyStepPaths(); } catch (_) {}
+  });
   return {
     ok: true,
     groups: groups.size,

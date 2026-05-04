@@ -19,9 +19,7 @@ export const CASCADE_EDGES = [
 
 // Neuron 단위 layout (4 region column + SOURCE column, 좌→우. region 내부 population sub-column).
 // Session 36: SOURCE column 신규 (Camera + Gesture 영역 input 전 영역).
-// Session 38: USER_INPUT — Camera/Gesture 의 사이 column (160) + 위아래 alternating stacking.
 export const REGION_X = {
-  USER_INPUT:    160,    // Camera(80) ↔ Gesture(240) 중앙 — source 영역 alternating stack.
   SOURCE_CAMERA:  80,
   SOURCE_GESTURE: 240,
   INPUT:          440,
@@ -180,7 +178,6 @@ export const REGION_X = {
   THAL_TH:       1240,    // V1_L23 (1140) 와 V2_L4 (1440) 사이.
   THAL_TRN:      1340,    // TH 옆 (TRN gate).
   OUT:           2740,    // P86: was 2620 → SP_AMN/RC 옆으로 push.
-  USER_OUTPUT:   2900,    // P86: was 2840.
 };
 
 const ROW_HEIGHT = 110;     // 80 → 110 (vertical 영역 영역 영역)
@@ -643,79 +640,6 @@ export function buildGrownNeuronNode(n, stackOffset = 0) {
     color: colorMap[n.region] || '#94a3b8',
     x,
     y,
-  };
-}
-
-/**
- * Session 38: 사용자 추가 INPUT 노드 (user_in_<idx>) → NEURON_NODES 동일 형식 변환.
- * Camera/Gesture column 사이 (x=160) 에 vertical alternating stack 배치 —
- * idx 0 above, idx 1 below, idx 2 further above, idx 3 further below ...
- * @param {object} ui - { name, label, kind, fanout } from /user_inputs API
- * @param {number} stackIdx - 0-based 표시 순서.
- * @returns {object} { id, label, region, population, color, x, y, kind, isUserInput, isSystem }
- */
-export function buildUserInputNode(ui, stackIdx = 0) {
-  const CANVAS_CENTER_Y = 630;
-  const SAFE_OFFSET = 240;
-  const ROW_GAP = 150;
-  const half = Math.floor(stackIdx / 2);
-  const isAbove = stackIdx % 2 === 0;
-  let x = REGION_X.USER_INPUT;
-  let y = isAbove
-    ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
-    : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
-  // Session 39: 저장된 위치 (사용자 드래그 결과) 우선.
-  const saved = getNodePosition(ui.name);
-  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-    x = saved.x; y = saved.y;
-  }
-  return {
-    id: ui.name,
-    label: ui.label || ui.name.replace('user_in_', 'U'),
-    region: 'USER_INPUT',
-    population: 'user_input',
-    color: '#a78bfa',
-    x,
-    y,
-    kind: ui.kind || 'custom',
-    isUserInput: true,
-    isSystem: false,
-  };
-}
-
-/**
- * Session 39: 사용자 추가 OUT 노드 (user_out_<idx>) → NEURON_NODES 동일 형식.
- * OUT column 오른쪽에 vertical alternating stack — system OUT (4개) 와 분리.
- * @param {object} uo - { name, label, kind, fanin, action_config }
- * @param {number} stackIdx - 0-based 표시 순서.
- */
-export function buildUserOutputNode(uo, stackIdx = 0) {
-  const CANVAS_CENTER_Y = 630;
-  const SAFE_OFFSET = 240;
-  const ROW_GAP = 150;
-  const half = Math.floor(stackIdx / 2);
-  const isAbove = stackIdx % 2 === 0;
-  let x = REGION_X.USER_OUTPUT;
-  let y = isAbove
-    ? CANVAS_CENTER_Y - SAFE_OFFSET - half * ROW_GAP
-    : CANVAS_CENTER_Y + SAFE_OFFSET + half * ROW_GAP;
-  // Session 39: 저장된 위치 우선.
-  const saved = getNodePosition(uo.name);
-  if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-    x = saved.x; y = saved.y;
-  }
-  return {
-    id: uo.name,
-    label: uo.label || uo.name.replace('user_out_', 'O'),
-    region: 'USER_OUTPUT',
-    population: 'user_output',
-    color: '#5eead4',
-    x,
-    y,
-    kind: uo.kind || 'notification',
-    actionConfig: uo.action_config || {},
-    isUserOutput: true,
-    isSystem: false,
   };
 }
 

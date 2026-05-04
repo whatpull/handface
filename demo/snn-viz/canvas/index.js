@@ -1,5 +1,5 @@
-// Canvas v2: Cytoscape.js 기반 (canvas-cy.js).
-// 기존 drawflow 구현 (canvas.js, 1261줄) 은 보존 — rollback 시 import 만 되돌리면 됨.
+// Cytoscape 시도 폐기 (사용자 피드백: 시각 품질 후퇴) — drawflow 로 복귀.
+// canvas-cy.js 는 보존 (참고용, 향후 다른 시각 디자인 도입 시 재활용 가능).
 export {
   initCanvas,
   initCanvasNeuron,
@@ -13,5 +13,6 @@ export {
   fitCanvasToNodes,
   flashWeightDelta,
   autoLayoutByRegion,
-} from './canvas-cy.js';
-export { buildGrownNeuronNode, buildUserInputNode, buildUserOutputNode } from './data.js';
+  setCameraConnected,
+} from './canvas.js';
+export { buildGrownNeuronNode } from './data.js';

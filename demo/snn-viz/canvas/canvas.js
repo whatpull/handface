@@ -134,12 +134,11 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   ];
   for (const neuron of allNeurons) {
     const lockClass = neuron.isSystem ? ' snn-canvas-neuron--locked' : '';
-    const userInputClass = neuron.isUserInput ? ' snn-canvas-neuron--user-input' : '';
     const id = editor.addNode(
       neuron.id,
       1, 1,
       neuron.x, neuron.y,
-      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()} snn-canvas-node-${neuron.id}${lockClass}${userInputClass}`,
+      `snn-canvas-neuron snn-canvas-neuron--${neuron.population.toLowerCase()} snn-canvas-node-${neuron.id}${lockClass}`,
       { neuron: neuron.id, region: neuron.region, population: neuron.population, system: neuron.isSystem ? '1' : '0' },
       neuronNodeHtml(neuron),
       false,
@@ -327,7 +326,7 @@ function attachManualPan(container) {
   function isInteractive(target) {
     // input port + button + form control + Camera/Gesture source mount (enableCamera click 영역).
     // Session 39: user-card (사용자 INPUT/OUTPUT 노드) 도 interactive — 클릭 시 dialog 열림 위해 panning 차단.
-    return !!target.closest('.input, .output, button, input, textarea, select, .snn-canvas-source-mount, .snn-canvas-source-card, .snn-canvas-user-card, .snn-canvas-user-out-card');
+    return !!target.closest('.input, .output, button, input, textarea, select, .snn-canvas-source-mount, .snn-canvas-source-card');
   }
 
   function isMenuTarget(target) {
@@ -954,25 +953,13 @@ function neuronNodeHtml(neuron) {
       </div>
     `;
   }
-  // Session 38: 시스템 노드 잠금 아이콘 + USER INPUT 노드 별도 표시.
   const lockIcon = neuron.isSystem ? '<span class="snn-canvas-neuron-lock" title="시스템 노드 (편집 불가)">🔒</span>' : '';
-  const userBadge = neuron.isUserInput ? '<span class="snn-canvas-neuron-user-badge" title="사용자 추가">USR</span>' : '';
-
-  // Session 38 PR-J: 사용자 INPUT 노드 — modality kind별 inline widget.
-  if (neuron.isUserInput) {
-    return userInputNodeHtml(neuron, userBadge);
-  }
-  // Session 39 PR-N: 사용자 OUTPUT 노드 — action kind 표시 + status row.
-  if (neuron.isUserOutput) {
-    return userOutputNodeHtml(neuron);
-  }
 
   return `
     <div class="snn-canvas-neuron-card">
       <div class="snn-canvas-neuron-header">
         <span class="snn-canvas-neuron-dot"></span>
         <span class="snn-canvas-neuron-label">${neuron.label}</span>
-        ${userBadge}
         ${lockIcon}
         <span class="snn-canvas-neuron-menu">···</span>
       </div>
@@ -984,99 +971,6 @@ function neuronNodeHtml(neuron) {
         <div class="snn-canvas-neuron-row">
           <span class="snn-canvas-neuron-row-label">pop</span>
           <span class="snn-canvas-neuron-row-value">${neuron.population}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// drawflow connection SVG class = node_in_node-{toId} + node_out_node-{fromId} (drawflow.min.js 내부 사실).
-// Session 38 PR-J: 사용자 INPUT 노드 — modality kind별 inline widget 템플릿.
-// 각 노드는 자기 modality 인코더 UI 보유 (Audio: mic capture, Text: input + Encode 등).
-// 클릭 이벤트는 PR-K (scene.js) 에서 wireUserInputNodeHandlers 로 attach.
-// drawflow 가 노드 자체를 drag 대상으로 잡으므로, widget 요소 (input/button) 의
-// pointerdown/mousedown 을 stopPropagation 해서 drag 시작 차단 (focus/click 가능).
-function userInputNodeHtml(neuron, userBadge) {
-  const kind = neuron.kind || 'custom';
-  const id = neuron.id;
-  // 노드 widget 인터랙션을 drawflow drag 로부터 격리.
-  const stop = 'onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"';
-  const headerCommon = `
-    <div class="snn-canvas-neuron-header">
-      <span class="snn-canvas-neuron-dot"></span>
-      <span class="snn-canvas-neuron-label">${neuron.label}</span>
-      ${userBadge}
-    </div>
-  `;
-  // Session 39: 모든 USER INPUT modality 통일 — ✏️ 편집 버튼 → dialog 흐름.
-  // dialog 에서 modality widget (mic capture / text input / custom slider) + Route to OUTPUT 선택.
-  const labels = {
-    audio: '🎤 마이크 capture + inject',
-    text: '✏️ 텍스트 편집 + inject',
-    image: '🖼️ 이미지 편집 + inject',
-    motion: '📱 motion + inject',
-    keyboard: '⌨️ keyboard + inject',
-    mouse: '🖱️ mouse + inject',
-    geo: '📍 위치 + inject',
-    eeg: '🧠 EEG capture + inject',
-    custom: '✏️ 편집 + inject',
-  };
-  const btnLabel = labels[kind] || labels.custom;
-  return `
-    <div class="snn-canvas-neuron-card snn-canvas-user-card snn-canvas-user-card--${kind}">
-      ${headerCommon}
-      <div class="snn-canvas-user-body">
-        <div class="snn-canvas-user-actions">
-          <button class="snn-canvas-user-btn" data-action="edit-node" data-node="${id}" data-kind="${kind}" type="button" ${stop}>${btnLabel}</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// Session 39 PR-N: 사용자 OUT 노드 — action kind 표시 + 발화 시 status 갱신.
-// 발화 detection 은 scene.js applyFireToCanvas 가 firingRate > 0 시 trigger.
-function userOutputNodeHtml(neuron) {
-  const kind = neuron.kind || 'notification';
-  const id = neuron.id;
-  const kindIcon = {
-    notification: '🔔', speak: '🔊', webhook: '🌐', console: '📟', custom: '⚙️',
-  };
-  const cfg = neuron.actionConfig || {};
-  let cfgPreview = '';
-  if (kind === 'notification') cfgPreview = cfg.title || cfg.body || '(no msg)';
-  else if (kind === 'speak') cfgPreview = cfg.text || '(no text)';
-  else if (kind === 'webhook') cfgPreview = cfg.url || '(no url)';
-  else if (kind === 'console') cfgPreview = cfg.tag || 'log';
-  const editLabels = {
-    notification: '✏️ 알림 편집',
-    speak: '✏️ TTS 편집',
-    webhook: '✏️ Webhook 편집',
-    console: '✏️ Console 편집',
-    custom: '✏️ 편집',
-  };
-  const editLabel = editLabels[kind] || editLabels.custom;
-  const stop = 'onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"';
-  return `
-    <div class="snn-canvas-neuron-card snn-canvas-out-card snn-canvas-user-out-card">
-      <div class="snn-canvas-neuron-header">
-        <span class="snn-canvas-neuron-dot"></span>
-        <span class="snn-canvas-neuron-label">${neuron.label}</span>
-        <span class="snn-canvas-neuron-user-badge" title="사용자 추가 액션">ACT</span>
-      </div>
-      <div class="snn-canvas-neuron-body">
-        <div class="snn-canvas-neuron-row">
-          <span class="snn-canvas-neuron-row-label">${kindIcon[kind] || '⚙️'} ${kind}</span>
-          <span class="snn-canvas-neuron-row-value snn-canvas-out-rate" id="snn-canvas-out-rate-${id}">0</span>
-        </div>
-        <div class="snn-canvas-neuron-row">
-          <span class="snn-canvas-neuron-row-label snn-canvas-out-cfg-preview" title="${cfgPreview}">${cfgPreview}</span>
-          <span class="snn-canvas-neuron-row-value snn-canvas-out-status" id="snn-canvas-out-status-${id}">idle</span>
-        </div>
-      </div>
-      <div class="snn-canvas-user-body">
-        <div class="snn-canvas-user-actions">
-          <button class="snn-canvas-user-btn" data-action="edit-out" data-node="${id}" data-kind="${kind}" type="button" ${stop}>${editLabel}</button>
         </div>
       </div>
     </div>
@@ -1165,15 +1059,12 @@ export function updateCanvasFireNeuron(rates) {
   if (!editor || mode !== 'neuron') return;
   const safeRates = rates || {};
 
-  // Session 39 fix: NEURON_NODES (preset 52) 만이 아니라 nodeRefMap 의 모든 노드
-  // (dynamic V1 grown + user_in_X + user_out_X) 까지 순회. 이전 버그: user_in 발화
-  // 해도 NEURON_NODES 에 없어서 highlight 무시 → 사용자가 'inject 반응 없음' 으로 인식.
   const firedSet = new Set();
   for (const neuronId of Object.keys(nodeRefMap)) {
     const rate = safeRates[neuronId] || 0;
     const fired = rate > 0;
-    // OUT 노드 (system out_0..3 + user_out_X) status / rate row 갱신.
-    if (neuronId.startsWith('out_') || neuronId.startsWith('user_out_')) {
+    // OUT 노드 (system out_0..3) status / rate row 갱신.
+    if (neuronId.startsWith('out_')) {
       const statusEl = document.getElementById(`snn-canvas-out-status-${neuronId}`);
       const rateEl = document.getElementById(`snn-canvas-out-rate-${neuronId}`);
       if (statusEl) {
@@ -1245,6 +1136,19 @@ export function flashWeightDelta(deltas, opts = {}) {
       conn.style.removeProperty('--learning-width');
       delete _learningTimers[key];
     }, dur);
+  }
+}
+
+// 카메라 미연결 시 src_camera 발 시냅스 (camera→gesture, gesture→in_*) dim.
+// 카메라 활성화 전엔 데이터 흐름이 없으므로 시각적으로 비활성 표시.
+export function setCameraConnected(connected) {
+  for (const key in connRefMap) {
+    const [pre, post] = key.split('->');
+    const isCameraRoot = pre === 'src_camera' || pre === 'src_gesture';
+    if (!isCameraRoot) continue;
+    const conn = connRefMap[key];
+    if (!conn) continue;
+    conn.classList.toggle('snn-canvas-conn--inactive', !connected);
   }
 }
 

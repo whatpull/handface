@@ -169,6 +169,13 @@
   50%      { stroke-opacity: 0.7; stroke-width: 2.0; }
 }
 
+/* 카메라 미연결: src_camera/src_gesture 발 시냅스 시각 비활성. */
+#nf-snn-canvas .drawflow .connection.snn-canvas-conn--inactive .main-path {
+  stroke: rgba(148, 163, 184, 0.18) !important;
+  stroke-dasharray: 4 4;
+  stroke-width: 0.6;
+}
+
 /* Session 41+ Tier1-C: weight-delta learning highlight (LTP=green, LTD=orange). */
 #nf-snn-canvas .drawflow .connection.learning .main-path {
   stroke: var(--learning-color, rgba(16, 185, 129, 0.85)) !important;
@@ -331,26 +338,13 @@
   letter-spacing: 1px;
 }
 
-/* Session 38: 시스템 노드 잠금 + USER INPUT badge */
+/* 시스템 노드 잠금 표시. */
 .snn-canvas-neuron-lock {
   font-size: 10px;
   margin-left: 4px;
   opacity: 0.65;
   filter: grayscale(0.3);
 }
-.snn-canvas-neuron-user-badge {
-  display: inline-block;
-  padding: 1px 4px;
-  margin-left: 4px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  background: rgba(167, 139, 250, 0.25);
-  color: #c4b5fd;
-  border: 1px solid rgba(167, 139, 250, 0.5);
-  border-radius: 2px;
-}
-/* 시스템 노드: 약간 desaturated + opacity (편집 불가 시각 신호). */
 .snn-canvas-neuron--locked .snn-canvas-neuron-card {
   filter: saturate(0.85);
 }
@@ -362,136 +356,9 @@
   border-radius: inherit;
   pointer-events: none;
 }
-/* 사용자 INPUT 노드: violet glow (강조). */
-.snn-canvas-neuron--user-input .snn-canvas-neuron-card {
-  --neuron-color: #a78bfa;
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 0 12px rgba(167, 139, 250, 0.25);
-}
-
-/* Session 38 PR-J: USER INPUT 노드 inline widget */
-.snn-canvas-user-card {
-  min-width: 160px;
-}
-.snn-canvas-user-body {
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.snn-canvas-user-bins {
-  display: flex;
-  align-items: flex-end;
-  height: 22px;
-  gap: 2px;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px;
-  border-radius: 2px;
-}
-.snn-canvas-user-bin {
-  flex: 1;
-  background: linear-gradient(to top, #a78bfa, #c4b5fd);
-  height: 0%;
-  min-height: 1px;
-  border-radius: 1px;
-  transition: height 0.15s;
-}
-.snn-canvas-user-input {
-  width: 100%;
-  padding: 3px 5px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  border-radius: 3px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 10px;
-  font-family: monospace;
-  outline: none;
-  box-sizing: border-box;
-  /* Session 38 fix: drawflow drag 격리 — pointer events 보장. */
-  pointer-events: auto !important;
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  position: relative;
-  z-index: 2;
-}
-.snn-canvas-user-input:focus { border-color: #a78bfa; }
-.snn-canvas-user-actions {
-  display: flex;
-  gap: 4px;
-}
-.snn-canvas-user-btn {
-  flex: 1;
-  background: rgba(167, 139, 250, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.4);
-  color: #c4b5fd;
-  padding: 4px 6px;
-  border-radius: 3px;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: all 0.15s;
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 2;
-}
-.snn-canvas-user-btn:hover {
-  background: rgba(167, 139, 250, 0.25);
-  border-color: #a78bfa;
-}
-.snn-canvas-user-btn:disabled { opacity: 0.5; cursor: wait; }
-.snn-canvas-user-status {
-  position: relative;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
-  font-family: monospace;
-  text-align: center;
-  /* 긴 텍스트 ellipsis (한줄) */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  padding: 2px 6px;
-  border-radius: 3px;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-.snn-canvas-user-status.fired {
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.18);
-}
-/* Session 39: routed 외 OUT dim — user_in.routed_to 활성 시 비라우팅 OUT 흐릿. */
-.snn-canvas-neuron--routed-dim .snn-canvas-neuron-card {
-  opacity: 0.35;
-  filter: saturate(0.5);
-  transition: opacity 0.25s ease, filter 0.25s ease;
-}
-.snn-canvas-user-status.failed {
-  color: #fca5a5;
-  background: rgba(231, 111, 111, 0.12);
-}
-/* opacity + transform pulse — composite-only (성능 최적). */
-.snn-canvas-user-status.fired::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 3px;
-  border: 1px solid rgba(167, 139, 250, 0.7);
-  pointer-events: none;
-  opacity: 1;
-  transform: scale(1);
-  animation: nf-status-pulse 1.0s ease-out forwards;
-}
-@keyframes nf-status-pulse {
-  to { opacity: 0; transform: scale(1.15); }
-}
-.snn-canvas-user-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.5);
-}
 
 .snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
 .snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
-.snn-canvas-neuron--user_input .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
 
 /* OUT 노드 영역 status / rate row — fired 시점 영역 영역 영역 영역. */
 .snn-canvas-out-card {

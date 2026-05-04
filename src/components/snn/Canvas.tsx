@@ -282,10 +282,17 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     <>
       <div ref={containerRef} id="nf-snn-canvas" className="absolute inset-0 cursor-grab" />
       {loadState !== 'ready' && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="rounded border border-white/10 bg-[#0f1117]/95 px-3 py-1.5 font-mono text-[11px] text-white/70 shadow-lg">
-            {loadState === 'loading' ? 'Loading circuit…' : `✗ ${loadError}`}
-          </span>
+        <div className="snn-canvas-loading" role="status" aria-live="polite">
+          {loadState === 'loading' ? (
+            <div className="snn-canvas-loading-content">
+              <div className="snn-canvas-loading-spinner" aria-hidden="true" />
+              <span>Loading canvas…</span>
+            </div>
+          ) : (
+            <div className="snn-canvas-loading-content">
+              <span className="snn-canvas-loading-error">✗ {loadError}</span>
+            </div>
+          )}
         </div>
       )}
     </>

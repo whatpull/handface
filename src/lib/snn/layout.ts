@@ -123,10 +123,22 @@ export function layoutSnapshot(
     });
   });
 
-  // 5. 시냅스: 양 끝이 visible 인 것만.
-  const visibleSyn = synapses.filter(
+  // 5. 시냅스: 양 끝이 visible 인 것만 + 노드당 outgoing top 2개 (weight 절댓값 기준).
+  // 시각 노이즈 감소 — 200+ 시냅스 → ~50개로.
+  const candidate = synapses.filter(
     (s) => visibleNames.has(s.pre) && visibleNames.has(s.post),
   );
+  const byPre: Record<string, typeof candidate> = {};
+  for (const s of candidate) {
+    if (!byPre[s.pre]) byPre[s.pre] = [];
+    byPre[s.pre].push(s);
+  }
+  const TOP_PER_PRE = 2;
+  const visibleSyn: typeof candidate = [];
+  for (const pre of Object.keys(byPre)) {
+    const sorted = byPre[pre].slice().sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+    visibleSyn.push(...sorted.slice(0, TOP_PER_PRE));
+  }
 
   return { nodes, synapses: visibleSyn, visibleNames };
 }

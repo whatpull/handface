@@ -207,6 +207,10 @@
 #nf-snn-canvas .drawflow-node:hover {
   cursor: grab;
 }
+/* Phase 206: auto-layout transition — 노드 이동 시 부드러운 효과. */
+#nf-snn-canvas.snn-canvas-autolayout .drawflow-node {
+  transition: top 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
 /* Phase 201: region hover highlight */
 #nf-snn-canvas.snn-region-hover-active .drawflow-node:not(.snn-canvas-region-highlight) {
   opacity: 0.35;

@@ -434,6 +434,91 @@ function attachManualPan(container) {
 // Session 36: fitToView — 모든 노드 bbox 영역 영역 자동 zoom + center pan.
 // bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
 // container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
+// Phase 206: Auto-layout — region + population 단위 그룹 별 수직 동일 간격 정렬.
+// 큰 회로에서 사용자가 모든 노드 위치를 직접 잡기 어려운 문제 해결.
+// 1. (region, population) 그룹에 속한 노드 수집 — canonical/system 그룹은 제외 (의도된 layout 보존).
+// 2. 그룹 내 X 는 median 으로 정렬 (defensive — 같은 그룹은 같은 X 여야 정상).
+// 3. Y 는 canvas 중심 기준 등간격 재배치 → 겹침 방지.
+// 4. drawflow data + DOM 직접 갱신 + updateConnectionNodes (patched: applyStepPaths 자동) 호출.
+// Canonical 그룹 (V1/V2 INPUT/OUT/SOURCE/USER_*) 은 NEURON_NODES gridPos 로 이미 정렬돼 있어 제외.
+const AUTOLAYOUT_EXCLUDE_REGIONS = new Set([
+  'INPUT', 'OUT', 'SOURCE', 'USER_INPUT', 'USER_OUTPUT', '?',
+]);
+const CANONICAL_NEURON_PREFIXES = ['v1_L', 'v2_L', 'in_', 'out_', 'user_in_', 'user_out_', 'src_'];
+
+export function autoLayoutByRegion(opts = {}) {
+  if (!editor) return { ok: false, reason: 'editor not initialized' };
+  const container = document.getElementById('nf-snn-canvas');
+  if (!container) return { ok: false, reason: 'canvas not mounted' };
+  const ROW_SPACING = opts.rowSpacing ?? 70;        // 90 → 70 compact (겹침 감소).
+  const CANVAS_CENTER_Y = opts.centerY ?? 630;       // gridPos 와 동일 (TOP_PAD 80 + 5 * ROW_HEIGHT 110).
+  const includeCanonical = opts.includeCanonical === true;
+  const groups = new Map();   // 'region:population' → [{ id, name, el, x, y }]
+  container.querySelectorAll('.drawflow-node[data-region]').forEach((el) => {
+    const region = el.dataset.region || '?';
+    const population = el.dataset.population || '?';
+    // Canonical 그룹 제외 (이미 등간격, USER_* alternating stack 의도 보존).
+    if (!includeCanonical && AUTOLAYOUT_EXCLUDE_REGIONS.has(region)) return;
+    const id = parseInt(el.id?.replace('node-', ''), 10);
+    const name = drawflowIdToName[id];
+    if (!name || isNaN(id)) return;
+    // 추가 보호: canonical neuron name prefix 매칭이면 제외.
+    if (!includeCanonical && CANONICAL_NEURON_PREFIXES.some(p => name.startsWith(p))) return;
+    const key = `${region}:${population}`;
+    const x = parseFloat(el.style.left) || 0;
+    const y = parseFloat(el.style.top) || 0;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ id, name, el, x, y });
+  });
+  let touched = 0;
+  const movedIds = [];
+  for (const [key, nodes] of groups) {
+    if (nodes.length < 2) continue;   // 단일 노드는 건드릴 필요 없음.
+    // X median 으로 정렬 (같은 그룹은 같은 X 여야 함).
+    const xs = nodes.map(n => n.x).sort((a, b) => a - b);
+    const targetX = xs[Math.floor(xs.length / 2)];
+    // Y 중심 = canvas 중앙 고정 (그룹 평균 → 다른 영역 침범 방지).
+    // Sort by current Y → 기존 상대 순서 유지.
+    nodes.sort((a, b) => a.y - b.y);
+    const totalHeight = (nodes.length - 1) * ROW_SPACING;
+    const startY = CANVAS_CENTER_Y - totalHeight / 2;
+    nodes.forEach((node, i) => {
+      const newX = targetX;
+      const newY = startY + i * ROW_SPACING;
+      if (Math.abs(node.x - newX) < 1 && Math.abs(node.y - newY) < 1) return;
+      try {
+        // drawflow data 직접 갱신 (updateNodePosition API 부재 대비).
+        const nodeData = editor.getNodeFromId?.(node.id);
+        if (nodeData) {
+          nodeData.pos_x = newX;
+          nodeData.pos_y = newY;
+        }
+        // DOM 갱신.
+        node.el.style.left = `${newX}px`;
+        node.el.style.top = `${newY}px`;
+        setNodePosition(node.name, newX, newY);
+        movedIds.push(node.id);
+        touched++;
+      } catch (_) { /* ignore */ }
+    });
+  }
+  // Connection 위치 업데이트 — patched updateConnectionNodes 가 applyStepPaths 자동 실행.
+  try {
+    if (typeof editor.updateConnectionNodes === 'function') {
+      movedIds.forEach((id) => editor.updateConnectionNodes(`node-${id}`));
+    }
+  } catch (_) { /* ignore */ }
+  // 명시적 step path 재적용 (안전장치).
+  try { applyStepPaths(); } catch (_) { /* ignore */ }
+  return {
+    ok: true,
+    groups: groups.size,
+    nodes_moved: touched,
+    row_spacing: ROW_SPACING,
+    excluded_canonical: !includeCanonical,
+  };
+}
+
 export function fitCanvasToNodes(padding = 0.9) {
   if (!editor || !editor.precanvas) return;
   const container = editor.container;
@@ -470,7 +555,22 @@ function doFit(padding) {
   // container 영역 = #nf-snn-canvas (.nf-app-main grid 1fr 영역 영역).
   const rect = container.getBoundingClientRect();
   const viewportW = rect.width;
-  const viewportH = rect.height;
+  const viewportHRaw = rect.height;
+  // Phase 207: 모바일 푸터 (Add/Train/Eval/Save/More) 가 캔버스 위에 overlay 되어
+  // 실제 가시 영역이 줄어듦 → footer 높이만큼 보정.
+  const footerEl = document.querySelector('.nf-mobile-footer, .nf-app-footer, [data-canvas-footer]')
+    || document.querySelector('footer');
+  let footerH = 0;
+  let footerTopRel = 0;
+  if (footerEl) {
+    const fr = footerEl.getBoundingClientRect();
+    // footer 가 container 영역 아래쪽과 겹치는 경우만 차감.
+    if (fr.top < rect.bottom && fr.bottom > rect.top) {
+      footerTopRel = Math.max(0, fr.top - rect.top);
+      footerH = Math.max(0, rect.bottom - fr.top);
+    }
+  }
+  const viewportH = viewportHRaw - footerH;
   if (bboxW <= 0 || bboxH <= 0 || viewportW <= 0 || viewportH <= 0) return;
 
   // zoom = min(viewport / bbox) × padding factor.
@@ -482,10 +582,12 @@ function doFit(padding) {
   );
 
   // center pan: bbox center 영역 viewport center 영역 정합 (transform-origin: 0 0 영역).
+  // viewport center 는 footer 제외한 가시 영역의 중앙.
+  const visibleCenterY = footerH > 0 ? footerTopRel / 2 : viewportHRaw / 2;
   const bboxCenterX = (minX + maxX) / 2;
   const bboxCenterY = (minY + maxY) / 2;
   const targetCanvasX = viewportW / 2 - bboxCenterX * targetZoom;
-  const targetCanvasY = viewportH / 2 - bboxCenterY * targetZoom;
+  const targetCanvasY = visibleCenterY - bboxCenterY * targetZoom;
 
   editor.zoom = targetZoom;
   editor.canvas_x = targetCanvasX;

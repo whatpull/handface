@@ -564,34 +564,33 @@ function doFit(padding) {
   // container 영역 = #nf-snn-canvas (.nf-app-main grid 1fr 영역 영역).
   const rect = container.getBoundingClientRect();
   const viewportW = rect.width;
-  // Phase 208: 모바일 URL bar 가 보일 때 rect.height 가 실제 가시 영역보다 클 수 있음.
-  // visualViewport.height (URL bar 제외 실제 visible) 와 비교해 작은 쪽 사용.
-  let viewportHRaw = rect.height;
+  // Phase 208 (re-do): 로딩 오버레이와 동일한 방식 — visible top + bottom 을
+  // 명시적으로 측정 후 중앙 = (top + bottom) / 2. 이렇게 하면 URL bar (위) 와
+  // bottom-bar (아래) 모두 정확히 차감되어 visible 가운데 정렬.
+  // visibleTop: container 상단 (rect.top) 와 visualViewport.offsetTop 중 큰 쪽.
+  //   - URL bar 가 화면 위에 있으면 visualViewport.offsetTop > 0 (해당 영역 가려짐).
+  // visibleBottom: container 하단 (rect.bottom), bottom-bar.top, visualViewport bottom 중 작은 쪽.
+  let visibleTopAbs = rect.top;
+  let visibleBottomAbs = rect.bottom;
   if (window.visualViewport && window.visualViewport.height > 0) {
-    // container top 부터 visualViewport 하단까지의 거리.
-    const vvBottom = window.visualViewport.offsetTop + window.visualViewport.height;
-    const visibleH = vvBottom - rect.top;
-    if (visibleH > 0 && visibleH < viewportHRaw) {
-      viewportHRaw = visibleH;
-    }
+    const vv = window.visualViewport;
+    visibleTopAbs = Math.max(visibleTopAbs, vv.offsetTop);
+    visibleBottomAbs = Math.min(visibleBottomAbs, vv.offsetTop + vv.height);
   }
-  // Phase 207: 모바일 푸터 (Add/Train/Eval/Save/More) 가 캔버스 위에 overlay 되어
-  // 실제 가시 영역이 줄어듦 → footer 높이만큼 보정.
-  // .nf-bottom-bar 가 실제 모바일 footer (다른 selectors 는 fallback).
+  // 모바일 footer (.nf-bottom-bar) 가 visible 영역 안에 overlay 시 visible bottom 위로 끌어올림.
   const footerEl = document.querySelector('.nf-bottom-bar:not([style*="display: none"])')
     || document.querySelector('.nf-mobile-footer, .nf-app-footer, [data-canvas-footer]')
     || document.querySelector('footer');
-  let footerH = 0;
-  let footerTopRel = viewportHRaw;
-  if (footerEl && footerEl.offsetParent !== null) {   // visible check.
+  if (footerEl && footerEl.offsetParent !== null) {
     const fr = footerEl.getBoundingClientRect();
-    // footer 가 container 영역 아래쪽과 겹치는 경우만 차감.
-    if (fr.top < rect.bottom && fr.bottom > rect.top) {
-      footerTopRel = Math.max(0, fr.top - rect.top);
-      footerH = Math.max(0, rect.bottom - fr.top);
+    if (fr.top > visibleTopAbs && fr.top < visibleBottomAbs) {
+      visibleBottomAbs = fr.top;
     }
   }
-  const viewportH = viewportHRaw - footerH;
+  // container 좌표계 (rect.top 기준 상대값) 변환.
+  const visibleTop = Math.max(0, visibleTopAbs - rect.top);
+  const visibleBottom = Math.max(0, visibleBottomAbs - rect.top);
+  const viewportH = Math.max(0, visibleBottom - visibleTop);
   if (bboxW <= 0 || bboxH <= 0 || viewportW <= 0 || viewportH <= 0) return;
 
   // zoom = min(viewport / bbox) × padding factor.
@@ -602,9 +601,8 @@ function doFit(padding) {
     Math.min(editor.zoom_max || 2.5, Math.min(zoomX, zoomY) * padding),
   );
 
-  // center pan: bbox center 영역 viewport center 영역 정합 (transform-origin: 0 0 영역).
-  // viewport center 는 footer 제외한 가시 영역의 중앙.
-  const visibleCenterY = footerH > 0 ? footerTopRel / 2 : viewportHRaw / 2;
+  // center pan: bbox center 영역 visible 영역 정 가운데 (top + bottom) / 2 에 정합.
+  const visibleCenterY = (visibleTop + visibleBottom) / 2;
   const bboxCenterX = (minX + maxX) / 2;
   const bboxCenterY = (minY + maxY) / 2;
   const targetCanvasX = viewportW / 2 - bboxCenterX * targetZoom;

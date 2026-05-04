@@ -450,10 +450,11 @@ export function autoLayoutByRegion(opts = {}) {
   if (!editor) return { ok: false, reason: 'editor not initialized' };
   const container = document.getElementById('nf-snn-canvas');
   if (!container) return { ok: false, reason: 'canvas not mounted' };
-  const ROW_SPACING = opts.rowSpacing ?? 70;        // 90 → 70 compact (겹침 감소).
+  const MIN_GAP = opts.minGap ?? 16;                 // 노드 간 최소 여백 (px).
+  const FALLBACK_HEIGHT = opts.fallbackHeight ?? 60; // offsetHeight 0 일 때 fallback.
   const CANVAS_CENTER_Y = opts.centerY ?? 630;       // gridPos 와 동일 (TOP_PAD 80 + 5 * ROW_HEIGHT 110).
   const includeCanonical = opts.includeCanonical === true;
-  const groups = new Map();   // 'region:population' → [{ id, name, el, x, y }]
+  const groups = new Map();   // 'region:population' → [{ id, name, el, x, y, h }]
   container.querySelectorAll('.drawflow-node[data-region]').forEach((el) => {
     const region = el.dataset.region || '?';
     const population = el.dataset.population || '?';
@@ -467,8 +468,10 @@ export function autoLayoutByRegion(opts = {}) {
     const key = `${region}:${population}`;
     const x = parseFloat(el.style.left) || 0;
     const y = parseFloat(el.style.top) || 0;
+    // P206 fix: 노드의 실제 height 측정 (OUT/Notify/Console 등 큰 카드 대응).
+    const h = el.offsetHeight || el.getBoundingClientRect().height || FALLBACK_HEIGHT;
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ id, name, el, x, y });
+    groups.get(key).push({ id, name, el, x, y, h });
   });
   let touched = 0;
   const movedIds = [];
@@ -477,14 +480,28 @@ export function autoLayoutByRegion(opts = {}) {
     // X median 으로 정렬 (같은 그룹은 같은 X 여야 함).
     const xs = nodes.map(n => n.x).sort((a, b) => a - b);
     const targetX = xs[Math.floor(xs.length / 2)];
-    // Y 중심 = canvas 중앙 고정 (그룹 평균 → 다른 영역 침범 방지).
     // Sort by current Y → 기존 상대 순서 유지.
     nodes.sort((a, b) => a.y - b.y);
-    const totalHeight = (nodes.length - 1) * ROW_SPACING;
-    const startY = CANVAS_CENTER_Y - totalHeight / 2;
+    // Dynamic spacing: 각 인접 쌍 간격 = (prev.h + curr.h)/2 + MIN_GAP.
+    // 모든 spacing 누적해서 totalHeight 계산.
+    const yPositions = [];
+    let cursor = 0;
+    nodes.forEach((node, i) => {
+      if (i === 0) {
+        yPositions.push(0);
+        cursor = node.h;
+      } else {
+        // i-1 노드 bottom 부터 MIN_GAP 띄우고 i 노드 top 위치.
+        const yTop = cursor + MIN_GAP;
+        yPositions.push(yTop);
+        cursor = yTop + node.h;
+      }
+    });
+    const totalHeight = cursor;   // 마지막 노드 bottom = 그룹 전체 height.
+    const groupTopY = CANVAS_CENTER_Y - totalHeight / 2;
     nodes.forEach((node, i) => {
       const newX = targetX;
-      const newY = startY + i * ROW_SPACING;
+      const newY = groupTopY + yPositions[i];
       if (Math.abs(node.x - newX) < 1 && Math.abs(node.y - newY) < 1) return;
       try {
         // drawflow data 직접 갱신 (updateNodePosition API 부재 대비).
@@ -514,7 +531,7 @@ export function autoLayoutByRegion(opts = {}) {
     ok: true,
     groups: groups.size,
     nodes_moved: touched,
-    row_spacing: ROW_SPACING,
+    min_gap: MIN_GAP,
     excluded_canonical: !includeCanonical,
   };
 }

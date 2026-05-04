@@ -95,14 +95,15 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
 
   if (!open) return null;
 
-  const buildOne = async (id: string, path: string, body: object = {}) => {
+  // batch 모드: true 면 circuit-changed emit 을 마지막에 한 번만.
+  const buildOne = async (id: string, path: string, body: object = {}, batch = false) => {
     setBusy(id);
     const client = getClient();
     const net = await client.ensureNetwork();
     if (!net.ok) {
       setLog((l) => [...l, `✗ ${id}: ${net.reason}`]);
       setBusy(null);
-      return;
+      return false;
     }
     try {
       const r = await fetch(`${client.endpoint}/networks/${net.data}${path}`, {
@@ -117,23 +118,39 @@ export default function BrainBuilderDialog({ open, onClose }: BrainBuilderDialog
       if (r.ok) {
         const added = (data.neurons_added ?? data.synapses_added ?? '?');
         setLog((l) => [...l, `✓ ${id} +${added}`]);
-        emitBackendEvent('circuit-changed', {});
+        if (!batch) emitBackendEvent('circuit-changed', {});
+        return true;
       } else {
         setLog((l) => [...l, `✗ ${id}: HTTP ${r.status} ${(data.detail || data.reason || '').toString().slice(0, 60)}`]);
+        return false;
       }
     } catch (e) {
       setLog((l) => [...l, `✗ ${id}: ${(e as Error).message}`]);
+      return false;
     } finally {
       setBusy(null);
     }
   };
 
   const buildAll = async () => {
+    const total = BUILDERS.reduce((s, c) => s + c.items.length, 0);
+    if (!confirm(
+      `Build All: ${total}개 region 일괄 추가합니다.\n` +
+      `완료까지 30~60초 걸리고 회로가 매우 커집니다 (캔버스 sampling 으로 일부만 표시).\n\n계속할까요?`,
+    )) return;
+    setLog((l) => [...l, `— Build All 시작 (${total}개) —`]);
+    let okCount = 0;
     for (const cat of BUILDERS) {
       for (const item of cat.items) {
-        await buildOne(item.id, item.path, item.body);
+        const ok = await buildOne(item.id, item.path, item.body, true);
+        if (ok) okCount += 1;
+        // 각 빌드 사이 microtask yield — UI 반응성 유지.
+        await new Promise<void>((res) => setTimeout(res, 0));
       }
     }
+    setLog((l) => [...l, `— Build All 완료 (${okCount}건 성공) —`]);
+    // 마지막에 한 번만 remount 트리거 → snapshot 1회 로드.
+    emitBackendEvent('circuit-changed', {});
   };
 
   return (

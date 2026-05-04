@@ -7,6 +7,7 @@ export interface NeuronFiringDetail {
   gesture?: string;
   intensity?: number;
   rates?: Record<string, number>;
+  rates_by_region?: Record<string, number>;
   active_neurons_by_region?: Record<string, string[]>;
   out_rates?: Record<string, number>;
   synapses?: Array<{ pre: string; post: string; weight: number }>;

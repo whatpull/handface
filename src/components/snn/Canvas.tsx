@@ -161,16 +161,20 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     const FIRE_DURATION_MS = 800;
     const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // Region 뷰: active_neurons_by_region 의 region 키 → region 노드 fire.
+      // Region 뷰: active_neurons_by_region (count) + rates_by_region (avg Hz) 합쳐서 region 카드 갱신.
+      // active 카운트가 1개라도 있거나 rates_by_region 값이 0 이상이면 카드 빛남.
       if (view === 'region') {
-        const byRegion = d.active_neurons_by_region || {};
-        for (const region of Object.keys(byRegion)) {
-          const count = (byRegion[region] || []).length;
+        const byRegionActive = d.active_neurons_by_region || {};
+        const byRegionRate = d.rates_by_region || {};
+        const allRegions = new Set([...Object.keys(byRegionActive), ...Object.keys(byRegionRate)]);
+        for (const region of allRegions) {
           const card = nodeRefMap.current[`region_${region}`];
           if (!card) continue;
+          const count = (byRegionActive[region] || []).length;
+          const avgRate = byRegionRate[region] || 0;
           const countEl = card.querySelector('.snn-canvas-region-count');
           if (countEl) countEl.textContent = String(count);
-          if (count > 0) {
+          if (count > 0 || avgRate > 0) {
             card.classList.add('snn-canvas-neuron--fired');
             if (fireTimers[region]) clearTimeout(fireTimers[region]);
             fireTimers[region] = setTimeout(() => {

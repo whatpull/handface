@@ -558,11 +558,13 @@ function doFit(padding) {
   const viewportHRaw = rect.height;
   // Phase 207: 모바일 푸터 (Add/Train/Eval/Save/More) 가 캔버스 위에 overlay 되어
   // 실제 가시 영역이 줄어듦 → footer 높이만큼 보정.
-  const footerEl = document.querySelector('.nf-mobile-footer, .nf-app-footer, [data-canvas-footer]')
+  // .nf-bottom-bar 가 실제 모바일 footer (다른 selectors 는 fallback).
+  const footerEl = document.querySelector('.nf-bottom-bar:not([style*="display: none"])')
+    || document.querySelector('.nf-mobile-footer, .nf-app-footer, [data-canvas-footer]')
     || document.querySelector('footer');
   let footerH = 0;
-  let footerTopRel = 0;
-  if (footerEl) {
+  let footerTopRel = viewportHRaw;
+  if (footerEl && footerEl.offsetParent !== null) {   // visible check.
     const fr = footerEl.getBoundingClientRect();
     // footer 가 container 영역 아래쪽과 겹치는 경우만 차감.
     if (fr.top < rect.bottom && fr.bottom > rect.top) {

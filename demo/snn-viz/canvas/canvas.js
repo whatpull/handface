@@ -453,13 +453,12 @@ function attachManualPan(container) {
 // bbox = drawflow node DOM 영역 (left/top + offsetWidth/offsetHeight) 영역 직접 영역.
 // container.clientWidth/Height 영역 ready 영역 영역 영역 = double RAF 영역 영역.
 // Phase 206 (revised): Auto-layout — region + population 단위 그룹 별 수직 동일 간격 정렬.
-// 모든 노드 (canonical 포함) 정렬. 사용자 의도: "항상 반듯하고 좋은 간격".
-// 1. (region, population) 그룹에 속한 노드 수집.
-// 2. 그룹 내 X 는 median 으로 정렬 (defensive — 같은 그룹은 같은 X 여야 정상).
-// 3. Y 는 canvas 중심 기준 동적 spacing (각 노드 height + MIN_GAP 누적).
-// 4. drawflow data + DOM 직접 갱신 + updateConnectionNodes (patched: applyStepPaths 자동).
-// excludeRegions 옵션으로 특정 region 제외 가능 (default: 비어있음).
-const AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT = new Set(['?']);   // unknown 만 제외.
+// USER_INPUT, USER_OUTPUT, SOURCE 는 alternating stack 의도된 layout 이라 제외.
+// (자동정렬이 평균 Y 로 모으면 X 가 가까운 그룹들끼리 가로 겹침 발생.)
+// excludeRegions 옵션으로 사용자 override 가능.
+const AUTOLAYOUT_EXCLUDE_REGIONS_DEFAULT = new Set([
+  '?', 'USER_INPUT', 'USER_OUTPUT', 'SOURCE',
+]);
 
 export function autoLayoutByRegion(opts = {}) {
   if (!editor) return { ok: false, reason: 'editor not initialized' };
@@ -541,9 +540,12 @@ export function autoLayoutByRegion(opts = {}) {
       } catch (_) { /* ignore */ }
     });
   }
-  // P206 fix: Connection 위치 업데이트 — *모든 노드* 의 connection 강제 재계산.
-  // movedIds 만 갱신하면 노드 A 가 안 옮겨졌는데 A→B connection 의 B 가 옮겨진 경우
-  // A 쪽 endpoint 가 stale 함. 모든 노드 순회해서 깨끗이 갱신.
+  // P206 fix (강력): Connection 위치 업데이트 — *전체 redraw* 강제.
+  // 1) 모든 노드의 connection updateConnectionNodes 호출 (path d 재계산).
+  // 2) drawflow zoom_refresh — drawflow internal 의 모든 transform + connection 재적용.
+  //    (단순 updateConnectionNodes 만으로 stale 라인이 남는 경우 있음.)
+  // 3) precanvas transform 강제 reflow (브라우저 paint 강제 트리거).
+  // 4) applyStepPaths 두 번 (즉시 + 다음 frame).
   try {
     if (typeof editor.updateConnectionNodes === 'function') {
       container.querySelectorAll('.drawflow-node').forEach((el) => {
@@ -554,11 +556,30 @@ export function autoLayoutByRegion(opts = {}) {
       });
     }
   } catch (_) { /* ignore */ }
-  // 명시적 step path 재적용 (안전장치 + double-buffer 대응).
+  // drawflow 의 zoom_refresh 가 모든 connection + transform 한 번에 redraw.
+  try {
+    if (typeof editor.zoom_refresh === 'function') {
+      editor.zoom_refresh();
+    }
+  } catch (_) { /* ignore */ }
+  // Force browser reflow (stale paint 제거).
+  try {
+    if (editor.precanvas) {
+      void editor.precanvas.offsetHeight;
+    }
+  } catch (_) { /* ignore */ }
   try { applyStepPaths(); } catch (_) { /* ignore */ }
-  // 다음 frame 에 한번 더 (drawflow async render 대비).
   requestAnimationFrame(() => {
-    try { applyStepPaths(); } catch (_) {}
+    try {
+      // 한 번 더 모든 connection 재계산 (RAF 후 layout 안정).
+      if (typeof editor.updateConnectionNodes === 'function') {
+        container.querySelectorAll('.drawflow-node').forEach((el) => {
+          const nid = parseInt(el.id?.replace('node-', ''), 10);
+          if (!isNaN(nid)) editor.updateConnectionNodes(`node-${nid}`);
+        });
+      }
+      applyStepPaths();
+    } catch (_) {}
   });
   return {
     ok: true,

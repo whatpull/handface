@@ -156,8 +156,9 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
     }
   }
 
-  // Phase 201: region hover highlight — same region 노드 강조.
-  attachRegionHoverHighlight(container);
+  // 사용자 요청 (P201 제거): hover 시 같은 region 강조 효과 제거.
+  // attachRegionHoverHighlight 호출 안 함. 함수는 P202 flashCanvasRegion 의
+  // class 와 호환 위해 dead code 로만 보존.
   attachDragStepPathLoop(container);   // drag 중 step path 유지.
 
   // synapse edge (backend response 사용 + SOURCE + DECODE pathway 영역 frontend fixed).

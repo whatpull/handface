@@ -3,60 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Neural Adaptive Layer — SNN-based interaction engine" />
-  <title>Neural Adaptive Layer · SNN Interaction Engine</title>
-  <script type="module" crossorigin src="/handface/assets/index-f5PDvvto.js"></script>
-  <link rel="stylesheet" crossorigin href="/handface/assets/index-B3qf1lUZ.css">
+  <meta name="description" content="Behavioral Twin — SNN learns your motion in real-time" />
+  <title>Behavioral Twin · SNN Motion Cloning</title>
+  <script type="module" crossorigin src="/handface/assets/index-ehypiOTg.js"></script>
+  <link rel="stylesheet" crossorigin href="/handface/assets/index-BiUvYjJl.css">
 </head>
 <body>
   <header class="hud">
     <div class="hud-left">
-      <span class="brand">Neural Adaptive Layer</span>
-      <span class="brand-sub">SNN-based interaction engine</span>
+      <span class="brand">Behavioral Twin</span>
+      <span class="brand-sub">SNN learns your motion in real-time</span>
     </div>
     <div class="hud-right">
-      <span class="metric"><label>Latency</label><b id="m-latency">— ms</b></span>
-      <span class="metric"><label>Load</label><b id="m-load">0.00</b></span>
-      <span class="metric"><label>Adaptations</label><b id="m-adapt">0</b></span>
+      <span class="metric"><label>Learning</label><b id="m-learn">0%</b></span>
+      <span class="metric"><label>Pattern</label><b id="m-pattern">—</b></span>
       <span class="metric"><label>Spikes/s</label><b id="m-rate">0</b></span>
     </div>
   </header>
 
-  <main class="grid">
-    <!-- 좌측: 사용자 인터랙션 surface (heatmap + drag target) -->
-    <section class="panel surface">
-      <div class="panel-head">
-        <span class="panel-title">Interaction Surface</span>
-        <span class="panel-sub">cognitive load heatmap · drag any card</span>
-      </div>
-      <div class="surface-stage" id="stage">
-        <canvas class="heatmap" id="heatmap"></canvas>
-        <div class="cards" id="cards"></div>
-        <div class="surface-hint" id="surface-hint">
-          이 영역에서 마우스를 움직이거나 카드를 드래그하면<br/>
-          SNN 이 당신의 인터랙션을 학습합니다.
-        </div>
-      </div>
-      <div class="panel-foot">
-        <button class="btn" id="btn-reset" type="button">초기화</button>
-        <button class="btn" id="btn-replay" type="button">학습된 motion 재생</button>
-        <span class="foot-stat" id="foot-stat">idle</span>
-      </div>
-    </section>
-
-    <!-- 우측: SNN 시각화 (spike + weight trajectory) -->
-    <section class="panel snn">
-      <div class="panel-head">
-        <span class="panel-title">SNN Cognitive Field</span>
-        <span class="panel-sub">LIF · STDP · realtime</span>
-      </div>
-      <svg class="snn-canvas" id="snn-svg" viewBox="0 0 480 360" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="snn-trajectory">
-        <canvas id="trajectory" width="480" height="80"></canvas>
-        <span class="traj-label">weight trajectory · last 20s</span>
-      </div>
-    </section>
+  <main class="stage-wrap">
+    <canvas id="stage" class="stage"></canvas>
+    <div class="instruction" id="instruction">
+      <b>마우스를 자유롭게 움직여보세요.</b><br/>
+      AI 가 당신의 움직임 패턴을 학습하고 따라합니다.
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="dot dot-user"></span> 당신</span>
+      <span class="legend-item"><span class="dot dot-ai"></span> AI Twin</span>
+    </div>
   </main>
+
+  <footer class="ctrl">
+    <button class="btn btn-primary" id="btn-toggle" type="button">
+      <span class="btn-emoji">▶</span><span>학습 시작</span>
+    </button>
+    <button class="btn" id="btn-replay" type="button">
+      <span class="btn-emoji">🤖</span><span>AI 자율 행동</span>
+    </button>
+    <button class="btn" id="btn-reset" type="button">
+      <span class="btn-emoji">🔄</span><span>초기화</span>
+    </button>
+    <span class="status" id="status">준비됨</span>
+  </footer>
 
 </body>
 </html>

@@ -72,44 +72,38 @@
   stroke-width: 0.6;
 }
 
-/* port dot (input/output) — dark with white ring, hover/fired = neuron color. */
+/* port dot (input/output) — 시냅스 라인이 닷 중심으로 자연스럽게 들어가도록.
+   외곽 다크 ring 제거 (라인 occlusion 방지) + 8px 작은 닷. */
 #nf-snn-canvas .drawflow-node .input,
 #nf-snn-canvas .drawflow-node .output {
-  background: rgba(40, 40, 48, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  width: 10px;
-  height: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   margin: 0;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
-  box-shadow:
-    0 0 0 3px rgba(20, 20, 24, 0.95),
-    0 0 0 4px rgba(255, 255, 255, 0.08);
-  transition: box-shadow 200ms, background 200ms, border-color 200ms;
+  box-shadow: none;
+  transition: background 200ms, border-color 200ms, box-shadow 200ms;
 }
-#nf-snn-canvas .drawflow-node .input  { left: -5px; }
-#nf-snn-canvas .drawflow-node .output { right: -5px; }
+/* 닷 중심을 카드 edge 에 정렬 → 라인이 닷 중심에 정확히 종착. */
+#nf-snn-canvas .drawflow-node .input  { left: -4px; }
+#nf-snn-canvas .drawflow-node .output { right: -4px; }
 
 #nf-snn-canvas .drawflow-node .input:hover,
 #nf-snn-canvas .drawflow-node .output:hover {
   background: var(--neuron-color, #5eead4);
   border-color: var(--neuron-color, #5eead4);
-  box-shadow:
-    0 0 0 3px rgba(20, 20, 24, 0.95),
-    0 0 0 5px var(--neuron-color, #5eead4),
-    0 0 8px var(--neuron-color, #5eead4);
+  box-shadow: 0 0 6px var(--neuron-color, #5eead4);
 }
 #nf-snn-canvas .snn-canvas-neuron--fired .input,
 #nf-snn-canvas .snn-canvas-neuron--fired .output {
   background: var(--neuron-color, #5eead4);
   border-color: var(--neuron-color, #5eead4);
-  box-shadow:
-    0 0 0 3px rgba(20, 20, 24, 0.95),
-    0 0 0 5px var(--neuron-color, #5eead4),
-    0 0 10px var(--neuron-color, #5eead4);
+  box-shadow: 0 0 8px var(--neuron-color, #5eead4);
 }
 
 /* Neuron card — main-rollback 정합 (ComfyUI/Weavy 디자인). */

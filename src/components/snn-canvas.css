@@ -1,0 +1,171 @@
+/* drawflow node card / connection styles — Tailwind 와 공존하는 글로벌 클래스. */
+
+#nf-snn-canvas {
+  background: #0a0a0c;
+  touch-action: none;
+}
+
+#nf-snn-canvas .drawflow-node {
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+#nf-snn-canvas .drawflow-node .drawflow_content_node { pointer-events: none; }
+
+#nf-snn-canvas .drawflow .connection .main-path {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 0.5;
+  fill: none;
+  transition: stroke 200ms, stroke-width 200ms;
+}
+#nf-snn-canvas .drawflow .connection .main-path:hover {
+  stroke: rgba(94, 234, 212, 0.9);
+  stroke-width: 1.2;
+}
+#nf-snn-canvas .drawflow .connection.fired .main-path {
+  stroke: #5eead4 !important;
+  stroke-width: 1.5;
+  animation: snn-fire-pulse 1.4s ease-in-out infinite;
+}
+@keyframes snn-fire-pulse {
+  0%, 100% { stroke-opacity: 1;   stroke-width: 1.5; }
+  50%      { stroke-opacity: 0.7; stroke-width: 2.0; }
+}
+#nf-snn-canvas .drawflow .connection.snn-canvas-conn--inactive .main-path {
+  stroke: rgba(148, 163, 184, 0.18) !important;
+  stroke-dasharray: 4 4;
+  stroke-width: 0.6;
+}
+
+/* port (input/output 핸들) — view 모드에서는 숨김. */
+#nf-snn-canvas .drawflow .input,
+#nf-snn-canvas .drawflow .output {
+  background: rgba(167, 139, 250, 0.6);
+  border: 1px solid rgba(167, 139, 250, 0.9);
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+#nf-snn-canvas.snn-canvas-edit .drawflow .input,
+#nf-snn-canvas.snn-canvas-edit .drawflow .output {
+  opacity: 0.7;
+  pointer-events: auto;
+}
+
+/* node card — drawflow content 안의 카드 디자인. */
+.snn-canvas-neuron-card {
+  --neuron-color: #c4b5fd;
+  position: relative;
+  background: linear-gradient(180deg, #161821 0%, #0e1018 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 0;
+  min-width: 120px;
+  color: #e5e7eb;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.1), 0 0 12px rgba(167, 139, 250, 0.08);
+  pointer-events: auto;
+}
+.snn-canvas-neuron-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.snn-canvas-neuron-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neuron-color);
+  box-shadow: 0 0 6px var(--neuron-color);
+  flex-shrink: 0;
+}
+.snn-canvas-neuron-label {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snn-canvas-neuron-lock {
+  font-size: 10px;
+  opacity: 0.6;
+  filter: grayscale(0.3);
+}
+.snn-canvas-neuron-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  font-family: ui-monospace, monospace;
+}
+.snn-canvas-neuron-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+}
+.snn-canvas-neuron-row-label { color: rgba(255, 255, 255, 0.4); }
+.snn-canvas-neuron-row-value { color: rgba(255, 255, 255, 0.7); }
+
+/* fired 상태 (외부 class toggle). */
+.snn-canvas-neuron--fired .snn-canvas-neuron-card {
+  box-shadow: 0 0 0 1px var(--neuron-color), 0 0 18px var(--neuron-color);
+  filter: brightness(1.18);
+  transition: filter 0.2s;
+}
+
+/* population별 색감. */
+.snn-canvas-neuron--camera  .snn-canvas-neuron-card { --neuron-color: #a78bfa; }
+.snn-canvas-neuron--gesture .snn-canvas-neuron-card { --neuron-color: #fbbf24; }
+.snn-canvas-neuron--input   .snn-canvas-neuron-card { --neuron-color: #93c5fd; }
+.snn-canvas-neuron--l4_e    .snn-canvas-neuron-card { --neuron-color: #67e8f9; }
+.snn-canvas-neuron--l4_i    .snn-canvas-neuron-card { --neuron-color: #fda4af; }
+.snn-canvas-neuron--l23_e   .snn-canvas-neuron-card { --neuron-color: #c4b5fd; }
+.snn-canvas-neuron--l5_e    .snn-canvas-neuron-card { --neuron-color: #f5b842; }
+.snn-canvas-neuron--output  .snn-canvas-neuron-card { --neuron-color: #5eead4; }
+
+/* SOURCE 카드 (Camera/Gesture) — placeholder body. */
+.snn-canvas-source-card { min-width: 160px; }
+.snn-canvas-source-mount {
+  margin: 6px 8px 8px;
+  height: 110px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.snn-canvas-source-empty {
+  text-align: center;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.snn-canvas-source-empty-hint {
+  margin-top: 4px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.snn-canvas-out-card { min-width: 130px; }
+
+/* 시스템 노드 (편집 잠금) — 약한 desaturation. */
+.snn-canvas-neuron--locked .snn-canvas-neuron-card {
+  filter: saturate(0.85);
+}
+.snn-canvas-neuron--locked .snn-canvas-neuron-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.05);
+  border-radius: inherit;
+  pointer-events: none;
+}

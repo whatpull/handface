@@ -6,7 +6,6 @@ import Toolbar from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import StatsPanel from '@/components/snn/StatsPanel';
-import RlFeedbackPanel from '@/components/snn/RlFeedbackPanel';
 import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import { onBackendEvent } from '@/lib/backend/events';
@@ -69,7 +68,6 @@ export default function Editor() {
               cameraConnected={cameraConnected}
               view={view}
             />
-            <RlFeedbackPanel />
             <StatsPanel
               open={statsOpen}
               data={statsData as Parameters<typeof StatsPanel>[0]['data']}

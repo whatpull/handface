@@ -158,8 +158,10 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
   // 발화 시각화 — fired class + synapse pulse.
   // Region 뷰에서는 active_neurons_by_region 으로 region 카드를 빛나게 함.
   useEffect(() => {
-    const FIRE_DURATION_MS = 800;
+    const FIRE_DURATION_MS = 1500;
     const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+    // Region 뷰: 각 region 의 "마지막 0이 아닌 active count" 누적 표시 — trial 사이 빠르게 사라지는 펄스 가시화.
+    const lastNonZero: Record<string, number> = {};
     let regionDebugCount = 0;
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       // Region 뷰: 세 데이터 소스 통합 → V1/V2 누락 케이스 모두 cover.
@@ -204,8 +206,11 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
           if (!card) continue;
           const count = counts[region];
           const avgRate = byRegionRate[region] || 0;
+          // count > 0 이면 갱신 + lastNonZero 기록. count = 0 이면 직전 lastNonZero 유지 (빠른 펄스 가시화).
+          if (count > 0) lastNonZero[region] = count;
+          const display = count > 0 ? count : (lastNonZero[region] || 0);
           const countEl = card.querySelector('.snn-canvas-region-count');
-          if (countEl) countEl.textContent = String(count);
+          if (countEl) countEl.textContent = String(display);
           if (count > 0 || avgRate > 0) {
             card.classList.add('snn-canvas-neuron--fired');
             if (fireTimers[region]) clearTimeout(fireTimers[region]);

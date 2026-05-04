@@ -165,7 +165,7 @@ export class NeuronFaceClient {
       method: 'POST',
       body: {
         type: 'gesture', name: gesture, intensity,
-        observe_ms: 50, stimulus_duration_ms: 15, stdp: false, stdp_mode: 'pair',
+        observe_ms: 200, stimulus_duration_ms: 30, stdp: false, stdp_mode: 'pair',
       },
     });
     if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture, intensity });
@@ -182,6 +182,7 @@ export class NeuronFaceClient {
   }
 
   // Train — N trial × gestures 각각 STDP 학습 (target_out supervisor pulse 동반).
+  // observe_ms 200, stimulus 30 으로 확장 → cascade 가 V1/V2/OUT 까지 도달할 시간 충분히 확보.
   async trainCascade(gestures: string[], trials = 5): Promise<Result<{ trained: number; failed: number; total: number }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
@@ -193,7 +194,7 @@ export class NeuronFaceClient {
           method: 'POST',
           body: {
             type: 'gesture', name: g, intensity: 1.0,
-            observe_ms: 50, stimulus_duration_ms: 15,
+            observe_ms: 200, stimulus_duration_ms: 30,
             stdp: true, stdp_mode: 'pair',
           },
         });
@@ -221,7 +222,7 @@ export class NeuronFaceClient {
           method: 'POST',
           body: {
             type: 'gesture', name: g, intensity: 1.0,
-            observe_ms: 50, stimulus_duration_ms: 15, stdp: false, stdp_mode: 'pair',
+            observe_ms: 200, stimulus_duration_ms: 30, stdp: false, stdp_mode: 'pair',
           },
         });
         if (!r.ok || r.data.ok === false) continue;

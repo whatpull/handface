@@ -34,9 +34,19 @@
 #nf-snn-canvas .drawflow-node .drawflow_content_node {
   pointer-events: none;
 }
+/* view 모드: 노드 hover 도 grab (pan 가능 — drawflow 의 기본 cursor:move 우회). */
+#nf-snn-canvas .drawflow-node,
+#nf-snn-canvas .drawflow-node:hover {
+  cursor: grab;
+}
+#nf-snn-canvas .drawflow:active .drawflow-node {
+  cursor: grabbing;
+}
+/* edit 모드: 노드 hover 시 move (드래그 이동 가능). */
 #nf-snn-canvas.snn-canvas-edit .drawflow-node .drawflow_content_node {
   pointer-events: auto;
 }
+#nf-snn-canvas.snn-canvas-edit .drawflow-node,
 #nf-snn-canvas.snn-canvas-edit .drawflow-node:hover {
   cursor: move;
 }

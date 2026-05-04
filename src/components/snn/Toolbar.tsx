@@ -33,7 +33,7 @@ export default function Toolbar({
   return (
     <div
       role="toolbar"
-      className="flex flex-wrap items-center gap-1 border-b border-white/5 bg-[#0d0d10]/95 px-3 py-2"
+      className="hidden md:flex flex-wrap items-center gap-1 border-b border-white/5 bg-[#0d0d10]/95 px-3 py-2"
     >
       <div className={groupCls}>
         <button

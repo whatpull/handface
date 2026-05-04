@@ -91,11 +91,18 @@ export default function Editor() {
             </div>
           )}
           <MobileBottomBar
+            view={view}
+            onViewChange={setView}
             onTrain={mobileActions.train}
-            onEval={mobileActions.eval}
+            onPredict={() => setPredictOpen(true)}
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
-            onMore={() => setBrainOpen(true)}
+            onEval={mobileActions.eval}
+            onLoad={mobileActions.load}
+            onExport={mobileActions.exportCircuit}
+            onImport={mobileActions.importCircuit}
+            onStats={mobileActions.stats}
+            onBrain={() => setBrainOpen(true)}
           />
         </main>
       </div>

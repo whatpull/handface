@@ -38,34 +38,42 @@ export function getCanvasMode() {
  * Common style
  * ────────────────────────────────────────────── */
 const cyStyle = [
-  // Default node
+  // Default node — 고정 크기 + 명확 색상 (mapper 의존 X).
   {
     selector: 'node',
     style: {
-      'background-color': '#1a1a22',
-      'border-color': 'rgba(167, 139, 250, 0.40)',
-      'border-width': 1.5,
+      'background-color': '#262630',
+      'background-opacity': 1,
+      'border-color': '#a78bfa',
+      'border-width': 2,
+      'border-opacity': 0.7,
       'label': 'data(label)',
-      'color': 'rgba(255, 255, 255, 0.85)',
-      'font-size': 9,
+      'color': '#ffffff',
+      'font-size': 10,
       'font-family': 'Menlo, Consolas, monospace',
       'text-valign': 'center',
       'text-halign': 'center',
-      'width': 'data(w)',
-      'height': 'data(h)',
+      'text-wrap': 'wrap',
+      'text-max-width': 92,
+      'width': 96,
+      'height': 44,
       'shape': 'round-rectangle',
-      'transition-property': 'background-color, border-color, border-width',
-      'transition-duration': 120,
     },
   },
-  // Region color tinting (data.color 사용)
+  // Region color tinting (region mode 에서 큰 노드)
+  {
+    selector: 'node[w >= 100]',
+    style: {
+      'width': 'data(w)',
+      'height': 'data(h)',
+    },
+  },
+  // 색상이 있는 노드 — border 만 강하게
   {
     selector: 'node[color]',
     style: {
-      'background-color': 'data(color)',
-      'background-opacity': 0.20,
       'border-color': 'data(color)',
-      'border-opacity': 0.55,
+      'border-opacity': 1,
     },
   },
   // System (locked) node
@@ -268,12 +276,15 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
     });
   }
 
+  console.log('[canvas-cy] initCanvasNeuron — elements:', elements.length,
+              'neurons:', allNeurons.length, 'synapses:', allSyn.length);
+
   cy = cytoscape({
     container,
     elements,
     style: cyStyle,
-    layout: { name: 'preset' },   // 저장된 / 기본 X 좌표 사용 (자동정렬은 별도 버튼)
-    minZoom: 0.15,
+    layout: { name: 'preset' },
+    minZoom: 0.05,
     maxZoom: 5,
     wheelSensitivity: 0.2,
     boxSelectionEnabled: false,
@@ -283,17 +294,24 @@ export function initCanvasNeuron(containerId, synapses, dynamicNeurons = []) {
   // 노드 드래그 후 위치 저장
   cy.on('dragfree', 'node', (ev) => {
     const node = ev.target;
-    if (node.data('system') === '1') return;   // canonical 은 저장 X
+    if (node.data('system') === '1') return;
     const pos = node.position();
     setNodePosition(node.id(), pos.x, pos.y);
   });
 
-  // 첫 mount fit
-  cy.fit(undefined, 80);
+  // 첫 mount fit — DOM ready 후 한 frame 뒤 호출
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        cy.resize();
+        cy.fit(undefined, 60);
+        console.log('[canvas-cy] mounted — nodes:', cy.nodes().length,
+                    'edges:', cy.edges().length, 'zoom:', cy.zoom());
+      } catch (e) { console.warn('[canvas-cy] fit error:', e); }
+    });
+  });
 
-  // 외부 source 노드 mount 이벤트 (scene.js 의 ASCII camera 등 호환).
   window.dispatchEvent(new CustomEvent('snn-canvas:source-mounted'));
-
   return cy;
 }
 

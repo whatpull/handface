@@ -348,6 +348,7 @@ function renderNodeHtml(n: LayoutNode & { count?: number }): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-neuron-body">
           <div class="snn-canvas-neuron-row">
@@ -365,6 +366,7 @@ function renderNodeHtml(n: LayoutNode & { count?: number }): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-source-mount">
           <div class="snn-canvas-source-empty">
@@ -381,15 +383,16 @@ function renderNodeHtml(n: LayoutNode & { count?: number }): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-neuron-body">
           <div class="snn-canvas-neuron-row">
             <span class="snn-canvas-neuron-row-label">status</span>
-            <span class="snn-canvas-neuron-row-value">idle</span>
+            <span class="snn-canvas-neuron-row-value snn-canvas-out-status">idle</span>
           </div>
           <div class="snn-canvas-neuron-row">
             <span class="snn-canvas-neuron-row-label">rate</span>
-            <span class="snn-canvas-neuron-row-value">0</span>
+            <span class="snn-canvas-neuron-row-value snn-canvas-out-rate">0</span>
           </div>
         </div>
       </div>
@@ -402,6 +405,7 @@ function renderNodeHtml(n: LayoutNode & { count?: number }): string {
         <span class="snn-canvas-neuron-dot"></span>
         <span class="snn-canvas-neuron-label">${n.label}</span>
         ${lock}
+        <span class="snn-canvas-neuron-menu">···</span>
       </div>
       <div class="snn-canvas-neuron-body">
         <div class="snn-canvas-neuron-row">

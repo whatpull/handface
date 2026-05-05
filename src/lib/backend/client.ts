@@ -3,7 +3,7 @@
 // 'neuron-firing' 이벤트로 emit → Canvas 가 시각화.
 
 import { loadBackendSettings, normalizeEndpoint } from './settings';
-import { emitBackendEvent, type NeuronFiringDetail } from './events';
+import { emitBackendEvent, type NeuronFiringDetail, type RStdpPulseDetail } from './events';
 
 const NETWORK_KEY = 'handface.network.id';
 
@@ -298,6 +298,67 @@ export class NeuronFaceClient {
       method: 'POST',
       body: { target_hz: targetHz, window_ms: 200, min_spikes: 1 },
     });
+  }
+
+  // Phase 113: snapshot weights — R-STDP baseline 시점 기록.
+  // R-STDP pulse 가 (현재 weight - snapshot weight) delta 영역 amplify 함.
+  // autoCapture 진입 시 1회 호출 → 이후 pulse 영역 baseline 정합.
+  async snapshotWeights(): Promise<Result<{ ok: boolean; snapshot_index: number; t: number }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    return this.request(`/networks/${net.data}/snapshot-weights`, { method: 'POST' });
+  }
+
+  // Phase 174: R-STDP pulse — reward-modulated STDP (Izhikevich 2007 / Frémaux & Gerstner 2016).
+  // snapshot 영역 vs 현재 weight delta 영역 (reward_strength - 1) 만큼 추가 amplify.
+  // positive_only=true → LTP delta 만 증폭 (winner path 강화), LTD delta 무시.
+  // 호출 시점 — supervised inject 정답 직후 (winner cluster == target cluster) 가장 정합.
+  // mandatory: snapshotWeights() 가 먼저 호출돼 있어야 함 — 없으면 ok:false reason 반환.
+  async applyRStdpPulse(opts: {
+    snapshotIndex?: number;
+    rewardStrength?: number;
+    positiveOnly?: boolean;
+  } = {}): Promise<Result<{
+    ok: boolean;
+    reason?: string;
+    synapses_amplified?: number;
+    total_amplified_delta?: number;
+    reward_strength?: number;
+    positive_only?: boolean;
+    snapshot_t?: number;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const rewardStrength = opts.rewardStrength ?? 1.5;
+    const positiveOnly = opts.positiveOnly ?? true;
+    const r = await this.request<{
+      ok: boolean;
+      reason?: string;
+      synapses_amplified?: number;
+      total_amplified_delta?: number;
+      reward_strength?: number;
+      positive_only?: boolean;
+      snapshot_t?: number;
+    }>(`/networks/${net.data}/rstdp-pulse`, {
+      method: 'POST',
+      body: {
+        snapshot_index: opts.snapshotIndex ?? 0,
+        reward_strength: rewardStrength,
+        positive_only: positiveOnly,
+      },
+    });
+    if (r.ok) {
+      const detail: RStdpPulseDetail = {
+        ok: !!r.data.ok,
+        reason: r.data.reason,
+        rewardStrength,
+        positiveOnly,
+        synapsesAmplified: r.data.synapses_amplified,
+        totalAmplifiedDelta: r.data.total_amplified_delta,
+      };
+      emitBackendEvent<RStdpPulseDetail>('rstdp-pulse', detail);
+    }
+    return r;
   }
 
   // 커뮤니티 — 학습 weight 기여 + 집계 baseline 가져오기.

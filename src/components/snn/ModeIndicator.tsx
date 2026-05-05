@@ -9,7 +9,7 @@
 //  - 학습 모드인데 Δw 0 → "no Δw detected" 명시
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail, type RStdpPulseDetail } from '@/lib/backend/events';
 
 interface ModeStatus {
   mode: 'learning' | 'inference' | 'idle';
@@ -49,15 +49,42 @@ const TEACHER_STABLE_FRAMES = 3;
 // use-hand-control GESTURE_LABEL_TO_CLUSTER 정합.
 const MAPPABLE_GESTURES = new Set(['Pointing_Up', 'Open_Palm', 'Closed_Fist', 'Victory']);
 
+interface RStdpCounter {
+  pulses: number;
+  totalAmplified: number;
+  lastDeltaSum: number;
+  lastSynapses: number;
+  lastReward: number;
+  lastTs: number;
+}
+
 export default function ModeIndicator() {
   const [status, setStatus] = useState<ModeStatus | null>(null);
   const [teacher, setTeacher] = useState<TeacherStatus | null>(null);
+  const [rstdp, setRstdp] = useState<RStdpCounter | null>(null);
   // pre->post 별 직전 weight 보관. Δw 계산 = current - prev.
   const prevWeights = useRef<Map<string, number>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // teacher stability tracking — use-hand-control 과 독립 카운트 (events 추가 회피).
   // 같은 mappable gesture + conf 충족 frame 연속 시 카운트, 아니면 리셋.
   const teacherStableRef = useRef<{ name: string | null; count: number }>({ name: null, count: 0 });
+
+  // R-STDP pulse 발생 subscribe — 카운터 + 마지막 amplified syn / delta 기록.
+  // 사실 1:1 — backend 응답 ok 시만 카운트.
+  useEffect(() => {
+    const off = onBackendEvent<RStdpPulseDetail>('rstdp-pulse', (d) => {
+      if (!d.ok) return;
+      setRstdp((prev) => ({
+        pulses: (prev?.pulses ?? 0) + 1,
+        totalAmplified: (prev?.totalAmplified ?? 0) + (d.totalAmplifiedDelta ?? 0),
+        lastDeltaSum: d.totalAmplifiedDelta ?? 0,
+        lastSynapses: d.synapsesAmplified ?? 0,
+        lastReward: d.rewardStrength,
+        lastTs: Date.now(),
+      }));
+    });
+    return off;
+  }, []);
 
   // MediaPipe gesture (teacher signal) subscribe.
   useEffect(() => {
@@ -230,6 +257,12 @@ export default function ModeIndicator() {
           {stableSupervised && (
             <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
               conf {(teacher!.gestureScore * 100).toFixed(0)}% — supervised STDP
+              {rstdp && rstdp.pulses > 0 && ` + R-STDP active`}
+            </div>
+          )}
+          {stableSupervised && rstdp && rstdp.pulses > 0 && (
+            <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
+              rstdp: {rstdp.pulses} pulses · last +{rstdp.lastDeltaSum.toFixed(2)} ({rstdp.lastSynapses} syn × {rstdp.lastReward.toFixed(1)}x)
             </div>
           )}
           {stabilizing && (

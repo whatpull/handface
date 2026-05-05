@@ -46,6 +46,13 @@ const STABILITY_FRAMES = 4;        // 같은 winner N frame 연속 → 안정
 const MIN_CONFIDENCE = 0.4;        // winner / total ratio
 const COOLDOWN_MS = 1500;          // 같은 OUT 연속 record 최소 간격
 const HOMEOSTASIS_EVERY = 30;      // N tick 마다 synaptic scaling — winner monopoly 회피
+// R-STDP: supervised inject N=10 마다 mild reward (1.5) — STDP delta 양 amplify.
+// 정답 일치 (winner cluster == supervised target cluster) 시 strong reward (2.0) — 결정적 강화.
+// frequency 결정 근거: tick 350ms × 10 = 3.5s 마다 pulse → backend snapshot 비교 1회 비용 감수 가능.
+// 매 supervised inject 마다 호출 시 latency 누적 + delta 영역 작아 효과 미미.
+const RSTDP_EVERY_SUPERVISED = 10;
+const RSTDP_REWARD_MILD = 1.5;
+const RSTDP_REWARD_STRONG = 2.0;
 
 export function useHandControl(cameraConnected: boolean, autoLive = false, autoCapture = false) {
   const [hasHand, setHasHand] = useState(false);
@@ -158,6 +165,13 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     let lastGestureName: string | null = null;
     let gestureStableCount = 0;
     const lastRecordAt: Record<string, number> = {};
+    // R-STDP: snapshot 1회 + supervised counter.
+    // snapshot 실패 시 (네트워크 미준비 등) snapshotReady=false → R-STDP pulse 호출 skip.
+    let snapshotReady = false;
+    let supervisedInjectCount = 0;
+    void getClient().snapshotWeights().then((r) => {
+      if (!cancelled && r.ok && r.data.ok) snapshotReady = true;
+    }).catch(() => null);
 
     const tick = async () => {
       if (cancelled) return;
@@ -203,6 +217,16 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
 
       const r = await getClient().injectPattern(pattern, { stdp: true, targetOut });
       if (cancelled) return;
+      // supervised inject 누적 — N=10 마다 mild R-STDP pulse (LTP delta 1.5x 증폭).
+      if (supervised && r.ok) {
+        supervisedInjectCount += 1;
+        if (snapshotReady && supervisedInjectCount % RSTDP_EVERY_SUPERVISED === 0) {
+          void getClient().applyRStdpPulse({
+            rewardStrength: RSTDP_REWARD_MILD,
+            positiveOnly: true,
+          }).catch(() => null);
+        }
+      }
       if (r.ok) {
         // out_rates → cluster mean readout (population coding, N3 회로 정합).
         const rates = (r.data.out_rates || {}) as Record<string, number>;
@@ -246,6 +270,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
               const m = /^cluster_(\d+)$/.exec(winner);
               const reinforceTarget = m ? `out_${m[1]}_0` : winner;
               await getClient().injectPattern(pattern, { stdp: true, targetOut: reinforceTarget });
+              // 정답 일치 영역 strong R-STDP pulse — supervised teacher cluster 와 winner cluster
+              // 완전 일치 시 가장 결정적 강화 시점. snapshot baseline 이후 누적 LTP delta 2x amplify.
+              const winnerCluster = m ? Number(m[1]) : null;
+              if (snapshotReady && supervised && winnerCluster !== null && winnerCluster === cluster) {
+                void getClient().applyRStdpPulse({
+                  rewardStrength: RSTDP_REWARD_STRONG,
+                  positiveOnly: true,
+                }).catch(() => null);
+              }
               recordExemplar(winner, feat);
               setTrainStatus(`✓ ${winner} 강화 (안정 발화 캡처)`);
               // 한 번 캡처 후 stability 리셋 — 손 잠깐 흔들고 다시 안정화될 때까지 대기.

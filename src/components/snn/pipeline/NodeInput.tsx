@@ -9,10 +9,11 @@ import { useEffect, useState } from 'react';
 import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
 import { FEATURE_LABELS } from '@/lib/mediapipe/feature-encoder';
 import NodeShell from './NodeShell';
+import { initialCollapsedForMobile } from './shared';
 
 export default function NodeInput({ cameraConnected }: { cameraConnected: boolean }) {
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   // feature 막대 ref — HandTrackerHost 영역 .snn-feat-bars 영역 selector 로 직접 갱신.
 
   useEffect(() => {

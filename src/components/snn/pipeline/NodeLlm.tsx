@@ -27,7 +27,7 @@ import {
 } from '@/lib/snn/llm-client';
 import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { HISTORY_MAX, WINNER_MARGIN } from './shared';
+import { HISTORY_MAX, WINNER_MARGIN, initialCollapsedForMobile } from './shared';
 
 export default function NodeLlm({
   onLlmResult,
@@ -35,7 +35,7 @@ export default function NodeLlm({
   onLlmResult?: (r: LlmSendResult) => void;
 }) {
   const [cfg, setCfg] = useState<LlmConfig>(() => loadLlmConfig());
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
   const [winner, setWinner] = useState<{

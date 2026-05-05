@@ -19,7 +19,7 @@ import {
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import NodeShell from './NodeShell';
-import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
+import { CLUSTER_LABELS, CLUSTER_TARGET, initialCollapsedForMobile } from './shared';
 
 // inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
 // V1/V2 영역 영역 영역 영역).
@@ -33,7 +33,7 @@ export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   const prevWeights = useRef<Map<string, number>>(new Map());
 
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).

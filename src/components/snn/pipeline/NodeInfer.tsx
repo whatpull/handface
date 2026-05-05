@@ -12,7 +12,7 @@ import {
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { CLUSTER_LABELS, SATURATION_HZ, WINNER_MARGIN } from './shared';
+import { CLUSTER_LABELS, SATURATION_HZ, WINNER_MARGIN, initialCollapsedForMobile } from './shared';
 
 export default function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
   void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
@@ -25,7 +25,7 @@ export default function NodeInfer({ winnerCluster }: { winnerCluster: number | n
     saturated: boolean;
   }>({ cluster: null, rates: [0, 0, 0, 0], confidence: 0, margin: 0, saturated: false });
   const [history, setHistory] = useState<number[]>([]);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
 

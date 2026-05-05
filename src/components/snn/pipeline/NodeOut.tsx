@@ -14,7 +14,7 @@ import {
 } from '@/lib/snn/out-exemplars';
 import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { WINNER_MARGIN } from './shared';
+import { WINNER_MARGIN, initialCollapsedForMobile } from './shared';
 
 export default function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
   void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
@@ -22,7 +22,7 @@ export default function NodeOut({ winnerCluster }: { winnerCluster: number | nul
   const [winner, setWinner] = useState<{ cluster: number | null; confidence: number; margin: number }>(
     { cluster: null, confidence: 0, margin: 0 },
   );
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
 
   useEffect(() => subscribeExemplars(setExemplars), []);
 

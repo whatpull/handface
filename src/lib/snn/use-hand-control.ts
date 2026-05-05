@@ -388,6 +388,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             if (cancelled) return;
             if (r.ok && r.data.ok) {
               setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
+              // 사용자 catch 2026-05-06: V1/V2 fire visual 영역 — cluster_train_supervised 응답
+              // 영역 fire data 0 영역 영역 1회 inject_feature16(stdp=false) 영역 emit.
+              const lastPattern = batch[batch.length - 1] || pattern;
+              await getClient().injectPattern(lastPattern, { stdp: false });
+              if (cancelled) return;
               const lockR = await getClient().clusterLock(cluster, { lock: true });
               if (cancelled) return;
               if (!lockR.ok) {

@@ -124,8 +124,12 @@
   /* content-fit — 각 node 영역 자체 height 영역 영역 빈 공간 0 catch.
      직전 align-items: stretch 폐기 사실 (사용자 catch 2026-05-05). */
   align-items: flex-start;
-  gap: 24px;
-  min-width: max-content;
+  gap: 16px;
+  /* viewport fit — 5 node 영역 flex shrink + arrow auto 영역 1280px 영역 horizontal
+     scroll 0 영역 정합 (사용자 catch 2026-05-05). 직전 min-width: max-content 영역
+     5 × 280 + 4 × 24 = 1496 → 1280 viewport overflow catch 영역 영역 폐기. */
+  min-width: 0;
+  width: 100%;
 }
 @media (max-width: 900px) {
   .snn-pipeline-flow {
@@ -142,7 +146,9 @@
   justify-content: center;
   color: rgba(94, 234, 212, 0.35);
   flex-shrink: 0;
-  width: 24px;
+  /* viewport fit — 5 node 영역 1280px 영역 fit 영역 영역 arrow width 24→16 축소
+     (사용자 PC catch 2026-05-05). */
+  width: 16px;
   /* node header height (~ 38px) 영역 정합 영역 vertical center catch — flow align-items
      영역 flex-start 영역 영역 arrow 영역 위쪽 정합 자체 padding 영역 보정 영역. */
   padding-top: 18px;
@@ -172,11 +178,14 @@
   background: linear-gradient(180deg, rgba(24, 24, 30, 0.96) 0%, rgba(18, 18, 22, 0.96) 100%);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 12px;
-  width: 280px;
+  /* viewport fit — flex 1 영역 shrink 영역 + min-width 200 + max-width 280 영역
+     1280px viewport 영역 5 node 영역 horizontal scroll 0 영역 정합. */
+  flex: 1 1 220px;
+  min-width: 200px;
+  max-width: 280px;
   /* content-fit — 자체 content height 영역 영역 (빈 공간 catch 영역). */
   height: max-content;
   min-height: 0;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   font-size: 11px;
@@ -191,7 +200,13 @@
               0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 @media (max-width: 900px) {
-  .snn-pipeline-node { width: 100%; max-width: 420px; margin: 0 auto; }
+  .snn-pipeline-node {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 420px;
+    min-width: 0;
+    margin: 0 auto;
+  }
   .snn-pipeline-node:hover { transform: none; }
 }
 .snn-pipeline-node--input  { border-color: rgba(167, 139, 250, 0.35); }
@@ -259,14 +274,25 @@
   flex: 1;
   font-size: 10px;
   opacity: 0.7;
+  /* 220-280px node 영역 영역 sub title 영역 ellipsis 영역 — 영역 영역 영역 width
+     overflow catch 영역 영역. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .snn-pipeline-node-caret { font-size: 11px; opacity: 0.75; }
+/* PC 좁은 viewport (≤1100px) 영역 sub title 영역 hide — 5 node × 220px 영역 정합. */
+@media (max-width: 1100px) and (min-width: 901px) {
+  .snn-pipeline-node-sub { display: none; }
+}
 
 .snn-pipeline-node-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 14px 16px;
+  gap: 8px;
+  /* polish — 220px node 영역 14→12 padding 영역 정합 (사용자 spacing catch). */
+  padding: 12px 12px 14px;
 }
 
 .snn-pipeline-row {
@@ -357,11 +383,11 @@
   color: rgba(207, 250, 254, 0.85);
 }
 
-.snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 4px; }
+.snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 3px; }
 .snn-pipeline-cluster-row {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 5px;
   font-size: 10px;
-  padding: 2px 4px;
+  padding: 2px 3px;
   border-radius: 3px;
   transition: background 180ms ease;
 }
@@ -373,7 +399,7 @@
   background: rgba(34, 197, 94, 0.05);
 }
 .snn-pipeline-cluster-label {
-  width: 64px;
+  width: 56px;
   font-size: 10px;
   opacity: 0.85;
 }
@@ -388,7 +414,7 @@
   position: relative;
 }
 .snn-pipeline-cluster-count {
-  width: 38px;
+  width: 34px;
   text-align: right;
   font-family: ui-monospace, monospace;
   font-size: 9px;
@@ -470,13 +496,13 @@
   0%, 100% { background: rgba(94,234,212,0.10); }
   50%      { background: rgba(94,234,212,0.20); }
 }
-.snn-pipeline-rate-label { width: 64px; font-size: 10px; }
+.snn-pipeline-rate-label { width: 56px; font-size: 10px; }
 .snn-pipeline-rate-bar {
   flex: 1; height: 4px; border-radius: 2px;
   background: rgba(255,255,255,0.06); overflow: hidden;
 }
 .snn-pipeline-rate-value {
-  width: 36px; text-align: right;
+  width: 32px; text-align: right;
   font-family: ui-monospace, monospace; font-size: 9px;
   opacity: 0.85;
 }
@@ -533,10 +559,22 @@
 .snn-pipeline-out-counts { display: flex; flex-direction: column; gap: 2px; }
 .snn-pipeline-out-count-row {
   display: flex; justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
   font-size: 10px; padding: 1px 0;
 }
-.snn-pipeline-out-count-label { opacity: 0.85; }
-.snn-pipeline-out-count-value { font-family: ui-monospace, monospace; opacity: 0.9; }
+.snn-pipeline-out-count-label {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.snn-pipeline-out-count-value {
+  font-family: ui-monospace, monospace;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
 
 .snn-pipeline-btn {
   padding: 6px 10px;

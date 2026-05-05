@@ -20,13 +20,19 @@ export default function CameraQuickControls({ cameraConnected }: Props) {
   const ctrl = useHandControl(cameraConnected);
 
   // host element polling — drawflow node mount 후 등장.
+  // className 기반 querySelector (drawflow 가 ID 일부 strip 가능성 회피).
   useEffect(() => {
     let cancelled = false;
+    let attempts = 0;
     const tick = () => {
       if (cancelled) return;
-      const el = document.getElementById('snn-cam-controls');
-      if (el) setHost(el);
-      else requestAnimationFrame(tick);
+      const el = document.querySelector<HTMLElement>('.snn-cam-controls');
+      if (el) {
+        setHost(el);
+      } else if (attempts < 300) {  // ~5초까지 재시도
+        attempts += 1;
+        requestAnimationFrame(tick);
+      }
     };
     tick();
     return () => { cancelled = true; };

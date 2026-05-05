@@ -98,7 +98,12 @@ export default function Editor() {
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
-            {view === 'neuron' && <CameraQuickControls cameraConnected={cameraConnected} />}
+            {view === 'neuron' && (
+              <CameraQuickControls
+                key={`cam-controls-${canvasNonce}`}
+                cameraConnected={cameraConnected}
+              />
+            )}
           </div>
           {status && (
             <div

@@ -486,19 +486,125 @@ export class NeuronFaceClient {
     return { ok: true, data: { trained, total: patterns.length } };
   }
 
-  // batch supervised 학습 — state machine LEARNING phase 영역 호출 영역.
-  // 본질 redesign (사용자 명시): online self-organizing STDP 폐기, 명시적 batch
-  // supervised teacher signal 영역으로 cluster 별 30 frame 학습.
-  //
-  // 정직 한계 박음: 현재 영역은 wrapper (trainHandGesture 영역 동일 영역) — backend 영역
-  // 신규 batch endpoint (e.g. `/networks/:id/training/supervised_batch`) 영역 정합
-  // mandatory. backend agent 보고 영역 도착 후 정합 정정 영역.
+  // [DEPRECATED] handfaceTrainSupervised — single target_out wrapper.
+  // backend `handface_train_supervised` 영역 single OUT 영역 supervisor → cluster
+  // mutual excitation +2.0 영역 8 OUT broadcast 미달 catch (backend agent ddb220e
+  // 보고 영역 사실: cluster 0 fire = 1/8). 신규 호출자 영역 `clusterTrainSupervised`
+  // 사용 mandatory. 호환 영역 보존 영역 — 단 deprecated 영역 명시.
   async handfaceTrainSupervised(
     patterns: number[][],
     targetOut: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Result<{ trained: number; total: number }>> {
     return this.trainHandGesture(patterns, targetOut, onProgress);
+  }
+
+  // N4 batch supervised — cluster 전체 broadcast supervisor (backend ddb220e 정합).
+  // backend endpoint: POST /networks/{id}/cluster_train_supervised
+  // body: {patterns: N×16, target_cluster: 0..15, supervisor_weight, supervisor_delay_ms,
+  //        intensity, observe_ms, stimulus_duration_ms, stdp_mode, delta_threshold}
+  // 응답: {ok, trained, cluster, target_outs, weight_changes, weight_changes_count, ...}
+  //
+  // single target_out (wrapper handfaceTrainSupervised) 영역 cluster fire = 1/8.
+  // 본 endpoint 영역 cluster prefix `out_{cluster}_` 영역 8 OUT 모두 supervisor
+  // pulse → cluster 8/8 fire 사실 (backend sanity test 통과 영역).
+  //
+  // 정직 한계 박음: TRAINED 정확도 영역 보장 0 — SNN 4-way 영역 학술 nontrivial.
+  async clusterTrainSupervised(
+    patterns: number[][],
+    targetCluster: number,
+    opts: {
+      supervisorWeight?: number;
+      supervisorDelayMs?: number;
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+      stdpMode?: 'pair' | 'triplet';
+      deltaThreshold?: number;
+    } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    trained: number;
+    cluster: number;
+    target_outs: string[];
+    supervisor_weight: number;
+    supervisor_delay_ms: number;
+    stdp_mode: string;
+    weight_changes_count: number;
+    weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
+    synapses_total: number;
+    reason?: string;
+    prefix?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    // 16-dim padding/clamping per-pattern.
+    const p16Patterns = patterns.map((pattern) => {
+      const p16 = new Array<number>(16).fill(0);
+      for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+        const v = pattern[i];
+        p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+      }
+      return p16;
+    });
+    const r = await this.request<{
+      ok: boolean;
+      trained: number;
+      cluster: number;
+      target_outs: string[];
+      supervisor_weight: number;
+      supervisor_delay_ms: number;
+      stdp_mode: string;
+      weight_changes_count: number;
+      weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
+      synapses_total: number;
+      reason?: string;
+      prefix?: string;
+    }>(`/networks/${net.data}/cluster_train_supervised`, {
+      method: 'POST',
+      body: {
+        patterns: p16Patterns,
+        target_cluster: targetCluster,
+        supervisor_weight: opts.supervisorWeight ?? 30.0,
+        supervisor_delay_ms: opts.supervisorDelayMs ?? 30.0,
+        intensity: opts.intensity ?? 1.0,
+        observe_ms: opts.observeMs ?? 80.0,
+        stimulus_duration_ms: opts.stimulusDurationMs ?? 20.0,
+        stdp_mode: opts.stdpMode ?? 'pair',
+        delta_threshold: opts.deltaThreshold ?? 0.01,
+      },
+    });
+    if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    return r;
+  }
+
+  // N4 cluster lock — incoming 시냅스 STDP 영구 off (backend ddb220e 정합).
+  // backend endpoint: POST /networks/{id}/cluster_lock
+  // body: {cluster_id: 0..15, lock: bool}
+  // batch 학습 완료 cluster 영역 catastrophic forgetting 회피 catch — 추가 학습 0.
+  //
+  // 정직 한계 박음: backend 영역 R-STDP / homeostatic 영역 frozen flag check 영역
+  // 미검증 사실 (backend agent 영역 보고 영역 한계 박음). neuron.py STDP gate 영역만
+  // 정합 — R-STDP pulse / astrocyte V_th adjust 영역 frozen 영역 무시 가능.
+  async clusterLock(
+    clusterId: number,
+    opts: { lock?: boolean } = {},
+  ): Promise<Result<{
+    ok?: boolean;
+    cluster_id: number;
+    prefix: string;
+    frozen?: number;
+    reason?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    return this.request(`/networks/${net.data}/cluster_lock`, {
+      method: 'POST',
+      body: {
+        cluster_id: clusterId,
+        lock: opts.lock ?? true,
+      },
+    });
   }
 
 }

@@ -247,14 +247,14 @@ export default function ModeIndicator() {
       trained: {
         bg: 'bg-green-500/20 ring-green-400/50 text-green-100',
         dot: 'bg-green-400',
-        label: '✓ TRAINED — inference active',
-        sub: '4 clusters complete · cluster mean readout',
+        label: '✓ TRAINED — frozen',
+        sub: '4 clusters locked · weight permanent',
       },
       inference: {
         bg: 'bg-blue-500/15 ring-blue-400/40 text-blue-200',
         dot: 'bg-blue-400',
         label: 'INFERENCE',
-        sub: 'cluster mean readout · MediaPipe assist only',
+        sub: 'STDP off · cluster mean readout',
       },
     };
     const c = config[phase];

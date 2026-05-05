@@ -16,12 +16,21 @@
 // 직전 autoCapture 영역 (online self-reinforce + R-STDP + astrocyte) 폐기.
 // 학습은 LEARNING phase 의 batch supervised 영역으로만 진행.
 //
+// N4 정합 (backend ddb220e): cluster broadcast supervisor.
+//  - `handfaceTrainSupervised` (single target_out) 영역 cluster mutual excitation
+//    +2.0 영역 8 OUT broadcast 미달 → cluster fire = 1/8 catch.
+//  - `clusterTrainSupervised` (cluster prefix `out_{cluster}_` 영역 8 OUT broadcast)
+//    영역 cluster 전체 학습 → cluster 8/8 fire 사실 (backend sanity test).
+//  - autoCapture loop 영역 frame-by-frame injectPattern 영역 폐기, N=30 frame 영역
+//    cluster 별 buffer 누적 → 30 도달 시점 1회 batch `clusterTrainSupervised` 호출.
+//  - 4 cluster 모두 학습 완료 → 자동 `clusterLock(0..3, lock=true)` → frozen 사실.
+//
 // 정직 한계 박음:
 //  - N=5 stable + 0.85 conf = 추측. 너무 엄격 / 느슨 가능 — 사용자 화면 검증 mandatory.
-//  - TRAINED 정확도 보장 0. SNN 4-way 영역 학술 nontrivial. batch supervised 가
-//    self-organizing 보다 본질 정합 가능성 ↑ (teacher signal 명시).
-//  - `handfaceTrainSupervised` 영역 backend 신규 endpoint 정합 mandatory —
-//    현재 구현은 wrapper (trainHandGesture) 영역. backend agent 정합 commit 별도.
+//  - TRAINED 정확도 보장 0. SNN 4-way 영역 학술 nontrivial. cluster broadcast
+//    supervised 영역 single target 보다 본질 정합 가능성 ↑ (teacher signal 영역 8 OUT 영역).
+//  - clusterLock 영역 backend STDP gate 영역만 정합 — R-STDP pulse / astrocyte V_th
+//    adjust 영역 frozen 영역 무시 가능 (backend agent 한계 박음).
 
 import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
@@ -192,6 +201,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   }, [autoLive, cameraConnected]);
 
   // 수동 N frame supervised — 외부 호출자용 (호환 보존, 현재 미사용 가능).
+  // N4 정합: cluster prefix 영역 추론 (`out_{cluster}_*` → cluster) 후 batch
+  // `clusterTrainSupervised` 호출. single target_out wrapper 영역 폐기 사실.
   const train = async (gestureId: string, targetOut: string, label: string) => {
     if (busy || !cameraConnected) return;
     setBusy(gestureId);
@@ -213,29 +224,39 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       await new Promise((r) => setTimeout(r, TRAIN_INTERVAL_MS));
     }
     if (patterns.length === 0) { setBusy(null); return; }
-    setTrainStatus(`${label} 학습 진행 ${patterns.length} 패턴…`);
-    const r = await getClient().handfaceTrainSupervised(patterns, targetOut, (done, total) => {
-      setTrainStatus(`${label} 학습 ${done}/${total}…`);
-    });
-    if (r.ok) {
-      setTrainStatus(`✓ ${label} 학습 완료 (${r.data.trained} 패턴)`);
+    // targetOut (예: "out_2_0") 에서 cluster id 추출.
+    const m = /^out_(\d+)_\d+$/.exec(targetOut);
+    if (!m) {
+      setTrainStatus(`✗ ${label}: invalid targetOut="${targetOut}" — expected out_{cluster}_{idx}`);
+      setBusy(null);
+      return;
+    }
+    const cluster = Number(m[1]);
+    setTrainStatus(`${label} batch supervised 진행 ${patterns.length} 패턴…`);
+    const r = await getClient().clusterTrainSupervised(patterns, cluster);
+    if (r.ok && r.data.ok) {
+      setTrainStatus(`✓ ${label} 학습 완료 (${r.data.trained} 패턴, Δw ${r.data.weight_changes_count} syn)`);
     } else {
-      setTrainStatus(`✗ ${label}: ${r.reason}`);
+      const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
+      setTrainStatus(`✗ ${label}: ${reason}`);
     }
     setBusy(null);
   };
 
-  // 메인 batch supervised + inference loop.
+  // 메인 batch supervised + inference loop (N4 정합).
   // autoCapture=true 시 진입. cameraConnected + hasHand 영역 매 350ms tick.
   //
   //  - phase='inference' 영역: stdp=false inject, cluster mean readout, winner 결정.
-  //  - 그 외 (untrained/learning/partial/trained): MediaPipe label 영역 N=5 stable +
-  //    conf >= 0.85 + 해당 cluster < 30 frame 영역 supervised inject (1 frame).
-  //    cluster frames[c] += 1, frames[c] >= 30 영역 cluster 학습 완료.
-  //    4 cluster 영역 모두 30 도달 영역 phase = 'trained' → 'inference' 영역 자동 전환.
+  //  - 그 외 (untrained/learning/partial): MediaPipe label 영역 N=5 stable +
+  //    conf >= 0.85 영역 cluster 별 frame buffer 영역 pattern 누적.
+  //    cluster buffer 영역 30 frame 도달 영역 1회 batch `clusterTrainSupervised`
+  //    호출 (cluster 8 OUT broadcast supervisor → cluster 8/8 fire).
+  //    4 cluster 영역 모두 30 도달 영역 `clusterLock(0..3, lock=true)` →
+  //    phase = 'trained' → 'inference' 영역 자동 전환.
   //
-  // 직전 R-STDP / astrocyte / homeostatic 영역 호출 영역 폐기. batch supervised
-  // 영역 = 명시적 teacher signal 영역. self-organizing 영역 부산물 영역 영역 영역 회피.
+  // 직전 frame-by-frame `injectPattern(stdp:true, targetOut)` 영역 폐기 — single
+  // target supervisor 영역 cluster mutual excitation +2.0 영역 8 OUT broadcast
+  // 미달 catch (cluster fire = 1/8). N4 batch broadcast 영역 정합 정정 영역.
   useEffect(() => {
     if (!autoCapture || !cameraConnected) {
       setLiveResult(null);
@@ -245,6 +266,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     let lastGestureName: string | null = null;
     let gestureStableCount = 0;
     let learningActive = false;
+    // cluster 별 pattern buffer — 30 frame 도달 시점 batch flush.
+    const clusterBuffers: Record<0|1|2|3, number[][]> = { 0: [], 1: [], 2: [], 3: [] };
+    // cluster lock 진행 — 중복 호출 회피.
+    const clusterLocked: Record<0|1|2|3, boolean> = { 0: false, 1: false, 2: false, 3: false };
 
     const tick = async () => {
       if (cancelled) return;
@@ -310,56 +335,92 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         && gScore >= GESTURE_CONFIDENCE_MIN
         && gestureStableCount >= GESTURE_STABLE_FRAMES;
 
-      // batch supervised trigger 영역: stable AND 해당 cluster 영역 < 30 frame.
-      let shouldTrain = false;
+      // pattern 누적 trigger 영역: stable AND 해당 cluster 영역 < 30 frame.
+      let shouldCapture = false;
       if (stable && cluster !== null) {
         const cur = framesRef.current[cluster as 0|1|2|3];
-        if (cur < CLUSTER_TARGET_FRAMES) shouldTrain = true;
+        if (cur < CLUSTER_TARGET_FRAMES) shouldCapture = true;
       }
 
-      if (shouldTrain && cluster !== null) {
-        if (!learningActive) {
-          learningActive = true;
-        }
-        // 1 frame supervised inject — target_out=`out_{cluster}_0` (cluster 의 첫 OUT
-        // teacher signal 영역). cluster 내 8 OUT 영역 mutual excitation 영역 cluster
-        // 전체 강화 정합.
-        const targetOut = `out_${cluster}_0`;
-        const r = await getClient().injectPattern(pattern, { stdp: true, targetOut });
-        if (cancelled) return;
-        if (r.ok) {
-          // cluster frames 영역 누적 + 영구화.
-          const next = { ...framesRef.current };
-          next[cluster as 0|1|2|3] = Math.min(CLUSTER_TARGET_FRAMES, next[cluster as 0|1|2|3] + 1);
-          framesRef.current = next;
-          saveClusterFrames(next);
-          setClusterFrames(next);
-          const newPhase = derivePhase(next, phaseRef.current, true);
-          if (newPhase !== phaseRef.current) {
-            phaseRef.current = newPhase;
-            savePhase(newPhase);
-            setPhase(newPhase);
-          }
-          // 4 cluster 영역 모두 학습 완료 영역 자동 'inference' 전환.
-          if (newPhase === 'trained') {
-            phaseRef.current = 'inference';
-            savePhase('inference');
-            setPhase('inference');
-          }
-          const label = CLUSTER_TO_LABEL[cluster] ?? `cluster ${cluster}`;
-          setTrainStatus(`✓ ${label}: ${next[cluster as 0|1|2|3]}/${CLUSTER_TARGET_FRAMES} frames`);
+      if (shouldCapture && cluster !== null) {
+        if (!learningActive) learningActive = true;
+        const ci = cluster as 0|1|2|3;
+        // cluster buffer 영역 pattern 누적 — backend 호출 0, 30 도달 시점 1회 flush.
+        clusterBuffers[ci].push(pattern);
+        // 진행 카운트 영역 즉시 표시 (사용자 시각 catch).
+        const progressNext = { ...framesRef.current };
+        progressNext[ci] = Math.min(CLUSTER_TARGET_FRAMES, clusterBuffers[ci].length);
+        framesRef.current = progressNext;
+        setClusterFrames(progressNext);
+        const label = CLUSTER_TO_LABEL[cluster] ?? `cluster ${cluster}`;
+        setTrainStatus(`${label}: capturing ${clusterBuffers[ci].length}/${CLUSTER_TARGET_FRAMES}…`);
 
-          // liveResult 영역 학습 중 진행률 표시 (inference winner 와 별도 의미 영역).
-          // cluster 영역 winner = 학습 중인 cluster 영역.
-          const ratesExposed: Record<string, number> = {};
-          for (let i = 0; i < 4; i += 1) {
-            ratesExposed[`cluster_${i}`] = next[i as 0|1|2|3] / CLUSTER_TARGET_FRAMES;
+        // liveResult 영역 학습 중 진행률 표시.
+        const ratesExposed: Record<string, number> = {};
+        for (let i = 0; i < 4; i += 1) {
+          const buf = clusterBuffers[i as 0|1|2|3];
+          ratesExposed[`cluster_${i}`] = buf.length / CLUSTER_TARGET_FRAMES;
+        }
+        setLiveResult({
+          winner: `cluster_${cluster}`,
+          rates: ratesExposed,
+          confidence: clusterBuffers[ci].length / CLUSTER_TARGET_FRAMES,
+        });
+
+        // phase 영역 평가 (learning 진입).
+        const learningPhase = derivePhase(progressNext, phaseRef.current, true);
+        if (learningPhase !== phaseRef.current) {
+          phaseRef.current = learningPhase;
+          savePhase(learningPhase);
+          setPhase(learningPhase);
+        }
+
+        // 30 frame 도달 → batch flush. cluster broadcast supervisor (8 OUT 모두).
+        if (clusterBuffers[ci].length >= CLUSTER_TARGET_FRAMES) {
+          setTrainStatus(`${label}: batch supervised 진행 (${CLUSTER_TARGET_FRAMES} frames)…`);
+          const batch = clusterBuffers[ci].slice();
+          // buffer drain — 추가 누적 회피.
+          clusterBuffers[ci] = [];
+          const r = await getClient().clusterTrainSupervised(batch, cluster);
+          if (cancelled) return;
+          if (r.ok && r.data.ok) {
+            // frames[c] = 30 영구화 (학습 완료 사실).
+            const next = { ...framesRef.current };
+            next[ci] = CLUSTER_TARGET_FRAMES;
+            framesRef.current = next;
+            saveClusterFrames(next);
+            setClusterFrames(next);
+            setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
+
+            // cluster lock — 추가 학습 0 (catastrophic forgetting 회피).
+            if (!clusterLocked[ci]) {
+              const lockR = await getClient().clusterLock(cluster, { lock: true });
+              if (cancelled) return;
+              if (lockR.ok) clusterLocked[ci] = true;
+            }
+
+            const newPhase = derivePhase(next, phaseRef.current, true);
+            if (newPhase !== phaseRef.current) {
+              phaseRef.current = newPhase;
+              savePhase(newPhase);
+              setPhase(newPhase);
+            }
+            // 4 cluster 영역 모두 학습 완료 영역 자동 'inference' 전환.
+            if (newPhase === 'trained') {
+              phaseRef.current = 'inference';
+              savePhase('inference');
+              setPhase('inference');
+            }
+          } else {
+            const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
+            setTrainStatus(`✗ ${label} batch 실패: ${reason}`);
+            // 실패 시 frames 영역 rollback (재시도 가능 catch).
+            const rollback = { ...framesRef.current };
+            rollback[ci] = 0;
+            framesRef.current = rollback;
+            saveClusterFrames(rollback);
+            setClusterFrames(rollback);
           }
-          setLiveResult({
-            winner: `cluster_${cluster}`,
-            rates: ratesExposed,
-            confidence: next[cluster as 0|1|2|3] / CLUSTER_TARGET_FRAMES,
-          });
         }
       } else {
         // 학습 trigger 미충족 — phase 영역 평가 영역 (frames 변경 0 영역 derive).

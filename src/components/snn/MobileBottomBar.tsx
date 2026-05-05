@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 
-type ViewMode = 'pipeline' | 'region' | 'neuron';
+// 'neuron' (drawflow 472 sampling) 영역 폐기됨 — 데이터 정합 0.
+type ViewMode = 'pipeline' | 'region';
 interface MobileBottomBarProps {
   view: ViewMode;
   onViewChange: (v: ViewMode) => void;
@@ -62,7 +63,6 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
             <div className="flex flex-wrap gap-1.5">
               <SheetBtn label="Pipeline" active={p.view === 'pipeline'} onClick={() => { p.onViewChange('pipeline'); setMoreOpen(false); }} />
               <SheetBtn label="Region" active={p.view === 'region'} onClick={() => { p.onViewChange('region'); setMoreOpen(false); }} />
-              <SheetBtn label="Detail" active={p.view === 'neuron'} onClick={() => { p.onViewChange('neuron'); setMoreOpen(false); }} />
             </div>
           </div>
         </div>

@@ -8,9 +8,6 @@ import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
-import CameraQuickControls from '@/components/snn/CameraQuickControls';
-import OutNodeOverlay from '@/components/snn/OutNodeOverlay';
-import ModeIndicator from '@/components/snn/ModeIndicator';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
@@ -20,7 +17,8 @@ export default function Editor() {
   const [editMode, setEditMode] = useState(false);
   const [cameraConnected, setCameraConnected] = useState(false);
   // 'pipeline' = 5-node 본격 redesign (default).
-  // 'region' / 'neuron' = 직전 drawflow detail view (472 neurons / 4 region).
+  // 'region' = 4박스 (INPUT/V1/V2/OUT) 단순 cluster 표시 — 디버깅 보조.
+  // ('neuron' = drawflow 472 sampling detail — 폐기됨, 데이터 정합 0.)
   const [view, setView] = useState<ViewMode>('pipeline');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
@@ -42,8 +40,6 @@ export default function Editor() {
     installAutoSnapshot();
     return off;
   }, []);
-
-  const isDetail = view === 'region' || view === 'neuron';
 
   return (
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
@@ -73,15 +69,13 @@ export default function Editor() {
               />
             ) : (
               <Canvas
-                key={`${view}-${canvasNonce}`}
+                key={`region-${canvasNonce}`}
                 editMode={editMode}
                 cameraConnected={cameraConnected}
-                view={view}
               />
             )}
             {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel
-                / .snn-feat-bars) 영역 polling — pipeline / drawflow neuron view 영역
-                양쪽 정합 사실 (selector 기반 mount).
+                / .snn-feat-bars) 영역 polling — Pipeline view 영역 mount 정합.
                 key={view} 영역 view 전환 영역 stale closure (video/skel/barFills 영역
                 unmounted DOM ref) 영역 catch — 카메라 까만 화면 회피 catch. */}
             <HandTrackerHost
@@ -89,19 +83,6 @@ export default function Editor() {
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
-            {/* CameraQuickControls / OutNodeOverlay / ModeIndicator 영역 = drawflow
-                neuron view 영역 portal mount. pipeline view 영역 PipelineCanvas 영역
-                동등 영역 통합 사실. */}
-            {view === 'neuron' && (
-              <>
-                <CameraQuickControls
-                  key={`cam-controls-${canvasNonce}`}
-                  cameraConnected={cameraConnected}
-                />
-                <OutNodeOverlay key={`out-overlay-${canvasNonce}`} />
-              </>
-            )}
-            {isDetail && <ModeIndicator key={`mode-${canvasNonce}`} />}
           </div>
           {status && (
             <div

@@ -1,33 +1,38 @@
 'use client';
 
+// Canvas — Region view (4 박스 INPUT/V1/V2/OUT cluster cascade) 전용.
+//
+// 정직 한계 박음 (사용자 명시):
+//  - 직전 view='neuron' (drawflow 472 sampling) 영역 폐기됨 — 데이터 정합 0
+//    (sampling 12개 영역 표시영역 거짓 + read-only drag 영역만 가치).
+//  - Region view 영역 보존 결정 — 4 박스 단순 cluster 표시 영역 디버깅 보조
+//    (region 별 active count + cascade 흐름 시각화).
+//  - 본격 회로 시각화 영역 PipelineCanvas 영역 위임.
+
 import { useEffect, useRef, useState } from 'react';
 import 'drawflow/dist/drawflow.min.css';
-import { weightColor } from '@/lib/snn/data';
 import { getPosition, setPosition } from '@/lib/snn/positions';
-import { layoutSnapshot, preventOverlap } from '@/lib/snn/layout';
+import { preventOverlap } from '@/lib/snn/layout';
 import {
-  applyCameraConnected, attachManualPan, buildNodeClass, buildRegionLayout,
+  attachManualPan, buildNodeClass, buildRegionLayout,
   fitToView, inferRegion, renderNodeHtml,
 } from '@/lib/snn/drawflow-helpers';
-import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 
 interface CanvasProps {
   editMode: boolean;
   cameraConnected: boolean;
-  view: 'region' | 'neuron';
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-export default function Canvas({ editMode, cameraConnected, view }: CanvasProps) {
+export default function Canvas({ editMode, cameraConnected: _cameraConnected }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<unknown>(null);
   const connRefMap = useRef<Record<string, Element>>({});
   const nodeRefMap = useRef<Record<string, HTMLElement>>({});
   const drawflowIdToName = useRef<Record<number, string>>({});
-  // 시냅스 Δw 시각화용 — 이전 응답의 weight 보관, 매 응답마다 비교 → LTP/LTD flash.
-  const synapseWeightCache = useRef<Map<string, number>>(new Map());
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadError, setLoadError] = useState<string>('');
 
@@ -38,14 +43,9 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     let editor: import('drawflow').default | null = null;
 
     (async () => {
-      // 백엔드에서 실제 회로 로드 — frontend 고정 노드 폐기.
+      // Region 카드 영역 backend snapshot 영역 region count 영역만 사용 — community
+      // baseline / 본인 snapshot 복원 영역 Pipeline 영역 위임 (Region 영역 read-only).
       const client = getClient();
-      // 1) 커뮤니티 baseline 자동 적용 (D1 aggregate weight) — 1회.
-      const { applyCommunityBaselineOnce } = await import('@/lib/snn/community-baseline');
-      await applyCommunityBaselineOnce().catch(() => null);
-      // 2) 사용자 본인 snapshot 복원 — community 위에 덮어씀 (본인 학습 우선).
-      const { restoreSnapshotOnce } = await import('@/lib/snn/auto-snapshot');
-      await restoreSnapshotOnce().catch(() => null);
       const r = await client.getFullSnapshot();
       if (cancelled) return;
       if (!r.ok) {
@@ -53,9 +53,7 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         setLoadState('error');
         return;
       }
-      const layout = view === 'region'
-        ? buildRegionLayout(r.data.neurons || [])
-        : layoutSnapshot(r.data.neurons || [], r.data.synapses || []);
+      const layout = buildRegionLayout(r.data.neurons || []);
 
       const Drawflow = (await import('drawflow')).default;
       if (cancelled) return;
@@ -63,7 +61,6 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       const ed = new Drawflow(container);
       ed.reroute = false;
       ed.reroute_fix_curvature = false;
-      // 부드러운 베지에 곡선 — 시냅스 라인이 닷 angle 에 맞게 자연스럽게 진입.
       ed.curvature = 0.5;
       ed.zoom_min = 0.2;
       ed.zoom_max = 4;
@@ -80,27 +77,22 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       const regionCounts = (layout as { regionCounts?: Record<string, number> }).regionCounts;
 
       // 1) 저장 좌표 + layout 좌표 합성 → 2) 겹침 방지 pass → 3) 노드 추가.
-      // 사용자 드래그 결과 (positions.ts) 가 우선이지만, 다른 사용자 드래그
-      // 또는 새 노드 추가로 겹침이 생길 수 있어 push-down 보정.
       const merged = layout.nodes.map((n) => {
         const saved = getPosition(n.id);
         return {
           id: n.id,
           x: saved?.x ?? n.x,
           y: saved?.y ?? n.y,
-          isOut: n.population === 'output' || n.region === 'OUT' || n.id.startsWith('out_'),
+          isOut: n.region === 'OUT',
         };
       });
       preventOverlap(merged);
       const posMap = new Map(merged.map((m) => [m.id, m]));
 
-      // 노드 추가.
       for (const n of layout.nodes) {
         const p = posMap.get(n.id)!;
-        const x = p.x;
-        const y = p.y;
         const id = ed.addNode(
-          n.id, 1, 1, x, y,
+          n.id, 1, 1, p.x, p.y,
           buildNodeClass(n),
           { neuron: n.id, region: n.region, population: n.population },
           renderNodeHtml(n),
@@ -111,8 +103,6 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         const el = container.querySelector(`#node-${id}`) as HTMLElement | null;
         if (el) {
           nodeRefMap.current[n.id] = el;
-          // Region 뷰: 카드 active count 를 전체 neuron 수 (idle baseline) 가 아닌 0 으로 시작.
-          // 단 footer 는 region 의 총 neuron 수를 보조 표시.
           if (n.population === 'region' && regionCounts) {
             const body = el.querySelector('.snn-canvas-neuron-body');
             if (body) {
@@ -128,7 +118,6 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         }
       }
 
-      // 시냅스 추가 — 보이는 노드 사이만.
       for (const syn of layout.synapses) {
         const fromId = nameToDfId[syn.pre];
         const toId = nameToDfId[syn.post];
@@ -137,13 +126,10 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         const sel = `.connection.node_in_node-${toId}.node_out_node-${fromId}`;
         const conn = container.querySelector(sel);
         if (conn) {
-          (conn as HTMLElement).dataset.weightColor = weightColor(syn.weight);
           connRefMap.current[`${syn.pre}->${syn.post}`] = conn;
         }
       }
 
-      // 드래그 끝 → 겹침 보정 후 좌표 저장. 이동된 노드 + 동 컬럼 모든 노드를
-      // 모아 preventOverlap 재실행, 변경된 노드 모두 좌표 저장 + DOM 위치 갱신.
       ed.on('nodeMoved', (dfId: number) => {
         const name = drawflowIdToName.current[dfId];
         if (!name || !editor) return;
@@ -154,7 +140,7 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
           const nm = drawflowIdToName.current[d];
           const nd = editor!.getNodeFromId(d);
           const data = (nd?.data ?? {}) as { region?: string; population?: string };
-          const isOut = nm.startsWith('out_') || data.region === 'OUT' || data.population === 'output';
+          const isOut = data.region === 'OUT';
           return { id: nm, x: nd?.pos_x ?? 0, y: nd?.pos_y ?? 0, isOut };
         });
         preventOverlap(snapshot);
@@ -177,7 +163,6 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
 
       attachManualPan(container, ed);
       requestAnimationFrame(() => requestAnimationFrame(() => fitToView(ed, container)));
-      applyCameraConnected(connRefMap.current, cameraConnected);
       setLoadState('ready');
     })();
 
@@ -190,9 +175,8 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       connRefMap.current = {};
       nodeRefMap.current = {};
       drawflowIdToName.current = {};
-      synapseWeightCache.current = new Map();
     };
-  }, [view]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // editMode 토글.
   useEffect(() => {
@@ -202,233 +186,40 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     containerRef.current?.classList.toggle('snn-canvas-edit', editMode);
   }, [editMode]);
 
-  // 카메라 연결 상태 토글.
-  useEffect(() => {
-    applyCameraConnected(connRefMap.current, cameraConnected);
-  }, [cameraConnected]);
-
-  // 발화 시각화 — fired class + synapse pulse.
-  // Region 뷰에서는 active_neurons_by_region 으로 region 카드를 빛나게 함.
+  // Region 발화 시각화 — active_neurons_by_region + rates prefix + rates_by_region 통합.
   useEffect(() => {
     const FIRE_DURATION_MS = 1500;
     const fireTimers: Record<string, ReturnType<typeof setTimeout>> = {};
-    // Region 뷰: 각 region 의 "마지막 0이 아닌 active count" 누적 표시 — trial 사이 빠르게 사라지는 펄스 가시화.
     const lastNonZero: Record<string, number> = {};
-    let regionDebugCount = 0;
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // Region 뷰: 세 데이터 소스 통합 → V1/V2 누락 케이스 모두 cover.
-      //  1) rates: neuron name prefix 로 직접 집계 (가장 신뢰)
-      //  2) active_neurons_by_region: 백엔드가 명시한 region 키별 active list
-      //  3) rates_by_region: region 평균 Hz (0 초과면 fire)
-      if (view === 'region') {
-        const rates = d.rates || {};
-        const byActive = d.active_neurons_by_region || {};
-        const byRegionRate = d.rates_by_region || {};
-        const counts: Record<string, number> = { INPUT: 0, V1: 0, V2: 0, OUT: 0 };
-        // 1) prefix 집계
-        for (const [name, rate] of Object.entries(rates)) {
-          if (rate <= 0) continue;
-          const region = inferRegion(name);
-          if (region in counts) counts[region] += 1;
-        }
-        // 2) active list 합산 (max 사용 — 두 소스 중 큰 값)
-        for (const region of Object.keys(counts)) {
-          const fromActive = (byActive[region] || []).length;
-          if (fromActive > counts[region]) counts[region] = fromActive;
-        }
-        // 진단: 응답 구조 + 집계 결과 출력 (V1/V2 발화 디버깅).
-        // 콘솔에서 window.__snnDebug = false 로 끄거나, 호출 너무 많으면 5번까지만.
-        regionDebugCount += 1;
-        const dbg = typeof window !== 'undefined'
-          ? (window as { __snnDebug?: boolean }).__snnDebug
-          : undefined;
-        if (dbg !== false && regionDebugCount <= 5) {
-          console.log('[snn region]', regionDebugCount, {
-            counts,
-            activeKeys: Object.keys(byActive),
-            activeLens: Object.fromEntries(Object.entries(byActive).map(([k, v]) => [k, v.length])),
-            byRegionRate,
-            rateSample: Object.entries(rates)
-              .filter(([, r]) => (r as number) > 0)
-              .slice(0, 8),
-          });
-        }
-        for (const region of Object.keys(counts)) {
-          const card = nodeRefMap.current[`region_${region}`];
-          if (!card) continue;
-          const count = counts[region];
-          const avgRate = byRegionRate[region] || 0;
-          // count > 0 이면 갱신 + lastNonZero 기록. count = 0 이면 직전 lastNonZero 유지 (빠른 펄스 가시화).
-          if (count > 0) lastNonZero[region] = count;
-          const display = count > 0 ? count : (lastNonZero[region] || 0);
-          const countEl = card.querySelector('.snn-canvas-region-count');
-          if (countEl) countEl.textContent = String(display);
-          if (count > 0 || avgRate > 0) {
-            card.classList.add('snn-canvas-neuron--fired');
-            if (fireTimers[region]) clearTimeout(fireTimers[region]);
-            fireTimers[region] = setTimeout(() => {
-              card.classList.remove('snn-canvas-neuron--fired');
-              delete fireTimers[region];
-            }, FIRE_DURATION_MS);
-          }
-        }
-        return;
+      const rates = d.rates || {};
+      const byActive = d.active_neurons_by_region || {};
+      const byRegionRate = d.rates_by_region || {};
+      const counts: Record<string, number> = { INPUT: 0, V1: 0, V2: 0, OUT: 0 };
+      for (const [name, rate] of Object.entries(rates)) {
+        if (rate <= 0) continue;
+        const region = inferRegion(name);
+        if (region in counts) counts[region] += 1;
       }
-
-      // Neuron 뷰: 각 neuron rate 별 처리.
-      // backend 응답 schema 변종 대응 — rates 가 비어있으면 active_neurons_by_region 의
-      // neuron 이름들을 rate=1 로 합성 (fire 정합). inject_feature16 같이 active_neurons_by_region
-      // 만 내려주는 endpoint 시각화 wiring 정합.
-      let rates = d.rates || {};
-      if (Object.keys(rates).length === 0 && d.active_neurons_by_region) {
-        const synth: Record<string, number> = {};
-        for (const list of Object.values(d.active_neurons_by_region)) {
-          for (const name of list as string[]) synth[name] = 1;
-        }
-        rates = synth;
+      for (const region of Object.keys(counts)) {
+        const fromActive = (byActive[region] || []).length;
+        if (fromActive > counts[region]) counts[region] = fromActive;
       }
-
-      // OUT cluster mean readout (N3 본격 회로 정합) — out_{cluster}_{idx} 명명 정합.
-      // 거짓 회피: 모든 OUT 동시 ACTIVE 표시 금지. cluster mean margin <10% 면 tie.
-      const outRates = d.out_rates || {};
-      const clusterSum: number[] = Array.from({ length: 4 }, () => 0);
-      const clusterCnt: number[] = Array.from({ length: 4 }, () => 0);
-      for (const [k, v] of Object.entries(outRates)) {
-        const m = /^out_(\d+)_(\d+)$/.exec(k);
-        if (m) {
-          const ci = Number(m[1]);
-          if (ci >= 0 && ci < 4) {
-            clusterSum[ci] += v;
-            clusterCnt[ci] += 1;
-          }
-        }
-      }
-      const clusterMean = clusterSum.map((s, i) => clusterCnt[i] > 0 ? s / clusterCnt[i] : 0);
-      // 직전 single-OUT (out_0..3) backward compat — N3 매핑 안 되면 fallback.
-      const noN3 = clusterCnt[0] + clusterCnt[1] + clusterCnt[2] + clusterCnt[3] === 0;
-      if (noN3) {
-        for (const [k, v] of Object.entries(outRates)) {
-          const sm = /^out_(\d+)$/.exec(k);
-          if (sm) {
-            const ci = Number(sm[1]);
-            if (ci >= 0 && ci < 4) { clusterMean[ci] = v; clusterCnt[ci] = 1; }
-          }
-        }
-      }
-      const sortedClusters = clusterMean
-        .map((rate, ci) => ({ ci, rate }))
-        .sort((a, b) => b.rate - a.rate);
-      let winnerCluster: number | null = null;
-      if (sortedClusters[0].rate > 0) {
-        const max = sortedClusters[0].rate;
-        const second = sortedClusters[1]?.rate || 0;
-        const margin = (max - second) / max;
-        if (margin >= 0.10) winnerCluster = sortedClusters[0].ci;
-      }
-
-      // 시냅스 Δw flash — backend delta 사실 1:1 LTP(green)/LTD(orange) flash.
-      // Fast-path: `synapses_changed` (commit 443e48f, default) — backend 가 |Δw|≥threshold 변경분만 송신.
-      //            delta 직접 사용, frontend cache 비교 불필요. 9000+ syn → 변경분 N개로 페이로드 98% 축소.
-      // Fallback: `synapses` 전체 + 자체 cache 비교 (`?synapses_full=true` 또는 구버전 backend).
-      // 화면에 없는 syn 은 connRefMap miss 로 skip — 시각화 0 영역 cache 의미 0.
-      const connRef = connRefMap.current;
-      const cache = synapseWeightCache.current;
-      const changed = d.synapses_changed;
-      if (changed && changed.length > 0) {
-        // delta-only path — backend 가 base. frontend cache 는 fallback path 정합 영역만 갱신.
-        for (const s of changed) {
-          const key = `${s.pre}->${s.post}`;
-          cache.set(key, s.weight);
-          const conn = connRef[key];
-          if (!conn) continue;
-          const dw = s.delta;
-          if (Math.abs(dw) >= 0.1) {
-            const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
-            conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
-            void (conn as HTMLElement).offsetHeight;
-            conn.classList.add(flashClass);
-            const tk = `__dw_${key}`;
-            if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
-            fireTimers[tk] = setTimeout(() => {
-              conn.classList.remove(flashClass);
-              delete fireTimers[tk];
-            }, 1500);
-          }
-        }
-      } else {
-        // Fallback — 전체 syn 순회 + 자체 cache Δw (구버전 backend 정합).
-        const synapses = d.synapses || [];
-        for (const s of synapses) {
-          const key = `${s.pre}->${s.post}`;
-          const conn = connRef[key];
-          if (!conn) continue;  // 화면에 없는 syn → cache + Δw skip
-          const prev = cache.get(key);
-          if (prev !== undefined) {
-            const dw = s.weight - prev;
-            if (Math.abs(dw) >= 0.1) {
-              const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
-              conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
-              void (conn as HTMLElement).offsetHeight;
-              conn.classList.add(flashClass);
-              const tk = `__dw_${key}`;
-              if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
-              fireTimers[tk] = setTimeout(() => {
-                conn.classList.remove(flashClass);
-                delete fireTimers[tk];
-              }, 1500);
-            }
-          }
-          cache.set(key, s.weight);
-        }
-      }
-
-      const firedSet = new Set<string>();
-      for (const id of Object.keys(rates)) {
-        const rate = rates[id] || 0;
-        if (rate > 0) firedSet.add(id);
-        if (id.startsWith('out_')) {
-          const card = nodeRefMap.current[id];
-          if (card) {
-            const outRate = outRates[id] ?? rate;
-            // cluster id 추출 — out_{ci}_{idx} 또는 out_{ci} 둘 다 정합.
-            const m = /^out_(\d+)(?:_\d+)?$/.exec(id);
-            const ci = m ? Number(m[1]) : -1;
-            const isWinner = winnerCluster !== null && ci === winnerCluster;
-            const isTie = winnerCluster === null && (clusterCnt[ci]?.valueOf() || 0) > 0 && (clusterMean[ci] || 0) > 0;
-            const rows = card.querySelectorAll('.snn-canvas-neuron-row-value');
-            if (rows[0]) rows[0].textContent = isWinner ? 'WINNER' : (isTie ? 'tie' : (outRate > 0 ? 'fire' : 'idle'));
-            if (rows[1]) rows[1].textContent = outRate > 0 ? outRate.toFixed(0) : '0';
-            card.classList.toggle('snn-canvas-out--active', isWinner);
-            card.classList.toggle('snn-canvas-out--tie', isTie);
-          }
-        }
-        if (rate > 0) {
-          const el = nodeRefMap.current[id];
-          if (!el) continue;
-          el.classList.add('snn-canvas-neuron--fired');
-          if (fireTimers[id]) clearTimeout(fireTimers[id]);
-          fireTimers[id] = setTimeout(() => {
-            el.classList.remove('snn-canvas-neuron--fired');
-            delete fireTimers[id];
-          }, FIRE_DURATION_MS);
-        }
-      }
-      // 시냅스 pulse — fired pre 만 처리 (전체 connection 순회 대신).
-      // connRefMap 키는 "pre->post" — fired 인 pre 마다 prefix 매칭으로 일부만 hit.
-      if (firedSet.size > 0) {
-        const connKeys = Object.keys(connRefMap.current);
-        for (const key of connKeys) {
-          const sep = key.indexOf('->');
-          if (sep < 0) continue;
-          const pre = key.slice(0, sep);
-          if (!firedSet.has(pre)) continue;
-          const conn = connRefMap.current[key];
-          conn.classList.add('fired');
-          const tk = `__conn_${key}`;
-          if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
-          fireTimers[tk] = setTimeout(() => {
-            conn.classList.remove('fired');
-            delete fireTimers[tk];
+      for (const region of Object.keys(counts)) {
+        const card = nodeRefMap.current[`region_${region}`];
+        if (!card) continue;
+        const count = counts[region];
+        const avgRate = byRegionRate[region] || 0;
+        if (count > 0) lastNonZero[region] = count;
+        const display = count > 0 ? count : (lastNonZero[region] || 0);
+        const countEl = card.querySelector('.snn-canvas-region-count');
+        if (countEl) countEl.textContent = String(display);
+        if (count > 0 || avgRate > 0) {
+          card.classList.add('snn-canvas-neuron--fired');
+          if (fireTimers[region]) clearTimeout(fireTimers[region]);
+          fireTimers[region] = setTimeout(() => {
+            card.classList.remove('snn-canvas-neuron--fired');
+            delete fireTimers[region];
           }, FIRE_DURATION_MS);
         }
       }
@@ -437,45 +228,7 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       off();
       for (const k of Object.keys(fireTimers)) clearTimeout(fireTimers[k]);
     };
-  }, [view]);
-
-  // Hand feature 이벤트 → src_camera/src_gesture 가상 노드 + 출력 시냅스 활성화.
-  // 손 감지되는 동안 fired class 유지 (제거는 손 미감지 시).
-  useEffect(() => {
-    if (view !== 'neuron') return;
-    const SOURCES = ['src_camera', 'src_gesture'];
-    const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
-      // 1) 노드 카드 fired 토글
-      for (const id of SOURCES) {
-        const el = nodeRefMap.current[id];
-        if (!el) continue;
-        el.classList.toggle('snn-canvas-neuron--fired', d.hasHand);
-      }
-      // 2) src_camera / src_gesture 발 시냅스 fired 토글
-      for (const key in connRefMap.current) {
-        const sep = key.indexOf('->');
-        if (sep < 0) continue;
-        const pre = key.slice(0, sep);
-        if (pre === 'src_camera' || pre === 'src_gesture') {
-          connRefMap.current[key].classList.toggle('fired', d.hasHand);
-        }
-      }
-    });
-    return () => {
-      off();
-      // cleanup: fired class 제거.
-      for (const id of SOURCES) {
-        const el = nodeRefMap.current[id];
-        el?.classList.remove('snn-canvas-neuron--fired');
-      }
-      for (const key in connRefMap.current) {
-        const [pre] = key.split('->');
-        if (pre === 'src_camera' || pre === 'src_gesture') {
-          connRefMap.current[key].classList.remove('fired');
-        }
-      }
-    };
-  }, [view]);
+  }, []);
 
   return (
     <>
@@ -497,4 +250,3 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     </>
   );
 }
-

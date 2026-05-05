@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { createActions } from '@/lib/snn/actions';
 
-export type ViewMode = 'pipeline' | 'region' | 'neuron';
+// 'neuron' (drawflow 472 sampling) 영역 폐기됨 — 데이터 정합 0.
+export type ViewMode = 'pipeline' | 'region';
 
 interface ToolbarProps {
   view: ViewMode;
@@ -14,7 +15,8 @@ interface ToolbarProps {
 const groupCls = 'flex items-center gap-1';
 const sepCls   = 'mx-2 h-5 w-px bg-white/10';
 const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs ' +
-  'text-white/70 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent';
+  'text-white/70 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60';
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
 export default function Toolbar({ view, onViewChange, onStatusChange }: ToolbarProps) {
@@ -47,14 +49,6 @@ export default function Toolbar({ view, onViewChange, onStatusChange }: ToolbarP
         >
           <Icon kind="region" /> Region
         </button>
-        <button
-          type="button"
-          className={`${btnCls} ${view === 'neuron' ? activeCls : ''}`}
-          onClick={() => onViewChange('neuron')}
-          disabled={!!busy}
-        >
-          <Icon kind="neuron" /> Detail
-        </button>
       </div>
       <div className={sepCls} aria-hidden />
       <div className={groupCls}>
@@ -83,14 +77,6 @@ function Icon({ kind }: { kind: string }) {
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" />
           <rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" />
-        </svg>
-      );
-    case 'neuron':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <rect x="2" y="16" width="6" height="6" rx="1" /><rect x="16" y="16" width="6" height="6" rx="1" />
-          <rect x="9" y="2" width="6" height="6" rx="1" />
-          <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" /><path d="M12 12V8" />
         </svg>
       );
     case 'reset':

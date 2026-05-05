@@ -83,6 +83,39 @@
   stroke-width: 0.6;
 }
 
+/* 시냅스 weight Δw flash — backend 응답의 실제 weight 변화 표시.
+   거짓 회피: |Δw|≥0.1 일 때만 frontend 가 이 class 추가. green=LTP / orange=LTD. */
+#nf-snn-canvas .drawflow .connection.weight-flash-ltp .main-path {
+  stroke: #4ade80 !important;
+  stroke-width: 2.5 !important;
+  stroke-opacity: 0.95 !important;
+  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.7));
+  animation: snn-dw-flash 1.5s ease-out forwards;
+}
+#nf-snn-canvas .drawflow .connection.weight-flash-ltd .main-path {
+  stroke: #fb923c !important;
+  stroke-width: 2.5 !important;
+  stroke-opacity: 0.95 !important;
+  filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.7));
+  animation: snn-dw-flash 1.5s ease-out forwards;
+}
+@keyframes snn-dw-flash {
+  0%   { stroke-opacity: 1; stroke-width: 3; }
+  100% { stroke-opacity: 0.3; stroke-width: 1.2; }
+}
+
+/* OUT 카드 winner / tie 시각 분리 — 거짓 multi-winner 회피. */
+#nf-snn-canvas .snn-canvas-out--active {
+  outline: 2px solid rgba(94, 234, 212, 0.85);
+  outline-offset: -1px;
+  box-shadow: 0 0 18px rgba(94, 234, 212, 0.45);
+}
+#nf-snn-canvas .snn-canvas-out--tie {
+  outline: 1px dashed rgba(251, 191, 36, 0.55);
+  outline-offset: -1px;
+  opacity: 0.78;
+}
+
 /* port dot (input/output) — main-rollback "port socket" 형태 (concentric ring).
    크기 축소 (10→7px) + 깔끔한 색감 유지. */
 #nf-snn-canvas .drawflow-node .input,

@@ -9,6 +9,7 @@ import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import CameraQuickControls from '@/components/snn/CameraQuickControls';
 import OutNodeOverlay from '@/components/snn/OutNodeOverlay';
+import ModeIndicator from '@/components/snn/ModeIndicator';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
@@ -79,6 +80,7 @@ export default function Editor() {
                 <OutNodeOverlay key={`out-overlay-${canvasNonce}`} />
               </>
             )}
+            <ModeIndicator key={`mode-${canvasNonce}`} />
           </div>
           {status && (
             <div

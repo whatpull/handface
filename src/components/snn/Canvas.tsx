@@ -26,6 +26,8 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
   const connRefMap = useRef<Record<string, Element>>({});
   const nodeRefMap = useRef<Record<string, HTMLElement>>({});
   const drawflowIdToName = useRef<Record<number, string>>({});
+  // 시냅스 Δw 시각화용 — 이전 응답의 weight 보관, 매 응답마다 비교 → LTP/LTD flash.
+  const synapseWeightCache = useRef<Map<string, number>>(new Map());
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadError, setLoadError] = useState<string>('');
 
@@ -188,6 +190,7 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       connRefMap.current = {};
       nodeRefMap.current = {};
       drawflowIdToName.current = {};
+      synapseWeightCache.current = new Map();
     };
   }, [view]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -284,6 +287,46 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         }
         rates = synth;
       }
+
+      // OUT winner 분리 — out_rates max 가 두 번째보다 ≥10% margin 일 때만 winner.
+      // 거짓 회피: 모든 OUT 동시 ACTIVE 표시 금지. tie 면 모두 dim + tie 표시.
+      const outRates = d.out_rates || {};
+      const outsSorted = Object.entries(outRates).sort((a, b) => b[1] - a[1]);
+      let winnerOut: string | null = null;
+      if (outsSorted.length >= 2) {
+        const max = outsSorted[0][1];
+        const second = outsSorted[1][1];
+        const margin = max > 0 ? (max - second) / max : 0;
+        if (margin >= 0.10) winnerOut = outsSorted[0][0];
+      }
+
+      // 시냅스 Δw flash — 이전 weight cache 와 비교, |Δw|≥0.1 면 LTP(green)/LTD(orange) flash.
+      const synapses = d.synapses || [];
+      for (const s of synapses) {
+        const key = `${s.pre}->${s.post}`;
+        const prev = synapseWeightCache.current.get(key);
+        if (prev !== undefined) {
+          const dw = s.weight - prev;
+          if (Math.abs(dw) >= 0.1) {
+            const conn = connRefMap.current[key];
+            if (conn) {
+              const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
+              conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
+              // force reflow → 같은 class 재적용 시 animation restart
+              void (conn as HTMLElement).offsetHeight;
+              conn.classList.add(flashClass);
+              const tk = `__dw_${key}`;
+              if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
+              fireTimers[tk] = setTimeout(() => {
+                conn.classList.remove(flashClass);
+                delete fireTimers[tk];
+              }, 1500);
+            }
+          }
+        }
+        synapseWeightCache.current.set(key, s.weight);
+      }
+
       const firedSet = new Set<string>();
       for (const id of Object.keys(rates)) {
         const rate = rates[id] || 0;
@@ -291,10 +334,15 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         if (id.startsWith('out_')) {
           const card = nodeRefMap.current[id];
           if (card) {
+            const outRate = outRates[id] ?? rate;
+            const isWinner = winnerOut === id;
+            const isTie = winnerOut === null && outRate > 0;
             const rows = card.querySelectorAll('.snn-canvas-neuron-row-value');
-            if (rows[0]) rows[0].textContent = rate > 0 ? 'ACTIVE' : 'idle';
-            if (rows[1]) rows[1].textContent = rate > 0 ? rate.toFixed(1) : '0';
-            card.classList.toggle('snn-canvas-out--active', rate > 0);
+            if (rows[0]) rows[0].textContent = isWinner ? 'WINNER' : (isTie ? 'tie' : (outRate > 0 ? 'fire' : 'idle'));
+            if (rows[1]) rows[1].textContent = outRate > 0 ? outRate.toFixed(0) : '0';
+            // winner 만 활성 강조 — 거짓 multi-winner 회피.
+            card.classList.toggle('snn-canvas-out--active', isWinner);
+            card.classList.toggle('snn-canvas-out--tie', isTie);
           }
         }
         if (rate > 0) {

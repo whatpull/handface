@@ -181,6 +181,17 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [llmToast]);
 
+  // 사용자 catch 2026-05-06: trainStatus toast auto-dismiss 5s — stale "batch supervised 진행" 영역 catch.
+  // batch flush fire-and-forget 영역 진행 toast 영역 응답 영역 영역 setTrainStatus 영역 영역, 단
+  // background promise 영역 응답 영역 final '✓ 학습 완료' 영역 영역, 진행 toast 영역 stale 잔존 catch.
+  const [statusVisible, setStatusVisible] = useState<string>('');
+  useEffect(() => {
+    if (!ctrl.trainStatus) { setStatusVisible(''); return; }
+    setStatusVisible(ctrl.trainStatus);
+    const t = setTimeout(() => setStatusVisible(''), 5000);
+    return () => clearTimeout(t);
+  }, [ctrl.trainStatus]);
+
   const onLlmResult = (r: LlmSendResult) => setLlmToast({
     kind: r.ok ? 'ok' : 'fail',
     msg: r.ok ? `LLM POST ok · ${r.status} · ${r.latencyMs}ms` : `LLM fail · ${r.error || `HTTP ${r.status}`}`,
@@ -493,9 +504,9 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
           ))}
         </div>
       </div>
-      {ctrl.trainStatus && (
+      {statusVisible && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">
-          {ctrl.trainStatus}
+          {statusVisible}
         </div>
       )}
       {llmToast && (

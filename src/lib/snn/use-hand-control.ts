@@ -46,6 +46,14 @@ const STABILITY_FRAMES = 4;        // 같은 winner N frame 연속 → 안정
 const MIN_CONFIDENCE = 0.4;        // winner / total ratio
 const COOLDOWN_MS = 1500;          // 같은 OUT 연속 record 최소 간격
 const HOMEOSTASIS_EVERY = 30;      // N tick 마다 synaptic scaling — winner monopoly 회피
+// Phase 26: per-neuron V_th astrocyte homeostasis (backend commit d289524).
+// silence (rate < target/4) V_th 하향 + hyperactive (rate > target×2) V_th 상향.
+// frequency 결정 근거: tick 350ms × 20 = 7s 마다 1회.
+//   - 너무 빈번 (N<10): observe_window_ms=100 영역 rate 통계 미수렴 + backend 부하 ↑
+//   - 너무 드뭄 (N>40): silence neuron escape 효과 지연 → autoCapture 누적 학습 영역 무용
+//   - N=20 → Phase 175 weight scaling (N=30) 와 offset, 상호 간섭 회피.
+// 정직 한계 박음: V_th 변경만, fire 시작은 추가 stimulus mandatory 영역 catch 가능.
+const ASTROCYTE_HOMEOSTASIS_EVERY = 20;
 // R-STDP: supervised inject N=10 마다 mild reward (1.5) — STDP delta 양 amplify.
 // 정답 일치 (winner cluster == supervised target cluster) 시 strong reward (2.0) — 결정적 강화.
 // frequency 결정 근거: tick 350ms × 10 = 3.5s 마다 pulse → backend snapshot 비교 1회 비용 감수 가능.
@@ -190,6 +198,18 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       homeostasisCount += 1;
       if (homeostasisCount % HOMEOSTASIS_EVERY === 0) {
         void getClient().homeostatic(5.0).catch(() => null);
+      }
+      // Phase 26: per-neuron V_th astrocyte homeostasis — silence neuron escape mechanism.
+      // Phase 175 weight scaling 영역 (위) 와 별도 endpoint — V_th 직접 조절.
+      // silence (rate < 2.5Hz) V_th 하향 / hyperactive (rate > 20Hz) V_th 상향.
+      // 둘 다 호출 mandatory — weight scaling + V_th 조절 상호 보완 영역 정합.
+      if (homeostasisCount % ASTROCYTE_HOMEOSTASIS_EVERY === 0) {
+        void getClient().astrocyteHomeostasisStep({
+          targetRateHz: 10,
+          adjustMv: 0.5,
+          observeWindowMs: 100,
+          skipUserIo: true,
+        }).catch(() => null);
       }
       const pattern = feat.slice(0, 16);
       // Bootstrap supervised STDP (N3): MediaPipe gesture label → cluster id →

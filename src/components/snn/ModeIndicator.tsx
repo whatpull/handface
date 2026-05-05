@@ -9,7 +9,7 @@
 //  - 학습 모드인데 Δw 0 → "no Δw detected" 명시
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail, type RStdpPulseDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail, type RStdpPulseDetail, type AstrocyteHomeostasisDetail } from '@/lib/backend/events';
 
 interface ModeStatus {
   mode: 'learning' | 'inference' | 'idle';
@@ -58,10 +58,23 @@ interface RStdpCounter {
   lastTs: number;
 }
 
+// Phase 26: per-neuron V_th astrocyte homeostasis pulse counter.
+// silence escape mechanism 본격 활성화 영역 표시 — 사실 1:1.
+interface AstrocyteCounter {
+  pulses: number;
+  totalSilence: number;       // 누적 silence neuron 수 (V_th 하향)
+  totalHyperactive: number;   // 누적 hyperactive neuron 수 (V_th 상향)
+  lastSilence: number;
+  lastHyperactive: number;
+  lastAdjusted: number;
+  lastTs: number;
+}
+
 export default function ModeIndicator() {
   const [status, setStatus] = useState<ModeStatus | null>(null);
   const [teacher, setTeacher] = useState<TeacherStatus | null>(null);
   const [rstdp, setRstdp] = useState<RStdpCounter | null>(null);
+  const [astrocyte, setAstrocyte] = useState<AstrocyteCounter | null>(null);
   // pre->post 별 직전 weight 보관. Δw 계산 = current - prev.
   const prevWeights = useRef<Map<string, number>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,6 +93,28 @@ export default function ModeIndicator() {
         lastDeltaSum: d.totalAmplifiedDelta ?? 0,
         lastSynapses: d.synapsesAmplified ?? 0,
         lastReward: d.rewardStrength,
+        lastTs: Date.now(),
+      }));
+    });
+    return off;
+  }, []);
+
+  // Phase 26: astrocyte per-neuron V_th homeostasis pulse subscribe.
+  // silence (rate < target/4) V_th 하향 + hyperactive (rate > target×2) V_th 상향.
+  // 사실 1:1 — backend 응답 ok 시만 카운트.
+  useEffect(() => {
+    const off = onBackendEvent<AstrocyteHomeostasisDetail>('astrocyte-homeostasis', (d) => {
+      if (!d.ok) return;
+      const sil = d.silenceCount ?? 0;
+      const hyp = d.hyperactiveCount ?? 0;
+      const adj = d.adjusted ?? (sil + hyp);
+      setAstrocyte((prev) => ({
+        pulses: (prev?.pulses ?? 0) + 1,
+        totalSilence: (prev?.totalSilence ?? 0) + sil,
+        totalHyperactive: (prev?.totalHyperactive ?? 0) + hyp,
+        lastSilence: sil,
+        lastHyperactive: hyp,
+        lastAdjusted: adj,
         lastTs: Date.now(),
       }));
     });
@@ -311,6 +346,29 @@ export default function ModeIndicator() {
           <div className="font-semibold tracking-wider">⚠ SATURATION</div>
           <div className="mt-0.5 text-[10px] opacity-80">
             모든 OUT ≥ {SATURATION_HZ}Hz — selectivity 0 사실
+          </div>
+        </div>
+      )}
+
+      {/* Phase 26: astrocyte per-neuron V_th homeostasis — silence escape mechanism.
+          사실 1:1 — backend astrocytes/homeostasis_step ok 응답 시만 카운트 누적. */}
+      {astrocyte && astrocyte.pulses > 0 && (
+        <div className="pointer-events-auto rounded ring-1 px-2.5 py-1.5 bg-amber-500/12 ring-amber-400/35 text-amber-200/90 min-w-[180px]">
+          <div className="font-semibold tracking-wider">
+            astrocyte: {astrocyte.pulses} pulses
+          </div>
+          <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
+            V_th regulation · silence escape
+          </div>
+          <div className="mt-0.5 text-[10px] tabular-nums opacity-75">
+            last: silence {astrocyte.lastSilence} ↓ / hyperactive {astrocyte.lastHyperactive} ↑
+          </div>
+          <div className="mt-0.5 text-[10px] tabular-nums opacity-65">
+            total: {astrocyte.totalSilence} silenced ↓ · {astrocyte.totalHyperactive} hyperactive ↑
+          </div>
+          {/* 정직 한계 박음 — V_th 변경만, fire 시작 영역은 추가 stimulus mandatory */}
+          <div className="mt-0.5 text-[10px] leading-tight text-amber-300/70">
+            V_th 변경만 — fire 시작은 stimulus mandatory.
           </div>
         </div>
       )}

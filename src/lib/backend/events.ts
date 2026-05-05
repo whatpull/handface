@@ -1,7 +1,7 @@
 // 클라이언트 → UI 발화/학습 이벤트 버스. EventTarget 기반.
 // Canvas 가 'neuron-firing' 구독 → fired class + synapse pulse 토글.
 
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'hand-feature' | 'rstdp-pulse';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'hand-feature' | 'rstdp-pulse' | 'astrocyte-homeostasis';
 
 export interface RStdpPulseDetail {
   ok: boolean;
@@ -10,6 +10,17 @@ export interface RStdpPulseDetail {
   positiveOnly: boolean;
   synapsesAmplified?: number;
   totalAmplifiedDelta?: number;
+}
+
+// Phase 26: per-neuron V_th astrocyte homeostasis pulse (backend commit d289524).
+// silence_count = V_th 하향한 silence neuron 수 (rate < target/4).
+// hyperactive_count = V_th 상향한 hyperactive neuron 수 (rate > target×2).
+export interface AstrocyteHomeostasisDetail {
+  ok: boolean;
+  reason?: string;
+  adjusted?: number;
+  silenceCount?: number;
+  hyperactiveCount?: number;
 }
 
 export interface HandFeatureDetail {

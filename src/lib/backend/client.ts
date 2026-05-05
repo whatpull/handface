@@ -3,7 +3,7 @@
 // 'neuron-firing' 이벤트로 emit → Canvas 가 시각화.
 
 import { loadBackendSettings, normalizeEndpoint } from './settings';
-import { emitBackendEvent, type NeuronFiringDetail, type RStdpPulseDetail } from './events';
+import { emitBackendEvent, type NeuronFiringDetail, type RStdpPulseDetail, type AstrocyteHomeostasisDetail } from './events';
 
 const NETWORK_KEY = 'handface.network.id';
 
@@ -298,6 +298,55 @@ export class NeuronFaceClient {
       method: 'POST',
       body: { target_hz: targetHz, window_ms: 200, min_spikes: 1 },
     });
+  }
+
+  // Phase 26: astrocyte per-neuron V_th homeostasis (backend commit d289524).
+  // silence neuron (rate < target/4) → V_th 하향 (excitability ↑, fire 진입 영역).
+  // hyperactive neuron (rate > target×2) → V_th 상향 (excitability ↓, monopoly 약화).
+  // 기존 `homeostatic` (Phase 175 weight scaling) 와 별도 영역 — V_th 직접 조절.
+  // per_neuron=true mandatory — silence escape mechanism 본격 활성화 모드.
+  // 정직 한계 박음: V_th 변경만, fire 시작은 추가 stimulus 가 mandatory 영역 catch 가능.
+  async astrocyteHomeostasisStep(opts: {
+    targetRateHz?: number;
+    adjustMv?: number;
+    observeWindowMs?: number;
+    skipUserIo?: boolean;
+  } = {}): Promise<Result<{
+    ok: boolean;
+    adjusted?: number;
+    silence_count?: number;
+    hyperactive_count?: number;
+    reason?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const r = await this.request<{
+      ok: boolean;
+      adjusted?: number;
+      silence_count?: number;
+      hyperactive_count?: number;
+      reason?: string;
+    }>(`/networks/${net.data}/astrocytes/homeostasis_step`, {
+      method: 'POST',
+      body: {
+        target_rate_hz: opts.targetRateHz ?? 10,
+        adjust_mv: opts.adjustMv ?? 0.5,
+        observe_window_ms: opts.observeWindowMs ?? 100,
+        skip_user_io: opts.skipUserIo ?? true,
+        per_neuron: true,
+      },
+    });
+    if (r.ok) {
+      const detail: AstrocyteHomeostasisDetail = {
+        ok: !!r.data.ok,
+        reason: r.data.reason,
+        adjusted: r.data.adjusted,
+        silenceCount: r.data.silence_count,
+        hyperactiveCount: r.data.hyperactive_count,
+      };
+      emitBackendEvent<AstrocyteHomeostasisDetail>('astrocyte-homeostasis', detail);
+    }
+    return r;
   }
 
   // Phase 113: snapshot weights — R-STDP baseline 시점 기록.

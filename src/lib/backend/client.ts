@@ -407,6 +407,57 @@ export class NeuronFaceClient {
     };
   }
 
+  // 8-dim pattern 자극 (handface MediaPipe feature → INPUT 8 매핑).
+  // target_out 지정 시 supervised STDP 학습.
+  async injectPattern(
+    pattern: number[],
+    opts: {
+      stdp?: boolean;
+      targetOut?: string;
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+    } = {},
+  ): Promise<Result<FireResponse>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const r = await this.request<FireResponse>(`/networks/${net.data}/inject_pattern`, {
+      method: 'POST',
+      body: {
+        modality: 'gesture',
+        pattern: pattern.slice(0, 8),
+        intensity: opts.intensity ?? 3.75,
+        stimulus_duration_ms: opts.stimulusDurationMs ?? 15,
+        observe_ms: opts.observeMs ?? 80,
+        stdp: opts.stdp ?? false,
+        stdp_mode: 'pair',
+        target_out: opts.targetOut,
+        supervisor_weight: 60,
+        supervisor_delay_ms: 30,
+      },
+    });
+    if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', r.data as NeuronFiringDetail);
+    return r;
+  }
+
+  // 한 gesture 라벨로 N frame 의 pattern 을 supervised 학습.
+  async trainHandGesture(
+    patterns: number[][],
+    targetOut: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<Result<{ trained: number; total: number }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    let trained = 0;
+    for (let i = 0; i < patterns.length; i += 1) {
+      const r = await this.injectPattern(patterns[i], { stdp: true, targetOut });
+      if (r.ok) trained += 1;
+      onProgress?.(i + 1, patterns.length);
+    }
+    emitBackendEvent('training-changed', { trained });
+    return { ok: true, data: { trained, total: patterns.length } };
+  }
+
   async getStats(): Promise<Result<unknown>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;

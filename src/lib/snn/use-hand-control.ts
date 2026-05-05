@@ -38,6 +38,8 @@ import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
 // HIGH #3 정정: cluster winner 산출 단일 source.
 import { deriveWinner } from '@/lib/snn/winner-derivation';
+// 사용자 명시 2026-05-06: INFERENCE tick winner 변경 → OUT count ↑ path.
+import { incrementCount } from '@/lib/snn/out-exemplars';
 
 // MediaPipe GestureRecognizer 라벨 → OUT cluster id (N3 본격 회로 정합).
 export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
@@ -165,6 +167,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   const learningActiveRef = useRef<boolean>(false);
   const lastGestureNameRef = useRef<string | null>(null);
   const gestureStableCountRef = useRef<number>(0);
+  // 사용자 명시 2026-05-06: INFERENCE tick winner 영역 last cluster 추적 — 변경 시점만 OUT count ↑.
+  const lastInferenceWinnerRef = useRef<number | null>(null);
   // (직전 EVOLVING phase + liveResultRef 폐기 — Sidebar Evolve 버튼 회수, 사용자 명시.)
 
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
@@ -179,6 +183,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       learningActiveRef.current = false;
       lastGestureNameRef.current = null;
       gestureStableCountRef.current = 0;
+      lastInferenceWinnerRef.current = null;
       trainingCompleteEmittedRef.current = false;
       setClusterFrames({ 0: 0, 1: 0, 2: 0, 3: 0 });
       setPhase('untrained');
@@ -284,6 +289,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             rates: ratesExposed,
             confidence: cluster !== null ? gScore : 0,
           });
+          // 사용자 명시 2026-05-06: offline fallback 영역 winner 변경 시점도 OUT count ↑.
+          if (cluster !== null && cluster !== lastInferenceWinnerRef.current) {
+            lastInferenceWinnerRef.current = cluster;
+            incrementCount(`out_${cluster}_0`, pattern);
+          }
           setTrainStatus('Offline — MediaPipe-only fallback (SNN 영역 0)');
           if (!cancelled) setTimeout(tick, TICK_MS);
           return;
@@ -305,6 +315,12 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           const ratesExposed: Record<string, number> = {};
           for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = w.clusterRates[i];
           setLiveResult({ winner, rates: ratesExposed, confidence: w.confidence });
+          // 사용자 명시 2026-05-06: INFERENCE winner 변경 시점 1회 OUT count ↑.
+          // 동일 cluster 연속 winner 영역 1회 (변경 trigger). WTA tie (cluster=null) 영역 무시.
+          if (w.cluster !== null && w.cluster !== lastInferenceWinnerRef.current) {
+            lastInferenceWinnerRef.current = w.cluster;
+            incrementCount(`out_${w.cluster}_0`, pattern);
+          }
         }
         if (!cancelled) setTimeout(tick, TICK_MS);
         return;

@@ -46,10 +46,10 @@ export function createActions(h: ActionHooks) {
         localStorage.removeItem(TRAINING_PHASE_KEY);
       } catch { /* quota / private mode — silent. */ }
       // 3. training-cleared event emit — auto-snapshot listener 영역 정합.
-      emitBackendEvent('training-cleared');
+      emitBackendEvent('training-cleared', undefined);
       h.status(r.ok ? '✓ Reset 완료 — 학습 데이터 폐기, 다시 학습 가능' : `✗ Reset: ${r.reason}`);
       // 4. circuit-changed 영역 PipelineCanvas remount + useHandControl phase reload.
-      emitBackendEvent('circuit-changed');
+      emitBackendEvent('circuit-changed', undefined);
     }),
 
     save: () => run('Save', async () => {

@@ -91,9 +91,12 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
       aria-label="HandFace SNN pipeline"
     >
-      {/* Summary cards — PC top-right (사용자 명시 [UI/UX 40%]: 이미지 1 dashboard 정합).
-          mobile 영역 hide (CSS @media (max-width: 900px) display:none). */}
-      <SummaryCard />
+      {/* Summary dashboard row — PipelineCanvas 영역 위쪽 row 영역 separate dashboard
+          (사용자 명시 [UI/UX 40%]: 이미지 1 정합 + OUT 박스 inside mount 박음 폐기).
+          static block 영역 — pipeline-flow 영역 위쪽 stack 영역. mobile (≤900) 영역 hide. */}
+      <div className="snn-pipeline-dashboard">
+        <SummaryCard />
+      </div>
       {/* Region cascade row 폐기 — INPUT/OUT region 영역 INPUT/OUT 노드 영역 중복.
           V1/V2 cortical region 영역 LEARN 노드 내부 영역 inline strip 영역 표시
           (NodeLearn.tsx — LearnRegionStrip). */}

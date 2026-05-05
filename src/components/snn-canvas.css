@@ -175,25 +175,24 @@
   .snn-pipeline-learn-region-arrow svg { width: 20px; height: 8px; }
 }
 .snn-pipeline-flow {
-  display: flex;
-  flex-direction: row;
-  /* polish v2 (2026-05-05) — uniform height: stretch 영역 영역 5 node 동일 height
-     (사용자 catch "동일 height + 여백 0"). 직전 flex-start 영역 영역 max-content
-     영역 짧은 박스 catch — 본 stretch 영역 짧은 박스 영역 늘려 동일 높이 정합.
-     단 본문 padding 영역 12-14px 영역 영역 빈 line 0 catch (NodeShell body 영역
-     flex column + gap 영역 영역 자식 영역 영역 영역 분포 영역 정합). */
+  /* polish v3 (2026-05-05) — 5 node + 4 arrow grid layout (사용자 mandatory:
+     "5 node × node width 영역 viewport 영역 영역 fit + LLM squeeze 0").
+     grid-template-columns: 5 × 1fr (uniform width) + 4 × auto (arrow 28px).
+     viewport 1280px 영역 (1280 - padding 24 - gap 4 × 12) ÷ 5 = ~241px per node ✓.
+     모든 node uniform width + uniform height (align-items: stretch). */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
   align-items: stretch;
   gap: var(--pipe-gap-md);
-  /* viewport fit — 5 node 영역 flex shrink + arrow auto 영역 1280px 영역 horizontal
-     scroll 0 영역 정합. */
   min-width: 0;
   width: 100%;
 }
 @media (max-width: 900px) {
   .snn-pipeline-flow {
+    /* mobile — grid 폐기 영역 flex column 영역 단순 vertical stack. */
+    display: flex;
     flex-direction: column;
     align-items: stretch;
-    /* mobile pixel-perfect — 박스 폭 100% (stretch) + tight gap (md=12) 정합. */
     gap: var(--pipe-gap-md);
     min-width: 0;
   }
@@ -208,6 +207,8 @@
   justify-content: center;
   flex-shrink: 0;
   width: 28px;
+  /* grid layout 영역 column 영역 auto 영역 정합 — fixed 28px width. */
+  align-self: stretch;
   position: relative;
   transition: filter 220ms ease, opacity 220ms ease;
   opacity: 0.85;
@@ -231,18 +232,15 @@
 }
 
 .snn-pipeline-node {
-  background: linear-gradient(180deg, rgba(24, 24, 30, 0.96) 0%, rgba(18, 18, 22, 0.96) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 36, 0.96) 0%, rgba(16, 16, 22, 0.96) 100%);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: var(--pipe-radius-sm);
-  /* viewport fit — flex 1 영역 shrink 영역 + min-width 200 + max-width 280 영역
-     1280px viewport 영역 5 node 영역 horizontal scroll 0 영역 정합. */
-  flex: 1 1 220px;
-  min-width: 200px;
-  max-width: 280px;
-  /* polish v2 — flow align stretch 영역 영역 node 영역 동일 height 영역 (사용자
-     catch "동일 height + 여백 0"). content overflow 영역 body flex grow 영역 영역
-     자식 영역 영역 영역 분포 영역 정합 (NodeShell.body 영역 flex: 1 + gap). */
-  min-height: 0;
+  /* viewport fit v3 — grid layout (parent: snn-pipeline-flow) 영역 column 영역 width
+     자동 (1fr) — flex sizing 폐기. min-width 0 영역 grid item 영역 flex shrink 정합. */
+  min-width: 0;
+  /* uniform height v3 — min-height 380px 영역 모든 박스 동일 base + content fit body.
+     align-items: stretch (parent grid) 영역 짧은 박스 영역 늘려 동일 height 정합. */
+  min-height: 380px;
   display: flex;
   flex-direction: column;
   font-size: var(--pipe-font-sm);
@@ -264,6 +262,9 @@
     max-width: 100%;
     min-width: 0;
     margin: 0;
+    /* mobile 영역 desktop uniform min-height 380 영역 폐기 — vertical stack 영역
+       자식 본문 fit. */
+    min-height: 0;
     /* mobile vertical scroll 영역 영역 너무 길지 않음 — 각 박스 max 320px (사용자
        spec). 단 INPUT 카메라 박스 영역 cam aspect-ratio 영역 동적 — 본 max-height
        영역 넘치 영역 body 영역 자체 vertical scroll 영역 보존 정합. */
@@ -281,31 +282,31 @@
    reference 영역 정합 (이미지 1 dashboard + 이미지 2 control flow) — visual hierarchy 영역 직접 영역.
    token: --pipe-tone-{input/learn/infer/out/llm} × alpha-border (0.5≈0.45) / inset 0.08 / inset glow 0.10. */
 .snn-pipeline-node--input  {
-  border-color: rgba(var(--pipe-tone-input), 0.45);
+  border-color: rgba(var(--pipe-tone-input), 0.6);
   box-shadow: var(--pipe-shadow-md),
               0 0 0 1px rgba(var(--pipe-tone-input), var(--pipe-tone-alpha-bg)),
               0 0 14px rgba(var(--pipe-tone-input), 0.10) inset;
 }
 .snn-pipeline-node--learn  {
-  border-color: rgba(var(--pipe-tone-learn), 0.45);
+  border-color: rgba(var(--pipe-tone-learn), 0.6);
   box-shadow: var(--pipe-shadow-md),
               0 0 0 1px rgba(var(--pipe-tone-learn), var(--pipe-tone-alpha-bg)),
               0 0 14px rgba(var(--pipe-tone-learn), 0.10) inset;
 }
 .snn-pipeline-node--infer  {
-  border-color: rgba(var(--pipe-tone-infer), 0.45);
+  border-color: rgba(var(--pipe-tone-infer), 0.6);
   box-shadow: var(--pipe-shadow-md),
               0 0 0 1px rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-bg)),
               0 0 14px rgba(var(--pipe-tone-infer), 0.10) inset;
 }
 .snn-pipeline-node--out    {
-  border-color: rgba(var(--pipe-tone-out), 0.45);
+  border-color: rgba(var(--pipe-tone-out), 0.6);
   box-shadow: var(--pipe-shadow-md),
               0 0 0 1px rgba(var(--pipe-tone-out), var(--pipe-tone-alpha-bg)),
               0 0 14px rgba(var(--pipe-tone-out), 0.10) inset;
 }
 .snn-pipeline-node--llm    {
-  border-color: rgba(var(--pipe-tone-llm), 0.45);
+  border-color: rgba(var(--pipe-tone-llm), 0.6);
   box-shadow: var(--pipe-shadow-md),
               0 0 0 1px rgba(var(--pipe-tone-llm), var(--pipe-tone-alpha-bg)),
               0 0 14px rgba(var(--pipe-tone-llm), 0.10) inset;
@@ -948,49 +949,52 @@
   .snn-pipeline-node--input { max-height: none; }
 }
 
-/* ─────────────────────────────────────── Summary Card v3 ─────────────────────
-   reference 영역 정합 (이미지 1 dashboard summary card 22.870 / +71.8% / +28.2%) —
-   본 프로젝트 영역 cluster trained / accuracy / firings 영역 dashboard panel.
-   PC 영역 absolute top-right (Sidebar 영역 영역 영역 — pipeline 영역 영역 floating).
-   모바일 (≤768) 영역 hide (공간 부족 — MobileBottomBar 영역 별도 영역). */
+/* ─────────────────────────────────────── Summary Card v4 (dashboard row) ────
+   reference 영역 정합 (이미지 1 dashboard summary card top row) — 직전 OUT 박스 inside
+   mount 박음 영역 폐기 + absolute top-right floating 영역 폐기 → static dashboard row
+   영역 PipelineCanvas 위쪽 영역 mount (사용자 명시 [UI/UX 40%]).
+   모바일 (≤900) 영역 hide (공간 부족 — MobileBottomBar 영역 별도 영역). */
+.snn-pipeline-dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pipe-gap-md);
+  width: 100%;
+}
 .snn-summary-cards {
-  position: absolute;
-  top: var(--pipe-gap-md);
-  right: var(--pipe-gap-md);
-  display: flex;
-  flex-direction: row;
-  gap: var(--pipe-gap-sm);
-  z-index: 5;
-  pointer-events: none; /* 카드 자체 영역 click pass-through — info only. */
+  display: contents; /* dashboard row grid 영역 자식 영역 직접 — wrapper layer 0. */
 }
 .snn-summary-card {
-  background: linear-gradient(180deg, rgba(24, 24, 30, 0.92) 0%, rgba(18, 18, 22, 0.92) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--pipe-gap-sm);
-  padding: var(--pipe-gap-sm) var(--pipe-gap-md);
-  min-width: 92px;
+  background: linear-gradient(180deg, rgba(28, 28, 36, 0.96) 0%, rgba(16, 16, 22, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--pipe-radius-sm);
+  padding: var(--pipe-gap-md) var(--pipe-gap-lg);
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--pipe-gap-xs);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  box-shadow: 0 var(--pipe-gap-xs) 14px rgba(0, 0, 0, 0.45);
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  box-shadow: var(--pipe-shadow-md), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 180ms ease;
+}
+.snn-summary-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--pipe-shadow-lg), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 .snn-summary-card-label {
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: var(--pipe-font-xs);
+  letter-spacing: 0.10em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
   font-weight: 500;
 }
 .snn-summary-card-value {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   font-family: ui-monospace, monospace;
   color: var(--pipe-text);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 .snn-summary-card-delta {
   font-size: var(--pipe-font-xs);
@@ -1009,6 +1013,7 @@
 .snn-summary-card--violet { border-color: rgba(var(--pipe-tone-input), var(--pipe-tone-alpha-glow)); box-shadow: 0 var(--pipe-gap-xs) 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--pipe-tone-input), 0.10); }
 .snn-summary-card--violet .snn-summary-card-value { color: #c4b5fd; }
 @media (max-width: 900px) {
+  .snn-pipeline-dashboard { display: none; }
   .snn-summary-cards { display: none; }
 }
 

@@ -304,13 +304,15 @@
 .snn-feat-bars {
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
+  align-items: stretch;     /* 자식 막대가 부모 높이를 꽉 채움 */
   gap: 1px;
   width: 100%;
   height: 100%;
 }
 .snn-feat-bar {
-  flex: 1;
+  flex: 1 1 0;
+  height: 100%;             /* 명시 — fill (absolute) 이 부모 높이 기준 % 사용 */
+  min-width: 4px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 1px;
   position: relative;

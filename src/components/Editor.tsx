@@ -36,7 +36,10 @@ export default function Editor() {
   const onCameraError = useCallback((m: string) => setStatus(`✗ camera: ${m}`), []);
 
   useEffect(() => {
-    const off = onBackendEvent('circuit-changed', () => {
+    // 사용자 catch 2026-05-06: 학습 완료 직후 자동 reset 발생 — circuit-changed → canvasNonce++ →
+    // PipelineCanvas remount → useHandControl unmount → 학습 진행 wipe ROOT CAUSE.
+    // canvasNonce 자동 증가 폐기 — 'training-cleared' 영역 명시 reset 영역만 trigger.
+    const off = onBackendEvent('training-cleared', () => {
       setCanvasNonce((n) => n + 1);
     });
     // 자동 학습 weight 저장 — 1회 install (training-changed → debounced save).

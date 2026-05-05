@@ -8,7 +8,7 @@
 //  - saturation 사실 (모든 OUT >= 400Hz) 은 별도 경고 표시 → selectivity 0 사실 노출
 //  - 학습 모드인데 Δw 0 → "no Δw detected" 명시
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail } from '@/lib/backend/events';
 
 interface ModeStatus {
@@ -91,21 +91,26 @@ export default function ModeIndicator() {
       const outRates = d.out_rates || {};
 
       // Δw 계산 (이전 cache 와 비교) — 실제 backend 사실.
+      // micro-opt: ref 한 번 deref, hot loop 안에서는 변수 접근만.
+      // TODO: backend agent 가 `synapses_changed` (변경분만) 필드 추가 시 그쪽 정합 우선.
       let ltpSum = 0;
       let ltdSum = 0;
       let changedSyn = 0;
-      for (const s of syn) {
+      const cache = prevWeights.current;
+      for (let i = 0; i < syn.length; i += 1) {
+        const s = syn[i];
         const key = `${s.pre}->${s.post}`;
-        const prev = prevWeights.current.get(key);
+        const prev = cache.get(key);
         if (prev !== undefined) {
           const dw = s.weight - prev;
-          if (Math.abs(dw) >= DW_EPSILON) {
+          const adw = dw >= 0 ? dw : -dw;
+          if (adw >= DW_EPSILON) {
             changedSyn += 1;
             if (dw > 0) ltpSum += dw;
             else ltdSum += dw;
           }
         }
-        prevWeights.current.set(key, s.weight);
+        cache.set(key, s.weight);
       }
 
       // winner 분리도 — out_rates max 가 두 번째보다 의미 있게 클 때만 winner.
@@ -151,44 +156,51 @@ export default function ModeIndicator() {
     };
   }, []);
 
-  if (!status) return null;
-
-  const modeBg =
-    status.mode === 'learning' ? 'bg-green-500/15 ring-green-400/40 text-green-200'
-    : status.mode === 'inference' ? 'bg-blue-500/15 ring-blue-400/40 text-blue-200'
-    : 'bg-white/5 ring-white/15 text-white/50';
-  const modeDot =
-    status.mode === 'learning' ? 'bg-green-400' :
-    status.mode === 'inference' ? 'bg-blue-400' :
-    'bg-white/30';
-  const modeLabel =
-    status.mode === 'learning' ? 'LEARNING'
-    : status.mode === 'inference' ? 'INFERENCE'
-    : 'IDLE';
-
   // Teacher badge 사실 — MediaPipe GestureRecognizer 라벨 + confidence + N=3 합의 1:1.
   // 3단 상태:
   //   1) stable supervised — conf >= 0.8 AND mappable AND stableCount >= 3 (amber bright)
   //   2) stabilizing       — conf >= 0.8 AND mappable AND stableCount < 3   (amber dim)
   //   3) unsupervised      — 그 외 (gray)
-  const teacherMappable = !!teacher && teacher.gestureName !== null
-    && MAPPABLE_GESTURES.has(teacher.gestureName);
-  const confOk = !!teacher && teacher.hasHand && teacher.gestureScore >= TEACHER_CONF_MIN;
-  const stableSupervised = confOk && teacherMappable
-    && (teacher!.stableCount >= TEACHER_STABLE_FRAMES);
-  const stabilizing = confOk && teacherMappable && !stableSupervised;
-  const teacherBg = stableSupervised
-    ? 'bg-amber-500/15 ring-amber-400/40 text-amber-200'
-    : stabilizing
-      ? 'bg-amber-500/8 ring-amber-400/25 text-amber-200/70'
-      : 'bg-white/5 ring-white/15 text-white/40';
-  const teacherLabel = stableSupervised
-    ? `teacher: ${teacher!.gestureName}`
-    : stabilizing
-      ? `teacher: ${teacher!.gestureName} (stabilizing ${teacher!.stableCount}/${TEACHER_STABLE_FRAMES})`
-      : (teacher?.hasHand
-          ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, low conf or unstable — unsupervised)`
-          : 'teacher: no hand');
+  // useMemo — teacher 객체 변경 시만 재계산 (status frame 마다 재계산 회피).
+  const { teacherBg, teacherLabel, stableSupervised, stabilizing } = useMemo(() => {
+    const teacherMappable = !!teacher && teacher.gestureName !== null
+      && MAPPABLE_GESTURES.has(teacher.gestureName);
+    const confOk = !!teacher && teacher.hasHand && teacher.gestureScore >= TEACHER_CONF_MIN;
+    const _stableSupervised = confOk && teacherMappable
+      && (teacher!.stableCount >= TEACHER_STABLE_FRAMES);
+    const _stabilizing = confOk && teacherMappable && !_stableSupervised;
+    const _bg = _stableSupervised
+      ? 'bg-amber-500/15 ring-amber-400/40 text-amber-200'
+      : _stabilizing
+        ? 'bg-amber-500/8 ring-amber-400/25 text-amber-200/70'
+        : 'bg-white/5 ring-white/15 text-white/40';
+    const _label = _stableSupervised
+      ? `teacher: ${teacher!.gestureName}`
+      : _stabilizing
+        ? `teacher: ${teacher!.gestureName} (stabilizing ${teacher!.stableCount}/${TEACHER_STABLE_FRAMES})`
+        : (teacher?.hasHand
+            ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, low conf or unstable — unsupervised)`
+            : 'teacher: no hand');
+    return { teacherBg: _bg, teacherLabel: _label, stableSupervised: _stableSupervised, stabilizing: _stabilizing };
+  }, [teacher]);
+
+  // mode 분기도 useMemo — status 변경 시만 재계산.
+  const { modeBg, modeDot, modeLabel } = useMemo(() => {
+    if (!status) return { modeBg: '', modeDot: '', modeLabel: '' };
+    return {
+      modeBg: status.mode === 'learning' ? 'bg-green-500/15 ring-green-400/40 text-green-200'
+        : status.mode === 'inference' ? 'bg-blue-500/15 ring-blue-400/40 text-blue-200'
+        : 'bg-white/5 ring-white/15 text-white/50',
+      modeDot: status.mode === 'learning' ? 'bg-green-400'
+        : status.mode === 'inference' ? 'bg-blue-400'
+        : 'bg-white/30',
+      modeLabel: status.mode === 'learning' ? 'LEARNING'
+        : status.mode === 'inference' ? 'INFERENCE'
+        : 'IDLE',
+    };
+  }, [status]);
+
+  if (!status) return null;
 
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col items-end gap-1.5 font-mono text-[11px]">

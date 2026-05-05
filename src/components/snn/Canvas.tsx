@@ -327,30 +327,34 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       }
 
       // 시냅스 Δw flash — 이전 weight cache 와 비교, |Δw|≥0.1 면 LTP(green)/LTD(orange) flash.
+      // 최적화: backend 응답 9000+ syn 중 화면에 보이는 syn (connRefMap 등록된 영역) 만 처리.
+      // 안 보이는 syn cache 도 skip — 시각화 0 영역이라 cache 의미 0 catch.
+      // TODO: backend agent 가 `synapses_changed` (변경분만) 필드 추가 시 그쪽 정합 우선.
       const synapses = d.synapses || [];
+      const connRef = connRefMap.current;
+      const cache = synapseWeightCache.current;
       for (const s of synapses) {
         const key = `${s.pre}->${s.post}`;
-        const prev = synapseWeightCache.current.get(key);
+        const conn = connRef[key];
+        if (!conn) continue;  // 화면에 없는 syn → cache + Δw skip
+        const prev = cache.get(key);
         if (prev !== undefined) {
           const dw = s.weight - prev;
           if (Math.abs(dw) >= 0.1) {
-            const conn = connRefMap.current[key];
-            if (conn) {
-              const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
-              conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
-              // force reflow → 같은 class 재적용 시 animation restart
-              void (conn as HTMLElement).offsetHeight;
-              conn.classList.add(flashClass);
-              const tk = `__dw_${key}`;
-              if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
-              fireTimers[tk] = setTimeout(() => {
-                conn.classList.remove(flashClass);
-                delete fireTimers[tk];
-              }, 1500);
-            }
+            const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
+            conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
+            // force reflow → 같은 class 재적용 시 animation restart
+            void (conn as HTMLElement).offsetHeight;
+            conn.classList.add(flashClass);
+            const tk = `__dw_${key}`;
+            if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
+            fireTimers[tk] = setTimeout(() => {
+              conn.classList.remove(flashClass);
+              delete fireTimers[tk];
+            }, 1500);
           }
         }
-        synapseWeightCache.current.set(key, s.weight);
+        cache.set(key, s.weight);
       }
 
       const firedSet = new Set<string>();

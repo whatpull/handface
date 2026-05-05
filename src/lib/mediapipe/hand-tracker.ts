@@ -5,6 +5,10 @@
 //   - GestureRecognizer 의 gesture label → supervised STDP 의 target_out (teacher)
 // 둘 다 동시 실행. GPU 부하 ↑ 단 의도 정합 mandatory.
 //
+// PERF TODO (사용자 명시 시 해제):
+//   GestureRecognizer 만 사용 + result.landmarks 추출 시 GPU 부하 ~50% 영역 절감 가능
+//   (같은 backbone 공유 사실). 단 사용자 명시 = 분리 = catch 영역 → 본 작업 변경 X.
+//
 // Built-in gestures (GestureRecognizer): None / Closed_Fist / Open_Palm /
 //   Pointing_Up / Thumb_Down / Thumb_Up / Victory / ILoveYou
 //

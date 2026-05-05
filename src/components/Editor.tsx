@@ -14,14 +14,11 @@ import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapsho
 import './snn-canvas.css';
 
 export default function Editor() {
-  const [editMode, setEditMode] = useState(false);
   const [cameraConnected, setCameraConnected] = useState(false);
   // 통합 view — Pipeline (5-node) + Region cascade (4-box) 영역 단일 화면.
   // 직전 ViewMode toggle (pipeline/region) 영역 폐기 — 사용자 명시 "region과 pipeline을
   //   합쳐주면 좋겠습니다" 정합.
   // ('neuron' = drawflow 472 sampling detail — 영역 영역 폐기, 데이터 정합 0.)
-  // editMode 영역 Sidebar 영역 prop 영역 보존 — 직전 Region drawflow 영역 영역 영역
-  //   영역 영역 dead 영역 (Pipeline 영역 사용 0). 본 turn 영역 폐기 회피 — 별도 turn.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
@@ -57,8 +54,6 @@ export default function Editor() {
         <Sidebar
           cameraConnected={cameraConnected}
           onToggleCamera={() => setCameraConnected((v) => !v)}
-          editMode={editMode}
-          onToggleEdit={() => setEditMode((v) => !v)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenValidation={() => setValidationOpen(true)}
         />

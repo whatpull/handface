@@ -122,9 +122,8 @@ LLM 노드에서:
 
 - **Next.js 15** (App Router, static export, basePath `/handface`)
 - **React 19** + TypeScript + Tailwind 3
-- **drawflow** — Region / Neuron view 의 노드 그래프 (legacy, optional view)
 - **MediaPipe Tasks Vision** — Hand Landmarker (CDN ESM 런타임)
-- **PipelineCanvas** ([src/components/snn/PipelineCanvas.tsx](src/components/snn/PipelineCanvas.tsx)) — Pipeline view 의 5-node UI (default view)
+- **PipelineCanvas** ([src/components/snn/PipelineCanvas.tsx](src/components/snn/PipelineCanvas.tsx)) — Pipeline view 의 5-node UI (단일 view — drawflow Region / Neuron view 는 commit f4a278d 에서 폐기)
 
 ### Backend
 
@@ -202,16 +201,16 @@ src/
   components/
     Editor.tsx                              # 최상위 (toolbar/sidebar/canvas/panels)
     snn/
-      PipelineCanvas.tsx                    # ★ 5-node pipeline UI (default view)
-      Canvas.tsx                            # drawflow Region / Neuron view (legacy)
-      Toolbar.tsx                           # Pipeline / Region / Neuron 토글
+      PipelineCanvas.tsx                    # ★ 5-node pipeline UI (단일 view)
+      Toolbar.tsx                           # (legacy 토글 — Pipeline 단일 view 정착 후 단순화 대상)
       MobileBottomBar.tsx
       Sidebar.tsx + SettingsPanel.tsx
       HandTrackerHost.tsx                   # MediaPipe Hand/Gesture host (PipelineCanvas 가 직접 mount)
       pipeline/NodeShell.tsx + Arrow.tsx    # Pipeline 5-노드 카드 + 연결선
-      # 폐기 (영구): ModeIndicator (5-phase 표시는 PipelineCanvas LEARN/INFER 노드 직접) /
-      #             OutNodeOverlay (OUT rename + count 도 PipelineCanvas OUT 노드 직접) /
-      #             CameraQuickControls (camera 토글 Sidebar / PipelineCanvas 통합)
+      # 폐기 (commit f4a278d): Canvas.tsx (drawflow Region / Neuron view) /
+      #                         ModeIndicator / OutNodeOverlay / CameraQuickControls —
+      #                         5-phase 표시 / OUT rename + count / camera 토글은
+      #                         PipelineCanvas + Sidebar 가 직접 담당.
   lib/
     backend/
       client.ts                             # NeuronFaceClient (REST)
@@ -222,9 +221,10 @@ src/
       llm-client.ts                         # ★ endpoint POST wrapper
       use-hand-control.ts                   # autoCapture / autoLive driver
       out-exemplars.ts                      # OUT 라벨 영구화
-      drawflow-helpers.ts + layout.ts + positions.ts
-      auto-snapshot.ts + train-counts.ts
-      community-baseline.ts
+      auto-snapshot.ts                      # 학습 weight localStorage snapshot
+      actions.ts + winner-derivation.ts     # backend action wrapper + WTA winner 도출
+      # 폐기 (commit f4a278d 외): drawflow-helpers.ts / layout.ts / positions.ts /
+      #                            data.ts / train-counts.ts / community-baseline.ts
   mediapipe/
     hand-tracker.ts + feature-encoder.ts + landmark.ts  # 21 landmarks → 16-dim
 ```
@@ -242,7 +242,7 @@ MIT.
 ## 정직 한계 박음 (반복)
 
 - 4-way 제스처 분류조차 SNN 으로는 학술적으로 nontrivial — 본 프로젝트는 **검증된 분류기가 아니라** 학습/추론 흐름의 *시각화 + LLM agent 연동 실험* 입니다.
-- 5-node Pipeline view 는 진행 중인 redesign 이며, 일부 fragment(Region/Neuron view 의 legacy 패널, drawflow 좌표 캐시, deprecated client wrapper 등)가 코드에 잔존합니다.
+- 5-node Pipeline view 는 진행 중인 redesign 이며, Toolbar 의 legacy view 토글 등 일부 fragment 가 코드에 잔존합니다 (drawflow Region / Neuron view 자체는 commit f4a278d 에서 폐기).
 - LLM endpoint 의 CORS / auth / schema / rate limit / 비용은 전적으로 사용자 환경 책임입니다. 본 프로젝트는 단순 fetch wrapper 만 제공.
 - 학습 weight 는 `localStorage` 에 저장되지만, 브라우저 storage 정책 / 시크릿 모드 / 사이트 데이터 삭제 등으로 휘발될 수 있습니다.
 - HF Spaces 백엔드는 cold-start 지연 / rate limit 가능 — 본격 사용 시 자체 호스팅 권장.

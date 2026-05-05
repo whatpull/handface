@@ -207,9 +207,11 @@ src/
       Toolbar.tsx                           # Pipeline / Region / Neuron 토글
       MobileBottomBar.tsx
       Sidebar.tsx + SettingsPanel.tsx
-      ModeIndicator.tsx                     # 5-phase 상태 표시
-      OutNodeOverlay.tsx                    # OUT 노드 ✎ rename + count
-      CameraQuickControls.tsx + HandTrackerHost.tsx
+      HandTrackerHost.tsx                   # MediaPipe Hand/Gesture host (PipelineCanvas 가 직접 mount)
+      pipeline/NodeShell.tsx + Arrow.tsx    # Pipeline 5-노드 카드 + 연결선
+      # 폐기 (영구): ModeIndicator (5-phase 표시는 PipelineCanvas LEARN/INFER 노드 직접) /
+      #             OutNodeOverlay (OUT rename + count 도 PipelineCanvas OUT 노드 직접) /
+      #             CameraQuickControls (camera 토글 Sidebar / PipelineCanvas 통합)
   lib/
     backend/
       client.ts                             # NeuronFaceClient (REST)

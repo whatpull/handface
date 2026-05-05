@@ -1,4 +1,5 @@
-// 카메라 기반 학습 훅 — CameraQuickControls 에서 사용.
+// 카메라 기반 학습 훅 — PipelineCanvas (LEARN/INFER 노드) 가 직접 호출.
+// (CameraQuickControls 컴포넌트는 영구 폐기 — Pipeline view 통합)
 //
 // 본질 redesign (사용자 명시): online self-organizing STDP loop 폐기.
 // 대신 명시적 batch supervised 학습 + inference 모드 분리 (state machine).
@@ -179,7 +180,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // phase emit — 외부 (ModeIndicator) 영역 phase event 구독 영역.
+  // phase emit — PipelineCanvas (LEARN/INFER 노드) 가 'training-phase' event 구독.
+  // (ModeIndicator 컴포넌트는 영구 폐기 — Pipeline view 통합)
   useEffect(() => {
     const detail: TrainingPhaseDetail = {
       phase,

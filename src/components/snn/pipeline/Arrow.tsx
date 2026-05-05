@@ -1,69 +1,91 @@
 'use client';
 
-// Arrow — bezier curve connector (사용자 catch [UI/UX 40%]: "bezier curve + glow + tone gradient").
+// Arrow — persistent bezier connector v4 (사용자 catch [UI/UX 10/100]:
+// "연결 라인 항상 visible + cyan single tone 통일 + flow dot 항상 흐름").
 //
-// 직전 straight line + arrowhead 영역 폐기 — 영역 reference 이미지 (Figma node editor) 영역 정합:
-//  - SVG cubic bezier (M cx1 cy1 C cx2 cy2 ...) — flow 부드럽게.
-//  - linearGradient stroke — 양 끝 노드 tone (e.g. violet → amber, amber → cyan, cyan → pink, pink → blue).
-//  - active 영역 dot 영역 path 영역 따라 흐름 (CSS animation: offsetDistance 0% → 100%).
-//  - 영역 영역 영역 (≤900px) 영역 column flow 영역 90deg rotate 영역 영역 영역 영역.
+// 직전 5 tone gradient (violet/amber/cyan/pink/blue) 영역 폐기 — 사용자 명시:
+// 단일 cyan palette (#06b6d4 main + #67e8f9 accent + alpha glow) 영역 통일.
 //
-// 정직 한계 박음:
-//  - SVG width 영역 14-28px 영역 좁음 → bezier control point 영역 영역 큰 곡률 catch 영역 영역 — slight curve 영역 영역.
-//  - tone prop 영역 4 segment 영역 정합: 'violet-amber' / 'amber-cyan' / 'cyan-pink' / 'pink-blue'.
-//  - prefers-reduced-motion 영역 dot animation 영역 0.01ms 영역 정지 (.snn-pipeline-conn-dot 정합).
+// 본격 변경:
+//  - active prop 영역 visual flag 영역만 (stroke opacity 영역 분기) — path/dot 영역 항상 render.
+//  - flow dot 영역 항상 animateMotion (1.6s loop) — active 영역 영역 0.6 alpha + brightness 0.7
+//    영역 dim. learn/flow active 영역 1.0 alpha + glow drop-shadow.
+//  - bezier curve 영역 cubic S 영역 박음 (slight lift in middle) — node editor aesthetic.
+//  - segment prop 영역 무시 (호환 영역 보존) — tone 통일 영역 정합.
+//
+// 정직 한계:
+//  - SVG width 28px 좁음 → bezier control point 영역 영역 영역 곡률 영역 영역.
+//  - prefers-reduced-motion 영역 dot animation 영역 0.01ms 정지 (.snn-pipeline-conn-dot 정합).
+//  - 4 connector 영역 영역 1 dot 영역 — 사용자 명시 "16 dot" 영역 SVG path 영역 영역
+//    multi-particle 영역 영역 영역 (영역 단순 영역 1 dot 영역 폐기 회피).
 
 interface ArrowProps {
   active?: boolean;
-  /** 4 segment 영역 tone gradient — index 0..3 영역 정합. */
+  /** legacy prop — tone unification 영역 영역 무시 영역 default 0. */
   segment?: 0 | 1 | 2 | 3;
 }
 
-const TONE_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ['#a78bfa', '#fbbf24'], // 0: input violet → learn amber
-  ['#fbbf24', '#5eead4'], // 1: learn amber → infer cyan
-  ['#5eead4', '#f472b6'], // 2: infer cyan → out pink
-  ['#f472b6', '#60a5fa'], // 3: out pink → llm blue
-];
+// path d v5 (2026-05-05) — 곡률 ↑ (직전 slight S 영역 더 강한 cubic S) +
+// node editor aesthetic 영역 정합. 28px width 영역 영역 영역 control point 영역
+// 큰 변화 영역 정합 영역 영역.
+const PATH_D = 'M 2 30 C 14 14, 22 46, 34 30';
+// dashed underlay path — animated dash 영역 stream 영역 visualize (사용자 명시 99 path).
+const DASH_LEN = 32; // SVG path length approx 영역 전체 — circle motion 영역 정합.
 
-export default function Arrow({ active = false, segment = 0 }: ArrowProps) {
-  const [c0, c1] = TONE_PAIRS[segment];
-  const gradId = `snn-conn-grad-${segment}`;
+export default function Arrow({ active = false }: ArrowProps) {
   return (
-    <div className={`snn-pipeline-arrow ${active ? 'is-active' : ''}`} aria-hidden>
+    <div className={`snn-pipeline-arrow ${active ? 'is-active' : 'is-idle'}`} aria-hidden>
       <svg viewBox="0 0 36 60" width="36" height="60" preserveAspectRatio="none">
         <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={c0} stopOpacity={active ? 0.95 : 0.5} />
-            <stop offset="100%" stopColor={c1} stopOpacity={active ? 0.95 : 0.5} />
+          <linearGradient id="snn-conn-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stopColor="#0891b2" stopOpacity="0.9" />
+            <stop offset="50%"  stopColor="#06b6d4" stopOpacity="1.0" />
+            <stop offset="100%" stopColor="#67e8f9" stopOpacity="0.95" />
           </linearGradient>
-          <filter id={`${gradId}-glow`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="1.6" result="b" />
+          <filter id="snn-conn-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.0" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
-        {/* cubic bezier — slight S curve 영역 영역 ref 이미지 영역 정합. */}
+        {/* base edge — 항상 visible (alpha 0.55 → active 1.0). 본격 stroke 2.0 영역
+            visual depth ↑ + 곡률 강 cubic S. */}
         <path
-          d="M 2 30 C 14 30, 22 30, 34 30"
-          stroke={`url(#${gradId})`}
-          strokeWidth="1.6"
+          className="snn-pipeline-conn-path"
+          d={PATH_D}
+          stroke="url(#snn-conn-cyan)"
+          strokeWidth="2.0"
           fill="none"
           strokeLinecap="round"
-          filter={active ? `url(#${gradId}-glow)` : undefined}
+          filter="url(#snn-conn-glow)"
         />
+        {/* animated dash overlay — 사용자 catch "animated dash + flow dot stream".
+            base path 영역 dasharray 4-3 + dashoffset animate (active 영역 영역 영역). */}
         {active && (
-          <circle
-            className="snn-pipeline-conn-dot"
-            r="2.2"
-            fill={c1}
+          <path
+            className="snn-pipeline-conn-dash"
+            d={PATH_D}
+            stroke="#a5f3fc"
+            strokeWidth="1.0"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray="4 3"
+            opacity="0.7"
           >
-            <animateMotion dur="1.6s" repeatCount="indefinite" path="M 2 30 C 14 30, 22 30, 34 30" />
-            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="1.6s" repeatCount="indefinite" />
-          </circle>
+            <animate attributeName="stroke-dashoffset" from={DASH_LEN} to="0"
+              dur="0.9s" repeatCount="indefinite" />
+          </path>
         )}
+        {/* flow dot — 항상 animateMotion 영역 5s loop 영역 (사용자 catch). */}
+        <circle
+          className="snn-pipeline-conn-dot"
+          r="2.6"
+          fill="#67e8f9"
+        >
+          <animateMotion dur="1.8s" repeatCount="indefinite" path={PATH_D} />
+        </circle>
       </svg>
     </div>
   );

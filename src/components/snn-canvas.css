@@ -28,12 +28,18 @@
   --pipe-font-xl: 14px;
   --pipe-font-title: 15px;
 
-  /* 5 tone — base rgb (border/glow/bg 영역 alpha 영역 영역 영역) */
-  --pipe-tone-input: 167, 139, 250;   /* violet */
-  --pipe-tone-learn: 251, 191, 36;    /* amber */
-  --pipe-tone-infer: 94, 234, 212;    /* cyan */
-  --pipe-tone-out: 244, 114, 182;     /* pink */
-  --pipe-tone-llm: 96, 165, 250;      /* blue */
+  /* cyan single-tone palette (2026-05-05 redesign — UI/UX 10/100 catch).
+     5 tone (violet/amber/cyan/pink/blue) 폐기 → cyan 단일 scale. tone variant 영역
+     alpha/lightness 영역만. legacy token name 영역 보존 — 모든 영역 동일 cyan rgb 영역
+     redirect (visual diff 영역 0). */
+  --pipe-tone-cyan: 6, 182, 212;          /* #06b6d4 main */
+  --pipe-tone-cyan-light: 103, 232, 249;  /* #67e8f9 accent */
+  --pipe-tone-cyan-dark: 8, 145, 178;     /* #0891b2 darker */
+  --pipe-tone-input: 6, 182, 212;     /* legacy → cyan */
+  --pipe-tone-learn: 6, 182, 212;     /* legacy → cyan */
+  --pipe-tone-infer: 6, 182, 212;     /* legacy → cyan */
+  --pipe-tone-out: 6, 182, 212;       /* legacy → cyan */
+  --pipe-tone-llm: 6, 182, 212;       /* legacy → cyan */
 
   /* tone alpha layers */
   --pipe-tone-alpha-glow: 0.3;
@@ -54,7 +60,7 @@
   --pipe-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
   --pipe-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
   --pipe-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.6);
-  --pipe-shadow-glow: 0 0 18px rgba(94, 234, 212, 0.22);
+  --pipe-shadow-glow: 0 0 18px rgba(6, 182, 212, 0.28);
 }
 
 /* 카메라 셀카 미러링 — NodeInput 안의 video / canvas 영역 transform. */
@@ -167,7 +173,7 @@
 .snn-pipeline-learn-region-sep { color: rgba(255, 255, 255, 0.3); }
 .snn-pipeline-learn-region-total { color: rgba(255, 255, 255, 0.5); font-size: var(--pipe-font-xs); }
 .snn-pipeline-learn-region-box--v1 { border-color: rgba(var(--pipe-tone-llm), var(--pipe-tone-alpha-border)); }
-.snn-pipeline-learn-region-box--v1 .snn-pipeline-learn-region-label { color: #93c5fd; }
+.snn-pipeline-learn-region-box--v1 .snn-pipeline-learn-region-label { color: rgba(var(--pipe-tone-cyan-light), 0.85); }
 .snn-pipeline-learn-region-box--v2 { border-color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-border)); }
 .snn-pipeline-learn-region-box--v2 .snn-pipeline-learn-region-label { color: rgb(var(--pipe-tone-infer)); }
 @media (max-width: 600px) {
@@ -198,29 +204,52 @@
   }
 }
 
-/* bezier connector v3 (2026-05-05) — Figma node editor 정합 영역 곡선 connector +
-   tone gradient + flow dot. Arrow.tsx 영역 SVG path/animateMotion 직접 영역 — 본 css 영역
-   layout + glow drop-shadow 영역. */
+/* persistent bezier connector v4 (2026-05-05) — UI/UX 10/100 redesign.
+   사용자 명시: "연결 라인 항상 visible + cyan tone glow + flow dot 항상 흐름".
+   직전 dim 영역 영역 (active flag 영역 stroke alpha 분기) 영역 — 본 영역 항상 강
+   visible + flow dot 영역 항상 animate. is-active 영역 영역 brightness/glow 강도 ↑. */
 .snn-pipeline-arrow {
   display: flex;
   align-items: stretch;
   justify-content: center;
   flex-shrink: 0;
   width: 28px;
-  /* grid layout 영역 column 영역 auto 영역 정합 — fixed 28px width. */
   align-self: stretch;
   position: relative;
-  transition: filter 220ms ease, opacity 220ms ease;
-  opacity: 0.85;
+  transition: filter 240ms ease, opacity 240ms ease;
+  opacity: 1;
+  /* base glow — 항상 visible 영역 가시성 강 + tone 통일 정합. */
+  filter: drop-shadow(0 0 4px rgba(var(--pipe-tone-cyan), 0.32));
 }
 .snn-pipeline-arrow svg {
   width: 100%;
   height: 100%;
   display: block;
+  overflow: visible;
+}
+/* persistent edge path — 항상 visible. is-active 영역 영역 stroke 진하 영역. */
+.snn-pipeline-conn-path {
+  stroke-opacity: 0.55;
+  transition: stroke-opacity 220ms ease, stroke-width 220ms ease;
+}
+.snn-pipeline-arrow.is-active .snn-pipeline-conn-path {
+  stroke-opacity: 1;
+  stroke-width: 2.2;
 }
 .snn-pipeline-arrow.is-active {
+  filter: drop-shadow(0 0 8px rgba(var(--pipe-tone-cyan), 0.6))
+          drop-shadow(0 0 4px rgba(var(--pipe-tone-cyan-light), 0.4));
+}
+/* flow dot — 항상 animateMotion. idle 영역 0.55 alpha + 작 영역, active 영역 1.0 + glow. */
+.snn-pipeline-conn-dot {
+  opacity: 0.6;
+  transition: opacity 240ms ease;
+  filter: drop-shadow(0 0 3px rgba(var(--pipe-tone-cyan-light), 0.7));
+}
+.snn-pipeline-arrow.is-active .snn-pipeline-conn-dot {
   opacity: 1;
-  filter: drop-shadow(0 0 6px rgba(var(--pipe-tone-infer), 0.35));
+  filter: drop-shadow(0 0 6px rgba(var(--pipe-tone-cyan-light), 1))
+          drop-shadow(0 0 12px rgba(var(--pipe-tone-cyan), 0.6));
 }
 @media (max-width: 900px) {
   .snn-pipeline-arrow {
@@ -387,11 +416,12 @@
   letter-spacing: 0.12em;
   font-size: var(--pipe-font-md);
 }
-.snn-pipeline-node--input .snn-pipeline-node-title { color: #c4b5fd; }
-.snn-pipeline-node--learn .snn-pipeline-node-title { color: #fde68a; }
-.snn-pipeline-node--infer .snn-pipeline-node-title { color: rgb(var(--pipe-tone-infer)); }
-.snn-pipeline-node--out   .snn-pipeline-node-title { color: #f9a8d4; }
-.snn-pipeline-node--llm   .snn-pipeline-node-title { color: #93c5fd; }
+/* cyan single tone — 5 노드 영역 동일 cyan light accent 영역 통일. */
+.snn-pipeline-node--input .snn-pipeline-node-title,
+.snn-pipeline-node--learn .snn-pipeline-node-title,
+.snn-pipeline-node--infer .snn-pipeline-node-title,
+.snn-pipeline-node--out   .snn-pipeline-node-title,
+.snn-pipeline-node--llm   .snn-pipeline-node-title { color: rgb(var(--pipe-tone-cyan-light)); }
 .snn-pipeline-node-sub {
   flex: 1;
   font-size: var(--pipe-font-xs);
@@ -547,7 +577,7 @@
   opacity: 0.85;
 }
 .snn-pipeline-cluster-label.is-done { color: #86efac; opacity: 1; }
-.snn-pipeline-cluster-label.is-active { color: #fde68a; opacity: 1; font-weight: 600; }
+.snn-pipeline-cluster-label.is-active { color: rgb(var(--pipe-tone-cyan-light)); opacity: 1; font-weight: 600; }
 .snn-pipeline-cluster-bar {
   flex: 1;
   height: 6px;
@@ -606,8 +636,8 @@
   animation: snn-pipeline-current-pulse 2.2s ease-in-out infinite;
 }
 @keyframes snn-pipeline-current-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25), 0 0 12px rgba(94, 234, 212, 0.18); }
-  50%      { box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.45), 0 0 22px rgba(94, 234, 212, 0.32); }
+  0%, 100% { box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25), 0 0 12px rgba(6, 182, 212, 0.18); }
+  50%      { box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.45), 0 0 22px rgba(6, 182, 212, 0.32); }
 }
 .snn-pipeline-current-label {
   font-size: 9px;
@@ -637,8 +667,8 @@
   animation: snn-pipeline-winner-pulse 1.8s ease-in-out infinite;
 }
 @keyframes snn-pipeline-winner-pulse {
-  0%, 100% { background: rgba(94,234,212,0.10); }
-  50%      { background: rgba(94,234,212,0.20); }
+  0%, 100% { background: rgba(6,182,212,0.10); }
+  50%      { background: rgba(6,182,212,0.20); }
 }
 .snn-pipeline-rate-label { width: 56px; font-size: var(--pipe-font-xs); }
 .snn-pipeline-rate-bar {
@@ -668,7 +698,7 @@
 .snn-pipeline-out-winner-btn {
   background: rgba(var(--pipe-tone-out), 0.10);
   border: 1px solid rgba(var(--pipe-tone-out), 0.35);
-  color: #fbcfe8;
+  color: rgb(var(--pipe-tone-cyan-light));
   padding: 6px var(--pipe-gap-md); border-radius: var(--pipe-gap-xs);
   font-size: var(--pipe-font-xl); font-weight: 600;
   cursor: pointer;
@@ -949,11 +979,24 @@
   .snn-pipeline-node--input { max-height: none; }
 }
 
-/* ─────────────────────────────────────── Summary Card v4 (dashboard row) ────
-   reference 영역 정합 (이미지 1 dashboard summary card top row) — 직전 OUT 박스 inside
-   mount 박음 영역 폐기 + absolute top-right floating 영역 폐기 → static dashboard row
-   영역 PipelineCanvas 위쪽 영역 mount (사용자 명시 [UI/UX 40%]).
-   모바일 (≤900) 영역 hide (공간 부족 — MobileBottomBar 영역 별도 영역). */
+/* ─────────────────────────────────────── Summary Card v5 (visual signature) ─
+   visual redesign 2026-05-05 (사용자 catch "UI/UX 10/100" 영역 99 path):
+   - icon SVG (top-left tinted) + label center + delta pill (top-right tone).
+   - mini sparkline SVG (bottom row) — 누적 trend visualize, flat 0 → polish ↑.
+   - gradient bg 강 — 135deg corner glow + 180deg base 2-layer 영역.
+   - value font 28px (직전 24) + tabular-nums + tracking -0.025em + cyan text-shadow.
+   - hover translateY-2 + border alpha ↑ + glow ↑ + spark opacity 1.
+   - inset highlight 1px white top + bottom 1px black + corner radial blur ::after.
+   - cyan single tone (light/main/dark) 영역 3 카드 영역 lightness 차별 (사용자 명시 정합).
+   - 모바일 (≤900) 영역 hide (공간 부족 — MobileBottomBar 별도). */
+:root {
+  --spark-cyan:        #67e8f9;
+  --spark-cyan-fill:   #22d3ee;
+  --spark-amber:       #5eead4;
+  --spark-amber-fill:  #06b6d4;
+  --spark-violet:      #38bdf8;
+  --spark-violet-fill: #0891b2;
+}
 .snn-pipeline-dashboard {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -961,57 +1004,208 @@
   width: 100%;
 }
 .snn-summary-cards {
-  display: contents; /* dashboard row grid 영역 자식 영역 직접 — wrapper layer 0. */
+  display: contents;
 }
 .snn-summary-card {
-  background: linear-gradient(180deg, rgba(28, 28, 36, 0.96) 0%, rgba(16, 16, 22, 0.96) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: var(--pipe-radius-sm);
-  padding: var(--pipe-gap-md) var(--pipe-gap-lg);
+  position: relative;
+  background: linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--pipe-radius-md);
+  padding: 14px 18px 12px;
   min-width: 0;
+  min-height: 102px;
   display: flex;
   flex-direction: column;
-  gap: var(--pipe-gap-xs);
+  gap: 6px;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  box-shadow: var(--pipe-shadow-md), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 180ms ease;
+  box-shadow:
+    var(--pipe-shadow-md),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 200ms ease, background 220ms ease;
+  overflow: hidden;
+}
+.snn-summary-card::after {
+  content: '';
+  position: absolute;
+  top: -42px;
+  right: -42px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  opacity: 0.5;
+  filter: blur(30px);
+  pointer-events: none;
+  z-index: 0;
+}
+.snn-summary-card > * {
+  position: relative;
+  z-index: 1;
 }
 .snn-summary-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--pipe-shadow-lg), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  transform: translateY(-2px);
+  box-shadow:
+    var(--pipe-shadow-lg),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset;
+}
+.snn-summary-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.snn-summary-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+  color: rgba(var(--pipe-tone-cyan-light), 0.85);
 }
 .snn-summary-card-label {
-  font-size: var(--pipe-font-xs);
-  letter-spacing: 0.10em;
+  flex: 1;
+  font-size: var(--pipe-font-sm);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .snn-summary-card-value {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   font-family: ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   color: var(--pipe-text);
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  margin: 2px 0;
 }
 .snn-summary-card-delta {
-  font-size: var(--pipe-font-xs);
+  font-size: 10px;
   font-family: ui-monospace, monospace;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-transform: uppercase;
 }
-.snn-summary-card-delta.is-up   { color: rgb(var(--pipe-tone-infer)); }
-.snn-summary-card-delta.is-warn { color: rgb(var(--pipe-tone-learn)); }
-.snn-summary-card-delta.is-down { color: rgb(var(--pipe-tone-out)); }
-/* tone variants — 3 카드 영역 cluster (cyan) / accuracy (amber) / firings (violet). */
-.snn-summary-card--cyan   { border-color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-glow)); box-shadow: 0 var(--pipe-gap-xs) 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--pipe-tone-infer), 0.10); }
-.snn-summary-card--cyan   .snn-summary-card-value { color: rgb(var(--pipe-tone-infer)); }
-.snn-summary-card--amber  { border-color: rgba(var(--pipe-tone-learn), var(--pipe-tone-alpha-glow)); box-shadow: 0 var(--pipe-gap-xs) 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--pipe-tone-learn), 0.10); }
-.snn-summary-card--amber  .snn-summary-card-value { color: #fde68a; }
-.snn-summary-card--violet { border-color: rgba(var(--pipe-tone-input), var(--pipe-tone-alpha-glow)); box-shadow: 0 var(--pipe-gap-xs) 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--pipe-tone-input), 0.10); }
-.snn-summary-card--violet .snn-summary-card-value { color: #c4b5fd; }
+/* delta pill tone — cyan single + alpha/lightness scale 영역 3 단계. */
+.snn-summary-card-delta.is-up {
+  color: rgb(var(--pipe-tone-cyan-light));
+  background: rgba(var(--pipe-tone-cyan-light), 0.12);
+  border-color: rgba(var(--pipe-tone-cyan-light), 0.35);
+}
+.snn-summary-card-delta.is-warn {
+  color: rgb(var(--pipe-tone-cyan));
+  background: rgba(var(--pipe-tone-cyan), 0.12);
+  border-color: rgba(var(--pipe-tone-cyan), 0.35);
+}
+.snn-summary-card-delta.is-down {
+  color: rgb(var(--pipe-tone-cyan-dark));
+  background: rgba(var(--pipe-tone-cyan-dark), 0.14);
+  border-color: rgba(var(--pipe-tone-cyan-dark), 0.4);
+}
+.snn-summary-card-spark {
+  width: 100%;
+  height: 18px;
+  margin-top: auto;
+  display: block;
+  opacity: 0.85;
+  transition: opacity 200ms ease;
+}
+.snn-summary-card:hover .snn-summary-card-spark { opacity: 1; }
+
+/* 3 카드 cyan single tone variants — lightness 차별 (light / main / dark).
+   tone-aware corner glow + value text-shadow + icon tint. */
+.snn-summary-card--cyan {
+  background:
+    linear-gradient(135deg, rgba(var(--pipe-tone-cyan-light), 0.12) 0%, rgba(14, 14, 20, 0.96) 55%),
+    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
+  border-color: rgba(var(--pipe-tone-cyan-light), 0.45);
+  box-shadow:
+    var(--pipe-shadow-md),
+    0 0 24px rgba(var(--pipe-tone-cyan-light), 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.snn-summary-card--cyan::after { background: rgb(var(--pipe-tone-cyan-light)); }
+.snn-summary-card--cyan .snn-summary-card-value {
+  color: rgb(var(--pipe-tone-cyan-light));
+  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan-light), 0.4);
+}
+.snn-summary-card--cyan .snn-summary-card-icon {
+  color: rgb(var(--pipe-tone-cyan-light));
+  border-color: rgba(var(--pipe-tone-cyan-light), 0.4);
+  background: rgba(var(--pipe-tone-cyan-light), 0.10);
+}
+.snn-summary-card--cyan:hover {
+  border-color: rgba(var(--pipe-tone-cyan-light), 0.7);
+  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan-light), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.snn-summary-card--amber {
+  background:
+    linear-gradient(135deg, rgba(var(--pipe-tone-cyan), 0.12) 0%, rgba(14, 14, 20, 0.96) 55%),
+    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
+  border-color: rgba(var(--pipe-tone-cyan), 0.45);
+  box-shadow:
+    var(--pipe-shadow-md),
+    0 0 24px rgba(var(--pipe-tone-cyan), 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.snn-summary-card--amber::after { background: rgb(var(--pipe-tone-cyan)); }
+.snn-summary-card--amber .snn-summary-card-value {
+  color: rgb(var(--pipe-tone-cyan));
+  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan), 0.4);
+}
+.snn-summary-card--amber .snn-summary-card-icon {
+  color: rgb(var(--pipe-tone-cyan));
+  border-color: rgba(var(--pipe-tone-cyan), 0.4);
+  background: rgba(var(--pipe-tone-cyan), 0.10);
+}
+.snn-summary-card--amber:hover {
+  border-color: rgba(var(--pipe-tone-cyan), 0.7);
+  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.snn-summary-card--violet {
+  background:
+    linear-gradient(135deg, rgba(var(--pipe-tone-cyan-dark), 0.14) 0%, rgba(14, 14, 20, 0.96) 55%),
+    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
+  border-color: rgba(var(--pipe-tone-cyan-dark), 0.5);
+  box-shadow:
+    var(--pipe-shadow-md),
+    0 0 24px rgba(var(--pipe-tone-cyan-dark), 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.snn-summary-card--violet::after { background: rgb(var(--pipe-tone-cyan-dark)); }
+.snn-summary-card--violet .snn-summary-card-value {
+  color: rgba(var(--pipe-tone-cyan-light), 0.92);
+  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan-dark), 0.4);
+}
+.snn-summary-card--violet .snn-summary-card-icon {
+  color: rgb(var(--pipe-tone-cyan-light));
+  border-color: rgba(var(--pipe-tone-cyan-dark), 0.5);
+  background: rgba(var(--pipe-tone-cyan-dark), 0.14);
+}
+.snn-summary-card--violet:hover {
+  border-color: rgba(var(--pipe-tone-cyan-dark), 0.75);
+  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan-dark), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
 @media (max-width: 900px) {
   .snn-pipeline-dashboard { display: none; }
   .snn-summary-cards { display: none; }

@@ -261,9 +261,19 @@ export default function ModeIndicator() {
             </div>
           )}
           {stableSupervised && rstdp && rstdp.pulses > 0 && (
-            <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
-              rstdp: {rstdp.pulses} pulses · last +{rstdp.lastDeltaSum.toFixed(2)} ({rstdp.lastSynapses} syn × {rstdp.lastReward.toFixed(1)}x)
-            </div>
+            <>
+              <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
+                rstdp: {rstdp.pulses} pulses · last +{rstdp.lastDeltaSum.toFixed(2)} ({rstdp.lastSynapses} syn × {rstdp.lastReward.toFixed(1)}x)
+              </div>
+              {/* 정직 catch 명시 — backend apply_rstdp_pulse 영역 winner path LTP 만 증폭 (target_out 영역 0 default).
+                  즉 R-STDP 호출 = winner monopoly 강화 catch. 정정 = backend endpoint 변경 mandatory (사용자 명시 영역).
+                  거짓 회피 — 사용자 영역 사실 노출. */}
+              <div className="mt-0.5 text-[10px] leading-tight text-amber-300/90">
+                ⚠ R-STDP active — winner reinforce only (monopoly catch).
+                <br />
+                <span className="opacity-70">backend endpoint 영역 target cluster 영역 변경 mandatory.</span>
+              </div>
+            </>
           )}
           {stabilizing && (
             <div className="mt-0.5 text-[10px] tabular-nums opacity-70">

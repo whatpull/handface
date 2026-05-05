@@ -957,8 +957,16 @@
 .snn-pipeline-toggle {
   display: flex; align-items: center; gap: 6px;
   font-size: var(--pipe-font-xs); cursor: pointer;
+  min-width: 0;
 }
-.snn-pipeline-toggle input { cursor: pointer; }
+.snn-pipeline-toggle input { cursor: pointer; flex-shrink: 0; }
+.snn-pipeline-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
 .snn-pipeline-details {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 3px;

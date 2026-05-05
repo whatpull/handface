@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
@@ -25,11 +25,15 @@ export default function Editor() {
   const [canvasNonce, setCanvasNonce] = useState(0);
 
   // 모바일 bottom-bar 가 사용할 액션 (Toolbar 와 동일).
-  const mobileActions = createActions({
-    busy,
-    setBusy,
-    status: setStatus,
-  });
+  // useMemo — busy / status setter 영역 stable 영역 dep 변경 영역만 재산출.
+  const mobileActions = useMemo(
+    () => createActions({ busy, setBusy, status: setStatus }),
+    [busy],
+  );
+
+  // HandTrackerHost 영역 onError 영역 stable callback — useEffect dep 영역 매 render
+  // restart 회피 (HandTrackerHost 영역 active/onFrame/onError dep 영역 stale catch).
+  const onCameraError = useCallback((m: string) => setStatus(`✗ camera: ${m}`), []);
 
   useEffect(() => {
     const off = onBackendEvent('circuit-changed', () => {
@@ -95,7 +99,7 @@ export default function Editor() {
             <HandTrackerHost
               key={`htrack-${canvasNonce}`}
               active={cameraConnected}
-              onError={(m) => setStatus(`✗ camera: ${m}`)}
+              onError={onCameraError}
             />
           </div>
           {status && (

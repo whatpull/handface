@@ -241,20 +241,6 @@ export class NeuronFaceClient {
     return r;
   }
 
-  async initialize(): Promise<Result<{ id: string }>> {
-    const r = await this.ensureNetwork();
-    if (!r.ok) return r;
-    return { ok: true, data: { id: r.data } };
-  }
-
-  async reset(mode: 'dynamics' | 'all' = 'dynamics'): Promise<Result<unknown>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const r = await this.request(`/networks/${net.data}/reset`, { method: 'POST', body: { mode } });
-    if (r.ok) emitBackendEvent('circuit-changed', {});
-    return r;
-  }
-
   // 전체 회로 초기화 — 누적된 뉴런/시냅스 모두 폐기 후 base cortical preset 만 유지.
   // BrainBuilder 빌드 누적, Grow 누적 등으로 회로가 비대해진 경우 사용.
   async rebuildToBaseline(): Promise<Result<{ networkId: string }>> {
@@ -301,31 +287,6 @@ export class NeuronFaceClient {
     return r;
   }
 
-  // Export 용 — 회로 전체 (neurons + synapses) JSON 다운로드.
-  async exportTopology(): Promise<Result<unknown>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    return this.request(`/networks/${net.data}/export`, {
-      method: 'POST',
-      body: { include_synapses: true },
-    });
-  }
-
-  // Import 용 — Save snapshot 형식 ({synapses: [...]}) 또는 export 형식 둘 다 지원.
-  async importTopology(payload: { synapses?: Array<{ pre: string; post: string; weight: number }> }): Promise<Result<unknown>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    if (!payload.synapses || payload.synapses.length === 0) {
-      return { ok: false, reason: 'no synapses in import payload' };
-    }
-    const r = await this.request(`/networks/${net.data}/training/load`, {
-      method: 'POST',
-      body: { synapses: payload.synapses },
-    });
-    if (r.ok) emitBackendEvent('circuit-changed', {});
-    return r;
-  }
-
   // 16-dim hand feature 직접 inject — feature16 preset 정합.
   // pattern: 16-vector (curls 5 + angles 5 + pinch + spread + palm_open + orient_x/y + wrist_roll).
   // target_out 지정 시 supervised STDP 학습.
@@ -369,17 +330,6 @@ export class NeuronFaceClient {
     });
     if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', r.data as NeuronFiringDetail);
     return r;
-  }
-
-  // Homeostatic synaptic scaling — 자주 fire 한 뉴런 weight 약화, 미발화는 강화.
-  // Turrigiano (1998) 정합. autoCapture 에서 N tick 마다 호출 → winner monopoly 회피.
-  async homeostatic(targetHz = 5.0): Promise<Result<{ ok: boolean; adjusted: number }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    return this.request(`/networks/${net.data}/homeostatic`, {
-      method: 'POST',
-      body: { target_hz: targetHz, window_ms: 200, min_spikes: 1 },
-    });
   }
 
   // 커뮤니티 — 학습 weight 기여 + 집계 baseline 가져오기.

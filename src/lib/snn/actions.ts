@@ -44,46 +44,5 @@ export function createActions(h: ActionHooks) {
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ synapses }));
       h.status(`✓ Saved (${synapses.length} synapses)`);
     }),
-
-    load: () => run('Load', async () => {
-      const raw = localStorage.getItem(SNAPSHOT_KEY);
-      if (!raw) { h.status('✗ Load: 저장된 데이터 없음'); return; }
-      const data = JSON.parse(raw);
-      const synapses = data.synapses ?? [];
-      const r = await getClient().loadSnapshot(synapses);
-      h.status(r.ok ? `✓ Loaded (${synapses.length} synapses)` : `✗ Load: ${r.reason}`);
-    }),
-
-    exportCircuit: () => run('Export', async () => {
-      const r = await getClient().getSnapshot();
-      if (!r.ok) { h.status(`✗ Export: ${r.reason}`); return; }
-      const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `handface-circuit-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      h.status(`✓ Exported (${r.data.synapses?.length ?? 0} synapses)`);
-    }),
-
-    importCircuit: () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json';
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        run('Import', async () => {
-          const text = await file.text();
-          let data;
-          try { data = JSON.parse(text); }
-          catch { h.status('✗ Import: invalid JSON'); return; }
-          const r = await getClient().importTopology(data);
-          h.status(r.ok ? `✓ Imported (${data.synapses?.length ?? 0} synapses)` : `✗ Import: ${r.reason}`);
-        });
-      };
-      input.click();
-    },
   };
 }

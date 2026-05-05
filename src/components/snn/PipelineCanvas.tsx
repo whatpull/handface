@@ -25,7 +25,7 @@
 //  - PipelineEventProvider 영역 영역 listener 1회 등록 — 5 child 영역 context 구독 영역
 //    추가 listener 0. 직전 6 listener (PipelineCanvas 1 + child 5) 영역 1 영역 (-83%).
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   onBackendEvent,
   type TrainingPhaseDetail,
@@ -57,8 +57,8 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
 }
 
 function PipelineCanvasInner({ cameraConnected }: Props) {
-  // useHandControl 영역 본 파일 영역 driver — Pipeline view 영역 standalone.
-  const ctrl = useHandControl(cameraConnected, true, true);
+  // useHandControl — driver. autoCapture=true (LEARN/INFER 노드 모두 active).
+  const ctrl = useHandControl(cameraConnected, true);
 
   // training-phase 영역 본 파일 영역 단일 listener (neuron-firing 영역 PipelineEventProvider 영역).
   const [phase, setPhase] = useState<string>('untrained');
@@ -127,10 +127,11 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [llmToast]);
 
-  const onLlmResult = (r: LlmSendResult) => setLlmToast({
+  // useCallback — NodeLlm 영역 onLlmResult 영역 stable reference 영역 매 render dep 변경 0.
+  const onLlmResult = useCallback((r: LlmSendResult) => setLlmToast({
     kind: r.ok ? 'ok' : 'fail',
     msg: r.ok ? `LLM POST ok · ${r.status} · ${r.latencyMs}ms` : `LLM fail · ${r.error || `HTTP ${r.status}`}`,
-  });
+  }), []);
 
   return (
     <div
@@ -148,13 +149,13 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
           (NodeLearn.tsx — LearnRegionStrip). */}
       <div className="snn-pipeline-flow">
         <NodeInput cameraConnected={cameraConnected} />
-        <Arrow active={segActive[0]} segment={0} />
+        <Arrow active={segActive[0]} />
         <NodeLearn />
-        <Arrow active={segActive[1]} segment={1} />
+        <Arrow active={segActive[1]} />
         <NodeInfer />
-        <Arrow active={segActive[2]} segment={2} />
+        <Arrow active={segActive[2]} />
         <NodeOut />
-        <Arrow active={segActive[3]} segment={3} />
+        <Arrow active={segActive[3]} />
         <NodeLlm onLlmResult={onLlmResult} />
       </div>
       {ctrl.trainStatus && (

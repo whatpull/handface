@@ -11,7 +11,7 @@
 // 동시 다발 toast 영역 stack — auto fade (default 4s).
 
 import {
-  createContext, useCallback, useContext, useEffect, useState, type ReactNode,
+  createContext, useCallback, useEffect, useState, type ReactNode,
 } from 'react';
 
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';
@@ -29,6 +29,9 @@ interface ToastContextValue {
   dismiss: (id: number) => void;
 }
 
+// Context 영역 useToast hook 폐기 사실 보존 — Provider 영역 globalPush register 영역 단일
+// path 영역, showToast() helper 영역 외부 호출자 사용. dismiss 영역 ToastView 영역 직접
+// onDismiss 영역 호출.
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 // 전역 push handle — Provider mount 영역 register.
@@ -114,14 +117,3 @@ const TOAST_PALETTE: Record<ToastKind, { classes: string; icon: string }> = {
   error:   { classes: 'border-rose-400/50 bg-[#1f0c0c]/95 text-rose-200',              icon: '✗' },
 };
 
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) {
-    // Provider 미mount path — no-op fallback (테스트 / SSR catch).
-    return {
-      push: () => { /* noop */ },
-      dismiss: () => { /* noop */ },
-    } as ToastContextValue;
-  }
-  return ctx;
-}

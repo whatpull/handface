@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 
+type ViewMode = 'pipeline' | 'region' | 'neuron';
 interface MobileBottomBarProps {
-  view: 'region' | 'neuron';
-  onViewChange: (v: 'region' | 'neuron') => void;
+  view: ViewMode;
+  onViewChange: (v: ViewMode) => void;
   onSave: () => void;
   onReset: () => void;
 }
@@ -58,9 +59,10 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
                 ✕
               </button>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              <SheetBtn label="Pipeline" active={p.view === 'pipeline'} onClick={() => { p.onViewChange('pipeline'); setMoreOpen(false); }} />
               <SheetBtn label="Region" active={p.view === 'region'} onClick={() => { p.onViewChange('region'); setMoreOpen(false); }} />
-              <SheetBtn label="Neuron" active={p.view === 'neuron'} onClick={() => { p.onViewChange('neuron'); setMoreOpen(false); }} />
+              <SheetBtn label="Detail" active={p.view === 'neuron'} onClick={() => { p.onViewChange('neuron'); setMoreOpen(false); }} />
             </div>
           </div>
         </div>

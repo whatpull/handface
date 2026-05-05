@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { createActions } from '@/lib/snn/actions';
 
+export type ViewMode = 'pipeline' | 'region' | 'neuron';
+
 interface ToolbarProps {
-  view: 'region' | 'neuron';
-  onViewChange: (v: 'region' | 'neuron') => void;
+  view: ViewMode;
+  onViewChange: (v: ViewMode) => void;
   onStatusChange?: (msg: string) => void;
 }
 
@@ -31,6 +33,14 @@ export default function Toolbar({ view, onViewChange, onStatusChange }: ToolbarP
       <div className={groupCls}>
         <button
           type="button"
+          className={`${btnCls} ${view === 'pipeline' ? activeCls : ''}`}
+          onClick={() => onViewChange('pipeline')}
+          disabled={!!busy}
+        >
+          <Icon kind="pipeline" /> Pipeline
+        </button>
+        <button
+          type="button"
           className={`${btnCls} ${view === 'region' ? activeCls : ''}`}
           onClick={() => onViewChange('region')}
           disabled={!!busy}
@@ -43,7 +53,7 @@ export default function Toolbar({ view, onViewChange, onStatusChange }: ToolbarP
           onClick={() => onViewChange('neuron')}
           disabled={!!busy}
         >
-          <Icon kind="neuron" /> Neuron
+          <Icon kind="neuron" /> Detail
         </button>
       </div>
       <div className={sepCls} aria-hidden />
@@ -59,6 +69,15 @@ export default function Toolbar({ view, onViewChange, onStatusChange }: ToolbarP
 function Icon({ kind }: { kind: string }) {
   const c = 'h-3.5 w-3.5';
   switch (kind) {
+    case 'pipeline':
+      return (
+        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <rect x="2" y="9" width="5" height="6" rx="1" />
+          <rect x="9.5" y="9" width="5" height="6" rx="1" />
+          <rect x="17" y="9" width="5" height="6" rx="1" />
+          <path d="M7 12h2.5" /><path d="M14.5 12h2.5" />
+        </svg>
+      );
     case 'region':
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">

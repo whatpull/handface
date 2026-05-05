@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
-import Toolbar from '@/components/snn/Toolbar';
+import Toolbar, { type ViewMode } from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
+import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
@@ -18,7 +19,9 @@ import './snn-canvas.css';
 export default function Editor() {
   const [editMode, setEditMode] = useState(false);
   const [cameraConnected, setCameraConnected] = useState(false);
-  const [view, setView] = useState<'region' | 'neuron'>('neuron');
+  // 'pipeline' = 5-node 본격 redesign (default).
+  // 'region' / 'neuron' = 직전 drawflow detail view (472 neurons / 4 region).
+  const [view, setView] = useState<ViewMode>('pipeline');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -39,6 +42,8 @@ export default function Editor() {
     installAutoSnapshot();
     return off;
   }, []);
+
+  const isDetail = view === 'region' || view === 'neuron';
 
   return (
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
@@ -61,16 +66,29 @@ export default function Editor() {
             onStatusChange={setStatus}
           />
           <div className="relative flex-1 min-h-0 overflow-hidden">
-            <Canvas
-              key={`${view}-${canvasNonce}`}
-              editMode={editMode}
-              cameraConnected={cameraConnected}
-              view={view}
-            />
+            {view === 'pipeline' ? (
+              <PipelineCanvas
+                key={`pipeline-${canvasNonce}`}
+                cameraConnected={cameraConnected}
+              />
+            ) : (
+              <Canvas
+                key={`${view}-${canvasNonce}`}
+                editMode={editMode}
+                cameraConnected={cameraConnected}
+                view={view}
+              />
+            )}
+            {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel
+                / .snn-feat-bars) 영역 polling — pipeline / drawflow neuron view 영역
+                양쪽 정합 사실 (selector 기반 mount). */}
             <HandTrackerHost
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
+            {/* CameraQuickControls / OutNodeOverlay / ModeIndicator 영역 = drawflow
+                neuron view 영역 portal mount. pipeline view 영역 PipelineCanvas 영역
+                동등 영역 통합 사실. */}
             {view === 'neuron' && (
               <>
                 <CameraQuickControls
@@ -80,7 +98,7 @@ export default function Editor() {
                 <OutNodeOverlay key={`out-overlay-${canvasNonce}`} />
               </>
             )}
-            <ModeIndicator key={`mode-${canvasNonce}`} />
+            {isDetail && <ModeIndicator key={`mode-${canvasNonce}`} />}
           </div>
           {status && (
             <div

@@ -220,33 +220,52 @@
    직전 bezier + dash anim + animateMotion dot + drop-shadow glow 영역 모두 폐기.
    영역 영역 영역 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).
    transition 영역 color 영역만, animation/filter 영역 0. */
+/* bezier connector v8 (2026-05-05 사용자 명시 부활):
+   "node로 연결해줘 ... 발화하면 active 되었던 그 구성"
+   drawflow 정합 — bezier path + active glow + animateMotion flow dot.
+   idle: gray alpha 0.3 / active: white alpha 0.92 + drop-shadow blur 5px.
+   stroke-width 1.8 → 2 (active). */
 .snn-pipeline-arrow {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
+  width: 36px;
   align-self: center;
-  /* idle — gray (subtle, 영역 영역 영역 영역 영역 영역). */
-  color: rgba(255, 255, 255, 0.40);
-  transition: color 200ms ease;
+  /* idle — gray subtle (alpha 0.3 사용자 명시). */
+  color: rgba(255, 255, 255, 0.30);
+  transition: color 220ms ease, filter 220ms ease;
+  filter: none;
 }
 .snn-pipeline-arrow svg {
   display: block;
   overflow: visible;
 }
-.snn-pipeline-conn-path {
-  transition: stroke-width 200ms ease;
+.snn-pipeline-conn-path,
+.snn-pipeline-conn-head {
+  transition: stroke-width 200ms ease, opacity 200ms ease;
 }
-/* active — white (강) 영역 영역, glow/shadow 0. */
+/* active — white + drop-shadow glow (drawflow fired class 정합). */
 .snn-pipeline-arrow.is-active {
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+}
+.snn-pipeline-arrow.is-active .snn-pipeline-conn-path,
+.snn-pipeline-arrow.is-active .snn-pipeline-conn-head {
+  stroke-width: 2;
+}
+/* active dot — animateMotion 영역 path 영역 1.5s 1회 traversal. */
+.snn-pipeline-conn-dot {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-conn-dot { animation-duration: 0.01ms !important; }
 }
 @media (max-width: 900px) {
   .snn-pipeline-arrow {
     transform: rotate(90deg);
     width: auto;
-    height: 20px;
+    height: 36px;
     margin: var(--pipe-gap-xs) 0;
   }
 }

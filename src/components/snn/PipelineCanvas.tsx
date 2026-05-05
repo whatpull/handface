@@ -66,12 +66,58 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     setPhase(d.phase);
   }), []);
 
-  // winnerCluster 영역 context 영역 추출 — flow active 산출 영역 영역 사용.
-  const { winnerCluster } = usePipelineEvents();
+  // winnerCluster + lastFiringTimestamp 영역 context 영역 추출 — flow active + segment trigger 산출.
+  const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
 
   const flowActive = winnerCluster !== null && (phase === 'trained' || phase === 'inference');
   const learnActive = phase === 'learning' || phase === 'partial';
   const phaseClass = `is-phase-${phase}`;
+
+  // segment별 active state — 4 connector 영역 발화 시점 trigger 1500ms 유지 (drawflow fired class 정합).
+  // seg 0 (INPUT→LEARN): neuron-firing — pattern inject 시점 (lastFiringTimestamp 변화).
+  // seg 1 (LEARN→INFER): cluster training 진행 시 (learnActive true 동안 firing 갱신 시).
+  // seg 2 (INFER→OUT): winnerCluster 변화 — 추론 결정 시점.
+  // seg 3 (OUT→LLM): winnerCluster 변화 — label render 후 LLM payload 송신 (300ms delay).
+  const [segActive, setSegActive] = useState<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
+  const ACTIVE_MS = 1500;
+
+  // seg 0 — INPUT→LEARN: 영역 firing 영역 active.
+  useEffect(() => {
+    if (lastFiringTimestamp === null) return;
+    setSegActive((p) => [true, p[1], p[2], p[3]]);
+    const t = setTimeout(() => setSegActive((p) => [false, p[1], p[2], p[3]]), ACTIVE_MS);
+    return () => clearTimeout(t);
+  }, [lastFiringTimestamp]);
+
+  // seg 1 — LEARN→INFER: learning/partial phase + firing 갱신 시.
+  useEffect(() => {
+    if (lastFiringTimestamp === null || !learnActive) return;
+    setSegActive((p) => [p[0], true, p[2], p[3]]);
+    const t = setTimeout(() => setSegActive((p) => [p[0], false, p[2], p[3]]), ACTIVE_MS);
+    return () => clearTimeout(t);
+  }, [lastFiringTimestamp, learnActive]);
+
+  // seg 2 — INFER→OUT: winnerCluster 변화 + flowActive.
+  useEffect(() => {
+    if (winnerCluster === null || !flowActive) return;
+    setSegActive((p) => [p[0], p[1], true, p[3]]);
+    const t = setTimeout(() => setSegActive((p) => [p[0], p[1], false, p[3]]), ACTIVE_MS);
+    return () => clearTimeout(t);
+  }, [winnerCluster, flowActive]);
+
+  // seg 3 — OUT→LLM: winnerCluster 변화 영역 300ms delay 후 trigger (label render 후 송신).
+  useEffect(() => {
+    if (winnerCluster === null || !flowActive) return;
+    let innerT: ReturnType<typeof setTimeout> | null = null;
+    const delay = setTimeout(() => {
+      setSegActive((p) => [p[0], p[1], p[2], true]);
+      innerT = setTimeout(() => setSegActive((p) => [p[0], p[1], p[2], false]), ACTIVE_MS);
+    }, 300);
+    return () => {
+      clearTimeout(delay);
+      if (innerT) clearTimeout(innerT);
+    };
+  }, [winnerCluster, flowActive]);
 
   // LLM transient toast — Test send 영역 success/error 영역 일시 표시 (auto fade).
   const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
@@ -102,13 +148,13 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
           (NodeLearn.tsx — LearnRegionStrip). */}
       <div className="snn-pipeline-flow">
         <NodeInput cameraConnected={cameraConnected} />
-        <Arrow active={learnActive || flowActive} segment={0} />
+        <Arrow active={segActive[0]} segment={0} />
         <NodeLearn />
-        <Arrow active={flowActive} segment={1} />
+        <Arrow active={segActive[1]} segment={1} />
         <NodeInfer />
-        <Arrow active={flowActive} segment={2} />
+        <Arrow active={segActive[2]} segment={2} />
         <NodeOut />
-        <Arrow active={flowActive} segment={3} />
+        <Arrow active={segActive[3]} segment={3} />
         <NodeLlm onLlmResult={onLlmResult} />
       </div>
       {ctrl.trainStatus && (

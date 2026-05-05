@@ -1,39 +1,57 @@
 'use client';
 
-// Arrow — simple horizontal arrow v7 (사용자 mandatory 2026-05-05):
-// "bezier curve / wave / SVG path / dash animation / glow / flow dot 모두 폐기 →
-//  단순 horizontal line + chevron triangle 영역 영역. minimalist + 단조."
+// Arrow — bezier connector v8 (2026-05-05 사용자 명시 부활):
+// "node로 연결해줘 아까 지웠지만 node 연결 구성으로 가져가고 싶어. 발화하면 active 되었던 그 구성"
 //
-// 직전 v6 영역 violet bezier + animated dash + animateMotion flow dot + drop-shadow glow
-// 영역 영역 너무 많 박힘 (사용자 catch "튀는 것 별로 안좋아함"). 본 v7 영역 영역 영역
-// SVG line + triangle chevron 영역 정합 — 0 wave / 0 dash / 0 animation / 0 glow.
+// drawflow 정합 부활:
+//  - SVG bezier path: M 0 30 → C 12 30, 24 30, 36 30 (단순 horizontal — wave artifact 0).
+//  - stroke white / gray idle (alpha 0.3) → active 시 alpha 0.9 + drop-shadow blur 4-6px.
+//  - active dot animateMotion 1.5s ease-in-out 1회 (drawflow fired class 정합).
+//  - active 시 1500ms 동안 is-active class 유지 (PipelineCanvas trigger timestamp 정합).
 //
-// 본격 변경:
-//  - path: 단일 'M 2 7 L 20 7' (horizontal line) + 'M 16 3 L 20 7 L 16 11' (chevron).
-//  - viewBox 24 14 영역 box edge mid 영역 align (CSS 영역 width 28px / height auto).
-//  - stroke white 영역, stroke-width 1.5, fill none.
-//  - active 영역 stroke alpha ↑ 영역 영역 영역 — 영역 영역 영역 영역 영역 영역.
-//  - animateMotion / animate dash / drop-shadow filter / linearGradient 모두 영역 영역.
+// 직전 v7 (단순 horizontal line + chevron) 폐기 — 사용자 명시 "발화 active 부활".
 
 interface ArrowProps {
   active?: boolean;
-  /** legacy prop — tone unification 영역 영역 무시 영역 default 0. */
+  /** legacy prop — 4 segment 영역 segment별 trigger 정합 (PipelineCanvas). */
   segment?: 0 | 1 | 2 | 3;
 }
 
 export default function Arrow({ active = false }: ArrowProps) {
   return (
     <div className={`snn-pipeline-arrow ${active ? 'is-active' : 'is-idle'}`} aria-hidden>
-      <svg viewBox="0 0 24 14" width="24" height="14" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 36 60" width="36" height="60" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          {/* path — bezier horizontal (M 0 30 → C 12 30, 24 30, 36 30). */}
+          <path id="snn-conn-bezier-path" d="M 0 30 C 12 30, 24 30, 36 30" />
+        </defs>
+        {/* main connector stroke — idle gray / active white + glow. */}
         <path
           className="snn-pipeline-conn-path"
-          d="M 2 7 L 20 7 M 16 3 L 20 7 L 16 11"
+          d="M 0 30 C 12 30, 24 30, 36 30"
           stroke="currentColor"
-          strokeWidth="1.5"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* chevron arrow head — 단순 horizontal triangle (path end 영역). */}
+        <path
+          className="snn-pipeline-conn-head"
+          d="M 30 26 L 36 30 L 30 34"
+          stroke="currentColor"
+          strokeWidth="1.8"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {/* active dot — animateMotion 1.5s 1회 (active 변화 시점 영역 발화). */}
+        {active && (
+          <circle r="3" className="snn-pipeline-conn-dot" fill="currentColor">
+            <animateMotion dur="1.5s" repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
+              <mpath href="#snn-conn-bezier-path" />
+            </animateMotion>
+          </circle>
+        )}
       </svg>
     </div>
   );

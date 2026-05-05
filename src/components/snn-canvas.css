@@ -234,7 +234,12 @@
 }
 .snn-pipeline-arrow.is-active .snn-pipeline-conn-path {
   stroke-opacity: 1;
-  stroke-width: 2.2;
+  stroke-width: 2.4;
+}
+/* animated dash overlay — active 영역 0.9s loop stream visualize (사용자 catch). */
+.snn-pipeline-conn-dash {
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(var(--pipe-tone-cyan-light), 0.6));
 }
 .snn-pipeline-arrow.is-active {
   filter: drop-shadow(0 0 8px rgba(var(--pipe-tone-cyan), 0.6))
@@ -1217,6 +1222,7 @@
    `none` 영역 0 — `0.01ms` 영역 영역 frame 영역 1 영역 영역 영역 영역 정합. */
 @media (prefers-reduced-motion: reduce) {
   .snn-pipeline-conn-dot,
+  .snn-pipeline-conn-dash,
   .snn-mode-progress-fill.is-active,
   .snn-pipeline-current.is-active,
   .snn-pipeline-rate-row.is-winner,

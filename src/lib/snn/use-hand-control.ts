@@ -315,6 +315,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           const ratesExposed: Record<string, number> = {};
           for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = w.clusterRates[i];
           setLiveResult({ winner, rates: ratesExposed, confidence: w.confidence });
+          // 사용자 catch 2026-05-06: INFER winner 미표시 ROOT CAUSE 진단 — verbose status.
+          if (winner) {
+            const cLabel = CLUSTER_TO_LABEL[w.cluster!] ?? `c${w.cluster}`;
+            setTrainStatus(`INFER ${cLabel} (margin ${(w.margin * 100).toFixed(0)}% / ${w.clusterRates.map((r) => r.toFixed(0)).join('·')}Hz)`);
+          } else if (w.max <= 0) {
+            setTrainStatus('INFER: cluster_rates 모두 0 — backend fire 0 (자세 영역 영역 또는 substrate catch)');
+          } else {
+            setTrainStatus(`INFER: WTA tie — margin ${(w.margin * 100).toFixed(0)}% < 10% (selectivity 영역)`);
+          }
           // 사용자 명시 2026-05-06: INFERENCE winner 변경 시점 1회 OUT count ↑.
           // 동일 cluster 연속 winner 영역 1회 (변경 trigger). WTA tie (cluster=null) 영역 무시.
           if (w.cluster !== null && w.cluster !== lastInferenceWinnerRef.current) {

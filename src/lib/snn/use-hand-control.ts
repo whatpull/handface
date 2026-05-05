@@ -35,6 +35,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
+// HIGH #3 정정: cluster winner 산출 단일 source.
+import { deriveWinner } from '@/lib/snn/winner-derivation';
 
 export const HAND_GESTURES = [
   { id: 'pointing', label: 'Pointing',  short: 'P', cluster: 0 },
@@ -297,30 +299,14 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         const r = await getClient().injectPattern(pattern, { stdp: false });
         if (cancelled) return;
         if (r.ok) {
-          const rates = (r.data.out_rates || {}) as Record<string, number>;
-          const clusterRates: number[] = [0, 0, 0, 0];
-          const clusterCounts: number[] = [0, 0, 0, 0];
-          for (const [k, v] of Object.entries(rates)) {
-            const m = /^out_(\d+)_(\d+)$/.exec(k);
-            if (!m) continue;
-            const ci = Number(m[1]);
-            if (ci >= 0 && ci < 4) {
-              clusterRates[ci] += v;
-              clusterCounts[ci] += 1;
-            }
-          }
-          const clusterMean = clusterRates.map((s, i) => clusterCounts[i] > 0 ? s / clusterCounts[i] : 0);
-          let winner: string | null = null;
-          let max = 0;
-          let total = 0;
-          for (let i = 0; i < 4; i += 1) {
-            total += clusterMean[i];
-            if (clusterMean[i] > max) { max = clusterMean[i]; winner = `cluster_${i}`; }
-          }
-          const conf = total > 0 ? max / total : 0;
+          // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
+          // 직전 max-only winner 영역 — 본 함수 영역 margin 임계 영역 정합 사실
+          // (margin < WINNER_MARGIN_DEFAULT 영역 winner null = WTA tie).
+          const w = deriveWinner((r.data.out_rates || {}) as Record<string, number>);
+          const winner = w.cluster !== null ? `cluster_${w.cluster}` : null;
           const ratesExposed: Record<string, number> = {};
-          for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = clusterMean[i];
-          setLiveResult({ winner, rates: ratesExposed, confidence: conf });
+          for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = w.clusterRates[i];
+          setLiveResult({ winner, rates: ratesExposed, confidence: w.confidence });
         }
         if (!cancelled) setTimeout(tick, TICK_MS);
         return;

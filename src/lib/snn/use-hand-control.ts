@@ -17,8 +17,8 @@
 // 학습은 LEARNING phase 의 batch supervised 영역으로만 진행.
 //
 // N4 정합 (backend ddb220e): cluster broadcast supervisor.
-//  - `handfaceTrainSupervised` (single target_out) 영역 cluster mutual excitation
-//    +2.0 영역 8 OUT broadcast 미달 → cluster fire = 1/8 catch.
+//  - single target_out 방식 영역 cluster mutual excitation +2.0 영역 8 OUT broadcast
+//    미달 → cluster fire = 1/8 catch (직전 wrapper 폐기 영역 사실).
 //  - `clusterTrainSupervised` (cluster prefix `out_{cluster}_` 영역 8 OUT broadcast)
 //    영역 cluster 전체 학습 → cluster 8/8 fire 사실 (backend sanity test).
 //  - autoCapture loop 영역 frame-by-frame injectPattern 영역 폐기, N=30 frame 영역

@@ -3,7 +3,7 @@
 // 'neuron-firing' 이벤트로 emit → Canvas 가 시각화.
 
 import { loadBackendSettings, normalizeEndpoint } from './settings';
-import { emitBackendEvent, type NeuronFiringDetail, type RStdpPulseDetail, type AstrocyteHomeostasisDetail } from './events';
+import { emitBackendEvent, type NeuronFiringDetail } from './events';
 
 const NETWORK_KEY = 'handface.network.id';
 
@@ -300,129 +300,6 @@ export class NeuronFaceClient {
     });
   }
 
-  // Phase 26: astrocyte per-neuron V_th homeostasis (backend commit d289524).
-  // silence neuron (rate < target/4) → V_th 하향 (excitability ↑, fire 진입 영역).
-  // hyperactive neuron (rate > target×2) → V_th 상향 (excitability ↓, monopoly 약화).
-  // 기존 `homeostatic` (Phase 175 weight scaling) 와 별도 영역 — V_th 직접 조절.
-  // per_neuron=true mandatory — silence escape mechanism 본격 활성화 모드.
-  // 정직 한계 박음: V_th 변경만, fire 시작은 추가 stimulus 가 mandatory 영역 catch 가능.
-  async astrocyteHomeostasisStep(opts: {
-    targetRateHz?: number;
-    adjustMv?: number;
-    observeWindowMs?: number;
-    skipUserIo?: boolean;
-  } = {}): Promise<Result<{
-    ok: boolean;
-    adjusted?: number;
-    silence_count?: number;
-    hyperactive_count?: number;
-    reason?: string;
-  }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const r = await this.request<{
-      ok: boolean;
-      adjusted?: number;
-      silence_count?: number;
-      hyperactive_count?: number;
-      reason?: string;
-    }>(`/networks/${net.data}/astrocytes/homeostasis_step`, {
-      method: 'POST',
-      body: {
-        target_rate_hz: opts.targetRateHz ?? 10,
-        adjust_mv: opts.adjustMv ?? 0.5,
-        observe_window_ms: opts.observeWindowMs ?? 100,
-        skip_user_io: opts.skipUserIo ?? true,
-        per_neuron: true,
-      },
-    });
-    if (r.ok) {
-      const detail: AstrocyteHomeostasisDetail = {
-        ok: !!r.data.ok,
-        reason: r.data.reason,
-        adjusted: r.data.adjusted,
-        silenceCount: r.data.silence_count,
-        hyperactiveCount: r.data.hyperactive_count,
-      };
-      emitBackendEvent<AstrocyteHomeostasisDetail>('astrocyte-homeostasis', detail);
-    }
-    return r;
-  }
-
-  // Phase 113: snapshot weights — R-STDP baseline 시점 기록.
-  // R-STDP pulse 가 (현재 weight - snapshot weight) delta 영역 amplify 함.
-  // autoCapture 진입 시 1회 호출 → 이후 pulse 영역 baseline 정합.
-  async snapshotWeights(): Promise<Result<{ ok: boolean; snapshot_index: number; t: number }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    return this.request(`/networks/${net.data}/snapshot-weights`, { method: 'POST' });
-  }
-
-  // Phase 174: R-STDP pulse — reward-modulated STDP (Izhikevich 2007 / Frémaux & Gerstner 2016).
-  // snapshot 영역 vs 현재 weight delta 영역 (reward_strength - 1) 만큼 추가 amplify.
-  // positive_only=true → LTP delta 만 증폭 (winner path 강화), LTD delta 무시.
-  // targetPostPrefix (backend commit 443f69c) — post neuron name prefix filter,
-  //   예: 'out_0_' → cluster 0 의 8 OUT 시냅스만 amplify (다른 cluster skip).
-  //   미지정 시 모든 시냅스 amplify (winner monopoly 강화 catch — 사용 회피 권장).
-  // 호출 시점 — supervised inject 정답 직후 (winner cluster == target cluster) 가장 정합.
-  // mandatory: snapshotWeights() 가 먼저 호출돼 있어야 함 — 없으면 ok:false reason 반환.
-  async applyRStdpPulse(opts: {
-    snapshotIndex?: number;
-    rewardStrength?: number;
-    positiveOnly?: boolean;
-    targetPostPrefix?: string;
-  } = {}): Promise<Result<{
-    ok: boolean;
-    reason?: string;
-    synapses_amplified?: number;
-    total_amplified_delta?: number;
-    reward_strength?: number;
-    positive_only?: boolean;
-    snapshot_t?: number;
-  }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const rewardStrength = opts.rewardStrength ?? 1.5;
-    const positiveOnly = opts.positiveOnly ?? true;
-    const body: {
-      snapshot_index: number;
-      reward_strength: number;
-      positive_only: boolean;
-      target_post_prefix?: string;
-    } = {
-      snapshot_index: opts.snapshotIndex ?? 0,
-      reward_strength: rewardStrength,
-      positive_only: positiveOnly,
-    };
-    if (opts.targetPostPrefix !== undefined) {
-      body.target_post_prefix = opts.targetPostPrefix;
-    }
-    const r = await this.request<{
-      ok: boolean;
-      reason?: string;
-      synapses_amplified?: number;
-      total_amplified_delta?: number;
-      reward_strength?: number;
-      positive_only?: boolean;
-      snapshot_t?: number;
-    }>(`/networks/${net.data}/rstdp-pulse`, {
-      method: 'POST',
-      body,
-    });
-    if (r.ok) {
-      const detail: RStdpPulseDetail = {
-        ok: !!r.data.ok,
-        reason: r.data.reason,
-        rewardStrength,
-        positiveOnly,
-        synapsesAmplified: r.data.synapses_amplified,
-        totalAmplifiedDelta: r.data.total_amplified_delta,
-      };
-      emitBackendEvent<RStdpPulseDetail>('rstdp-pulse', detail);
-    }
-    return r;
-  }
-
   // 커뮤니티 — 학습 weight 기여 + 집계 baseline 가져오기.
   async contributeWeights(
     contributorId?: string | null,
@@ -468,44 +345,13 @@ export class NeuronFaceClient {
     });
   }
 
-  // 한 gesture 라벨로 N frame 의 pattern 을 supervised 학습.
-  async trainHandGesture(
-    patterns: number[][],
-    targetOut: string,
-    onProgress?: (done: number, total: number) => void,
-  ): Promise<Result<{ trained: number; total: number }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    let trained = 0;
-    for (let i = 0; i < patterns.length; i += 1) {
-      const r = await this.injectPattern(patterns[i], { stdp: true, targetOut });
-      if (r.ok) trained += 1;
-      onProgress?.(i + 1, patterns.length);
-    }
-    emitBackendEvent('training-changed', { trained });
-    return { ok: true, data: { trained, total: patterns.length } };
-  }
-
-  // [DEPRECATED] handfaceTrainSupervised — single target_out wrapper.
-  // backend `handface_train_supervised` 영역 single OUT 영역 supervisor → cluster
-  // mutual excitation +2.0 영역 8 OUT broadcast 미달 catch (backend agent ddb220e
-  // 보고 영역 사실: cluster 0 fire = 1/8). 신규 호출자 영역 `clusterTrainSupervised`
-  // 사용 mandatory. 호환 영역 보존 영역 — 단 deprecated 영역 명시.
-  async handfaceTrainSupervised(
-    patterns: number[][],
-    targetOut: string,
-    onProgress?: (done: number, total: number) => void,
-  ): Promise<Result<{ trained: number; total: number }>> {
-    return this.trainHandGesture(patterns, targetOut, onProgress);
-  }
-
   // N4 batch supervised — cluster 전체 broadcast supervisor (backend ddb220e 정합).
   // backend endpoint: POST /networks/{id}/cluster_train_supervised
   // body: {patterns: N×16, target_cluster: 0..15, supervisor_weight, supervisor_delay_ms,
   //        intensity, observe_ms, stimulus_duration_ms, stdp_mode, delta_threshold}
   // 응답: {ok, trained, cluster, target_outs, weight_changes, weight_changes_count, ...}
   //
-  // single target_out (wrapper handfaceTrainSupervised) 영역 cluster fire = 1/8.
+  // single target_out 방식 영역 cluster fire = 1/8 미달.
   // 본 endpoint 영역 cluster prefix `out_{cluster}_` 영역 8 OUT 모두 supervisor
   // pulse → cluster 8/8 fire 사실 (backend sanity test 통과 영역).
   //

@@ -8,10 +8,12 @@
    out/llm) × radius/gap/font/shadow tokens. value 영역 기존 hardcoded 영역 정확히
    대응 영역 visual regression 0 정합. */
 :root {
-  /* radius scale */
-  --pipe-radius-sm: 12px;
-  --pipe-radius-md: 14px;
-  --pipe-radius-lg: 16px;
+  /* radius scale — admin minimalist v5 (2026-05-05).
+     사용자 mandatory: VS Code / Linear / Notion 류 minimalist — 6-8px 단순.
+     직전 12/14/16 영역 폐기. */
+  --pipe-radius-sm: 0;
+  --pipe-radius-md: 0;
+  --pipe-radius-lg: 0;
 
   /* spacing scale */
   --pipe-gap-xs: 4px;
@@ -58,18 +60,23 @@
   --pipe-text-dim: #6b7280;
   --pipe-text-muted: #4b5563;
 
-  /* surfaces — deeper black v4 (사용자 catch "너무 밝음").
-     직전 #0a0a0a / #14141a / #1c1c22 → 영역 더 깊 #050508 / #0a0a0a / #14141a.
-     body 영역 #000 + 박스 영역 #0a0a0a (subtle). */
-  --pipe-bg: #050508;
+  /* surfaces — admin minimalist v5 (사용자 mandatory: flat 단색 — gradient 0).
+     body #000 / surface #0a0a0a / hover #141414 — VS Code / Linear 정합. */
+  --pipe-bg: #000000;
   --pipe-surface: #0a0a0a;
-  --pipe-hover: #14141a;
+  --pipe-hover: #141414;
 
-  /* shadow scale — black 영역 영역 영역 + white glow alpha ↓. */
-  --pipe-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
-  --pipe-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.6);
-  --pipe-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.7);
-  --pipe-shadow-glow: 0 0 14px rgba(255, 255, 255, 0.10);
+  /* border palette — gray-800 (#1f1f1f) main + gray-700 strong + gray-900 subtle. */
+  --pipe-border: #1f1f1f;
+  --pipe-border-strong: #2a2a2a;
+  --pipe-border-subtle: #141414;
+
+  /* shadow scale — admin minimalist: shadow 영역 0 또는 매우 subtle (사용자 mandatory).
+     직전 6/20px blur 폐기 — 박스 hover 영역 border 영역 영역 변화. */
+  --pipe-shadow-sm: none;
+  --pipe-shadow-md: none;
+  --pipe-shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --pipe-shadow-glow: none;
 }
 
 /* 카메라 셀카 미러링 — NodeInput 안의 video / canvas 영역 transform. */
@@ -119,11 +126,9 @@
 .snn-pipeline {
   position: absolute;
   inset: 0;
-  /* deeper black v4 — pipeline canvas 영역 #000 (사용자 catch "너무 밝음"). */
+  /* admin minimalist v5 — flat #000 단색. */
   background: #000000;
   overflow: auto;
-  /* polish v2 (2026-05-05) — token: padding md (12) + gap (10 ≈ sm+xs hybrid).
-     UI/UX 40% weight 영역 — 사용자 catch "여백 0" 정합. */
   padding: var(--pipe-gap-md);
   display: flex;
   flex-direction: column;
@@ -190,30 +195,93 @@
   .snn-pipeline-learn-region-box { padding: 3px 6px; }
   .snn-pipeline-learn-region-arrow svg { width: 20px; height: 8px; }
 }
-.snn-pipeline-flow {
-  /* polish v3 (2026-05-05) — 5 node + 4 arrow grid layout (사용자 mandatory:
-     "5 node × node width 영역 viewport 영역 영역 fit + LLM squeeze 0").
-     grid-template-columns: 5 × 1fr (uniform width) + 4 × auto (arrow 28px).
-     viewport 1280px 영역 (1280 - padding 24 - gap 4 × 12) ÷ 5 = ~241px per node ✓.
-     모든 node uniform width + uniform height (align-items: stretch). */
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
-  /* content-fit v4 — align-items stretch 폐기 → start 영역 박스 영역 content 영역
-     비례 영역 height fit (사용자 catch "빈 영역 0"). */
-  align-items: start;
-  gap: var(--pipe-gap-md);
-  min-width: 0;
+/* ReactFlow 캔버스 wrapper (2026-05-05 사용자 mandatory: 편집 가능한 노드 캔버스).
+   직전 grid layout 폐기 — PipelineFlow.tsx 영역 ReactFlow 영역 위임.
+   canvas 영역 fixed height 720px (desktop) / 600px (mobile) 영역 내부 노드 drag 영역. */
+.snn-pipeline-flow-canvas {
   width: 100%;
+  height: 720px;
+  background: var(--pipe-bg);
+  border: 3px solid var(--pipe-border);
+  border-radius: var(--pipe-radius-sm);
+  position: relative;
+  overflow: hidden;
 }
 @media (max-width: 900px) {
-  .snn-pipeline-flow {
-    /* mobile — grid 폐기 영역 flex column 영역 단순 vertical stack. */
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--pipe-gap-md);
-    min-width: 0;
+  .snn-pipeline-flow-canvas {
+    height: 600px;
   }
+}
+
+/* ReactFlow 내부 element 영역 monochrome black tone 정합 (사용자 mandatory). */
+.snn-pipeline-flow-canvas .react-flow__background {
+  background: var(--pipe-bg);
+}
+.snn-pipeline-flow-canvas .react-flow__node {
+  /* node wrapper 영역 자체 styling 0 — 본 div 영역 NodeShell 영역 3px border 정합. */
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.snn-pipeline-flow-canvas .react-flow__node.selected {
+  /* selectable=false 영역 영역 적용 안 됨 — defensive override. */
+  outline: none;
+  box-shadow: none;
+}
+.snn-pipeline-flow-canvas .react-flow__node .snn-pipeline-node {
+  /* ReactFlow 내부 mount 시 width 100% 영역 wrapper style 영역 fit. */
+  width: 100%;
+  min-height: 0;
+}
+
+/* ReactFlow handle (source/target 점) 영역 hide — connect 0 정합 (4 edge fixed). */
+.snn-pipeline-flow-canvas .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+}
+
+/* ReactFlow 컨트롤 / 미니맵 영역 폐기 — minimalist (사용자 mandatory). */
+.snn-pipeline-flow-canvas .react-flow__controls,
+.snn-pipeline-flow-canvas .react-flow__minimap,
+.snn-pipeline-flow-canvas .react-flow__attribution {
+  display: none;
+}
+
+/* edge — idle gray / active white + glow (drawflow fired class 정합). */
+.snn-pipeline-flow-canvas .snn-flow-edge .react-flow__edge-path {
+  stroke: rgba(255, 255, 255, 0.30);
+  stroke-width: 2;
+  transition: stroke 220ms ease, stroke-width 220ms ease, filter 220ms ease;
+  fill: none;
+}
+.snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+}
+/* animated dash — ReactFlow default 영역 보존 (animated=true 시 dasharray + offset anim). */
+.snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+  animation: snn-flow-edge-dash 1.2s linear infinite;
+}
+@keyframes snn-flow-edge-dash {
+  from { stroke-dashoffset: 10; }
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
+    animation: none;
+  }
+}
+
+/* legacy .snn-pipeline-flow grid 영역 폐기 — 본 selector 영역 영역 사용 안 됨.
+   defensive — 잔존 selector 영역 width 100% 영역 child 영역 fit. */
+.snn-pipeline-flow {
+  width: 100%;
 }
 
 /* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.
@@ -271,31 +339,26 @@
 }
 
 .snn-pipeline-node {
-  /* deeper black v4 — surface #0a0a0a (직전 #1c1c24 / #101016 — 사용자 "너무 밝음"). */
-  background: #0a0a0a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  /* admin minimalist v5 — flat #0a0a0a + 1px gray-800 border + radius 6 (사용자 mandatory).
+     glass / shadow / inset highlight 폐기 — VS Code / Linear 정합. */
+  background: var(--pipe-surface);
+  border: 3px solid var(--pipe-border);
   border-radius: var(--pipe-radius-sm);
-  /* viewport fit v3 — grid layout (parent: snn-pipeline-flow) 영역 column 영역 width
-     자동 (1fr) — flex sizing 폐기. min-width 0 영역 grid item 영역 flex shrink 정합. */
   min-width: 0;
-  /* content-fit v4 (2026-05-05 사용자 catch "빈 영역 catch") — uniform 380px 폐기.
-     박스 영역 content 영역 비례 영역 height fit. parent grid align-items: start
-     (직전 stretch) 영역 짧은 박스 영역 영역 영역 영역 정합. min-height 영역 200px
-     (정직 안정성 영역 — 너무 짧 영역 영역 영역). */
   min-height: 200px;
   height: max-content;
   display: flex;
   flex-direction: column;
   font-size: var(--pipe-font-md);
   color: var(--pipe-text);
-  box-shadow: var(--pipe-shadow-md),
-              0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 180ms ease;
+  box-shadow: none;
+  transition: border-color 160ms ease, background 160ms ease;
 }
 .snn-pipeline-node:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--pipe-shadow-lg),
-              0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  /* admin minimalist — hover 영역 background gray-900 + border 영역 영역 변화 (사용자 명시).
+     translateY / box-shadow 영역 폐기. */
+  background: #0e0e0e;
+  border-color: var(--pipe-border-strong);
 }
 @media (max-width: 900px) {
   .snn-pipeline-node {
@@ -321,83 +384,21 @@
   }
   .snn-pipeline-node:hover { transform: none; }
 }
-/* tone glow v3 — 5 node 영역 box-shadow 영역 영역 tone alpha glow + top accent bar (1px gradient).
-   reference 영역 정합 (이미지 1 dashboard + 이미지 2 control flow) — visual hierarchy 영역 직접 영역.
-   token: --pipe-tone-{input/learn/infer/out/llm} × alpha-border (0.5≈0.45) / inset 0.08 / inset glow 0.10. */
-.snn-pipeline-node--input  {
-  border-color: rgba(var(--pipe-tone-input), 0.6);
-  box-shadow: var(--pipe-shadow-md),
-              0 0 0 1px rgba(var(--pipe-tone-input), var(--pipe-tone-alpha-bg)),
-              0 0 14px rgba(var(--pipe-tone-input), 0.10) inset;
-}
-.snn-pipeline-node--learn  {
-  border-color: rgba(var(--pipe-tone-learn), 0.6);
-  box-shadow: var(--pipe-shadow-md),
-              0 0 0 1px rgba(var(--pipe-tone-learn), var(--pipe-tone-alpha-bg)),
-              0 0 14px rgba(var(--pipe-tone-learn), 0.10) inset;
-}
-.snn-pipeline-node--infer  {
-  border-color: rgba(var(--pipe-tone-infer), 0.6);
-  box-shadow: var(--pipe-shadow-md),
-              0 0 0 1px rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-bg)),
-              0 0 14px rgba(var(--pipe-tone-infer), 0.10) inset;
-}
-.snn-pipeline-node--out    {
-  border-color: rgba(var(--pipe-tone-out), 0.6);
-  box-shadow: var(--pipe-shadow-md),
-              0 0 0 1px rgba(var(--pipe-tone-out), var(--pipe-tone-alpha-bg)),
-              0 0 14px rgba(var(--pipe-tone-out), 0.10) inset;
-}
-.snn-pipeline-node--llm    {
-  border-color: rgba(var(--pipe-tone-llm), 0.6);
-  box-shadow: var(--pipe-shadow-md),
-              0 0 0 1px rgba(var(--pipe-tone-llm), var(--pipe-tone-alpha-bg)),
-              0 0 14px rgba(var(--pipe-tone-llm), 0.10) inset;
-}
-/* node hover — tone border ↑ + shadow ↑ (사용자 catch micro-interactions). */
-.snn-pipeline-node--input:hover  { border-color: rgba(var(--pipe-tone-input), 0.7); box-shadow: var(--pipe-shadow-lg), 0 0 22px rgba(var(--pipe-tone-input), 0.18); }
-.snn-pipeline-node--learn:hover  { border-color: rgba(var(--pipe-tone-learn), 0.7); box-shadow: var(--pipe-shadow-lg), 0 0 22px rgba(var(--pipe-tone-learn), 0.18); }
-.snn-pipeline-node--infer:hover  { border-color: rgba(var(--pipe-tone-infer), 0.7); box-shadow: var(--pipe-shadow-lg), 0 0 22px rgba(var(--pipe-tone-infer), 0.18); }
-.snn-pipeline-node--out:hover    { border-color: rgba(var(--pipe-tone-out), 0.7);   box-shadow: var(--pipe-shadow-lg), 0 0 22px rgba(var(--pipe-tone-out), 0.18); }
-.snn-pipeline-node--llm:hover    { border-color: rgba(var(--pipe-tone-llm), 0.7);   box-shadow: var(--pipe-shadow-lg), 0 0 22px rgba(var(--pipe-tone-llm), 0.18); }
-/* top accent bar — 1px tone gradient strip (visual hierarchy 영역 정합). */
+/* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
+   5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역
+   active state 영역 영역 보존 (top-level rule 정합). */
 .snn-pipeline-node {
   position: relative;
 }
-.snn-pipeline-node::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  border-radius: var(--pipe-radius-sm) var(--pipe-radius-sm) 0 0;
-  opacity: 0.7;
-  pointer-events: none;
-}
-.snn-pipeline-node--input::before  { background: linear-gradient(90deg, transparent 0%, rgb(var(--pipe-tone-input)) 50%, transparent 100%); }
-.snn-pipeline-node--learn::before  { background: linear-gradient(90deg, transparent 0%, rgb(var(--pipe-tone-learn)) 50%, transparent 100%); }
-.snn-pipeline-node--infer::before  { background: linear-gradient(90deg, transparent 0%, rgb(var(--pipe-tone-infer)) 50%, transparent 100%); }
-.snn-pipeline-node--out::before    { background: linear-gradient(90deg, transparent 0%, rgb(var(--pipe-tone-out)) 50%, transparent 100%); }
-.snn-pipeline-node--llm::before    { background: linear-gradient(90deg, transparent 0%, rgb(var(--pipe-tone-llm)) 50%, transparent 100%); }
 
-/* 학습 중 영역 — Learn 노드 영역 amber 영역 발광. */
-.snn-pipeline.is-learning .snn-pipeline-node--learn {
-  border-color: rgba(var(--pipe-tone-learn), 0.7);
-  box-shadow: 0 0 0 1px rgba(var(--pipe-tone-learn), 0.25), 0 6px 22px rgba(0, 0, 0, 0.55);
-}
-/* winner 영역 영역 — Infer/OUT/LLM 영역 cyan 발광. */
-.snn-pipeline.is-flowing .snn-pipeline-node--infer {
-  border-color: rgba(var(--pipe-tone-infer), 0.7);
-  box-shadow: 0 0 0 1px rgba(var(--pipe-tone-infer), 0.25), 0 6px 22px rgba(0, 0, 0, 0.55);
-}
-.snn-pipeline.is-flowing .snn-pipeline-node--out {
-  border-color: rgba(var(--pipe-tone-out), 0.65);
-  box-shadow: 0 0 0 1px rgba(var(--pipe-tone-out), 0.22), 0 6px 22px rgba(0, 0, 0, 0.55);
-}
+/* admin minimalist v5 — 학습 / flow active state 영역 단순 border-color 영역 변화만.
+   glow / box-shadow 영역 폐기 (사용자 mandatory: gradient/glow 0). */
+.snn-pipeline.is-learning .snn-pipeline-node--learn,
+.snn-pipeline.is-flowing .snn-pipeline-node--infer,
+.snn-pipeline.is-flowing .snn-pipeline-node--out,
 .snn-pipeline.is-flowing .snn-pipeline-node--llm {
-  border-color: rgba(var(--pipe-tone-llm), 0.7);
-  box-shadow: 0 0 0 1px rgba(var(--pipe-tone-llm), 0.25),
-              0 0 18px rgba(var(--pipe-tone-llm), 0.20),
-              0 6px 22px rgba(0, 0, 0, 0.55);
+  border-color: var(--pipe-border-strong);
+  background: #0e0e0e;
 }
 
 .snn-pipeline-node-header {
@@ -917,12 +918,10 @@
 .snn-pipeline.is-phase-trained,
 .snn-pipeline.is-phase-inference { background: #000000; }
 
-/* TRAINED phase 영역 LEARN 노드 영역 white glow + ✓ checkmark badge (monochrome 정합). */
+/* admin minimalist v5 — TRAINED phase 영역 LEARN 노드 단순 강조 (border 영역 변화 + ✓ badge).
+   glow / shadow 폐기. */
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
-  border-color: rgba(255, 255, 255, 0.45);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18),
-              0 0 16px rgba(255, 255, 255, 0.14),
-              0 4px 16px rgba(0, 0, 0, 0.5);
+  border-color: var(--pipe-border-strong);
 }
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title {
   color: #ffffff;
@@ -930,16 +929,12 @@
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title::after {
   content: ' ✓';
   color: #ffffff;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.45);
-  font-weight: 800;
+  font-weight: 700;
 }
 
-/* INFERENCE phase 영역 INFER 노드 영역 강조 cyan glow (is-flowing 영역 영역 영역). */
+/* INFERENCE phase 영역 INFER 노드 영역 단순 border 영역. */
 .snn-pipeline.is-phase-inference .snn-pipeline-node--infer {
-  border-color: rgba(var(--pipe-tone-infer), 0.6);
-  box-shadow: 0 0 0 1px rgba(var(--pipe-tone-infer), 0.25),
-              0 0 18px rgba(var(--pipe-tone-infer), 0.22),
-              0 4px var(--pipe-gap-lg) rgba(0, 0, 0, 0.45);
+  border-color: var(--pipe-border-strong);
 }
 
 /* ─────────────────────────────────────────── Mobile (≤768px) ────────────────

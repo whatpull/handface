@@ -52,10 +52,12 @@
   inset: 0;
   background: #0a0a0c;
   overflow: auto;
-  padding: 16px;
+  /* polish v2 (2026-05-05) — 외곽 여백 tight (16→12) + vertical gap tight (12→10).
+     UI/UX 40% weight 영역 — 사용자 catch "여백 0" 정합. */
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* ─────────────── LEARN node 내부 V1/V2 cortical region strip ─────────────
@@ -121,13 +123,15 @@
 .snn-pipeline-flow {
   display: flex;
   flex-direction: row;
-  /* content-fit — 각 node 영역 자체 height 영역 영역 빈 공간 0 catch.
-     직전 align-items: stretch 폐기 사실 (사용자 catch 2026-05-05). */
-  align-items: flex-start;
-  gap: 16px;
+  /* polish v2 (2026-05-05) — uniform height: stretch 영역 영역 5 node 동일 height
+     (사용자 catch "동일 height + 여백 0"). 직전 flex-start 영역 영역 max-content
+     영역 짧은 박스 catch — 본 stretch 영역 짧은 박스 영역 늘려 동일 높이 정합.
+     단 본문 padding 영역 12-14px 영역 영역 빈 line 0 catch (NodeShell body 영역
+     flex column + gap 영역 영역 자식 영역 영역 영역 분포 영역 정합). */
+  align-items: stretch;
+  gap: 12px;
   /* viewport fit — 5 node 영역 flex shrink + arrow auto 영역 1280px 영역 horizontal
-     scroll 0 영역 정합 (사용자 catch 2026-05-05). 직전 min-width: max-content 영역
-     5 × 280 + 4 × 24 = 1496 → 1280 viewport overflow catch 영역 영역 폐기. */
+     scroll 0 영역 정합. */
   min-width: 0;
   width: 100%;
 }
@@ -146,12 +150,9 @@
   justify-content: center;
   color: rgba(94, 234, 212, 0.35);
   flex-shrink: 0;
-  /* viewport fit — 5 node 영역 1280px 영역 fit 영역 영역 arrow width 24→16 축소
-     (사용자 PC catch 2026-05-05). */
-  width: 16px;
-  /* node header height (~ 38px) 영역 정합 영역 vertical center catch — flow align-items
-     영역 flex-start 영역 영역 arrow 영역 위쪽 정합 자체 padding 영역 보정 영역. */
-  padding-top: 18px;
+  /* polish v2 (2026-05-05) — flow align stretch 영역 영역 arrow 영역 자동 vertical
+     center 정합 (padding-top 18px 영역 영역 — flex-start 영역 보정 영역). */
+  width: 14px;
   position: relative;
   transition: color 220ms ease;
 }
@@ -171,20 +172,21 @@
   100% { transform: translateX(28px); opacity: 0; }
 }
 @media (max-width: 900px) {
-  .snn-pipeline-arrow { transform: rotate(90deg); width: auto; height: 24px; padding-top: 0; }
+  .snn-pipeline-arrow { transform: rotate(90deg); width: auto; height: 24px; }
 }
 
 .snn-pipeline-node {
   background: linear-gradient(180deg, rgba(24, 24, 30, 0.96) 0%, rgba(18, 18, 22, 0.96) 100%);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 12px;
+  border-radius: 10px;
   /* viewport fit — flex 1 영역 shrink 영역 + min-width 200 + max-width 280 영역
      1280px viewport 영역 5 node 영역 horizontal scroll 0 영역 정합. */
   flex: 1 1 220px;
   min-width: 200px;
   max-width: 280px;
-  /* content-fit — 자체 content height 영역 영역 (빈 공간 catch 영역). */
-  height: max-content;
+  /* polish v2 — flow align stretch 영역 영역 node 영역 동일 height 영역 (사용자
+     catch "동일 height + 여백 0"). content overflow 영역 body flex grow 영역 영역
+     자식 영역 영역 영역 분포 영역 정합 (NodeShell.body 영역 flex: 1 + gap). */
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -244,7 +246,8 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
+  /* polish v2 — header padding 10→8 영역 영역 (uniform body 영역 vertical scale 정합). */
+  padding: 8px 12px;
   background: transparent;
   border: 0;
   color: inherit;
@@ -291,8 +294,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* polish — 220px node 영역 14→12 padding 영역 정합 (사용자 spacing catch). */
-  padding: 12px 12px 14px;
+  /* polish v2 (2026-05-05) — flow stretch 영역 영역 body flex grow 영역 자식 영역
+     영역 영역 분포 영역 정합 (uniform height + 여백 0). */
+  flex: 1 1 auto;
+  padding: 10px 12px 12px;
 }
 
 .snn-pipeline-row {
@@ -303,20 +308,21 @@
   font-size: 10px;
 }
 .snn-pipeline-row-label {
-  color: rgba(255, 255, 255, 0.6);
+  /* contrast (WCAG 1.4.3): 0.6 → 0.75 영역 #18181e 영역 ~5.5:1 (AA pass). */
+  color: rgba(255, 255, 255, 0.75);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 9px;
 }
 .snn-pipeline-row-value {
   text-align: right;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.95);
   word-break: break-all;
 }
 .snn-pipeline-mono { font-family: ui-monospace, monospace; }
 
-/* INPUT */
-.snn-pipeline-input { display: flex; flex-direction: column; gap: 8px; }
+/* INPUT — polish v2: gesture row + 16-dim 영역 8→6 gap (tight). */
+.snn-pipeline-input { display: flex; flex-direction: column; gap: 6px; }
 .snn-pipeline-cam {
   position: relative;
   width: 100%;
@@ -336,16 +342,18 @@
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
-  color: rgba(255, 255, 255, 0.6);
+  /* contrast (WCAG 1.4.3): 0.6 → 0.78 영역 #050505 영역 ~5.2:1 (AA pass). */
+  color: rgba(255, 255, 255, 0.78);
   font-size: 10px;
   gap: 4px;
 }
-.snn-pipeline-cam-hint { font-size: 9px; opacity: 0.75; }
-.snn-pipeline-feat-wrap { display: flex; flex-direction: column; gap: 4px; }
+.snn-pipeline-cam-hint { font-size: 9px; opacity: 0.85; }
+.snn-pipeline-feat-wrap { display: flex; flex-direction: column; gap: 3px; }
 .snn-pipeline-feat-title {
   font-size: 9px;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.6);
+  /* contrast: 0.6 → 0.75 영역 ~5.5:1 (AA pass). */
+  color: rgba(255, 255, 255, 0.75);
   text-transform: uppercase;
 }
 .snn-pipeline-feat-bars { height: 36px; }
@@ -353,37 +361,53 @@
 /* LEARN — phase + cluster bars */
 .snn-pipeline-phase {
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: 5px;
   border: 1px solid;
 }
 .snn-pipeline-phase-label {
   font-weight: 700;
   letter-spacing: 0.08em;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.3;
 }
 .snn-pipeline-phase-sub {
   font-size: 9px;
   opacity: 0.75;
   margin-top: 2px;
+  line-height: 1.3;
 }
 .snn-pipeline-phase--idle   { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
 .snn-pipeline-phase--amber  { background: rgba(251,191,36,0.12);  border-color: rgba(251,191,36,0.40); color: #fde68a; }
 .snn-pipeline-phase--orange { background: rgba(249,115,22,0.12);  border-color: rgba(249,115,22,0.40); color: #fdba74; }
 .snn-pipeline-phase--green  { background: rgba(34,197,94,0.15);   border-color: rgba(34,197,94,0.45);  color: #bbf7d0; }
 .snn-pipeline-phase--blue   { background: rgba(59,130,246,0.12);  border-color: rgba(59,130,246,0.40); color: #bfdbfe; }
+/* EVOLVING — fuchsia pulse 영역 cluster unfreeze 시각 신호 (lifelong learning). */
+.snn-pipeline-phase--fuchsia {
+  background: rgba(217,70,239,0.12);
+  border-color: rgba(217,70,239,0.45);
+  color: #f5d0fe;
+  animation: snn-evolving-pulse 1.6s ease-in-out infinite;
+}
+@keyframes snn-evolving-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,70,239,0.0); }
+  50%      { box-shadow: 0 0 12px 2px rgba(217,70,239,0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-phase--fuchsia { animation: none; }
+}
 
 /* 안내 메시지 — phase 별 사용자 행동 가이드. */
 .snn-pipeline-hint {
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-radius: 4px;
   background: rgba(94, 234, 212, 0.06);
   border: 1px dashed rgba(94, 234, 212, 0.30);
   font-size: 10px;
-  line-height: 1.4;
+  line-height: 1.35;
   color: rgba(207, 250, 254, 0.85);
 }
 
-.snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 3px; }
+.snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 2px; }
 .snn-pipeline-cluster-row {
   display: flex; align-items: center; gap: 5px;
   font-size: 10px;
@@ -446,9 +470,10 @@
   font-size: 10px;
   color: rgba(255,255,255,0.55);
 }
-/* 현재 자세 카드 — TRAINED 영역 winner 영역 본격 표시. */
+/* 현재 자세 카드 — TRAINED 영역 winner 영역 본격 표시.
+   polish v2 — vertical padding 8→6 영역 tight (uniform body flex grow 영역). */
 .snn-pipeline-current {
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 6px;
   background: rgba(94, 234, 212, 0.05);
   border: 1px solid rgba(94, 234, 212, 0.25);
@@ -480,7 +505,7 @@
 }
 .snn-pipeline-current.is-active .snn-pipeline-current-value { color: #5eead4; }
 
-.snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 3px; }
+.snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .snn-pipeline-rate-row {
   display: flex; align-items: center; gap: 6px;
   padding: 2px 4px;
@@ -556,12 +581,19 @@
   outline: none;
 }
 .snn-pipeline-out-input:focus { border-color: rgba(244,114,182,0.85); }
-.snn-pipeline-out-counts { display: flex; flex-direction: column; gap: 2px; }
+/* polish v2 — 4 cluster count 영역 2x2 grid 영역 영역 정합 (사용자 "빈 line"
+   catch 영역 균등 분배). 좁은 220px node 영역 2 col 영역 영역 영역 영역. */
+.snn-pipeline-out-counts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+}
 .snn-pipeline-out-count-row {
   display: flex; justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   font-size: 10px; padding: 1px 0;
+  min-width: 0;
 }
 .snn-pipeline-out-count-label {
   opacity: 0.85;
@@ -598,8 +630,8 @@
   .snn-pipeline-btn { padding: 10px 12px; }
 }
 
-/* LLM */
-.snn-pipeline-field { display: flex; flex-direction: column; gap: 3px; }
+/* LLM — polish v2: field gap 3→2 (label + input tight). */
+.snn-pipeline-field { display: flex; flex-direction: column; gap: 2px; }
 .snn-pipeline-field-label {
   font-size: 9px; letter-spacing: 0.06em;
   text-transform: uppercase; opacity: 0.6;
@@ -782,5 +814,10 @@
   .snn-mode-progress-fill,
   .snn-feat-bar-fill {
     transition-duration: 0.01ms !important;
+  }
+  /* Tailwind animate-pulse — Sidebar evolve 영역 fuchsia pulse 정합. */
+  .animate-pulse {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

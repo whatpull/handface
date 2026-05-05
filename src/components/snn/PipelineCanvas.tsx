@@ -118,8 +118,13 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   const ctrl = useHandControl(cameraConnected, true, true);
 
   const [phase, setPhase] = useState<string>('untrained');
+  // 사용자 catch 2026-05-06: 학습 진행 중 connector active glow — clusterFrames 변경 영역 trigger.
+  const [framesNonce, setFramesNonce] = useState<number>(0);
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
     setPhase(d.phase);
+    // clusterFrames 영역 합 변경 영역 nonce ↑ → INPUT/LEARN connector active.
+    const sum = d.clusterFrames[0] + d.clusterFrames[1] + d.clusterFrames[2] + d.clusterFrames[3];
+    setFramesNonce(sum);
   }), []);
 
   const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
@@ -132,19 +137,21 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   const [segActive, setSegActive] = useState<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
   const ACTIVE_MS = 1500;
 
+  // INPUT → LEARN connector — fire 영역 또는 frame capture 영역 trigger.
   useEffect(() => {
-    if (lastFiringTimestamp === null) return;
+    if (lastFiringTimestamp === null && framesNonce === 0) return;
     setSegActive((p) => [true, p[1], p[2], p[3]]);
     const t = setTimeout(() => setSegActive((p) => [false, p[1], p[2], p[3]]), ACTIVE_MS);
     return () => clearTimeout(t);
-  }, [lastFiringTimestamp]);
+  }, [lastFiringTimestamp, framesNonce]);
 
+  // LEARN → INFER connector — 학습 중 또는 fire trigger.
   useEffect(() => {
-    if (lastFiringTimestamp === null || !learnActive) return;
+    if (framesNonce === 0 && (lastFiringTimestamp === null || !learnActive)) return;
     setSegActive((p) => [p[0], true, p[2], p[3]]);
     const t = setTimeout(() => setSegActive((p) => [p[0], false, p[2], p[3]]), ACTIVE_MS);
     return () => clearTimeout(t);
-  }, [lastFiringTimestamp, learnActive]);
+  }, [lastFiringTimestamp, learnActive, framesNonce]);
 
   useEffect(() => {
     if (winnerCluster === null || !flowActive) return;

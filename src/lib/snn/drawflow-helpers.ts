@@ -19,35 +19,20 @@ export function buildNodeClass(n: LayoutNode): string {
   return `snn-canvas-neuron snn-canvas-neuron--${popClass} snn-canvas-node-${n.id}`;
 }
 
-// 카드 HTML 렌더 — Region view 영역 region 카드 영역만.
-// 직전 camera/gesture/output 분기 영역 폐기됨 — drawflow neuron view 영역 폐기 정합.
+// 카드 HTML 렌더 — Region view 영역 region 카드 단일.
+// 직전 non-region fallback (region/active 분기) 영역 dead path — buildRegionLayout
+// 영역 모든 노드 population='region' 영역 영역 영역 폐기 (cleanup-2).
 export function renderNodeHtml(n: LayoutNode): string {
-  if (n.population === 'region') {
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-region-card">
-        <div class="snn-canvas-neuron-header">
-          <span class="snn-canvas-neuron-dot"></span>
-          <span class="snn-canvas-neuron-label">${n.label}</span>
-        </div>
-        <div class="snn-canvas-neuron-body">
-          <div class="snn-canvas-neuron-row">
-            <span class="snn-canvas-neuron-row-label">active</span>
-            <span class="snn-canvas-neuron-row-value snn-canvas-region-count">0</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
   return `
-    <div class="snn-canvas-neuron-card">
+    <div class="snn-canvas-neuron-card snn-canvas-region-card">
       <div class="snn-canvas-neuron-header">
         <span class="snn-canvas-neuron-dot"></span>
         <span class="snn-canvas-neuron-label">${n.label}</span>
       </div>
       <div class="snn-canvas-neuron-body">
         <div class="snn-canvas-neuron-row">
-          <span class="snn-canvas-neuron-row-label">region</span>
-          <span class="snn-canvas-neuron-row-value">${n.region}</span>
+          <span class="snn-canvas-neuron-row-label">active</span>
+          <span class="snn-canvas-neuron-row-value snn-canvas-region-count">0</span>
         </div>
       </div>
     </div>
@@ -236,7 +221,6 @@ export function buildRegionLayout(neurons: Array<{ region?: string | null }>) {
     population: 'region',
     x: r.x,
     y: r.y,
-    isSystem: true,
   }));
   const regionCounts: Record<string, number> = {};
   for (const r of REGIONS) regionCounts[r.id] = counts[r.id] || 0;

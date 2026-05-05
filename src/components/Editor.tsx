@@ -71,7 +71,6 @@ export default function Editor() {
               <Canvas
                 key={`region-${canvasNonce}`}
                 editMode={editMode}
-                cameraConnected={cameraConnected}
               />
             )}
             {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel

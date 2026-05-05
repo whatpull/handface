@@ -22,9 +22,6 @@ import { getClient } from '@/lib/backend/client';
 
 interface CanvasProps {
   editMode: boolean;
-  // cameraConnected 영역 Region view 영역 사용 0 (4박스 cluster 표시만).
-  // 본 prop 영역 Editor 영역 동일 signature 영역 영역 영역 보존.
-  cameraConnected: boolean;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -85,7 +82,6 @@ export default function Canvas({ editMode }: CanvasProps) {
           id: n.id,
           x: saved?.x ?? n.x,
           y: saved?.y ?? n.y,
-          isOut: n.region === 'OUT',
         };
       });
       preventOverlap(merged);
@@ -141,9 +137,7 @@ export default function Canvas({ editMode }: CanvasProps) {
         const snapshot = allIds.map((d) => {
           const nm = drawflowIdToName.current[d];
           const nd = editor!.getNodeFromId(d);
-          const data = (nd?.data ?? {}) as { region?: string; population?: string };
-          const isOut = data.region === 'OUT';
-          return { id: nm, x: nd?.pos_x ?? 0, y: nd?.pos_y ?? 0, isOut };
+          return { id: nm, x: nd?.pos_x ?? 0, y: nd?.pos_y ?? 0 };
         });
         preventOverlap(snapshot);
         for (const s of snapshot) {

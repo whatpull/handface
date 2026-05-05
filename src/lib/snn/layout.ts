@@ -104,8 +104,9 @@ export function layoutSnapshot(
   }
 
   // 2. 각 그룹 내부 이름 정렬 + 최대 N개 sampling.
+  // 자연 정렬 — feat_2 가 feat_10 앞에 오도록 (numeric option).
   for (const [key, list] of groups) {
-    list.sort((a, b) => a.name.localeCompare(b.name));
+    list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
     if (list.length > MAX_PER_POPULATION) {
       groups.set(key, list.slice(0, MAX_PER_POPULATION));
     }

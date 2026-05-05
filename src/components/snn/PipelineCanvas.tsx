@@ -51,6 +51,8 @@ import {
   type LlmSendResult,
 } from '@/lib/snn/llm-client';
 import { FEATURE_LABELS } from '@/lib/mediapipe/feature-encoder';
+// HIGH #3 정정: cluster winner 산출 단일 source.
+import { deriveWinner, WINNER_MARGIN_DEFAULT } from '@/lib/snn/winner-derivation';
 
 interface Props {
   cameraConnected: boolean;
@@ -59,39 +61,95 @@ interface Props {
 const CLUSTER_TARGET = 30;
 const CLUSTER_LABELS = ['Pointing', 'Open palm', 'Fist', 'Victory'] as const;
 const SATURATION_HZ = 400;
-const WINNER_MARGIN = 0.10;
+// HIGH #3: WINNER_MARGIN 영역 단일 source 영역 winner-derivation.ts 영역 위임.
+const WINNER_MARGIN = WINNER_MARGIN_DEFAULT;
 const HISTORY_MAX = 32;
+
+// 활성 흐름 (active flow) 영역 단일 source — winner 정합 시 cyan 흐름 발광.
+// child node 영역 hoist — Pipeline 컨텍스트 영역 단일 phase/winner 흐름 영역 정합.
+interface FlowState {
+  phase: string;
+  winnerCluster: number | null;
+}
 
 export default function PipelineCanvas({ cameraConnected }: Props) {
   // useHandControl 영역 본 파일 영역 driver — Pipeline view 영역 standalone.
   const ctrl = useHandControl(cameraConnected, true, true);
 
+  const [flow, setFlow] = useState<FlowState>({ phase: 'untrained', winnerCluster: null });
+
+  // 단일 listener — 모든 노드 영역 phase/winner 영역 공유 영역 (arrow 흐름 정합).
+  useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
+    setFlow((p) => ({ ...p, phase: d.phase }));
+  }), []);
+
+  useEffect(() => {
+    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
+      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
+      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      setFlow((p) => p.winnerCluster === w.cluster ? p : { ...p, winnerCluster: w.cluster });
+    });
+    return off;
+  }, []);
+
+  const flowActive = flow.winnerCluster !== null && (flow.phase === 'trained' || flow.phase === 'inference');
+  const learnActive = flow.phase === 'learning' || flow.phase === 'partial';
+  const phaseClass = `is-phase-${flow.phase}`;
+
+  // LLM transient toast — Test send 영역 success/error 영역 일시 표시 (auto fade).
+  const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
+  useEffect(() => {
+    if (!llmToast) return;
+    const t = setTimeout(() => setLlmToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [llmToast]);
+
   return (
-    <div className="snn-pipeline">
+    <div
+      className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
+      aria-label="HandFace SNN pipeline"
+    >
       <div className="snn-pipeline-flow">
         <NodeInput cameraConnected={cameraConnected} />
-        <Arrow />
+        <Arrow active={learnActive || flowActive} />
         <NodeLearn />
-        <Arrow />
-        <NodeInfer />
-        <Arrow />
-        <NodeOut />
-        <Arrow />
-        <NodeLlm ctrl={ctrl} />
+        <Arrow active={flowActive} />
+        <NodeInfer winnerCluster={flow.winnerCluster} />
+        <Arrow active={flowActive} />
+        <NodeOut winnerCluster={flow.winnerCluster} />
+        <Arrow active={flowActive} />
+        <NodeLlm ctrl={ctrl} onLlmResult={(r) => setLlmToast({
+          kind: r.ok ? 'ok' : 'fail',
+          msg: r.ok ? `LLM POST ok · ${r.status} · ${r.latencyMs}ms` : `LLM fail · ${r.error || `HTTP ${r.status}`}`,
+        })} />
       </div>
       {ctrl.trainStatus && (
-        <div className="snn-pipeline-toast">{ctrl.trainStatus}</div>
+        <div className="snn-pipeline-toast" role="status" aria-live="polite">
+          {ctrl.trainStatus}
+        </div>
+      )}
+      {llmToast && (
+        <div
+          className={`snn-pipeline-toast snn-pipeline-toast--${llmToast.kind}`}
+          role="status"
+          aria-live="polite"
+        >
+          {llmToast.msg}
+        </div>
       )}
     </div>
   );
 }
 
-function Arrow() {
+function Arrow({ active = false }: { active?: boolean }) {
   return (
-    <div className="snn-pipeline-arrow" aria-hidden>
+    <div className={`snn-pipeline-arrow ${active ? 'is-active' : ''}`} aria-hidden>
       <svg viewBox="0 0 32 16" width="32" height="16">
         <line x1="0" y1="8" x2="28" y2="8" stroke="currentColor" strokeWidth="1.4" />
         <polyline points="22,3 28,8 22,13" stroke="currentColor" strokeWidth="1.4" fill="none" />
+        {active && (
+          <circle className="snn-pipeline-arrow-pulse" cx="0" cy="8" r="2" fill="currentColor" />
+        )}
       </svg>
     </div>
   );
@@ -196,17 +254,61 @@ function NodeLearn() {
     return off;
   }, []);
 
+  // 진행 중 cluster — count 가 가장 적고 < TARGET 인 cluster (사용자 안내 영역).
+  const activeCluster = useMemo(() => {
+    if (!phase) return -1;
+    const incomplete: Array<{ ci: number; n: number }> = [];
+    for (let ci = 0; ci < 4; ci++) {
+      const n = phase.clusterFrames[ci as 0|1|2|3];
+      if (n < CLUSTER_TARGET) incomplete.push({ ci, n });
+    }
+    if (incomplete.length === 0) return -1;
+    incomplete.sort((a, b) => b.n - a.n); // 가장 진행도 높은 미완 cluster 영역 우선 안내.
+    return incomplete[0].ci;
+  }, [phase]);
+
   const phaseInfo = useMemo(() => {
     const p = phase?.phase ?? 'untrained';
-    const config: Record<string, { label: string; tone: string; sub: string }> = {
-      untrained: { label: 'UNTRAINED', tone: 'idle', sub: 'awaiting teacher (N=5 stable + conf ≥ 0.85)' },
-      learning:  { label: 'LEARNING',  tone: 'amber', sub: 'batch supervised — capturing frames' },
-      partial:   { label: 'PARTIAL',   tone: 'orange', sub: 'some clusters trained — others rejected' },
-      trained:   { label: '✓ TRAINED', tone: 'green', sub: '4 clusters locked · weight permanent' },
-      inference: { label: 'INFERENCE', tone: 'blue', sub: 'STDP off · cluster mean readout' },
+    const activeLabel = activeCluster >= 0 ? CLUSTER_LABELS[activeCluster] : '';
+    const activeCount = activeCluster >= 0 && phase ? phase.clusterFrames[activeCluster as 0|1|2|3] : 0;
+    const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
+      untrained: {
+        label: 'UNTRAINED',
+        tone: 'idle',
+        sub: 'awaiting teacher (N=5 stable + conf ≥ 0.85)',
+        hint: '카메라 영역 4개 자세 영역 보이세요 — Pointing / Open palm / Fist / Victory',
+      },
+      learning: {
+        label: 'LEARNING',
+        tone: 'amber',
+        sub: 'batch supervised — capturing frames',
+        hint: activeLabel
+          ? `${activeLabel} 자세 영역 유지하세요 (${activeCount}/${CLUSTER_TARGET})`
+          : 'capturing frames…',
+      },
+      partial: {
+        label: 'PARTIAL',
+        tone: 'orange',
+        sub: 'some clusters trained — others rejected',
+        hint: activeLabel
+          ? `남은 cluster: ${activeLabel} (${activeCount}/${CLUSTER_TARGET})`
+          : 'all clusters captured',
+      },
+      trained: {
+        label: '✓ TRAINED',
+        tone: 'green',
+        sub: '4 clusters locked · weight permanent',
+        hint: '학습 완료 — Infer 영역 winner 영역 catch 사실',
+      },
+      inference: {
+        label: 'INFERENCE',
+        tone: 'blue',
+        sub: 'STDP off · cluster mean readout',
+        hint: '실시간 추론 영역 — 자세 영역 보이세요',
+      },
     };
     return config[p];
-  }, [phase]);
+  }, [phase, activeCluster]);
 
   const teacherLine = useMemo(() => {
     if (!teacher) return 'no signal';
@@ -223,11 +325,13 @@ function NodeLearn() {
         <div className="snn-pipeline-phase-label">{phaseInfo.label}</div>
         <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
       </div>
+      <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
       <div className="snn-pipeline-cluster-list">
         {[0, 1, 2, 3].map((i) => {
           const count = phase ? phase.clusterFrames[i as 0|1|2|3] : 0;
           const done = count >= CLUSTER_TARGET;
-          return <ClusterRow key={i} label={CLUSTER_LABELS[i]} count={count} done={done} />;
+          const active = i === activeCluster && (phaseInfo.tone === 'amber' || phaseInfo.tone === 'orange');
+          return <ClusterRow key={i} label={CLUSTER_LABELS[i]} count={count} done={done} active={active} />;
         })}
       </div>
       <div className="snn-pipeline-row">
@@ -246,7 +350,8 @@ function NodeLearn() {
   );
 }
 
-function ClusterRow({ label, count, done }: { label: string; count: number; done: boolean }) {
+function ClusterRow({ label, count, done, active = false }:
+  { label: string; count: number; done: boolean; active?: boolean }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (fillRef.current) {
@@ -255,14 +360,14 @@ function ClusterRow({ label, count, done }: { label: string; count: number; done
     }
   }, [count]);
   return (
-    <div className="snn-pipeline-cluster-row">
-      <span className={`snn-pipeline-cluster-label ${done ? 'is-done' : ''}`}>
-        {done ? '✓ ' : ''}{label}
+    <div className={`snn-pipeline-cluster-row ${active ? 'is-active' : ''} ${done ? 'is-done-row' : ''}`}>
+      <span className={`snn-pipeline-cluster-label ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}>
+        {done ? '✓ ' : (active ? '▸ ' : '')}{label}
       </span>
       <div className="snn-pipeline-cluster-bar">
         <div
           ref={fillRef}
-          className={`snn-mode-progress-fill ${done ? 'snn-pipeline-fill-green' : 'snn-pipeline-fill-amber'}`}
+          className={`snn-mode-progress-fill ${done ? 'snn-pipeline-fill-green' : 'snn-pipeline-fill-amber'} ${active ? 'is-active' : ''}`}
         />
       </div>
       <span className="snn-pipeline-cluster-count">{count}/{CLUSTER_TARGET}</span>
@@ -271,7 +376,8 @@ function ClusterRow({ label, count, done }: { label: string; count: number; done
 }
 
 // ───────────────────────────────────────────────────────── INFER ─────────────
-function NodeInfer() {
+function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
+  void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [winner, setWinner] = useState<{
     cluster: number | null;
@@ -316,6 +422,8 @@ function NodeInfer() {
   const pname = phase?.phase ?? 'untrained';
   const trained = pname === 'trained' || pname === 'inference';
   const max = Math.max(...winner.rates, 1);
+  const winnerLabel = winner.cluster !== null ? CLUSTER_TO_LABEL[winner.cluster] : null;
+  const confPct = (winner.confidence * 100).toFixed(0);
 
   return (
     <NodeShell title="INFER" subtitle="추론 상세" tone="infer"
@@ -323,6 +431,14 @@ function NodeInfer() {
       {!trained && (
         <div className="snn-pipeline-note">
           추론 영역 — TRAINED 후만 작동 사실 (현재: {pname})
+        </div>
+      )}
+      {trained && (
+        <div className={`snn-pipeline-current ${winnerLabel ? 'is-active' : ''}`}>
+          <div className="snn-pipeline-current-label">현재 자세</div>
+          <div className="snn-pipeline-current-value">
+            {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
+          </div>
         </div>
       )}
       <div className="snn-pipeline-row">
@@ -378,7 +494,8 @@ function spark(ci: number): string {
 }
 
 // ─────────────────────────────────────────────────────────── OUT ─────────────
-function NodeOut() {
+function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
+  void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
   const [winner, setWinner] = useState<{ cluster: number | null; confidence: number; margin: number }>(
     { cluster: null, confidence: 0, margin: 0 },
@@ -532,7 +649,13 @@ function RenameButton({ outKey, label, hasLabel }:
 }
 
 // ─────────────────────────────────────────────────────────── LLM ─────────────
-function NodeLlm({ ctrl }: { ctrl: ReturnType<typeof useHandControl> }) {
+function NodeLlm({
+  ctrl,
+  onLlmResult,
+}: {
+  ctrl: ReturnType<typeof useHandControl>;
+  onLlmResult?: (r: LlmSendResult) => void;
+}) {
   const [cfg, setCfg] = useState<LlmConfig>(() => loadLlmConfig());
   const [collapsed, setCollapsed] = useState(false);
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
@@ -623,6 +746,7 @@ function NodeLlm({ ctrl }: { ctrl: ReturnType<typeof useHandControl> }) {
     const r = await sendStateToLlm(cfg, buildPayload());
     setLast(r);
     setBusy(false);
+    onLlmResult?.(r);
   };
 
   // Auto stream — winner 변경 시점만 POST (cfg.auto && endpoint 영역 정합).
@@ -633,7 +757,10 @@ function NodeLlm({ ctrl }: { ctrl: ReturnType<typeof useHandControl> }) {
     let cancelled = false;
     (async () => {
       const r = await sendStateToLlm(cfg, buildPayload());
-      if (!cancelled) setLast(r);
+      if (!cancelled) {
+        setLast(r);
+        onLlmResult?.(r);
+      }
     })();
     return () => { cancelled = true; };
     // history 영역 useEffect 영역 winner.cluster 영역 변경 시점 영역 1회 영역.
@@ -667,7 +794,7 @@ function NodeLlm({ ctrl }: { ctrl: ReturnType<typeof useHandControl> }) {
           type="url"
           className="snn-pipeline-input-field"
           value={cfg.endpoint}
-          placeholder="https://..."
+          placeholder="https://api.example.com/webhook"
           onChange={(e) => updateCfg({ endpoint: e.target.value })}
         />
       </label>
@@ -677,7 +804,7 @@ function NodeLlm({ ctrl }: { ctrl: ReturnType<typeof useHandControl> }) {
           type="password"
           className="snn-pipeline-input-field"
           value={cfg.apiKey}
-          placeholder="(optional)"
+          placeholder="Bearer token (optional)"
           onChange={(e) => updateCfg({ apiKey: e.target.value })}
         />
       </label>
@@ -737,22 +864,29 @@ interface NodeShellProps {
   children: React.ReactNode;
 }
 function NodeShell({ title, subtitle, tone, collapsed, onToggle, children }: NodeShellProps) {
+  const bodyId = `snn-pipeline-body-${tone}`;
   return (
-    <section className={`snn-pipeline-node snn-pipeline-node--${tone}`}>
+    <section
+      className={`snn-pipeline-node snn-pipeline-node--${tone} ${collapsed ? 'is-collapsed' : ''}`}
+      aria-label={`${title} — ${subtitle}`}
+    >
       <header className="snn-pipeline-node-header">
         <button
           type="button"
           className="snn-pipeline-node-toggle"
           onClick={onToggle}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'expand' : 'collapse'}
+          aria-expanded={collapsed ? 'false' : 'true'}
+          aria-controls={bodyId}
+          aria-label={`${title} ${collapsed ? 'expand' : 'collapse'}`}
         >
           <span className="snn-pipeline-node-title">{title}</span>
           <span className="snn-pipeline-node-sub">{subtitle}</span>
-          <span className="snn-pipeline-node-caret">{collapsed ? '▸' : '▾'}</span>
+          <span className="snn-pipeline-node-caret" aria-hidden>{collapsed ? '▸' : '▾'}</span>
         </button>
       </header>
-      {!collapsed && <div className="snn-pipeline-node-body">{children}</div>}
+      {!collapsed && (
+        <div id={bodyId} className="snn-pipeline-node-body">{children}</div>
+      )}
     </section>
   );
 }

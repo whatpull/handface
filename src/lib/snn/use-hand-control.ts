@@ -164,6 +164,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   const framesRef = useRef<ClusterFrames>(clusterFrames);
   const phaseRef = useRef<TrainingPhase>(phase);
   const trainingCompleteEmittedRef = useRef<boolean>(phase === 'trained' || phase === 'inference');
+  // CRITICAL #2 정정: cluster pattern buffer + lock state 영역 컴포넌트-수준 useRef
+  // 영역 hoist — circuit-changed → canvasNonce++ → PipelineCanvas remount 시점
+  // useEffect cleanup 영역 buffer 영역 reset catch 영역 회피.
+  // 학습 진행 영역 view 전환 / circuit 변경 영역 영역 보존 사실.
+  const clusterBuffersRef = useRef<Record<0|1|2|3, number[][]>>({ 0: [], 1: [], 2: [], 3: [] });
+  const clusterLockedRef = useRef<Record<0|1|2|3, boolean>>({ 0: false, 1: false, 2: false, 3: false });
+  const learningActiveRef = useRef<boolean>(false);
+  const lastGestureNameRef = useRef<string | null>(null);
+  const gestureStableCountRef = useRef<number>(0);
 
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -263,20 +272,17 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       return;
     }
     let cancelled = false;
-    let lastGestureName: string | null = null;
-    let gestureStableCount = 0;
-    let learningActive = false;
-    // cluster 별 pattern buffer — 30 frame 도달 시점 batch flush.
-    const clusterBuffers: Record<0|1|2|3, number[][]> = { 0: [], 1: [], 2: [], 3: [] };
-    // cluster lock 진행 — 중복 호출 회피.
-    const clusterLocked: Record<0|1|2|3, boolean> = { 0: false, 1: false, 2: false, 3: false };
+    // CRITICAL #2 정정: 직전 closure-local clusterBuffers / clusterLocked / learningActive
+    // / lastGestureName / gestureStableCount 영역 컴포넌트-수준 useRef (clusterBuffersRef
+    // / clusterLockedRef / learningActiveRef / lastGestureNameRef / gestureStableCountRef)
+    // 영역 통합 사실 — remount 영역 학습 진행 영역 보존.
 
     const tick = async () => {
       if (cancelled) return;
       const feat = featRef.current;
       if (!hasHandRef.current || !feat) {
-        lastGestureName = null;
-        gestureStableCount = 0;
+        lastGestureNameRef.current = null;
+        gestureStableCountRef.current = 0;
         if (phaseRef.current !== 'inference') setLiveResult(null);
         if (!cancelled) setTimeout(tick, TICK_MS);
         return;
@@ -324,16 +330,16 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       // teacher stability tracking.
       const gestureMappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
       if (gestureMappable && gScore >= GESTURE_CONFIDENCE_MIN) {
-        if (gName === lastGestureName) gestureStableCount += 1;
-        else { lastGestureName = gName; gestureStableCount = 1; }
+        if (gName === lastGestureNameRef.current) gestureStableCountRef.current += 1;
+        else { lastGestureNameRef.current = gName; gestureStableCountRef.current = 1; }
       } else {
-        lastGestureName = null;
-        gestureStableCount = 0;
+        lastGestureNameRef.current = null;
+        gestureStableCountRef.current = 0;
       }
       const cluster = gestureMappable ? GESTURE_LABEL_TO_CLUSTER[gName!] : null;
       const stable = cluster !== null
         && gScore >= GESTURE_CONFIDENCE_MIN
-        && gestureStableCount >= GESTURE_STABLE_FRAMES;
+        && gestureStableCountRef.current >= GESTURE_STABLE_FRAMES;
 
       // pattern 누적 trigger 영역: stable AND 해당 cluster 영역 < 30 frame.
       let shouldCapture = false;
@@ -343,28 +349,31 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       }
 
       if (shouldCapture && cluster !== null) {
-        if (!learningActive) learningActive = true;
+        if (!learningActiveRef.current) learningActiveRef.current = true;
         const ci = cluster as 0|1|2|3;
         // cluster buffer 영역 pattern 누적 — backend 호출 0, 30 도달 시점 1회 flush.
-        clusterBuffers[ci].push(pattern);
+        clusterBuffersRef.current[ci].push(pattern);
         // 진행 카운트 영역 즉시 표시 (사용자 시각 catch).
         const progressNext = { ...framesRef.current };
-        progressNext[ci] = Math.min(CLUSTER_TARGET_FRAMES, clusterBuffers[ci].length);
+        progressNext[ci] = Math.min(CLUSTER_TARGET_FRAMES, clusterBuffersRef.current[ci].length);
         framesRef.current = progressNext;
+        // CRITICAL #2 정정: 매 frame 영역 saveClusterFrames 즉시 호출 — remount 영역
+        // 학습 진행 영역 localStorage 영역 즉시 영구화 catch.
+        saveClusterFrames(progressNext);
         setClusterFrames(progressNext);
         const label = CLUSTER_TO_LABEL[cluster] ?? `cluster ${cluster}`;
-        setTrainStatus(`${label}: capturing ${clusterBuffers[ci].length}/${CLUSTER_TARGET_FRAMES}…`);
+        setTrainStatus(`${label}: capturing ${clusterBuffersRef.current[ci].length}/${CLUSTER_TARGET_FRAMES}…`);
 
         // liveResult 영역 학습 중 진행률 표시.
         const ratesExposed: Record<string, number> = {};
         for (let i = 0; i < 4; i += 1) {
-          const buf = clusterBuffers[i as 0|1|2|3];
+          const buf = clusterBuffersRef.current[i as 0|1|2|3];
           ratesExposed[`cluster_${i}`] = buf.length / CLUSTER_TARGET_FRAMES;
         }
         setLiveResult({
           winner: `cluster_${cluster}`,
           rates: ratesExposed,
-          confidence: clusterBuffers[ci].length / CLUSTER_TARGET_FRAMES,
+          confidence: clusterBuffersRef.current[ci].length / CLUSTER_TARGET_FRAMES,
         });
 
         // phase 영역 평가 (learning 진입).
@@ -376,11 +385,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         }
 
         // 30 frame 도달 → batch flush. cluster broadcast supervisor (8 OUT 모두).
-        if (clusterBuffers[ci].length >= CLUSTER_TARGET_FRAMES) {
+        if (clusterBuffersRef.current[ci].length >= CLUSTER_TARGET_FRAMES) {
           setTrainStatus(`${label}: batch supervised 진행 (${CLUSTER_TARGET_FRAMES} frames)…`);
-          const batch = clusterBuffers[ci].slice();
+          const batch = clusterBuffersRef.current[ci].slice();
           // buffer drain — 추가 누적 회피.
-          clusterBuffers[ci] = [];
+          clusterBuffersRef.current[ci] = [];
           const r = await getClient().clusterTrainSupervised(batch, cluster);
           if (cancelled) return;
           if (r.ok && r.data.ok) {
@@ -393,10 +402,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
 
             // cluster lock — 추가 학습 0 (catastrophic forgetting 회피).
-            if (!clusterLocked[ci]) {
+            if (!clusterLockedRef.current[ci]) {
               const lockR = await getClient().clusterLock(cluster, { lock: true });
               if (cancelled) return;
-              if (lockR.ok) clusterLocked[ci] = true;
+              if (lockR.ok) clusterLockedRef.current[ci] = true;
             }
 
             const newPhase = derivePhase(next, phaseRef.current, true);
@@ -424,7 +433,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         }
       } else {
         // 학습 trigger 미충족 — phase 영역 평가 영역 (frames 변경 0 영역 derive).
-        const newPhase = derivePhase(framesRef.current, phaseRef.current, learningActive);
+        const newPhase = derivePhase(framesRef.current, phaseRef.current, learningActiveRef.current);
         if (newPhase !== phaseRef.current) {
           phaseRef.current = newPhase;
           savePhase(newPhase);

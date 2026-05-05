@@ -81,8 +81,11 @@ export default function Editor() {
             )}
             {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel
                 / .snn-feat-bars) 영역 polling — pipeline / drawflow neuron view 영역
-                양쪽 정합 사실 (selector 기반 mount). */}
+                양쪽 정합 사실 (selector 기반 mount).
+                key={view} 영역 view 전환 영역 stale closure (video/skel/barFills 영역
+                unmounted DOM ref) 영역 catch — 카메라 까만 화면 회피 catch. */}
             <HandTrackerHost
+              key={`htrack-${view}-${canvasNonce}`}
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />

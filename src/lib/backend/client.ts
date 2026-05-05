@@ -42,6 +42,11 @@ interface FireResponse {
   out_rates?: Record<string, number>;
   active_neurons_by_region?: Record<string, string[]>;
   synapses?: Array<{ pre: string; post: string; weight: number }>;
+  // Backend B+3 combo (a8e8165) — cluster mean / winner 영역 직접 동봉.
+  // 미동봉 (legacy backend) 영역 frontend 영역 out_rates 기반 fallback 산출.
+  cluster_rates?: number[];
+  winner_cluster?: number | null;
+  winner_margin?: number;
 }
 
 export class NeuronFaceClient {

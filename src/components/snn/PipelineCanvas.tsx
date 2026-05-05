@@ -86,7 +86,14 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      // Backend B+3 combo (a8e8165) 영역 cluster_rates / winner_cluster / winner_margin
+      // 영역 동봉 영역 그것 영역 우선 활용 — frontend 자체 cluster mean 산출 회피.
+      const w = deriveWinner(d.out_rates || {}, {
+        marginThreshold: WINNER_MARGIN,
+        clusterRates: d.cluster_rates,
+        winnerCluster: d.winner_cluster,
+        winnerMargin: d.winner_margin,
+      });
       setFlow((p) => p.winnerCluster === w.cluster ? p : { ...p, winnerCluster: w.cluster });
     });
     return off;
@@ -403,7 +410,13 @@ function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
+      const w = deriveWinner(d.out_rates || {}, {
+        marginThreshold: WINNER_MARGIN,
+        clusterRates: d.cluster_rates,
+        winnerCluster: d.winner_cluster,
+        winnerMargin: d.winner_margin,
+      });
       const saturated = w.clusterRates.every((v) => v >= SATURATION_HZ);
       setWinner({
         cluster: w.cluster,
@@ -507,7 +520,13 @@ function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
+      const w = deriveWinner(d.out_rates || {}, {
+        marginThreshold: WINNER_MARGIN,
+        clusterRates: d.cluster_rates,
+        winnerCluster: d.winner_cluster,
+        winnerMargin: d.winner_margin,
+      });
       setWinner({ cluster: w.cluster, confidence: w.confidence, margin: w.margin });
     });
     return off;
@@ -667,7 +686,13 @@ function NodeLlm({
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
+      const w = deriveWinner(d.out_rates || {}, {
+        marginThreshold: WINNER_MARGIN,
+        clusterRates: d.cluster_rates,
+        winnerCluster: d.winner_cluster,
+        winnerMargin: d.winner_margin,
+      });
       setWinner({
         cluster: w.cluster,
         rates: w.clusterRates,

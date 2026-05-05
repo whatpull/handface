@@ -302,7 +302,13 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
           // 직전 max-only winner 영역 — 본 함수 영역 margin 임계 영역 정합 사실
           // (margin < WINNER_MARGIN_DEFAULT 영역 winner null = WTA tie).
-          const w = deriveWinner((r.data.out_rates || {}) as Record<string, number>);
+          // Backend B+3 combo (a8e8165) 영역 cluster_rates / winner_cluster /
+          // winner_margin 영역 동봉 영역 그것 영역 우선 활용 — frontend 자체 산출 회피.
+          const w = deriveWinner((r.data.out_rates || {}) as Record<string, number>, {
+            clusterRates: r.data.cluster_rates,
+            winnerCluster: r.data.winner_cluster,
+            winnerMargin: r.data.winner_margin,
+          });
           const winner = w.cluster !== null ? `cluster_${w.cluster}` : null;
           const ratesExposed: Record<string, number> = {};
           for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = w.clusterRates[i];

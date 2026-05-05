@@ -31,6 +31,14 @@ export interface NeuronFiringDetail {
   rates_by_region?: Record<string, number>;
   active_neurons_by_region?: Record<string, string[]>;
   out_rates?: Record<string, number>;
+  // Backend B+3 combo (a8e8165) 영역 inject_feature16 응답 영역 cluster mean 사실 동봉.
+  // length 4 — index = cluster id (0..3). frontend 자체 cluster mean 산출 영역 영역 우선 활용.
+  // backward compat: 미동봉 (legacy backend) 영역 frontend 영역 out_rates 기반 fallback 산출.
+  cluster_rates?: number[];
+  // Backend 영역 winner cluster (margin >= threshold 영역 정합 시점만, 영역 null).
+  winner_cluster?: number | null;
+  // Backend 영역 (max - second) / max margin (0..1). max 0 영역 0.
+  winner_margin?: number;
   // 전체 시냅스 weight (backward compat — `?synapses_full=true` 또는 누락 시 빈 배열).
   // 기본 응답에서는 비어있거나 누락. Δw 계산은 `synapses_changed` 우선 사용.
   synapses?: Array<{ pre: string; post: string; weight: number }>;

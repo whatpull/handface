@@ -38,7 +38,6 @@ import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
 import NodeLlm from './pipeline/NodeLlm';
 import Arrow from './pipeline/Arrow';
-import RegionCascade from './pipeline/RegionCascade';
 import { WINNER_MARGIN } from './pipeline/shared';
 
 interface Props {
@@ -101,9 +100,9 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
       className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
       aria-label="HandFace SNN pipeline"
     >
-      {/* Region cascade — 위쪽 row 영역 INPUT/V1/V2/OUT 4 박스 + cascade glow.
-          직전 별도 Region drawflow view 영역 영역 영역 영역 통합 — 사용자 명시 정합. */}
-      <RegionCascade flowActive={flowActive} />
+      {/* Region cascade row 폐기 — INPUT/OUT region 영역 INPUT/OUT 노드 영역 중복.
+          V1/V2 cortical region 영역 LEARN 노드 내부 영역 inline strip 영역 표시
+          (NodeLearn.tsx — LearnRegionStrip). */}
       <div className="snn-pipeline-flow">
         <NodeInput cameraConnected={cameraConnected} />
         <Arrow active={learnActive || flowActive} />

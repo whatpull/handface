@@ -1,8 +1,14 @@
 'use client';
 
 // NodeLearn — 학습 진행상황.
-// 5-phase + 4 cluster progress + Δw 합계 + teacher 표시.
+// 5-phase + 4 cluster progress + Δw 합계 + teacher 표시 + V1/V2 cascade strip.
 // HIGH #4 정정 보존: synapses_changed 우선 + d.synapses diff fallback.
+//
+// V1/V2 cortical region strip (inline, 직전 RegionCascade.tsx 영역 흡수):
+//  - INPUT/OUT region 영역 INPUT/OUT 노드 자체 영역 정합 → 위쪽 row 폐기.
+//  - V1/V2 영역 학습 substrate 영역 정합 → LEARN 노드 내부 영역 inline.
+//  - data source: getFullSnapshot 영역 1회 totals + neuron-firing 영역 active count.
+//    rates / active_neurons_by_region / rates_by_region 영역 region 영역 catch.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -11,8 +17,17 @@ import {
   type HandFeatureDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
+import { getClient } from '@/lib/backend/client';
 import NodeShell from './NodeShell';
 import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
+
+// inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
+// V1/V2 영역 영역 영역 영역).
+function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
+  if (name.startsWith('v1_')) return 'V1';
+  if (name.startsWith('v2_')) return 'V2';
+  return 'OTHER';
+}
 
 export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
@@ -21,8 +36,30 @@ export default function NodeLearn() {
   const [collapsed, setCollapsed] = useState(true);
   const prevWeights = useRef<Map<string, number>>(new Map());
 
+  // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
+  const [regionTotals, setRegionTotals] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
+  const [regionActive, setRegionActive] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
+  const [regionFired, setRegionFired] = useState<{ V1: boolean; V2: boolean }>({ V1: false, V2: false });
+  const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', setTeacher), []);
+
+  // 1회 snapshot — V1/V2 neuron 총개수.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const r = await getClient().getFullSnapshot();
+      if (cancelled || !r.ok) return;
+      const counts = { V1: 0, V2: 0 };
+      for (const n of r.data.neurons || []) {
+        const region = (n.region as 'V1' | 'V2' | undefined) || inferRegion(n.name || '');
+        if (region === 'V1' || region === 'V2') counts[region] += 1;
+      }
+      setRegionTotals(counts);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     // HIGH #4 정정: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -65,6 +102,44 @@ export default function NodeLearn() {
       if (changed > 0) setDelta({ ltp, ltd, changed });
     });
     return off;
+  }, []);
+
+  // V1/V2 active count + cascade glow (별도 listener — Δw 영역 분리 영역 정합).
+  useEffect(() => {
+    const FIRE_DURATION_MS = 1500;
+    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
+      const rates = d.rates || {};
+      const byActive = d.active_neurons_by_region || {};
+      const byRegionRate = d.rates_by_region || {};
+      const counts = { V1: 0, V2: 0 };
+      for (const [name, rate] of Object.entries(rates)) {
+        if (rate <= 0) continue;
+        const region = inferRegion(name);
+        if (region === 'V1' || region === 'V2') counts[region] += 1;
+      }
+      for (const region of ['V1', 'V2'] as const) {
+        const fromActive = (byActive[region] || []).length;
+        if (fromActive > counts[region]) counts[region] = fromActive;
+      }
+      setRegionActive(counts);
+
+      for (const region of ['V1', 'V2'] as const) {
+        const avgRate = byRegionRate[region] || 0;
+        if (counts[region] > 0 || avgRate > 0) {
+          setRegionFired((p) => p[region] ? p : { ...p, [region]: true });
+          if (fireTimers.current[region]) clearTimeout(fireTimers.current[region]);
+          fireTimers.current[region] = setTimeout(() => {
+            setRegionFired((p) => ({ ...p, [region]: false }));
+            delete fireTimers.current[region];
+          }, FIRE_DURATION_MS);
+        }
+      }
+    });
+    const timers = fireTimers.current;
+    return () => {
+      off();
+      for (const k of Object.keys(timers)) clearTimeout(timers[k]);
+    };
   }, []);
 
   // 진행 중 cluster — count 가 가장 적고 < TARGET 인 cluster (사용자 안내 영역).
@@ -131,9 +206,26 @@ export default function NodeLearn() {
     return `${name} (${(conf * 100).toFixed(0)}%)`;
   }, [teacher]);
 
+  const stripActive = regionFired.V1 || regionFired.V2;
+
   return (
     <NodeShell title="LEARN" subtitle="진행상황" tone="learn"
       collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+      {/* V1/V2 cortical region strip — 학습 substrate cascade.
+          INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}
+      <div className="snn-pipeline-learn-region-strip" aria-label="V1/V2 cortical cascade">
+        <RegionStripBox region="V1" total={regionTotals.V1} active={regionActive.V1} fired={regionFired.V1} />
+        <div
+          className={`snn-pipeline-learn-region-arrow ${stripActive ? 'is-active' : ''}`}
+          aria-hidden
+        >
+          <svg viewBox="0 0 32 12" width="32" height="12">
+            <line x1="0" y1="6" x2="28" y2="6" stroke="currentColor" strokeWidth="1.4" />
+            <polyline points="22,2 28,6 22,10" stroke="currentColor" strokeWidth="1.4" fill="none" />
+          </svg>
+        </div>
+        <RegionStripBox region="V2" total={regionTotals.V2} active={regionActive.V2} fired={regionFired.V2} />
+      </div>
       <div className={`snn-pipeline-phase snn-pipeline-phase--${phaseInfo.tone}`}>
         <div className="snn-pipeline-phase-label">{phaseInfo.label}</div>
         <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
@@ -160,6 +252,24 @@ export default function NodeLearn() {
         </div>
       )}
     </NodeShell>
+  );
+}
+
+function RegionStripBox({ region, total, active, fired }:
+  { region: 'V1' | 'V2'; total: number; active: number; fired: boolean }) {
+  const tone = region.toLowerCase();
+  return (
+    <div
+      className={`snn-pipeline-learn-region-box snn-pipeline-learn-region-box--${tone} ${fired ? 'is-fired' : ''}`}
+      aria-label={`${region} region — ${active} of ${total} active`}
+    >
+      <span className="snn-pipeline-learn-region-label">{region}</span>
+      <span className="snn-pipeline-learn-region-counts">
+        <span className="snn-pipeline-learn-region-active">{active}</span>
+        <span className="snn-pipeline-learn-region-sep">/</span>
+        <span className="snn-pipeline-learn-region-total">{total}</span>
+      </span>
+    </div>
   );
 }
 

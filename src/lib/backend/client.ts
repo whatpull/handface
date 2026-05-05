@@ -141,6 +141,12 @@ export class NeuronFaceClient {
         if (timeoutId) clearTimeout(timeoutId);
         if (!r.ok) {
           const txt = await r.text().catch(() => '');
+          // 사용자 catch 2026-05-05: 401/403 영역 prominent UX — Settings panel 영역 API key 입력 안내.
+          if (r.status === 401 || r.status === 403) {
+            lastReason = `API key 영역 — Settings (좌측 ⚙) 영역 API key 영역 입력 mandatory (HTTP ${r.status})`;
+            lastStatus = r.status;
+            return { ok: false, reason: lastReason, status: r.status };
+          }
           lastReason = `HTTP ${r.status} ${txt.slice(0, 200)}`;
           lastStatus = r.status;
           if (!shouldRetry(r.status, false) || attempt === attempts - 1) {

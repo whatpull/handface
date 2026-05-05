@@ -20,50 +20,56 @@
   --pipe-gap-lg: 16px;
   --pipe-gap-xl: 24px;
 
-  /* typography scale */
-  --pipe-font-xs: 10px;
-  --pipe-font-sm: 11px;
-  --pipe-font-md: 12px;
-  --pipe-font-lg: 13px;
-  --pipe-font-xl: 14px;
-  --pipe-font-title: 15px;
+  /* typography scale — readable v4 (2026-05-05 사용자 catch "가독성 안 좋음").
+     직전 10/11/12/13/14/15px 영역 너무 작음 (body 11-12px) + value 24-28px 영역 너무 큼.
+     본 영역 11/12/13/14/15/16 영역 영역 강 + body 13-14px + value 20px (분리 token).
+     dim text gray-500 영역 contrast ~5:1 (AA pass). */
+  --pipe-font-xs: 11px;
+  --pipe-font-sm: 12px;
+  --pipe-font-md: 13px;
+  --pipe-font-lg: 14px;
+  --pipe-font-xl: 15px;
+  --pipe-font-title: 16px;
+  --pipe-font-value: 20px;
 
-  /* violet single-tone palette (2026-05-05 brand redesign — HandFace warm tone catch).
-     직전 cyan (#06b6d4) 영역 cold/tech 영역 — HandFace (hand + face + neural) brand
-     영역 영역 영역. violet (#a78bfa main + #c4b5fd light + #7c3aed dark) 영역 정합 —
-     bio + neural + warm 영역 정합. legacy token name 영역 보존 — 모든 영역 violet rgb
-     영역 redirect (cyan literal 영역 영역 영역 모두 violet 영역). */
-  --pipe-tone-cyan: 167, 139, 250;        /* #a78bfa main violet (legacy name 보존) */
-  --pipe-tone-cyan-light: 196, 181, 253;  /* #c4b5fd light violet accent */
-  --pipe-tone-cyan-dark: 124, 58, 237;    /* #7c3aed deep violet */
-  --pipe-tone-input: 167, 139, 250;   /* legacy → violet */
-  --pipe-tone-learn: 167, 139, 250;   /* legacy → violet */
-  --pipe-tone-infer: 167, 139, 250;   /* legacy → violet */
-  --pipe-tone-out: 167, 139, 250;     /* legacy → violet */
-  --pipe-tone-llm: 167, 139, 250;     /* legacy → violet */
+  /* monochrome black palette (2026-05-05 redesign — 사용자 catch "튀는 거 0").
+     직전 violet (#a78bfa) 영역 brand catch — 본 영역 단조 차분 tech professional 정합.
+     white main + gray-300 light + gray-600 dark — accent 0 (모든 box single white tint).
+     legacy token name (cyan/input/learn/infer/out/llm) 영역 보존 — 모든 영역 white/gray
+     redirect — 영역 catch 1 (mono signature). */
+  --pipe-tone-cyan: 255, 255, 255;        /* white main (legacy name 보존) */
+  --pipe-tone-cyan-light: 209, 213, 219;  /* gray-300 light accent */
+  --pipe-tone-cyan-dark: 75, 85, 99;      /* gray-600 dark accent */
+  --pipe-tone-input: 255, 255, 255;   /* legacy → white */
+  --pipe-tone-learn: 255, 255, 255;   /* legacy → white */
+  --pipe-tone-infer: 255, 255, 255;   /* legacy → white */
+  --pipe-tone-out: 255, 255, 255;     /* legacy → white */
+  --pipe-tone-llm: 255, 255, 255;     /* legacy → white */
 
-  /* tone alpha layers */
-  --pipe-tone-alpha-glow: 0.3;
-  --pipe-tone-alpha-border: 0.5;
-  --pipe-tone-alpha-bg: 0.08;
+  /* tone alpha layers — monochrome 영역 영역 영역 영역 alpha ↓ 정합 (사용자 "튀지 않음"). */
+  --pipe-tone-alpha-glow: 0.18;
+  --pipe-tone-alpha-border: 0.28;
+  --pipe-tone-alpha-bg: 0.04;
 
-  /* text scale */
-  --pipe-text: #e5e7eb;
-  --pipe-text-dim: #b8b8c8;
-  --pipe-text-muted: #9ca3af;
+  /* text scale — 사용자 catch "white 100% 가독성 강 영역 영역 영역" → gray-300 main.
+     #d1d5db (gray-300) main + #6b7280 (gray-500) dim + #4b5563 (gray-600) muted.
+     #000 영역 contrast: 13:1 / 5:1 / 3.3:1 — main AAA, dim AA, muted decorative only. */
+  --pipe-text: #d1d5db;
+  --pipe-text-dim: #6b7280;
+  --pipe-text-muted: #4b5563;
 
-  /* surfaces — violet-tinted dark navy (HandFace warm tone 정합).
-     직전 #0a0a0f / #14141c / #1a1a26 (cool gray) → 영역 violet hue 영역 미세 박힘
-     (#0f0f1a / #1a1830 / #211e3a) 영역 brand 정합. */
-  --pipe-bg: #0f0f1a;
-  --pipe-surface: #1a1830;
-  --pipe-hover: #211e3a;
+  /* surfaces — deeper black v4 (사용자 catch "너무 밝음").
+     직전 #0a0a0a / #14141a / #1c1c22 → 영역 더 깊 #050508 / #0a0a0a / #14141a.
+     body 영역 #000 + 박스 영역 #0a0a0a (subtle). */
+  --pipe-bg: #050508;
+  --pipe-surface: #0a0a0a;
+  --pipe-hover: #14141a;
 
-  /* shadow scale */
-  --pipe-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
-  --pipe-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
-  --pipe-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.6);
-  --pipe-shadow-glow: 0 0 18px rgba(167, 139, 250, 0.28);
+  /* shadow scale — black 영역 영역 영역 + white glow alpha ↓. */
+  --pipe-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --pipe-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.6);
+  --pipe-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.7);
+  --pipe-shadow-glow: 0 0 14px rgba(255, 255, 255, 0.10);
 }
 
 /* 카메라 셀카 미러링 — NodeInput 안의 video / canvas 영역 transform. */
@@ -94,7 +100,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
+  background: linear-gradient(180deg, #f3f4f6 0%, #d1d5db 100%);
   border-radius: 1px;
   height: 0%;
   transition: height 80ms linear;
@@ -113,7 +119,8 @@
 .snn-pipeline {
   position: absolute;
   inset: 0;
-  background: var(--pipe-bg);
+  /* deeper black v4 — pipeline canvas 영역 #000 (사용자 catch "너무 밝음"). */
+  background: #000000;
   overflow: auto;
   /* polish v2 (2026-05-05) — token: padding md (12) + gap (10 ≈ sm+xs hybrid).
      UI/UX 40% weight 영역 — 사용자 catch "여백 0" 정합. */
@@ -191,7 +198,9 @@
      모든 node uniform width + uniform height (align-items: stretch). */
   display: grid;
   grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
-  align-items: stretch;
+  /* content-fit v4 — align-items stretch 폐기 → start 영역 박스 영역 content 영역
+     비례 영역 height fit (사용자 catch "빈 영역 0"). */
+  align-items: start;
   gap: var(--pipe-gap-md);
   min-width: 0;
   width: 100%;
@@ -207,83 +216,61 @@
   }
 }
 
-/* persistent bezier connector v4 (2026-05-05) — UI/UX 10/100 redesign.
-   사용자 명시: "연결 라인 항상 visible + cyan tone glow + flow dot 항상 흐름".
-   직전 dim 영역 영역 (active flag 영역 stroke alpha 분기) 영역 — 본 영역 항상 강
-   visible + flow dot 영역 항상 animate. is-active 영역 영역 brightness/glow 강도 ↑. */
+/* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.
+   직전 bezier + dash anim + animateMotion dot + drop-shadow glow 영역 모두 폐기.
+   영역 영역 영역 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).
+   transition 영역 color 영역만, animation/filter 영역 0. */
 .snn-pipeline-arrow {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   flex-shrink: 0;
   width: 28px;
-  align-self: stretch;
-  position: relative;
-  transition: filter 240ms ease, opacity 240ms ease;
-  opacity: 1;
-  /* base glow — 항상 visible 영역 가시성 강 + tone 통일 정합. */
-  filter: drop-shadow(0 0 4px rgba(var(--pipe-tone-cyan), 0.32));
+  align-self: center;
+  /* idle — gray (subtle, 영역 영역 영역 영역 영역 영역). */
+  color: rgba(255, 255, 255, 0.40);
+  transition: color 200ms ease;
 }
 .snn-pipeline-arrow svg {
-  width: 100%;
-  height: 100%;
   display: block;
   overflow: visible;
 }
-/* persistent edge path — 항상 visible. is-active 영역 영역 stroke 진하 영역. */
 .snn-pipeline-conn-path {
-  stroke-opacity: 0.55;
-  transition: stroke-opacity 220ms ease, stroke-width 220ms ease;
+  transition: stroke-width 200ms ease;
 }
-.snn-pipeline-arrow.is-active .snn-pipeline-conn-path {
-  stroke-opacity: 1;
-  stroke-width: 2.4;
-}
-/* animated dash overlay — active 영역 0.9s loop stream visualize (사용자 catch). */
-.snn-pipeline-conn-dash {
-  pointer-events: none;
-  filter: drop-shadow(0 0 3px rgba(var(--pipe-tone-cyan-light), 0.6));
-}
+/* active — white (강) 영역 영역, glow/shadow 0. */
 .snn-pipeline-arrow.is-active {
-  filter: drop-shadow(0 0 8px rgba(var(--pipe-tone-cyan), 0.6))
-          drop-shadow(0 0 4px rgba(var(--pipe-tone-cyan-light), 0.4));
-}
-/* flow dot — 항상 animateMotion. idle 영역 0.55 alpha + 작 영역, active 영역 1.0 + glow. */
-.snn-pipeline-conn-dot {
-  opacity: 0.6;
-  transition: opacity 240ms ease;
-  filter: drop-shadow(0 0 3px rgba(var(--pipe-tone-cyan-light), 0.7));
-}
-.snn-pipeline-arrow.is-active .snn-pipeline-conn-dot {
-  opacity: 1;
-  filter: drop-shadow(0 0 6px rgba(var(--pipe-tone-cyan-light), 1))
-          drop-shadow(0 0 12px rgba(var(--pipe-tone-cyan), 0.6));
+  color: rgba(255, 255, 255, 0.95);
 }
 @media (max-width: 900px) {
   .snn-pipeline-arrow {
     transform: rotate(90deg);
     width: auto;
-    height: 28px;
+    height: 20px;
     margin: var(--pipe-gap-xs) 0;
   }
 }
 
 .snn-pipeline-node {
-  background: linear-gradient(180deg, rgba(28, 28, 36, 0.96) 0%, rgba(16, 16, 22, 0.96) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  /* deeper black v4 — surface #0a0a0a (직전 #1c1c24 / #101016 — 사용자 "너무 밝음"). */
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--pipe-radius-sm);
   /* viewport fit v3 — grid layout (parent: snn-pipeline-flow) 영역 column 영역 width
      자동 (1fr) — flex sizing 폐기. min-width 0 영역 grid item 영역 flex shrink 정합. */
   min-width: 0;
-  /* uniform height v3 — min-height 380px 영역 모든 박스 동일 base + content fit body.
-     align-items: stretch (parent grid) 영역 짧은 박스 영역 늘려 동일 height 정합. */
-  min-height: 380px;
+  /* content-fit v4 (2026-05-05 사용자 catch "빈 영역 catch") — uniform 380px 폐기.
+     박스 영역 content 영역 비례 영역 height fit. parent grid align-items: start
+     (직전 stretch) 영역 짧은 박스 영역 영역 영역 영역 정합. min-height 영역 200px
+     (정직 안정성 영역 — 너무 짧 영역 영역 영역). */
+  min-height: 200px;
+  height: max-content;
   display: flex;
   flex-direction: column;
-  font-size: var(--pipe-font-sm);
+  font-size: var(--pipe-font-md);
   color: var(--pipe-text);
   box-shadow: var(--pipe-shadow-md),
-              0 1px 0 rgba(255, 255, 255, 0.04) inset;
+              0 1px 0 rgba(255, 255, 255, 0.03) inset;
   transition: border-color 200ms ease, box-shadow 200ms ease, transform 180ms ease;
 }
 .snn-pipeline-node:hover {
@@ -422,7 +409,9 @@
 .snn-pipeline-node-title {
   font-weight: 700;
   letter-spacing: 0.12em;
-  font-size: var(--pipe-font-md);
+  /* readable v4 — title 14px (직전 12 영역 너무 작음 + 정합 본 영역 hierarchy). */
+  font-size: var(--pipe-font-lg);
+  color: var(--pipe-text);
 }
 /* cyan single tone — 5 노드 영역 동일 cyan light accent 영역 통일. */
 .snn-pipeline-node--input .snn-pipeline-node-title,
@@ -450,30 +439,30 @@
 .snn-pipeline-node-body {
   display: flex;
   flex-direction: column;
-  gap: var(--pipe-gap-sm);
-  /* polish v2 (2026-05-05) — flow stretch 영역 영역 body flex grow 영역 자식 영역
-     영역 영역 분포 영역 정합 (uniform height + 여백 0). */
-  flex: 1 1 auto;
-  padding: 10px var(--pipe-gap-md) var(--pipe-gap-md);
+  /* content-fit v4 — gap md (12) + padding 14×14 영역 정합 (사용자 catch "spacing rhythm").
+     flex grow 폐기 — 박스 영역 content fit (직전 stretch 영역 빈 영역 catch). */
+  gap: var(--pipe-gap-md);
+  padding: 14px var(--pipe-gap-md) var(--pipe-gap-md);
 }
 
 .snn-pipeline-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  font-size: var(--pipe-font-xs);
+  gap: var(--pipe-gap-sm);
+  font-size: var(--pipe-font-md);
+  line-height: 1.4;
 }
 .snn-pipeline-row-label {
-  /* contrast (WCAG 1.4.3): 0.6 → 0.75 영역 #18181e 영역 ~5.5:1 (AA pass). */
-  color: rgba(255, 255, 255, 0.75);
+  /* readable v4 — gray-500 (#6b7280) dim + 11px (직전 9px 영역 너무 작음). */
+  color: var(--pipe-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 9px;
+  font-size: var(--pipe-font-xs);
 }
 .snn-pipeline-row-value {
   text-align: right;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--pipe-text);
   word-break: break-all;
 }
 .snn-pipeline-mono { font-family: ui-monospace, monospace; }
@@ -533,21 +522,23 @@
   margin-top: 2px;
   line-height: 1.3;
 }
+/* phase indicator — monochrome (사용자 mandatory). 영역 lightness 영역 단계 영역 정합:
+   idle (dim) → amber/orange (mid-light) → green (light) → blue (mid) → fuchsia (mid-dark pulse). */
 .snn-pipeline-phase--idle   { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
-.snn-pipeline-phase--amber  { background: rgba(var(--pipe-tone-learn), 0.12);  border-color: rgba(var(--pipe-tone-learn), 0.40); color: #fde68a; }
-.snn-pipeline-phase--orange { background: rgba(249,115,22,0.12);  border-color: rgba(249,115,22,0.40); color: #fdba74; }
-.snn-pipeline-phase--green  { background: rgba(34,197,94,0.15);   border-color: rgba(34,197,94,0.45);  color: #bbf7d0; }
-.snn-pipeline-phase--blue   { background: rgba(59,130,246,0.12);  border-color: rgba(59,130,246,0.40); color: #bfdbfe; }
-/* EVOLVING — fuchsia pulse 영역 cluster unfreeze 시각 신호 (lifelong learning). */
+.snn-pipeline-phase--amber  { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.30); color: #f3f4f6; }
+.snn-pipeline-phase--orange { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.35); color: #f9fafb; }
+.snn-pipeline-phase--green  { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.40); color: #ffffff; }
+.snn-pipeline-phase--blue   { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.28); color: #e5e7eb; }
+/* EVOLVING — white pulse 영역 cluster unfreeze 시각 신호 (lifelong learning). */
 .snn-pipeline-phase--fuchsia {
-  background: rgba(217,70,239,0.12);
-  border-color: rgba(217,70,239,0.45);
-  color: #f5d0fe;
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.42);
+  color: #f9fafb;
   animation: snn-evolving-pulse 1.6s ease-in-out infinite;
 }
 @keyframes snn-evolving-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(217,70,239,0.0); }
-  50%      { box-shadow: 0 0 12px 2px rgba(217,70,239,0.35); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.0); }
+  50%      { box-shadow: 0 0 10px 2px rgba(255,255,255,0.20); }
 }
 @media (prefers-reduced-motion: reduce) {
   .snn-pipeline-phase--fuchsia { animation: none; }
@@ -557,11 +548,11 @@
 .snn-pipeline-hint {
   padding: 5px var(--pipe-gap-sm);
   border-radius: var(--pipe-gap-xs);
-  background: rgba(var(--pipe-tone-infer), 0.06);
-  border: 1px dashed rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-glow));
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
   font-size: var(--pipe-font-xs);
   line-height: 1.35;
-  color: rgba(221, 214, 254, 0.85);
+  color: rgba(229, 231, 235, 0.85);
 }
 
 .snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 2px; }
@@ -584,7 +575,7 @@
   font-size: var(--pipe-font-xs);
   opacity: 0.85;
 }
-.snn-pipeline-cluster-label.is-done { color: #86efac; opacity: 1; }
+.snn-pipeline-cluster-label.is-done { color: #ffffff; opacity: 1; }
 .snn-pipeline-cluster-label.is-active { color: rgb(var(--pipe-tone-cyan-light)); opacity: 1; font-weight: 600; }
 .snn-pipeline-cluster-bar {
   flex: 1;
@@ -602,14 +593,14 @@
   opacity: 0.7;
 }
 .snn-pipeline-fill-amber {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  background: linear-gradient(90deg, #6b7280, #d1d5db);
 }
 .snn-pipeline-fill-green {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.45) inset;
+  background: linear-gradient(90deg, #9ca3af, #ffffff);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.18) inset;
 }
 .snn-pipeline-fill-cyan {
-  background: linear-gradient(90deg, #7c3aed, #c4b5fd);
+  background: linear-gradient(90deg, #6b7280, #e5e7eb);
 }
 .snn-mode-progress-fill.is-active {
   animation: snn-pipeline-fill-pulse 1.6s ease-in-out infinite;
@@ -628,12 +619,12 @@
   color: rgba(255,255,255,0.55);
 }
 /* 현재 자세 카드 — TRAINED 영역 winner 영역 본격 표시.
-   polish v2 — vertical padding 6 영역 tight (uniform body flex grow 영역). */
+   readable v4 — padding 8×12 (직전 6×10 영역 영역 영역) + content-fit. */
 .snn-pipeline-current {
-  padding: 6px 10px;
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md);
   border-radius: 6px;
-  background: rgba(var(--pipe-tone-infer), 0.05);
-  border: 1px solid rgba(var(--pipe-tone-infer), 0.25);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   text-align: center;
   transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
@@ -644,21 +635,23 @@
   animation: snn-pipeline-current-pulse 2.2s ease-in-out infinite;
 }
 @keyframes snn-pipeline-current-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), 0 0 12px rgba(167, 139, 250, 0.18); }
-  50%      { box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.45), 0 0 22px rgba(167, 139, 250, 0.32); }
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 0 10px rgba(255, 255, 255, 0.10); }
+  50%      { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.30), 0 0 18px rgba(255, 255, 255, 0.20); }
 }
 .snn-pipeline-current-label {
-  font-size: 9px;
+  font-size: var(--pipe-font-xs);
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: rgba(221, 214, 254, 0.7);
+  color: var(--pipe-text-dim);
 }
 .snn-pipeline-current-value {
-  font-size: var(--pipe-font-xl);
+  /* readable v4 — value 18px (직전 14 영역 영역 영역 영역 영역, hierarchy 강). */
+  font-size: 18px;
   font-weight: 700;
-  color: #ddd6fe;
+  color: var(--pipe-text);
   margin-top: 2px;
   font-family: ui-monospace, monospace;
+  line-height: 1.2;
 }
 .snn-pipeline-current.is-active .snn-pipeline-current-value { color: rgb(var(--pipe-tone-infer)); }
 
@@ -675,8 +668,8 @@
   animation: snn-pipeline-winner-pulse 1.8s ease-in-out infinite;
 }
 @keyframes snn-pipeline-winner-pulse {
-  0%, 100% { background: rgba(167,139,250,0.10); }
-  50%      { background: rgba(167,139,250,0.20); }
+  0%, 100% { background: rgba(255, 255, 255, 0.06); }
+  50%      { background: rgba(255, 255, 255, 0.14); }
 }
 .snn-pipeline-rate-label { width: 56px; font-size: var(--pipe-font-xs); }
 .snn-pipeline-rate-bar {
@@ -690,25 +683,30 @@
 }
 .snn-pipeline-warn {
   padding: var(--pipe-gap-xs) 6px; border-radius: 3px;
-  background: rgba(251,146,60,0.12);
-  border: 1px solid rgba(251,146,60,0.4);
-  color: #fdba74; font-size: var(--pipe-font-xs);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  color: #f3f4f6; font-size: var(--pipe-font-xs);
 }
 
 /* OUT */
 .snn-pipeline-out-winner {
   display: flex; justify-content: center;
-  padding: 6px 0;
+  /* content-fit v4 — vertical padding 4 (직전 6 영역 영역 영역 영역 영역). */
+  padding: var(--pipe-gap-xs) 0;
 }
 .snn-pipeline-out-winner-empty {
-  font-size: 18px; color: rgba(255,255,255,0.5);
+  /* readable v4 — empty placeholder 영역 dim 정합 (직전 18px 영역 너무 큼). */
+  font-size: var(--pipe-font-md);
+  color: var(--pipe-text-dim);
+  letter-spacing: 0.04em;
 }
 .snn-pipeline-out-winner-btn {
-  background: rgba(var(--pipe-tone-out), 0.10);
-  border: 1px solid rgba(var(--pipe-tone-out), 0.35);
-  color: rgb(var(--pipe-tone-cyan-light));
-  padding: 6px var(--pipe-gap-md); border-radius: var(--pipe-gap-xs);
-  font-size: var(--pipe-font-xl); font-weight: 600;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--pipe-text);
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: var(--pipe-gap-xs);
+  /* readable v4 — winner btn 영역 16px (직전 14 영역 영역 hierarchy ↑). */
+  font-size: var(--pipe-font-title); font-weight: 600;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
   transition: background 0.15s, border-color 0.15s;
@@ -738,20 +736,25 @@
   outline: none;
 }
 .snn-pipeline-out-input:focus { border-color: rgba(var(--pipe-tone-out), 0.85); }
-/* polish v2 — 4 cluster count 영역 2x2 grid 영역 영역 정합 (사용자 "빈 line"
-   catch 영역 균등 분배). 좁은 220px node 영역 2 col 영역 영역 영역 영역. */
+/* dense rows v4 (사용자 catch "OUT 4 라벨 영역 영역 4 row 영역 fit 빈 영역 0").
+   직전 2x2 grid 영역 빈 영역 catch — 본 영역 단일 column 4 row 영역 dense + label
+   left + value right (visual hierarchy 영역 정합). */
 .snn-pipeline-out-counts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px var(--pipe-gap-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .snn-pipeline-out-count-row {
   display: flex; justify-content: space-between;
   align-items: baseline;
-  gap: var(--pipe-gap-xs);
-  font-size: var(--pipe-font-xs); padding: 1px 0;
+  gap: var(--pipe-gap-sm);
+  /* readable v4 — body 13px (직전 10 영역 영역 영역). */
+  font-size: var(--pipe-font-md);
+  padding: 2px 0;
   min-width: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
+.snn-pipeline-out-count-row:last-child { border-bottom: 0; }
 .snn-pipeline-out-count-label {
   opacity: 0.85;
   overflow: hidden;
@@ -843,8 +846,8 @@
   flex-direction: column;
   gap: var(--pipe-gap-xs);
 }
-.snn-pipeline-llm-result.is-ok   { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.08); }
-.snn-pipeline-llm-result.is-fail { border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.08); }
+.snn-pipeline-llm-result.is-ok   { border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.06); }
+.snn-pipeline-llm-result.is-fail { border-color: rgba(255,255,255,0.20); background: rgba(255,255,255,0.04); }
 .snn-pipeline-llm-ctrl-hint {
   font-size: 9px; color: rgba(255,255,255,0.6);
   font-family: ui-monospace, monospace;
@@ -867,41 +870,41 @@
   animation: snn-pipeline-toast-in 220ms ease-out;
 }
 .snn-pipeline-toast--ok {
-  border-color: rgba(34,197,94,0.5);
-  background: rgba(20, 35, 24, 0.95);
-  color: #bbf7d0;
+  border-color: rgba(255,255,255,0.40);
+  background: rgba(18, 18, 22, 0.96);
+  color: #f9fafb;
 }
 .snn-pipeline-toast--fail {
-  border-color: rgba(248,113,113,0.5);
-  background: rgba(38, 18, 18, 0.95);
-  color: #fecaca;
+  border-color: rgba(255,255,255,0.20);
+  background: rgba(10, 10, 12, 0.96);
+  color: #d1d5db;
 }
 @keyframes snn-pipeline-toast-in {
   from { opacity: 0; transform: translate(-50%, 6px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* phase 별 background tint — pipeline 영역 분위기 정합 (violet warm 정합 2026-05-05). */
-.snn-pipeline.is-phase-untrained { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0e0d18 100%); }
-.snn-pipeline.is-phase-learning  { background: linear-gradient(180deg, var(--pipe-bg) 0%, #14102a 100%); }
-.snn-pipeline.is-phase-partial   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #150f24 100%); }
-.snn-pipeline.is-phase-trained   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0a1410 100%); }
-.snn-pipeline.is-phase-inference { background: linear-gradient(180deg, var(--pipe-bg) 0%, #110a26 100%); }
+/* phase 별 background tint — monochrome (사용자 mandatory). 영역 lightness 영역 미세 단계. */
+.snn-pipeline.is-phase-untrained { background: linear-gradient(180deg, var(--pipe-bg) 0%, #08080a 100%); }
+.snn-pipeline.is-phase-learning  { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0e0e12 100%); }
+.snn-pipeline.is-phase-partial   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0c0c10 100%); }
+.snn-pipeline.is-phase-trained   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #101014 100%); }
+.snn-pipeline.is-phase-inference { background: linear-gradient(180deg, var(--pipe-bg) 0%, #12121a 100%); }
 
-/* TRAINED phase 영역 LEARN 노드 영역 green glow + ✓ checkmark badge — 학습 완료 영역 사용자 영역 본격 영역. */
+/* TRAINED phase 영역 LEARN 노드 영역 white glow + ✓ checkmark badge (monochrome 정합). */
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
-  border-color: rgba(34, 197, 94, 0.55);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.22),
-              0 0 18px rgba(34, 197, 94, 0.22),
-              0 4px 16px rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18),
+              0 0 16px rgba(255, 255, 255, 0.14),
+              0 4px 16px rgba(0, 0, 0, 0.5);
 }
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title {
-  color: #bbf7d0;
+  color: #ffffff;
 }
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title::after {
   content: ' ✓';
-  color: #4ade80;
-  text-shadow: 0 0 8px rgba(74, 222, 128, 0.65);
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.45);
   font-weight: 800;
 }
 
@@ -998,14 +1001,14 @@
    - cyan single tone (light/main/dark) 영역 3 카드 영역 lightness 차별 (사용자 명시 정합).
    - 모바일 (≤900) 영역 hide (공간 부족 — MobileBottomBar 별도). */
 :root {
-  /* violet single-tone scale — light/main/dark 영역 sparkline 영역 정합. legacy
-     name (cyan/amber/violet) 영역 보존 — SummaryCard tone prop 영역 lightness 차별. */
-  --spark-cyan:        #c4b5fd;
-  --spark-cyan-fill:   #a78bfa;
-  --spark-amber:       #a78bfa;
-  --spark-amber-fill:  #8b5cf6;
-  --spark-violet:      #8b5cf6;
-  --spark-violet-fill: #7c3aed;
+  /* monochrome scale — light/main/dark grayscale 영역 sparkline 영역 정합. legacy
+     name (cyan/amber/violet) 영역 보존 — SummaryCard tone prop 영역 lightness 차별만. */
+  --spark-cyan:        #f3f4f6;
+  --spark-cyan-fill:   #d1d5db;
+  --spark-amber:       #d1d5db;
+  --spark-amber-fill:  #9ca3af;
+  --spark-violet:      #9ca3af;
+  --spark-violet-fill: #6b7280;
 }
 .snn-pipeline-dashboard {
   display: grid;

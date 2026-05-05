@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0c;
-  --foreground: #ededed;
+  /* deeper black v2 (2026-05-05 사용자 catch "너무 밝음") — body #000 + foreground gray-300.
+     직전 #0a0a0c (slight gray) + #ededed (near-white) 영역 white 100% 영역 가독성 catch.
+     본 영역 #000 + #d1d5db (gray-300) 영역 contrast ~13:1 (AAA pass) + 차분 정합. */
+  --background: #000000;
+  --foreground: #d1d5db;
 }
 
 html, body {
@@ -43,15 +46,16 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  /* monochrome scrollbar — gray-700 영역 (직전 white alpha 0.15 + violet hover 영역 정합 영역). */
+  background: #374151;
   border-radius: 4px;
   transition: background 180ms ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(167, 139, 250, 0.4);
+  background: #4b5563;
 }
 ::-webkit-scrollbar-thumb:active {
-  background: rgba(167, 139, 250, 0.55);
+  background: #6b7280;
 }
 ::-webkit-scrollbar-corner {
   background: transparent;

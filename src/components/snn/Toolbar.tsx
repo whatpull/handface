@@ -7,10 +7,7 @@ interface ToolbarProps {
   view: 'region' | 'neuron';
   onViewChange: (v: 'region' | 'neuron') => void;
   onStatusChange?: (msg: string) => void;
-  onStatsResult?: (data: unknown) => void;
   onBrainBuilder?: () => void;
-  onPredict?: () => void;
-  onConfusion?: () => void;
 }
 
 const groupCls = 'flex items-center gap-1';
@@ -20,14 +17,13 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
 export default function Toolbar({
-  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict, onConfusion,
+  view, onViewChange, onStatusChange, onBrainBuilder,
 }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = createActions({
     busy,
     setBusy,
     status: (m) => onStatusChange?.(m),
-    onStatsResult,
   });
   const onBrain = () => onBrainBuilder?.();
 
@@ -56,31 +52,11 @@ export default function Toolbar({
       </div>
       <div className={sepCls} aria-hidden />
       <div className={groupCls}>
-        <button
-          type="button"
-          className={btnCls + ' bg-emerald-500/15 text-emerald-200'}
-          onClick={actions.train}
-          disabled={busy === 'Train'}
-        >
-          <Icon kind="play" /> Train
-        </button>
-        <button type="button" className={btnCls} onClick={actions.eval} disabled={busy === 'Eval'}>
-          <Icon kind="target" /> Eval
-        </button>
-        <button type="button" className={btnCls} onClick={() => onPredict?.()}>
-          <Icon kind="predict" /> Predict
-        </button>
-        <button type="button" className={btnCls} onClick={() => onConfusion?.()}>
-          <Icon kind="matrix" /> Matrix
-        </button>
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
         </button>
         <button type="button" className={btnCls} onClick={onBrain}>
           <Icon kind="brain" /> Brain
-        </button>
-        <button type="button" className={btnCls} onClick={actions.stats} disabled={busy === 'Stats'}>
-          <Icon kind="stats" /> Stats
         </button>
       </div>
       <div className={sepCls} aria-hidden />
@@ -120,36 +96,10 @@ function Icon({ kind }: { kind: string }) {
           <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" /><path d="M12 12V8" />
         </svg>
       );
-    case 'play':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3" /></svg>
-      );
-    case 'target':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
-        </svg>
-      );
     case 'reset':
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
-        </svg>
-      );
-    case 'predict':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
-          <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6z" />
-        </svg>
-      );
-    case 'matrix':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       );
     case 'brain':
@@ -158,12 +108,6 @@ function Icon({ kind }: { kind: string }) {
           <rect x="6" y="6" width="12" height="12" rx="1.5" /><rect x="9" y="9" width="6" height="6" rx="0.5" />
           <path d="M9 2v4" /><path d="M15 2v4" /><path d="M9 18v4" /><path d="M15 18v4" />
           <path d="M2 9h4" /><path d="M2 15h4" /><path d="M18 9h4" /><path d="M18 15h4" />
-        </svg>
-      );
-    case 'stats':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
         </svg>
       );
     case 'save':

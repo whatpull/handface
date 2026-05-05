@@ -5,13 +5,11 @@ import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
-import StatsPanel from '@/components/snn/StatsPanel';
-import PredictPanel from '@/components/snn/PredictPanel';
-import ConfusionPanel from '@/components/snn/ConfusionPanel';
 import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import CameraQuickControls from '@/components/snn/CameraQuickControls';
+import OutNodeOverlay from '@/components/snn/OutNodeOverlay';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
@@ -22,10 +20,6 @@ export default function Editor() {
   const [cameraConnected, setCameraConnected] = useState(false);
   const [view, setView] = useState<'region' | 'neuron'>('neuron');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [statsData, setStatsData] = useState<unknown>(null);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [predictOpen, setPredictOpen] = useState(false);
-  const [confusionOpen, setConfusionOpen] = useState(false);
   const [brainOpen, setBrainOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -36,7 +30,6 @@ export default function Editor() {
     busy,
     setBusy,
     status: setStatus,
-    onStatsResult: (d) => { setStatsData(d); setStatsOpen(true); },
   });
 
   useEffect(() => {
@@ -67,10 +60,7 @@ export default function Editor() {
             view={view}
             onViewChange={setView}
             onStatusChange={setStatus}
-            onStatsResult={(d) => { setStatsData(d); setStatsOpen(true); }}
             onBrainBuilder={() => setBrainOpen(true)}
-            onPredict={() => setPredictOpen(true)}
-            onConfusion={() => setConfusionOpen(true)}
           />
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <Canvas
@@ -79,30 +69,18 @@ export default function Editor() {
               cameraConnected={cameraConnected}
               view={view}
             />
-            <StatsPanel
-              open={statsOpen}
-              data={statsData as Parameters<typeof StatsPanel>[0]['data']}
-              onClose={() => setStatsOpen(false)}
-            />
-            <PredictPanel
-              open={predictOpen}
-              cameraConnected={cameraConnected}
-              onClose={() => setPredictOpen(false)}
-            />
-            <ConfusionPanel
-              open={confusionOpen}
-              cameraConnected={cameraConnected}
-              onClose={() => setConfusionOpen(false)}
-            />
             <HandTrackerHost
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
             {view === 'neuron' && (
-              <CameraQuickControls
-                key={`cam-controls-${canvasNonce}`}
-                cameraConnected={cameraConnected}
-              />
+              <>
+                <CameraQuickControls
+                  key={`cam-controls-${canvasNonce}`}
+                  cameraConnected={cameraConnected}
+                />
+                <OutNodeOverlay key={`out-overlay-${canvasNonce}`} />
+              </>
             )}
           </div>
           {status && (
@@ -117,15 +95,11 @@ export default function Editor() {
           <MobileBottomBar
             view={view}
             onViewChange={setView}
-            onTrain={mobileActions.train}
-            onPredict={() => setPredictOpen(true)}
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
-            onEval={mobileActions.eval}
             onLoad={mobileActions.load}
             onExport={mobileActions.exportCircuit}
             onImport={mobileActions.importCircuit}
-            onStats={mobileActions.stats}
             onBrain={() => setBrainOpen(true)}
           />
         </main>

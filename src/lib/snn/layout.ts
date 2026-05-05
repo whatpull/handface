@@ -77,16 +77,14 @@ const VIRTUAL_SOURCE: Array<LayoutNode> = [
 ];
 
 // SOURCE → INPUT 시냅스 (시각적 데이터 흐름 표시용).
+// feature16 preset: src_gesture → in_feat_0..15 (16-dim hand feature).
 const VIRTUAL_SOURCE_SYNAPSES: BackendSynapse[] = [
-  { pre: 'src_camera',  post: 'src_gesture', weight: 50 },
-  { pre: 'src_gesture', post: 'in_pinch',    weight: 50 },
-  { pre: 'src_gesture', post: 'in_fist',     weight: 50 },
-  { pre: 'src_gesture', post: 'in_palm',     weight: 50 },
-  { pre: 'src_gesture', post: 'in_point',    weight: 50 },
-  { pre: 'src_gesture', post: 'in_gaze',     weight: 50 },
-  { pre: 'src_gesture', post: 'in_blink',    weight: 50 },
-  { pre: 'src_gesture', post: 'in_thumbsup', weight: 50 },
-  { pre: 'src_gesture', post: 'in_victory',  weight: 50 },
+  { pre: 'src_camera', post: 'src_gesture', weight: 50 },
+  ...Array.from({ length: 16 }, (_, i) => ({
+    pre: 'src_gesture',
+    post: `in_feat_${i}`,
+    weight: 50,
+  } as BackendSynapse)),
 ];
 
 export function layoutSnapshot(

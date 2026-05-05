@@ -38,7 +38,10 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     (async () => {
       // 백엔드에서 실제 회로 로드 — frontend 고정 노드 폐기.
       const client = getClient();
-      // 학습 weight 자동 복원 (네트워크 ensure 후 1회만 적용).
+      // 1) 커뮤니티 baseline 자동 적용 (D1 aggregate weight) — 1회.
+      const { applyCommunityBaselineOnce } = await import('@/lib/snn/community-baseline');
+      await applyCommunityBaselineOnce().catch(() => null);
+      // 2) 사용자 본인 snapshot 복원 — community 위에 덮어씀 (본인 학습 우선).
       const { restoreSnapshotOnce } = await import('@/lib/snn/auto-snapshot');
       await restoreSnapshotOnce().catch(() => null);
       const r = await client.getFullSnapshot();

@@ -44,22 +44,6 @@ interface FireResponse {
   synapses?: Array<{ pre: string; post: string; weight: number }>;
 }
 
-const GESTURE_TO_OUT: Record<string, string> = {
-  pointing: 'out_0',
-  openpalm: 'out_1',
-  thumbsup: 'out_2',
-  victory:  'out_3',
-};
-
-// gesture → input neuron name 매핑 (백엔드 HANDFACE_INPUT_MAP 정합).
-// induce_fire 직접 호출 시 사용 — handface_train 의 weight 상한 (25) 우회.
-const GESTURE_TO_INPUT: Record<string, string> = {
-  pointing: 'in_point',
-  openpalm: 'in_palm',
-  thumbsup: 'in_thumbsup',
-  victory:  'in_victory',
-};
-
 export class NeuronFaceClient {
   endpoint: string;
   apiKey: string;
@@ -144,25 +128,32 @@ export class NeuronFaceClient {
     return { ok: true, data: this.networkId };
   }
 
-  // cortical preset 적용 — INPUT 8개 + V1/V2 다층 + OUT 4개 시냅스 회로 구축.
-  // 네트워크에 이미 회로가 있으면 skip (snapshot 으로 검사 + 409 응답도 성공 취급).
+  // feature16 preset 적용 — INPUT 16개 (in_feat_0..15) + V1/V2 + OUT 4 회로 구축.
+  // 16-dim hand feature 를 그대로 입력으로 받는 정공법. 8 카테고리 INPUT 압축 손실 회피.
   private async ensureCorticalPreset(): Promise<Result<unknown>> {
     if (this.presetEnsured || !this.networkId) return { ok: true, data: null };
-    // 1. snapshot 로 in_pinch / 다수 neuron 존재 확인 (구버전 회로도 인정).
     const snap = await this.request<NetworkSnapshot>(`/networks/${this.networkId}`);
     if (snap.ok) {
       const neurons = snap.data.neurons || [];
-      const hasInputs = neurons.some((n) => n.name?.startsWith('in_'));
-      if (hasInputs || neurons.length > 0) {
+      const hasFeat16 = neurons.some((n) => n.name?.startsWith('in_feat_'));
+      if (hasFeat16) {
         this.presetEnsured = true;
         return { ok: true, data: null };
       }
+      // 구 cortical 회로 (in_pinch 등) 인 경우 → overwrite 로 feature16 으로 교체.
+      if (neurons.length > 0) {
+        const r = await this.request(`/networks/${this.networkId}/presets/feature16`, {
+          method: 'POST',
+          body: { overwrite: true, v_threshold: -55.0, v1_l4e_count: 50 },
+        });
+        if (r.ok || r.status === 409) {
+          this.presetEnsured = true;
+          return { ok: true, data: null };
+        }
+        return r;
+      }
     }
-    // 2. 비어 있으면 신규 적용 시도. 409 는 "이미 회로 있음" → 성공 취급.
-    // v1_l4e_count=50 (백엔드 min): lateral recurrent (~10% density of N×N)
-    // 4000 → 250 시냅스로 16x 감소, simulation 속도 약 5x 향상.
-    // 시각화는 어차피 population 당 12개만 sampling 하므로 손실 없음.
-    const r = await this.request(`/networks/${this.networkId}/presets/cortical`, {
+    const r = await this.request(`/networks/${this.networkId}/presets/feature16`, {
       method: 'POST',
       body: { overwrite: false, v_threshold: -55.0, v1_l4e_count: 50 },
     });
@@ -177,116 +168,6 @@ export class NeuronFaceClient {
     const r = await this.ensureNetwork();
     if (!r.ok) return r;
     return { ok: true, data: { id: r.data } };
-  }
-
-  // 단일 gesture inject (학습 없이) — induce_fire 로 V_th=-55 cascade 가능한 weight=80 사용.
-  async sendGesture(gesture: string, intensity = 1.0): Promise<Result<FireResponse>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const target = GESTURE_TO_INPUT[gesture];
-    if (!target) return { ok: false, reason: `unknown gesture: ${gesture}` };
-    const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
-      method: 'POST',
-      body: {
-        neuron_name: target, weight: 80 * intensity,
-        stimulus_duration_ms: 30, observe_ms: 200,
-        stdp: false, stdp_mode: 'pair',
-      },
-    });
-    if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture, intensity });
-    return r;
-  }
-
-  async sendGestures(gestures: string[]): Promise<Result<FireResponse[]>> {
-    const out: FireResponse[] = [];
-    for (const g of gestures) {
-      const r = await this.sendGesture(g);
-      if (r.ok) out.push(r.data);
-    }
-    return { ok: true, data: out };
-  }
-
-  // Train — handface_train_supervised: gesture INPUT + target_out supervisor 동시 자극.
-  // Hebbian co-activation 으로 gesture→OUT 매핑 학습.
-  // 이전 induce_fire (target_out 없음) 는 모든 gesture 가 동일 OUT 에 수렴하는 문제.
-  async trainCascade(
-    gestures: string[],
-    trials = 3,
-    onProgress?: (done: number, total: number) => void,
-  ): Promise<Result<{ trained: number; failed: number; total: number }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    let trained = 0;
-    let failed = 0;
-    let done = 0;
-    const total = trials * gestures.length;
-    for (let t = 0; t < trials; t += 1) {
-      for (const g of gestures) {
-        const targetOut = GESTURE_TO_OUT[g];
-        if (!targetOut) { failed += 1; done += 1; onProgress?.(done, total); continue; }
-        const r = await this.request<FireResponse>(`/networks/${net.data}/handface_train_supervised`, {
-          method: 'POST',
-          body: {
-            type: 'gesture', name: g,
-            intensity: 3.75,                 // weight = 5 + 3.75*20 = 80 (V_th=-55 cascade)
-            observe_ms: 80,
-            stimulus_duration_ms: 15,
-            target_out: targetOut,
-            stdp: true,
-            stdp_mode: 'pair',
-            supervisor_weight: 60,           // OUT 강제 fire 보장
-            supervisor_delay_ms: 30,         // cascade arrival 정합
-          },
-        });
-        if (r.ok && r.data.ok !== false) {
-          trained += 1;
-          emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture: g });
-        } else {
-          failed += 1;
-        }
-        done += 1;
-        onProgress?.(done, total);
-      }
-    }
-    emitBackendEvent('training-changed', { trained });
-    return { ok: true, data: { trained, failed, total } };
-  }
-
-  // Eval — STDP 없이 inject → out_rates winner 와 정답 비교.
-  async evalDecode(
-    gestures: string[],
-    trials = 2,
-    onProgress?: (done: number, total: number) => void,
-  ): Promise<Result<{ correct: number; total: number; accuracy: number }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    let correct = 0;
-    let total = 0;
-    let done = 0;
-    const totalCalls = trials * gestures.length;
-    for (let t = 0; t < trials; t += 1) {
-      for (const g of gestures) {
-        const target = GESTURE_TO_INPUT[g];
-        if (!target) { done += 1; onProgress?.(done, totalCalls); continue; }
-        const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
-          method: 'POST',
-          body: {
-            neuron_name: target, weight: 80,
-            stimulus_duration_ms: 15, observe_ms: 60,
-            stdp: false, stdp_mode: 'pair',
-          },
-        });
-        done += 1;
-        onProgress?.(done, totalCalls);
-        if (!r.ok || r.data.ok === false) continue;
-        total += 1;
-        emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture: g });
-        const rates = r.data.rates || {};
-        const winner = pickWinner(filterOut(rates));
-        if (winner && winner === GESTURE_TO_OUT[g]) correct += 1;
-      }
-    }
-    return { ok: true, data: { correct, total, accuracy: total > 0 ? correct / total : 0 } };
   }
 
   async reset(mode: 'dynamics' | 'all' = 'dynamics'): Promise<Result<unknown>> {
@@ -325,14 +206,18 @@ export class NeuronFaceClient {
   }
 
   // Load 용 — 저장된 시냅스 weight 복원 (synapses 만, neurons 는 이미 있어야 함).
-  async loadSnapshot(synapses: Array<{ pre: string; post: string; weight: number }>): Promise<Result<unknown>> {
+  // silent=true: 자동 restore 시 circuit-changed 미발화 (auto-snapshot self-wipe 회피).
+  async loadSnapshot(
+    synapses: Array<{ pre: string; post: string; weight: number }>,
+    opts: { silent?: boolean } = {},
+  ): Promise<Result<unknown>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
     const r = await this.request(`/networks/${net.data}/training/load`, {
       method: 'POST',
       body: { synapses },
     });
-    if (r.ok) emitBackendEvent('circuit-changed', {});
+    if (r.ok && !opts.silent) emitBackendEvent('circuit-changed', {});
     return r;
   }
 
@@ -361,53 +246,8 @@ export class NeuronFaceClient {
     return r;
   }
 
-  // 단일 gesture 예측 — induce_fire (STDP off) → winner + OUT rates 4개.
-  // gesture: 'pointing' | 'openpalm' | 'thumbsup' | 'victory'
-  async predict(gesture: string): Promise<Result<{
-    gesture: string;
-    expectedOut: string;
-    winner: string | null;
-    winnerRate: number;
-    outRates: Record<string, number>;
-    correct: boolean;
-    confidence: number;
-  }>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    const target = GESTURE_TO_INPUT[gesture];
-    const expectedOut = GESTURE_TO_OUT[gesture] || '';
-    if (!target) return { ok: false, reason: `unknown gesture: ${gesture}` };
-    const r = await this.request<FireResponse>(`/networks/${net.data}/induce_fire`, {
-      method: 'POST',
-      body: {
-        neuron_name: target, weight: 80,
-        stimulus_duration_ms: 15, observe_ms: 60,
-        stdp: false, stdp_mode: 'pair',
-      },
-    });
-    if (!r.ok || r.data.ok === false) return { ok: false, reason: r.ok ? 'backend rejected' : r.reason };
-    emitBackendEvent<NeuronFiringDetail>('neuron-firing', { ...(r.data as NeuronFiringDetail), gesture });
-    const rates = r.data.rates || {};
-    const outRates = filterOut(rates);
-    const winner = pickWinner(outRates);
-    const winnerRate = winner ? (outRates[winner] || 0) : 0;
-    const totalRate = Object.values(outRates).reduce((s, v) => s + v, 0);
-    const confidence = totalRate > 0 ? winnerRate / totalRate : 0;
-    return {
-      ok: true,
-      data: {
-        gesture,
-        expectedOut,
-        winner,
-        winnerRate,
-        outRates,
-        correct: winner === expectedOut,
-        confidence,
-      },
-    };
-  }
-
-  // 8-dim pattern 자극 (handface MediaPipe feature → INPUT 8 매핑).
+  // 16-dim hand feature 직접 inject — feature16 preset 정합.
+  // pattern: 16-vector (curls 5 + angles 5 + pinch + spread + palm_open + orient_x/y + wrist_roll).
   // target_out 지정 시 supervised STDP 학습.
   async injectPattern(
     pattern: number[],
@@ -421,11 +261,16 @@ export class NeuronFaceClient {
   ): Promise<Result<FireResponse>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
-    const r = await this.request<FireResponse>(`/networks/${net.data}/inject_pattern`, {
+    // 16-dim padding/clamping — 부족하면 0 으로 채움, 초과는 잘라냄.
+    const p16 = new Array<number>(16).fill(0);
+    for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+      const v = pattern[i];
+      p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+    }
+    const r = await this.request<FireResponse>(`/networks/${net.data}/inject_feature16`, {
       method: 'POST',
       body: {
-        modality: 'gesture',
-        pattern: pattern.slice(0, 8),
+        pattern: p16,
         intensity: opts.intensity ?? 3.75,
         stimulus_duration_ms: opts.stimulusDurationMs ?? 15,
         observe_ms: opts.observeMs ?? 80,
@@ -438,6 +283,51 @@ export class NeuronFaceClient {
     });
     if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', r.data as NeuronFiringDetail);
     return r;
+  }
+
+  // 커뮤니티 — 학습 weight 기여 + 집계 baseline 가져오기.
+  async contributeWeights(
+    contributorId?: string | null,
+  ): Promise<Result<{ ok: boolean; inserted: number }>> {
+    const snap = await this.getSnapshot();
+    if (!snap.ok) return snap;
+    return this.request(`/community/weights/contribute`, {
+      method: 'POST',
+      body: {
+        synapses: snap.data.synapses ?? [],
+        contributor_id: contributorId ?? null,
+        network_preset: 'feature16',
+      },
+    });
+  }
+
+  async fetchCommunityWeights(
+    minContributors = 1,
+  ): Promise<Result<{
+    ok: boolean;
+    synapses: Array<{ pre: string; post: string; weight: number; contributors: number; samples: number }>;
+    count: number;
+  }>> {
+    return this.request(
+      `/community/weights/aggregate?network_preset=feature16&min_contributors=${minContributors}`,
+    );
+  }
+
+  async contributeExemplar(
+    outKey: string,
+    feature: number[],
+    label: string | null,
+    contributorId?: string | null,
+  ): Promise<Result<{ ok: boolean }>> {
+    return this.request(`/community/exemplars/contribute`, {
+      method: 'POST',
+      body: {
+        out_key: outKey,
+        feature: feature.slice(0, 64),
+        label,
+        contributor_id: contributorId ?? null,
+      },
+    });
   }
 
   // 한 gesture 라벨로 N frame 의 pattern 을 supervised 학습.
@@ -458,26 +348,6 @@ export class NeuronFaceClient {
     return { ok: true, data: { trained, total: patterns.length } };
   }
 
-  async getStats(): Promise<Result<unknown>> {
-    const net = await this.ensureNetwork();
-    if (!net.ok) return net;
-    return this.request(`/networks/${net.data}/region-summary`, { method: 'POST', body: {} });
-  }
-}
-
-function filterOut(rates: Record<string, number>): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const k in rates) if (k.startsWith('out_')) out[k] = rates[k];
-  return out;
-}
-
-function pickWinner(rates: Record<string, number>): string | null {
-  let winner: string | null = null;
-  let max = 0;
-  for (const [k, v] of Object.entries(rates)) {
-    if (v > max) { max = v; winner = k; }
-  }
-  return winner;
 }
 
 let _client: NeuronFaceClient | null = null;

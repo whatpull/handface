@@ -9,82 +9,15 @@ interface BrainBuilderDialogProps {
   onClose: () => void;
 }
 
-// 백엔드 build 라우트 카탈로그. 카드 카테고리별 그룹화.
+// 백엔드 build 라우트 카탈로그 — 제스처 연구 관련 3개만 노출.
+// (basal_ganglia: action selection / cerebellum: 정밀 타이밍 / dorsal_stream: where 경로)
 const BUILDERS: Array<{ category: string; items: Array<{ id: string; label: string; path: string; body?: object }> }> = [
   {
-    category: 'Hippocampus',
+    category: 'Gesture-relevant',
     items: [
-      { id: 'hippo',    label: 'Hippocampus (CA3 + CA1)', path: '/hippocampus/build' },
-      { id: 'dg',       label: 'Dentate Gyrus',          path: '/hippocampus/dg_build' },
-      { id: 'ec',       label: 'Entorhinal Cortex',       path: '/entorhinal/build' },
-      { id: 'spatial',  label: 'Place + Grid cells',      path: '/spatial/build' },
-    ],
-  },
-  {
-    category: 'Cortex',
-    items: [
-      { id: 'pfc',     label: 'PFC',                     path: '/pfc/build' },
-      { id: 'acc',     label: 'ACC',                     path: '/acc/build' },
-      { id: 'insula',  label: 'Insula',                  path: '/insula/build' },
-      { id: 'sma',     label: 'SMA',                     path: '/sma/build' },
-      { id: 'premotor', label: 'Premotor',               path: '/premotor/build' },
-      { id: 'm1',      label: 'M1 (motor)',              path: '/m1/build' },
-      { id: 's1',      label: 'S1 (somatosensory)',      path: '/s1/build' },
-      { id: 'fef',     label: 'FEF (frontal eye field)', path: '/fef/build' },
-      { id: 'tpj',     label: 'TPJ',                     path: '/tpj/build' },
-      { id: 'rsc',     label: 'RSC',                     path: '/rsc/build' },
-      { id: 'ofc',     label: 'OFC',                     path: '/ofc/build' },
-      { id: 'mirror',  label: 'Mirror neurons',          path: '/mirror_neurons/build' },
-    ],
-  },
-  {
-    category: 'Visual',
-    items: [
-      { id: 'ventral',  label: 'Ventral stream',         path: '/ventral_stream/build' },
-      { id: 'dorsal',   label: 'Dorsal stream',          path: '/dorsal_stream/build' },
-      { id: 'lgn',      label: 'LGN',                    path: '/lgn/build' },
-      { id: 'v4_color', label: 'V4 color',               path: '/v4_color/build' },
-    ],
-  },
-  {
-    category: 'Subcortical',
-    items: [
-      { id: 'amg',      label: 'Amygdala',               path: '/amygdala/build' },
-      { id: 'bg',       label: 'Basal Ganglia',          path: '/basal_ganglia/build' },
-      { id: 'crb',      label: 'Cerebellum',             path: '/cerebellum/build' },
-      { id: 'thal',     label: 'Thalamus',               path: '/thalamus/build' },
-      { id: 'hypo',     label: 'Hypothalamus',           path: '/hypothalamus/build' },
-      { id: 'striatum', label: 'Striatum tail',          path: '/striatum_tail/build' },
-      { id: 'caudate',  label: 'Caudate-Putamen',        path: '/caudate-putamen/build' },
-      { id: 'gp',       label: 'Globus Pallidus',        path: '/globus-pallidus/build' },
-      { id: 'stn',      label: 'Subthalamic Nucleus',    path: '/stn/build' },
-      { id: 'snc',      label: 'SNc',                    path: '/snc/build' },
-      { id: 'mb',       label: 'Mammillary Body',        path: '/mb/build' },
-      { id: 'habenula', label: 'Habenula',               path: '/habenula/build' },
-      { id: 'sc',       label: 'Superior Colliculus',    path: '/sc/build' },
-    ],
-  },
-  {
-    category: 'Brainstem & Modulators',
-    items: [
-      { id: 'brainstem',label: 'Brainstem',              path: '/brainstem/build' },
-      { id: 'lc',       label: 'Locus Coeruleus (NE)',   path: '/lc/build' },
-      { id: 'bf',       label: 'Basal Forebrain (ACh)',  path: '/bf/build' },
-      { id: 'raphe',    label: 'Raphe (5-HT)',           path: '/raphe/build' },
-      { id: 'reward',   label: 'Reward (VTA)',           path: '/reward/build' },
-      { id: 'reticular',label: 'Reticular',              path: '/reticular/build' },
-    ],
-  },
-  {
-    category: 'Other',
-    items: [
-      { id: 'spinal',   label: 'Spinal Cord',            path: '/spinal/build' },
-      { id: 'auditory', label: 'Auditory Cortex',        path: '/auditory_cortex/build' },
-      { id: 'olfactory',label: 'Olfactory',              path: '/olfactory/build' },
-      { id: 'language', label: 'Language',               path: '/language/build' },
-      { id: 'astro',    label: 'Astrocytes',             path: '/astrocytes/build' },
-      { id: 'sn',       label: 'Substantia Nigra',       path: '/sn/build' },
-      { id: 'dmn',      label: 'Default Mode Network',   path: '/dmn/build' },
+      { id: 'bg',     label: 'Basal Ganglia (action selection)', path: '/basal_ganglia/build' },
+      { id: 'crb',    label: 'Cerebellum (정밀 타이밍)',          path: '/cerebellum/build' },
+      { id: 'dorsal', label: 'Dorsal stream (where/how)',         path: '/dorsal_stream/build' },
     ],
   },
 ];

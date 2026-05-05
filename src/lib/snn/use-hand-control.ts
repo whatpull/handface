@@ -1,11 +1,11 @@
-// 카메라 기반 학습 + Live Predict 공유 훅 — PredictPanel / CameraQuickControls 가 동시 사용.
-// hand-feature 이벤트 구독 + featRef 보유 + train(N frame supervised) + live tick.
+// 카메라 기반 학습 훅 — CameraQuickControls 에서 사용.
+// hand-feature 이벤트 구독 + featRef 보유 + autoCapture (자율 STDP) + 호환용 수동 train.
 
 import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
-import { featuresToInputs } from '@/lib/mediapipe/input-mapper';
 import { incrementTrainCount } from '@/lib/snn/train-counts';
+import { recordExemplar } from '@/lib/snn/out-exemplars';
 
 export const HAND_GESTURES = [
   { id: 'pointing', label: 'Pointing',  short: 'P', out: 'out_0' },
@@ -24,7 +24,13 @@ const TRAIN_FRAMES = 30;
 const TRAIN_INTERVAL_MS = 80;
 const PREDICT_INTERVAL_MS = 600;
 
-export function useHandControl(cameraConnected: boolean) {
+// autoCapture 파라미터.
+const AUTO_TICK_MS = 350;          // STDP-on inject 주기
+const STABILITY_FRAMES = 4;        // 같은 winner N frame 연속 → 안정
+const MIN_CONFIDENCE = 0.4;        // winner / total ratio
+const COOLDOWN_MS = 1500;          // 같은 OUT 연속 record 최소 간격
+
+export function useHandControl(cameraConnected: boolean, autoLive = false, autoCapture = false) {
   const [hasHand, setHasHand] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [trainStatus, setTrainStatus] = useState<string>('');
@@ -34,7 +40,6 @@ export function useHandControl(cameraConnected: boolean) {
   const featRef = useRef<number[] | null>(null);
   const hasHandRef = useRef(false);
 
-  // hand-feature 이벤트 구독 → 최신 feature ref + UI state 동기.
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
       featRef.current = d.feature;
@@ -44,7 +49,14 @@ export function useHandControl(cameraConnected: boolean) {
     return off;
   }, []);
 
-  // N frame 캡처 → supervised STDP.
+  // autoLive: 카메라 연결과 동기화.
+  useEffect(() => {
+    if (!autoLive) return;
+    setLivePredict(cameraConnected);
+    if (!cameraConnected) setLiveResult(null);
+  }, [autoLive, cameraConnected]);
+
+  // 수동 N frame supervised — 외부 호출자용 (현재 미사용 가능).
   const train = async (gestureId: string, targetOut: string, label: string) => {
     if (busy || !cameraConnected) return;
     setBusy(gestureId);
@@ -61,7 +73,7 @@ export function useHandControl(cameraConnected: boolean) {
         setTrainStatus(`✗ ${label}: 손 미감지 (${i}/${TRAIN_FRAMES})`);
         break;
       }
-      patterns.push(featuresToInputs(featRef.current));
+      patterns.push(featRef.current.slice(0, 16));
       setTrainStatus(`${label} 캡처 ${i + 1}/${TRAIN_FRAMES}…`);
       await new Promise((r) => setTimeout(r, TRAIN_INTERVAL_MS));
     }
@@ -79,14 +91,15 @@ export function useHandControl(cameraConnected: boolean) {
     setBusy(null);
   };
 
-  // Live predict — 600ms 주기 inject_pattern.
+  // 표시용 Live predict (STDP=false, 600ms) — autoCapture 모드일 땐 비활성화 (autoCapture 가 winner 도 채움).
   useEffect(() => {
+    if (autoCapture) return;
     if (!livePredict || !cameraConnected) return;
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
       if (hasHandRef.current && featRef.current) {
-        const pattern = featuresToInputs(featRef.current);
+        const pattern = featRef.current.slice(0, 16);
         const r = await getClient().injectPattern(pattern, { stdp: false });
         if (cancelled) return;
         if (r.ok) {
@@ -107,7 +120,73 @@ export function useHandControl(cameraConnected: boolean) {
     };
     tick();
     return () => { cancelled = true; };
-  }, [livePredict, cameraConnected]);
+  }, [autoCapture, livePredict, cameraConnected]);
+
+  // autoCapture: STDP-on inject (target_out 없음) → winner 발생 → 안정 시 self-reinforce + exemplar 기록.
+  // OUT 들이 자율적으로 패턴별 selectivity 형성하도록 유도. 사용자 클릭 zero.
+  useEffect(() => {
+    if (!autoCapture || !cameraConnected) {
+      setLiveResult(null);
+      return;
+    }
+    let cancelled = false;
+    let lastWinner: string | null = null;
+    let stableCount = 0;
+    const lastRecordAt: Record<string, number> = {};
+
+    const tick = async () => {
+      if (cancelled) return;
+      const feat = featRef.current;
+      if (!hasHandRef.current || !feat) {
+        lastWinner = null;
+        stableCount = 0;
+        setLiveResult(null);
+        if (!cancelled) setTimeout(tick, AUTO_TICK_MS);
+        return;
+      }
+      const pattern = feat.slice(0, 16);
+      // 자율 STDP — target_out 없이 STDP=on. cortical lateral 회로가 winner 결정.
+      const r = await getClient().injectPattern(pattern, { stdp: true });
+      if (cancelled) return;
+      if (r.ok) {
+        const rates = (r.data.out_rates || {}) as Record<string, number>;
+        let winner: string | null = null;
+        let max = 0;
+        let total = 0;
+        for (const [k, v] of Object.entries(rates)) {
+          total += v;
+          if (v > max) { max = v; winner = k; }
+        }
+        const conf = total > 0 ? max / total : 0;
+        setLiveResult({ winner, rates, confidence: conf });
+
+        if (winner && conf >= MIN_CONFIDENCE) {
+          if (winner === lastWinner) stableCount += 1;
+          else { lastWinner = winner; stableCount = 1; }
+
+          if (stableCount >= STABILITY_FRAMES) {
+            const now = Date.now();
+            const last = lastRecordAt[winner] || 0;
+            if (now - last >= COOLDOWN_MS) {
+              lastRecordAt[winner] = now;
+              // self-reinforce: 같은 winner 를 supervisor 로 강제 (Hebbian co-activation 강화).
+              await getClient().injectPattern(pattern, { stdp: true, targetOut: winner });
+              recordExemplar(winner, feat);
+              setTrainStatus(`✓ ${winner} 강화 (안정 발화 캡처)`);
+              // 한 번 캡처 후 stability 리셋 — 손 잠깐 흔들고 다시 안정화될 때까지 대기.
+              stableCount = 0;
+            }
+          }
+        } else {
+          stableCount = 0;
+          lastWinner = null;
+        }
+      }
+      if (!cancelled) setTimeout(tick, AUTO_TICK_MS);
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [autoCapture, cameraConnected]);
 
   return {
     hasHand,

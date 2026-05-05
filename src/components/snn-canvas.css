@@ -216,20 +216,92 @@
 .snn-canvas-neuron--output   .snn-canvas-neuron-card { --neuron-color: #5eead4; }
 .snn-canvas-neuron--region   .snn-canvas-neuron-card { --neuron-color: #c4b5fd; min-width: 160px; }
 
-/* OUT 카드 — status / rate row 강조. */
+/* OUT 카드 — label mount + rate row 강조. */
 .snn-canvas-out-card {
-  min-width: 130px;
-}
-.snn-canvas-out-status {
-  font-weight: 600;
-  letter-spacing: 0.05em;
-}
-.snn-canvas-out-status--active {
-  color: #5eead4;
-  text-shadow: 0 0 6px rgba(94, 234, 212, 0.6);
+  min-width: 140px;
 }
 .snn-canvas-out-rate {
   font-family: ui-monospace, monospace;
+}
+
+/* OUT 노드 label/rename UI — drawflow node 내부 portal mount. */
+.snn-out-label-mount {
+  pointer-events: auto;
+  margin-bottom: 4px;
+}
+.snn-out-label {
+  width: 100%;
+}
+.snn-out-label-display {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: left;
+}
+.snn-out-label-display:hover {
+  background: rgba(94, 234, 212, 0.12);
+  border-color: rgba(94, 234, 212, 0.4);
+  color: #99f6e4;
+}
+.snn-out-label-display--named {
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.35);
+  background: rgba(94, 234, 212, 0.08);
+  font-weight: 600;
+}
+.snn-out-label-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snn-out-label-count {
+  min-width: 14px;
+  height: 13px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: rgba(16, 185, 129, 0.7);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.snn-out-label-pen {
+  opacity: 0.45;
+  flex-shrink: 0;
+}
+.snn-out-label-display:hover .snn-out-label-pen { opacity: 0.9; }
+
+.snn-out-label-edit {
+  width: 100%;
+}
+.snn-out-label-input {
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(94, 234, 212, 0.6);
+  background: rgba(15, 17, 23, 0.95);
+  color: #5eead4;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  outline: none;
+}
+.snn-out-label-input:focus {
+  border-color: rgba(94, 234, 212, 1);
+  box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.2);
 }
 
 /* SOURCE 카드 (Camera/Gesture) — placeholder body. */
@@ -293,60 +365,110 @@
 }
 .snn-cam-video { object-fit: cover; }
 
-/* Camera 노드 안 Quick Controls — Train 단축 + Live 토글 + winner inline. */
+/* Camera 노드 — 항상-Live 인터페이스. footer 1줄 고정 (chip + ▾ picker). */
 .snn-cam-controls {
   position: absolute;
   inset: 0;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
-.snn-cam-winner {
-  pointer-events: none;
-  align-self: flex-start;
-  margin: 4px;
-  padding: 2px 6px;
-  background: rgba(167, 139, 250, 0.85);
-  color: white;
-  border-radius: 3px;
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-}
-.snn-cam-winner-label { font-weight: 700; }
-.snn-cam-winner-conf { font-size: 9px; opacity: 0.75; }
-
 .snn-cam-toolbar {
+  position: relative;
   pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 4px;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%);
+  height: 30px;            /* 고정 — winner/busy/empty 어떤 상태든 동일 */
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%);
 }
-.snn-cam-train-group {
-  display: flex;
-  gap: 2px;
+
+/* Chip — winner / status / empty 통합 표시. 클릭 시 winner 라벨로 학습. */
+.snn-cam-chip {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  overflow: hidden;
+  text-align: left;
+  min-width: 0;
 }
+.snn-cam-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.snn-cam-chip-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snn-cam-chip-meta {
+  font-size: 9px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.snn-cam-chip:disabled { cursor: default; }
+
+/* state variants */
+.snn-cam-chip--winner {
+  background: rgba(167, 139, 250, 0.28);
+  border-color: rgba(167, 139, 250, 0.55);
+  color: #ddd6fe;
+}
+.snn-cam-chip--winner:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.45);
+  border-color: rgba(167, 139, 250, 0.85);
+  color: white;
+}
+.snn-cam-chip--busy {
+  background: rgba(94, 234, 212, 0.22);
+  border-color: rgba(94, 234, 212, 0.55);
+  color: #99f6e4;
+  animation: snn-cam-chip-pulse 1.4s ease-in-out infinite;
+}
+.snn-cam-chip--empty {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+}
+@keyframes snn-cam-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+/* ▾ picker 버튼 + 일반 btn 베이스 (다른 곳에서 재사용). */
 .snn-cam-btn {
-  background: rgba(0, 0, 0, 0.5);
+  position: relative;
+  background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: rgba(255, 255, 255, 0.85);
   width: 22px;
   height: 22px;
   border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: ui-monospace, monospace;
+  flex-shrink: 0;
 }
 .snn-cam-btn:hover:not(:disabled) {
   background: rgba(167, 139, 250, 0.3);
@@ -357,54 +479,10 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
-.snn-cam-btn--busy {
-  background: rgba(167, 139, 250, 0.4);
-  color: #c4b5fd;
-}
-.snn-cam-btn--trained {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #6ee7b7;
-}
-.snn-cam-btn-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 11px;
-  height: 11px;
-  padding: 0 2px;
-  border-radius: 6px;
-  background: #10b981;
-  color: white;
-  font-size: 8px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-.snn-cam-btn { position: relative; }
-.snn-cam-btn--live {
-  /* size 동일 — P/O/T/V 와 일관된 정사각형 22×22 (SVG 아이콘 정중앙 정렬). */
-  margin-left: 4px;
-}
-.snn-cam-btn--live-on {
-  background: rgba(94, 234, 212, 0.3);
-  border-color: rgba(94, 234, 212, 0.7);
-  color: #5eead4;
-  box-shadow: 0 0 6px rgba(94, 234, 212, 0.4);
-}
-
-.snn-cam-status {
-  pointer-events: none;
-  margin: 0 4px 4px;
-  padding: 2px 6px;
-  background: rgba(0, 0, 0, 0.7);
-  color: rgba(255, 255, 255, 0.85);
-  border-radius: 3px;
-  font-family: ui-monospace, monospace;
-  font-size: 9px;
-  text-align: center;
+.snn-cam-btn--reset:hover:not(:disabled) {
+  background: rgba(244, 114, 182, 0.25);
+  border-color: rgba(244, 114, 182, 0.6);
+  color: #f9a8d4;
 }
 
 /* gesture 노드 — 16-dim feature 막대 그래프. */

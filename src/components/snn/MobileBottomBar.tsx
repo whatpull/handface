@@ -5,15 +5,11 @@ import { useState } from 'react';
 interface MobileBottomBarProps {
   view: 'region' | 'neuron';
   onViewChange: (v: 'region' | 'neuron') => void;
-  onTrain: () => void;
-  onPredict: () => void;
   onSave: () => void;
   onReset: () => void;
-  onEval: () => void;
   onLoad: () => void;
   onExport: () => void;
   onImport: () => void;
-  onStats: () => void;
   onBrain: () => void;
 }
 
@@ -30,14 +26,6 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
         aria-label="Mobile editor toolbar"
         className="flex w-full border-t border-white/5 bg-[#0d0d10]/95 md:hidden"
       >
-        <button type="button" className={slot} onClick={p.onTrain} aria-label="Train">
-          <Icon kind="play" />
-          Train
-        </button>
-        <button type="button" className={slot} onClick={p.onPredict} aria-label="Predict">
-          <Icon kind="predict" />
-          Predict
-        </button>
         <button type="button" className={slot} onClick={p.onSave} aria-label="Save">
           <Icon kind="save" />
           Save
@@ -84,8 +72,6 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
             <div className="mb-3">
               <div className="mb-1.5 text-[10px] uppercase tracking-wider text-white/40">Action</div>
               <div className="grid grid-cols-2 gap-1.5">
-                <SheetBtn label="Eval"  onClick={() => { setMoreOpen(false); p.onEval(); }} />
-                <SheetBtn label="Stats" onClick={() => { setMoreOpen(false); p.onStats(); }} />
                 <SheetBtn label="Brain" onClick={() => { setMoreOpen(false); p.onBrain(); }} />
                 <SheetBtn label="Load"  onClick={() => { setMoreOpen(false); p.onLoad(); }} />
                 <SheetBtn label="Export" onClick={() => { setMoreOpen(false); p.onExport(); }} />
@@ -119,15 +105,6 @@ function SheetBtn({ label, onClick, active = false }: { label: string; onClick: 
 function Icon({ kind }: { kind: string }) {
   const c = 'h-4 w-4';
   switch (kind) {
-    case 'play':
-      return <svg viewBox="0 0 24 24" className={c} fill="currentColor"><polygon points="6 3 20 12 6 21 6 3" /></svg>;
-    case 'predict':
-      return (
-        <svg viewBox="0 0 24 24" className={c} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
-          <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
-          <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6z" />
-        </svg>
-      );
     case 'save':
       return (
         <svg viewBox="0 0 24 24" className={c} fill="none" stroke="currentColor" strokeWidth="1.6">

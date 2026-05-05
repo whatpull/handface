@@ -81,10 +81,7 @@ export function renderNodeHtml(n: LayoutNode): string {
           <span class="snn-canvas-neuron-label">${n.label}</span>
         </div>
         <div class="snn-canvas-neuron-body">
-          <div class="snn-canvas-neuron-row">
-            <span class="snn-canvas-neuron-row-label">status</span>
-            <span class="snn-canvas-neuron-row-value snn-canvas-out-status">idle</span>
-          </div>
+          <div class="snn-out-label-mount" data-out-key="${n.id}"></div>
           <div class="snn-canvas-neuron-row">
             <span class="snn-canvas-neuron-row-label">rate</span>
             <span class="snn-canvas-neuron-row-value snn-canvas-out-rate">0</span>

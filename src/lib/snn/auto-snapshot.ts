@@ -6,9 +6,12 @@ import { getClient } from '@/lib/backend/client';
 import { onBackendEvent } from '@/lib/backend/events';
 import { clearTrainCounts } from '@/lib/snn/train-counts';
 
-const KEY = 'handface.training.snapshot.v1';
+// v2: feature16 preset (in_feat_0..15) 도입 — v1 (in_pinch 등 8-INPUT) snapshot 은
+// 시냅스 pre/post 이름이 다르므로 자동 폐기.
+const KEY = 'handface.training.snapshot.v2';
+const KEY_LEGACY_V1 = 'handface.training.snapshot.v1';
 const DEBOUNCE_MS = 1500;
-const VERSION = 1;
+const VERSION = 2;
 
 interface StoredSnapshot {
   version: number;
@@ -33,6 +36,27 @@ async function saveNow(): Promise<void> {
   } catch (e) {
     console.warn('[auto-snapshot] save failed:', e);
   }
+  // 커뮤니티 자동 기여 — 사용자 학습이 누적될수록 baseline 향상.
+  // 실패해도 로컬 save 는 유효. 비차단.
+  try {
+    const cid = getOrCreateContributorId();
+    void getClient().contributeWeights(cid).catch(() => null);
+  } catch { /* noop */ }
+}
+
+const CID_KEY = 'handface.community.contributor.id';
+function getOrCreateContributorId(): string {
+  if (typeof window === 'undefined') return 'anon';
+  try {
+    let v = localStorage.getItem(CID_KEY);
+    if (!v) {
+      v = `c_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+      localStorage.setItem(CID_KEY, v);
+    }
+    return v;
+  } catch {
+    return 'anon';
+  }
 }
 
 function scheduleSave() {
@@ -47,6 +71,8 @@ export async function restoreSnapshotOnce(): Promise<{ restored: boolean; count:
   if (restoredOnce) return { restored: false, count: 0 };
   restoredOnce = true;
   if (typeof window === 'undefined') return { restored: false, count: 0 };
+  // v1 stale 자동 청소 (8-INPUT 회로용 — 16-INPUT 회로와 호환 안 됨).
+  try { localStorage.removeItem(KEY_LEGACY_V1); } catch { /* noop */ }
   const raw = localStorage.getItem(KEY);
   if (!raw) return { restored: false, count: 0 };
   try {
@@ -55,7 +81,7 @@ export async function restoreSnapshotOnce(): Promise<{ restored: boolean; count:
     if (!Array.isArray(stored.synapses) || stored.synapses.length === 0) {
       return { restored: false, count: 0 };
     }
-    const r = await getClient().loadSnapshot(stored.synapses);
+    const r = await getClient().loadSnapshot(stored.synapses, { silent: true });
     if (!r.ok) return { restored: false, count: 0 };
     return { restored: true, count: stored.synapses.length };
   } catch (e) {

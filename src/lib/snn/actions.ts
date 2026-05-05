@@ -3,14 +3,12 @@
 
 import { getClient } from '@/lib/backend/client';
 
-const GESTURES = ['pointing', 'openpalm', 'thumbsup', 'victory'];
-const SNAPSHOT_KEY = 'handface.training.snapshot.v1';
+const SNAPSHOT_KEY = 'handface.training.snapshot.v2';
 
 interface ActionHooks {
   setBusy: (label: string | null) => void;
   busy: string | null;
   status: (msg: string) => void;
-  onStatsResult?: (data: unknown) => void;
 }
 
 export function createActions(h: ActionHooks) {
@@ -24,42 +22,19 @@ export function createActions(h: ActionHooks) {
   };
 
   return {
-    train: () => run('Train', async () => {
-      const t0 = performance.now();
-      // supervised 학습 — 3 trials × 4 gestures = 12 호출.
-      const r = await getClient().trainCascade(GESTURES, 3, (done, total) => {
-        const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-        h.status(`Train ${done}/${total}… (${elapsed}s)`);
-      });
-      const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      h.status(r.ok ? `✓ Train (${r.data.trained}/${r.data.total} trials, ${dt}s)` : `✗ Train: ${r.reason}`);
-    }),
-
-    eval: () => run('Eval', async () => {
-      const t0 = performance.now();
-      const r = await getClient().evalDecode(GESTURES, 2, (done, total) => {
-        const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-        h.status(`Eval ${done}/${total}… (${elapsed}s)`);
-      });
-      if (!r.ok) { h.status(`✗ Eval: ${r.reason}`); return; }
-      const { correct, total, accuracy } = r.data;
-      h.status(`✓ Eval ${correct}/${total} (${(accuracy * 100).toFixed(0)}%)`);
-    }),
-
-    // Reset = 전체 회로 초기화 (누적 뉴런/시냅스 폐기 → base cortical preset 만).
+    // Reset = 전체 회로 초기화 (누적 뉴런/시냅스 폐기 → base feature16 preset 만).
     // 학습된 weight + 추가된 region (Brain/Grow) 전부 손실.
     reset: () => run('Reset', async () => {
       if (!confirm(
-        '회로를 초기 상태(base cortical preset)로 재구성합니다.\n\n' +
+        '회로를 초기 상태(feature16 preset)로 재구성합니다.\n\n' +
         '· 학습된 weight 모두 손실\n' +
-        '· Brain Builder 로 추가한 region 모두 폐기\n' +
-        '· Grow 로 추가한 뉴런 모두 폐기\n\n계속할까요?',
+        '· Brain Builder 로 추가한 region 모두 폐기\n\n계속할까요?',
       )) {
         h.status('cancelled');
         return;
       }
       const r = await getClient().rebuildToBaseline();
-      h.status(r.ok ? '✓ Reset (base cortical preset)' : `✗ Reset: ${r.reason}`);
+      h.status(r.ok ? '✓ Reset (feature16 preset)' : `✗ Reset: ${r.reason}`);
     }),
 
     save: () => run('Save', async () => {
@@ -110,12 +85,5 @@ export function createActions(h: ActionHooks) {
       };
       input.click();
     },
-
-    stats: () => run('Stats', async () => {
-      const r = await getClient().getStats();
-      if (!r.ok) { h.status(`✗ Stats: ${r.reason}`); return; }
-      h.onStatsResult?.(r.data);
-      h.status('✓ Stats opened');
-    }),
   };
 }

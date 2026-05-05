@@ -300,13 +300,13 @@ export default function ModeIndicator() {
               <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
                 rstdp: {rstdp.pulses} pulses · last +{rstdp.lastDeltaSum.toFixed(2)} ({rstdp.lastSynapses} syn × {rstdp.lastReward.toFixed(1)}x)
               </div>
-              {/* 정직 catch 명시 — backend apply_rstdp_pulse 영역 winner path LTP 만 증폭 (target_out 영역 0 default).
-                  즉 R-STDP 호출 = winner monopoly 강화 catch. 정정 = backend endpoint 변경 mandatory (사용자 명시 영역).
-                  거짓 회피 — 사용자 영역 사실 노출. */}
+              {/* 사실 catch — backend commit 443f69c (target_post_prefix) + frontend 정합 적용.
+                  use-hand-control 영역 supervised cluster 의 `out_{cluster}_` prefix 만 amplify
+                  → winner 와 무관하게 supervised teacher cluster 강화 (monopoly 회피 본격). */}
               <div className="mt-0.5 text-[10px] leading-tight text-amber-300/90">
-                ⚠ R-STDP active — winner reinforce only (monopoly catch).
+                R-STDP target cluster amplify (monopoly 회피 본격)
                 <br />
-                <span className="opacity-70">backend endpoint 영역 target cluster 영역 변경 mandatory.</span>
+                <span className="opacity-70">target_post_prefix = supervised cluster 의 OUT 시냅스만 LTP 증폭.</span>
               </div>
             </>
           )}

@@ -238,12 +238,16 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       const r = await getClient().injectPattern(pattern, { stdp: true, targetOut });
       if (cancelled) return;
       // supervised inject 누적 — N=10 마다 mild R-STDP pulse (LTP delta 1.5x 증폭).
+      // target_post_prefix=`out_${cluster}_` — supervised teacher cluster 의 8 OUT 시냅스만
+      // amplify. winner 와 무관하게 supervised target cluster 만 강화 → silence cluster 학습
+      // 시작 영역 보장 (monopoly 회피 본격 영역, backend commit 443f69c 정합).
       if (supervised && r.ok) {
         supervisedInjectCount += 1;
-        if (snapshotReady && supervisedInjectCount % RSTDP_EVERY_SUPERVISED === 0) {
+        if (snapshotReady && supervisedInjectCount % RSTDP_EVERY_SUPERVISED === 0 && cluster !== null) {
           void getClient().applyRStdpPulse({
             rewardStrength: RSTDP_REWARD_MILD,
             positiveOnly: true,
+            targetPostPrefix: `out_${cluster}_`,
           }).catch(() => null);
         }
       }
@@ -292,11 +296,14 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
               await getClient().injectPattern(pattern, { stdp: true, targetOut: reinforceTarget });
               // 정답 일치 영역 strong R-STDP pulse — supervised teacher cluster 와 winner cluster
               // 완전 일치 시 가장 결정적 강화 시점. snapshot baseline 이후 누적 LTP delta 2x amplify.
+              // target_post_prefix=`out_${cluster}_` — supervised teacher cluster 의 OUT 시냅스만
+              // amplify (backend commit 443f69c 정합). winner==cluster 일치 영역 mandatory.
               const winnerCluster = m ? Number(m[1]) : null;
               if (snapshotReady && supervised && winnerCluster !== null && winnerCluster === cluster) {
                 void getClient().applyRStdpPulse({
                   rewardStrength: RSTDP_REWARD_STRONG,
                   positiveOnly: true,
+                  targetPostPrefix: `out_${cluster}_`,
                 }).catch(() => null);
               }
               recordExemplar(winner, feat);

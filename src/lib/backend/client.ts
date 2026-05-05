@@ -361,12 +361,16 @@ export class NeuronFaceClient {
   // Phase 174: R-STDP pulse — reward-modulated STDP (Izhikevich 2007 / Frémaux & Gerstner 2016).
   // snapshot 영역 vs 현재 weight delta 영역 (reward_strength - 1) 만큼 추가 amplify.
   // positive_only=true → LTP delta 만 증폭 (winner path 강화), LTD delta 무시.
+  // targetPostPrefix (backend commit 443f69c) — post neuron name prefix filter,
+  //   예: 'out_0_' → cluster 0 의 8 OUT 시냅스만 amplify (다른 cluster skip).
+  //   미지정 시 모든 시냅스 amplify (winner monopoly 강화 catch — 사용 회피 권장).
   // 호출 시점 — supervised inject 정답 직후 (winner cluster == target cluster) 가장 정합.
   // mandatory: snapshotWeights() 가 먼저 호출돼 있어야 함 — 없으면 ok:false reason 반환.
   async applyRStdpPulse(opts: {
     snapshotIndex?: number;
     rewardStrength?: number;
     positiveOnly?: boolean;
+    targetPostPrefix?: string;
   } = {}): Promise<Result<{
     ok: boolean;
     reason?: string;
@@ -380,6 +384,19 @@ export class NeuronFaceClient {
     if (!net.ok) return net;
     const rewardStrength = opts.rewardStrength ?? 1.5;
     const positiveOnly = opts.positiveOnly ?? true;
+    const body: {
+      snapshot_index: number;
+      reward_strength: number;
+      positive_only: boolean;
+      target_post_prefix?: string;
+    } = {
+      snapshot_index: opts.snapshotIndex ?? 0,
+      reward_strength: rewardStrength,
+      positive_only: positiveOnly,
+    };
+    if (opts.targetPostPrefix !== undefined) {
+      body.target_post_prefix = opts.targetPostPrefix;
+    }
     const r = await this.request<{
       ok: boolean;
       reason?: string;
@@ -390,11 +407,7 @@ export class NeuronFaceClient {
       snapshot_t?: number;
     }>(`/networks/${net.data}/rstdp-pulse`, {
       method: 'POST',
-      body: {
-        snapshot_index: opts.snapshotIndex ?? 0,
-        reward_strength: rewardStrength,
-        positive_only: positiveOnly,
-      },
+      body,
     });
     if (r.ok) {
       const detail: RStdpPulseDetail = {

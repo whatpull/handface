@@ -1,7 +1,13 @@
 // 클라이언트 → UI 발화/학습 이벤트 버스. EventTarget 기반.
 // Canvas 가 'neuron-firing' 구독 → fired class + synapse pulse 토글.
 
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'hand-feature';
+
+export interface HandFeatureDetail {
+  feature: number[];          // 16-dim (smoothed)
+  raw: number[];              // 16-dim (unsmoothed)
+  hasHand: boolean;
+}
 
 export interface NeuronFiringDetail {
   gesture?: string;

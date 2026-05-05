@@ -3,6 +3,10 @@
 import { useEffect } from 'react';
 import { HandTracker, requestCameraStream, type HandFrame } from '@/lib/mediapipe/hand-tracker';
 import type { HandLandmarks } from '@/lib/mediapipe/landmark';
+import {
+  encodeLandmarks, FeatureSmoother, FEATURE_DIM, FEATURE_LABELS,
+} from '@/lib/mediapipe/feature-encoder';
+import { emitBackendEvent } from '@/lib/backend/events';
 
 interface HandTrackerHostProps {
   active: boolean;
@@ -48,6 +52,15 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
       const featBars = document.getElementById('snn-feat-bars');
       if (cancelled || !video || !skel) return;
 
+      // 16-dim 막대 그래프 element 캐시 + 라벨 tooltip 부여.
+      const barFills = featBars
+        ? Array.from(featBars.querySelectorAll<HTMLElement>('.snn-feat-bar'))
+        : [];
+      barFills.forEach((bar, i) => {
+        bar.title = FEATURE_LABELS[i] || `feat ${i}`;
+      });
+      const smoother = new FeatureSmoother();
+
       try {
         stream = await requestCameraStream();
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
@@ -61,6 +74,24 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
         await tracker.start(video, (frame) => {
           if (cancelled) return;
           drawSkeleton(skel, frame.landmarks);
+          if (frame.landmarks) {
+            const raw = encodeLandmarks(frame.landmarks);
+            const smoothed = smoother.push(raw);
+            updateFeatureBars(barFills, smoothed);
+            emitBackendEvent('hand-feature', { feature: smoothed, raw, hasHand: true });
+          } else {
+            smoother.reset();
+            // 손 미감지 — 막대 0 으로 초기화.
+            for (const bar of barFills) {
+              const fill = bar.querySelector<HTMLElement>('.snn-feat-bar-fill');
+              if (fill) fill.style.height = '0%';
+            }
+            emitBackendEvent('hand-feature', {
+              feature: new Array(FEATURE_DIM).fill(0),
+              raw: new Array(FEATURE_DIM).fill(0),
+              hasHand: false,
+            });
+          }
           onFrame?.(frame);
         });
       } catch (e) {
@@ -91,6 +122,16 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
   }, [active, onFrame, onError]);
 
   return null;
+}
+
+function updateFeatureBars(bars: HTMLElement[], feat: number[]) {
+  for (let i = 0; i < bars.length && i < feat.length; i += 1) {
+    const fill = bars[i].querySelector<HTMLElement>('.snn-feat-bar-fill');
+    if (fill) {
+      const pct = Math.max(0, Math.min(1, feat[i])) * 100;
+      fill.style.height = `${pct}%`;
+    }
+  }
 }
 
 function drawSkeleton(canvas: HTMLCanvasElement, lms: HandLandmarks | null) {

@@ -7,6 +7,8 @@ import { emitBackendEvent } from '@/lib/backend/events';
 const SNAPSHOT_KEY = 'handface.training.snapshot.v2';
 const CLUSTER_FRAMES_KEY = 'handface.cluster.frames.v1';
 const TRAINING_PHASE_KEY = 'handface.training.phase.v1';
+const OUT_EXEMPLARS_KEY = 'handface.out.exemplars.v1';
+const NETWORK_KEY = 'handface.network.id';
 
 interface ActionHooks {
   setBusy: (label: string | null) => void;
@@ -39,12 +41,16 @@ export function createActions(h: ActionHooks) {
       }
       // 1. backend 회로 baseline 재구성.
       const r = await getClient().rebuildToBaseline();
-      // 2. frontend localStorage 영역 학습 state 폐기.
+      // 2. frontend localStorage 영역 학습 state 폐기 (OUT 결과값 + cached networkId 영역).
       try {
         localStorage.removeItem(SNAPSHOT_KEY);
         localStorage.removeItem(CLUSTER_FRAMES_KEY);
         localStorage.removeItem(TRAINING_PHASE_KEY);
+        localStorage.removeItem(OUT_EXEMPLARS_KEY);
+        localStorage.removeItem(NETWORK_KEY);
       } catch { /* quota / private mode — silent. */ }
+      // 사용자 catch 2026-05-06: out-exemplars-changed event emit — NodeOut 즉시 반영.
+      window.dispatchEvent(new CustomEvent('handface:out-exemplars-changed'));
       // 3. training-cleared event emit — auto-snapshot listener 영역 정합.
       emitBackendEvent('training-cleared', undefined);
       h.status(r.ok ? '✓ Reset 완료 — 학습 데이터 폐기, 다시 학습 가능' : `✗ Reset: ${r.reason}`);

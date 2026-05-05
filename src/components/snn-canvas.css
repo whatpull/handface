@@ -620,7 +620,7 @@
 /* LEARN — phase + cluster bars */
 .snn-pipeline-phase {
   padding: 6px var(--pipe-gap-sm);
-  border-radius: 5px;
+  border-radius: 3px;
   border: 1px solid;
 }
 .snn-pipeline-phase-label {
@@ -726,7 +726,7 @@
    readable v4 — padding 8×12 (직전 6×10 영역 영역 영역) + content-fit. */
 .snn-pipeline-current {
   padding: var(--pipe-gap-sm) var(--pipe-gap-md);
-  border-radius: 6px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.10);
   text-align: center;
@@ -1172,7 +1172,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
   flex-shrink: 0;
@@ -1208,7 +1208,7 @@
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.7);
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
   flex-shrink: 0;

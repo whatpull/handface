@@ -267,13 +267,17 @@ export class NeuronFaceClient {
       const v = pattern[i];
       p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
     }
+    // 파라미터 — saturation 회피 (세션 37 N1 정정).
+    // 직전: intensity=3.75 (base_weight=80) + observe_ms=80 → 모든 OUT 500Hz tie.
+    // 정정: intensity=1.0 (base_weight=25) + observe_ms=30 → cascade 자극 약화.
+    // 본질 catch (WTA 부재 / V2→OUT weight 과도) 는 backend 영역 — N2 별도.
     const r = await this.request<FireResponse>(`/networks/${net.data}/inject_feature16`, {
       method: 'POST',
       body: {
         pattern: p16,
-        intensity: opts.intensity ?? 3.75,
+        intensity: opts.intensity ?? 1.0,
         stimulus_duration_ms: opts.stimulusDurationMs ?? 15,
-        observe_ms: opts.observeMs ?? 80,
+        observe_ms: opts.observeMs ?? 30,
         stdp: opts.stdp ?? false,
         stdp_mode: 'pair',
         target_out: opts.targetOut,

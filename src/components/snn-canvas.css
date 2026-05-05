@@ -11,9 +11,9 @@
   /* radius scale — admin minimalist v5 (2026-05-05).
      사용자 mandatory: VS Code / Linear / Notion 류 minimalist — 6-8px 단순.
      직전 12/14/16 영역 폐기. */
-  --pipe-radius-sm: 0;
-  --pipe-radius-md: 0;
-  --pipe-radius-lg: 0;
+  --pipe-radius-sm: 3px;
+  --pipe-radius-md: 3px;
+  --pipe-radius-lg: 3px;
 
   /* spacing scale */
   --pipe-gap-xs: 4px;
@@ -143,12 +143,16 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px var(--pipe-gap-sm);
+  gap: 4px;
+  padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border-radius: 3px;
   background: rgba(15, 17, 23, 0.5);
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
+.snn-pipeline-learn-region-strip > * { min-width: 0; }
 .snn-pipeline-learn-region-arrow {
   color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-glow));
   transition: color 220ms ease;
@@ -277,8 +281,8 @@
   /* admin minimalist v5 — flat #0a0a0a + 1px gray-800 border + radius 6 (사용자 mandatory).
      glass / shadow / inset highlight 폐기 — VS Code / Linear 정합. */
   background: var(--pipe-surface);
-  border: 3px solid var(--pipe-border);
-  border-radius: var(--pipe-radius-sm);
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
   min-width: 0;
   min-height: 200px;
   height: max-content;
@@ -287,6 +291,7 @@
   font-size: var(--pipe-font-md);
   color: var(--pipe-text);
   box-shadow: none;
+  overflow: hidden;
   transition: border-color 160ms ease, background 160ms ease;
 }
 .snn-pipeline-node:hover {
@@ -530,9 +535,13 @@
   background: rgba(34, 197, 94, 0.05);
 }
 .snn-pipeline-cluster-label {
-  width: 56px;
+  width: 64px;
   font-size: var(--pipe-font-xs);
   opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 .snn-pipeline-cluster-label.is-done { color: #ffffff; opacity: 1; }
 .snn-pipeline-cluster-label.is-active { color: rgb(var(--pipe-tone-cyan-light)); opacity: 1; font-weight: 600; }
@@ -630,7 +639,7 @@
   0%, 100% { background: rgba(255, 255, 255, 0.06); }
   50%      { background: rgba(255, 255, 255, 0.14); }
 }
-.snn-pipeline-rate-label { width: 56px; font-size: var(--pipe-font-xs); }
+.snn-pipeline-rate-label { width: 64px; font-size: var(--pipe-font-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
 .snn-pipeline-rate-bar {
   flex: 1; height: var(--pipe-gap-xs); border-radius: 2px;
   background: rgba(255,255,255,0.06); overflow: hidden;

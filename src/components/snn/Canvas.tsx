@@ -22,12 +22,14 @@ import { getClient } from '@/lib/backend/client';
 
 interface CanvasProps {
   editMode: boolean;
+  // cameraConnected 영역 Region view 영역 사용 0 (4박스 cluster 표시만).
+  // 본 prop 영역 Editor 영역 동일 signature 영역 영역 영역 보존.
   cameraConnected: boolean;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-export default function Canvas({ editMode, cameraConnected: _cameraConnected }: CanvasProps) {
+export default function Canvas({ editMode }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<unknown>(null);
   const connRefMap = useRef<Record<string, Element>>({});

@@ -130,6 +130,7 @@ LLM 노드에서:
 
 - **neuronface** ([whatpull/neuronface](https://github.com/whatpull/neuronface)) — FastAPI + N3 SNN
 - 통신: REST + 클라이언트 측 이벤트 버스 (`neuron-firing`, `synapses_changed`, `training-phase`, `hand-feature`)
+- **회로 size (정직 박음)**: handface client 는 `v1_l4e_count=50` 으로 deploy 하므로 실제 회로는 **322 neurons** (= 16 input + 50 V1_L4_E + 32 V1_L4_I + 64 V1_L23_E + 64 V2_L4_E + 32 V2_L23_E + 32 V2_L5_E + 32 OUT). neuronface backend 의 `feature16` preset default (`v1_l4e_count=200`) 로 직접 호출하면 **472 neurons**. neuronface README 의 "472 neurons" 표기는 backend default 기준이며, handface 가 띄우는 회로와 다릅니다.
 - 핵심 라우트:
   - `POST /networks/{id}/inject_feature16` — 16-dim 자극 + cascade fire
   - `POST /networks/{id}/cluster_train_supervised` — cluster prefix `out_{c}_` 8 OUT 모두 supervisor batch 학습 (N3 핵심)

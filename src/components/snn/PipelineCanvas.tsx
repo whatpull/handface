@@ -311,7 +311,7 @@ function NodeLearn() {
           : 'all clusters captured',
       },
       trained: {
-        label: '✓ TRAINED',
+        label: '✓ TRAINED — frozen',
         tone: 'green',
         sub: '4 clusters locked · weight permanent',
         hint: '학습 완료 — Infer 영역 winner 영역 catch 사실',

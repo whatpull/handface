@@ -19,7 +19,8 @@ export function buildNodeClass(n: LayoutNode): string {
   return `snn-canvas-neuron snn-canvas-neuron--${popClass} snn-canvas-node-${n.id}`;
 }
 
-// 카드 HTML 렌더 — population 별 분기.
+// 카드 HTML 렌더 — Region view 영역 region 카드 영역만.
+// 직전 camera/gesture/output 분기 영역 폐기됨 — drawflow neuron view 영역 폐기 정합.
 export function renderNodeHtml(n: LayoutNode): string {
   if (n.population === 'region') {
     return `
@@ -37,59 +38,6 @@ export function renderNodeHtml(n: LayoutNode): string {
       </div>
     `;
   }
-  if (n.population === 'camera') {
-    // 카메라 mount 영역 — HandTrackerHost 가 #snn-cam-video 와 #snn-cam-skel 을 찾아 부착.
-    // CameraQuickControls 가 #snn-cam-controls 에 React portal 로 mount.
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-source-card">
-        <div class="snn-canvas-neuron-header">
-          <span class="snn-canvas-neuron-dot"></span>
-          <span class="snn-canvas-neuron-label">${n.label}</span>
-        </div>
-        <div class="snn-canvas-source-mount" id="snn-cam-mount">
-          <video id="snn-cam-video" class="snn-camera-mirror snn-cam-video" playsinline muted></video>
-          <canvas id="snn-cam-skel" class="snn-camera-mirror snn-cam-skel" width="640" height="480"></canvas>
-          <div id="snn-cam-empty" class="snn-canvas-source-empty">
-            <div>Camera disabled</div>
-            <div class="snn-canvas-source-empty-hint">Enable from sidebar</div>
-          </div>
-          <div id="snn-cam-controls" class="snn-cam-controls"></div>
-        </div>
-      </div>
-    `;
-  }
-  if (n.population === 'gesture') {
-    // 제스처 mount 영역 — 16-dim feature 막대 그래프 (HandTrackerHost 가 라이브 갱신).
-    const bars = Array.from({ length: 16 }, (_, i) => `<div class="snn-feat-bar" data-i="${i}"><div class="snn-feat-bar-fill"></div></div>`).join('');
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-source-card">
-        <div class="snn-canvas-neuron-header">
-          <span class="snn-canvas-neuron-dot"></span>
-          <span class="snn-canvas-neuron-label">${n.label}</span>
-        </div>
-        <div class="snn-canvas-source-mount snn-feat-mount">
-          <div class="snn-feat-bars">${bars}</div>
-        </div>
-      </div>
-    `;
-  }
-  if (n.population === 'output' || n.population.startsWith('cluster_') || n.id.startsWith('out_')) {
-    return `
-      <div class="snn-canvas-neuron-card snn-canvas-out-card">
-        <div class="snn-canvas-neuron-header">
-          <span class="snn-canvas-neuron-dot"></span>
-          <span class="snn-canvas-neuron-label">${n.label}</span>
-        </div>
-        <div class="snn-canvas-neuron-body">
-          <div class="snn-out-label-mount" data-out-key="${n.id}"></div>
-          <div class="snn-canvas-neuron-row">
-            <span class="snn-canvas-neuron-row-label">rate</span>
-            <span class="snn-canvas-neuron-row-value snn-canvas-out-rate">0</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
   return `
     <div class="snn-canvas-neuron-card">
       <div class="snn-canvas-neuron-header">
@@ -101,24 +49,9 @@ export function renderNodeHtml(n: LayoutNode): string {
           <span class="snn-canvas-neuron-row-label">region</span>
           <span class="snn-canvas-neuron-row-value">${n.region}</span>
         </div>
-        <div class="snn-canvas-neuron-row">
-          <span class="snn-canvas-neuron-row-label">pop</span>
-          <span class="snn-canvas-neuron-row-value">${n.population}</span>
-        </div>
       </div>
     </div>
   `;
-}
-
-// 카메라 연결 여부에 따라 src_camera/src_gesture 발 시냅스 dim 토글.
-export function applyCameraConnected(map: Record<string, Element>, connected: boolean) {
-  for (const key in map) {
-    const sep = key.indexOf('->');
-    if (sep < 0) continue;
-    const pre = key.slice(0, sep);
-    if (pre !== 'src_camera' && pre !== 'src_gesture') continue;
-    map[key].classList.toggle('snn-canvas-conn--inactive', !connected);
-  }
 }
 
 // drawflow view-mode pan + wheel/pinch zoom (drawflow 기본 pan 우회).

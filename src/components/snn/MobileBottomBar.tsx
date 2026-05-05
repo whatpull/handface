@@ -12,7 +12,8 @@ interface MobileBottomBarProps {
 }
 
 const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
-  'text-[10px] text-white/70 hover:bg-white/5 active:bg-white/10';
+  'text-[10px] text-white/70 hover:bg-white/5 active:bg-white/10 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60 focus-visible:ring-inset';
 
 export default function MobileBottomBar(p: MobileBottomBarProps) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -55,7 +56,7 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
                 type="button"
                 onClick={() => setMoreOpen(false)}
                 aria-label="Close"
-                className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white"
+                className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60"
               >
                 ✕
               </button>
@@ -77,7 +78,7 @@ function SheetBtn({ label, onClick, active = false }: { label: string; onClick: 
       type="button"
       onClick={onClick}
       className={
-        'rounded border px-3 py-2 text-xs ' +
+        'rounded border px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60 ' +
         (active
           ? 'border-violet-400/60 bg-violet-500/15 text-violet-200'
           : 'border-white/10 bg-white/5 text-white/80 hover:border-violet-400/40 hover:bg-violet-500/10')

@@ -13,6 +13,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const btn = (active: boolean) =>
     `flex h-9 w-9 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white ` +
+    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60 ` +
     (active ? 'bg-violet-500/25 text-violet-200 ring-1 ring-violet-400/40' : '');
   return (
     <aside className="flex w-12 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-[#0d0d10]/95 py-3">
@@ -20,7 +21,7 @@ export default function Sidebar({
         type="button"
         title={cameraConnected ? 'Disable camera' : 'Enable camera'}
         aria-label="Toggle camera"
-        aria-pressed={!!cameraConnected}
+        aria-pressed={cameraConnected ? 'true' : 'false'}
         className={btn(cameraConnected)}
         onClick={onToggleCamera}
       >
@@ -33,7 +34,7 @@ export default function Sidebar({
         type="button"
         title="Toggle edit mode"
         aria-label="Toggle edit mode"
-        aria-pressed={!!editMode}
+        aria-pressed={editMode ? 'true' : 'false'}
         className={btn(editMode)}
         onClick={onToggleEdit}
       >

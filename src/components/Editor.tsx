@@ -5,7 +5,6 @@ import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
-import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import CameraQuickControls from '@/components/snn/CameraQuickControls';
@@ -20,7 +19,6 @@ export default function Editor() {
   const [cameraConnected, setCameraConnected] = useState(false);
   const [view, setView] = useState<'region' | 'neuron'>('neuron');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [brainOpen, setBrainOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
   const [canvasNonce, setCanvasNonce] = useState(0);
@@ -60,7 +58,6 @@ export default function Editor() {
             view={view}
             onViewChange={setView}
             onStatusChange={setStatus}
-            onBrainBuilder={() => setBrainOpen(true)}
           />
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <Canvas
@@ -97,15 +94,10 @@ export default function Editor() {
             onViewChange={setView}
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
-            onLoad={mobileActions.load}
-            onExport={mobileActions.exportCircuit}
-            onImport={mobileActions.importCircuit}
-            onBrain={() => setBrainOpen(true)}
           />
         </main>
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <BrainBuilderDialog open={brainOpen} onClose={() => setBrainOpen(false)} />
     </div>
   );
 }

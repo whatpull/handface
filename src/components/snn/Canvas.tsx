@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'drawflow/dist/drawflow.min.css';
 import { weightColor } from '@/lib/snn/data';
 import { getPosition, setPosition } from '@/lib/snn/positions';
-import { layoutSnapshot } from '@/lib/snn/layout';
+import { layoutSnapshot, preventOverlap } from '@/lib/snn/layout';
 import {
   applyCameraConnected, attachManualPan, buildNodeClass, buildRegionLayout,
   fitToView, inferRegion, renderNodeHtml,
@@ -77,11 +77,26 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       const nameToDfId: Record<string, number> = {};
       const regionCounts = (layout as { regionCounts?: Record<string, number> }).regionCounts;
 
+      // 1) 저장 좌표 + layout 좌표 합성 → 2) 겹침 방지 pass → 3) 노드 추가.
+      // 사용자 드래그 결과 (positions.ts) 가 우선이지만, 다른 사용자 드래그
+      // 또는 새 노드 추가로 겹침이 생길 수 있어 push-down 보정.
+      const merged = layout.nodes.map((n) => {
+        const saved = getPosition(n.id);
+        return {
+          id: n.id,
+          x: saved?.x ?? n.x,
+          y: saved?.y ?? n.y,
+          isOut: n.population === 'output' || n.region === 'OUT' || n.id.startsWith('out_'),
+        };
+      });
+      preventOverlap(merged);
+      const posMap = new Map(merged.map((m) => [m.id, m]));
+
       // 노드 추가.
       for (const n of layout.nodes) {
-        const saved = getPosition(n.id);
-        const x = saved?.x ?? n.x;
-        const y = saved?.y ?? n.y;
+        const p = posMap.get(n.id)!;
+        const x = p.x;
+        const y = p.y;
         const id = ed.addNode(
           n.id, 1, 1, x, y,
           buildNodeClass(n),
@@ -125,12 +140,37 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         }
       }
 
-      // 드래그 끝 → 좌표 저장.
+      // 드래그 끝 → 겹침 보정 후 좌표 저장. 이동된 노드 + 동 컬럼 모든 노드를
+      // 모아 preventOverlap 재실행, 변경된 노드 모두 좌표 저장 + DOM 위치 갱신.
       ed.on('nodeMoved', (dfId: number) => {
         const name = drawflowIdToName.current[dfId];
         if (!name || !editor) return;
-        const node = editor.getNodeFromId(dfId);
-        if (node && typeof node.pos_x === 'number') setPosition(name, node.pos_x, node.pos_y);
+        const moved = editor.getNodeFromId(dfId);
+        if (!moved || typeof moved.pos_x !== 'number') return;
+        const allIds = Object.keys(drawflowIdToName.current).map((s) => Number(s));
+        const snapshot = allIds.map((d) => {
+          const nm = drawflowIdToName.current[d];
+          const nd = editor!.getNodeFromId(d);
+          const data = (nd?.data ?? {}) as { region?: string; population?: string };
+          const isOut = nm.startsWith('out_') || data.region === 'OUT' || data.population === 'output';
+          return { id: nm, x: nd?.pos_x ?? 0, y: nd?.pos_y ?? 0, isOut };
+        });
+        preventOverlap(snapshot);
+        for (const s of snapshot) {
+          setPosition(s.id, s.x, s.y);
+          const dfId2 = nameToDfId[s.id];
+          const nd = dfId2 ? editor!.getNodeFromId(dfId2) : null;
+          if (nd && (nd.pos_x !== s.x || nd.pos_y !== s.y)) {
+            nd.pos_x = s.x;
+            nd.pos_y = s.y;
+            const el = container.querySelector(`#node-${dfId2}`) as HTMLElement | null;
+            if (el) {
+              el.style.left = `${s.x}px`;
+              el.style.top = `${s.y}px`;
+              editor!.updateConnectionNodes?.(`node-${dfId2}`);
+            }
+          }
+        }
       });
 
       attachManualPan(container, ed);

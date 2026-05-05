@@ -7,10 +7,6 @@ interface MobileBottomBarProps {
   onViewChange: (v: 'region' | 'neuron') => void;
   onSave: () => void;
   onReset: () => void;
-  onLoad: () => void;
-  onExport: () => void;
-  onImport: () => void;
-  onBrain: () => void;
 }
 
 const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
@@ -34,9 +30,9 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
           <Icon kind="reset" />
           Reset
         </button>
-        <button type="button" className={slot} onClick={() => setMoreOpen(true)} aria-label="More">
-          <Icon kind="more" />
-          More
+        <button type="button" className={slot} onClick={() => setMoreOpen(true)} aria-label="View">
+          <Icon kind="view" />
+          View
         </button>
       </nav>
 
@@ -47,36 +43,24 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
         >
           <div
             role="dialog"
-            aria-label="More actions"
+            aria-label="View mode"
             className="w-full rounded-t-lg border-t border-white/10 bg-[#0f1117] p-3 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold tracking-wider text-violet-300">MORE</span>
+              <span className="text-xs font-semibold tracking-wider text-violet-300">VIEW</span>
               <button
                 type="button"
                 onClick={() => setMoreOpen(false)}
-                aria-label="Close more"
+                aria-label="Close"
                 className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white"
               >
                 ✕
               </button>
             </div>
-            <div className="mb-3">
-              <div className="mb-1.5 text-[10px] uppercase tracking-wider text-white/40">View</div>
-              <div className="flex gap-1.5">
-                <SheetBtn label="Region" active={p.view === 'region'} onClick={() => { p.onViewChange('region'); setMoreOpen(false); }} />
-                <SheetBtn label="Neuron" active={p.view === 'neuron'} onClick={() => { p.onViewChange('neuron'); setMoreOpen(false); }} />
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="mb-1.5 text-[10px] uppercase tracking-wider text-white/40">Action</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <SheetBtn label="Brain" onClick={() => { setMoreOpen(false); p.onBrain(); }} />
-                <SheetBtn label="Load"  onClick={() => { setMoreOpen(false); p.onLoad(); }} />
-                <SheetBtn label="Export" onClick={() => { setMoreOpen(false); p.onExport(); }} />
-                <SheetBtn label="Import" onClick={() => { setMoreOpen(false); p.onImport(); }} />
-              </div>
+            <div className="flex gap-1.5">
+              <SheetBtn label="Region" active={p.view === 'region'} onClick={() => { p.onViewChange('region'); setMoreOpen(false); }} />
+              <SheetBtn label="Neuron" active={p.view === 'neuron'} onClick={() => { p.onViewChange('neuron'); setMoreOpen(false); }} />
             </div>
           </div>
         </div>
@@ -118,10 +102,11 @@ function Icon({ kind }: { kind: string }) {
           <path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
         </svg>
       );
-    case 'more':
+    case 'view':
       return (
-        <svg viewBox="0 0 24 24" className={c} fill="currentColor">
-          <circle cx="12" cy="6" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="18" r="1.5" />
+        <svg viewBox="0 0 24 24" className={c} fill="none" stroke="currentColor" strokeWidth="1.6">
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       );
     default:

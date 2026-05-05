@@ -20,10 +20,17 @@ export interface LayoutResult {
   visibleNames: Set<string>;
 }
 
-const COLUMN_WIDTH = 200;
-const ROW_HEIGHT = 84;
+const COLUMN_WIDTH = 240;
+const ROW_HEIGHT = 130;
+// OUT 카드는 라벨 mount + rate 행이 있어 일반 카드보다 큼 — 별도 간격.
+const OUT_ROW_HEIGHT = 160;
 const TOP_PAD = 80;
 const LEFT_PAD = 80;
+// 카드 실측 (drawflow-helpers fitToView 의 fallback bbox 기준).
+const CARD_W = 180;
+const CARD_H = 96;
+const OUT_CARD_H = 130;
+const MIN_GAP = 24;
 
 // region 표시 순서 (좌 → 우). 미정의 region 은 알파벳 순 끝쪽 배치.
 const REGION_ORDER = [
@@ -87,6 +94,40 @@ const VIRTUAL_SOURCE_SYNAPSES: BackendSynapse[] = [
   } as BackendSynapse)),
 ];
 
+/**
+ * 노드 좌표 배열을 받아 서로 겹치지 않도록 push-down 한다 (in-place).
+ * - 같은 컬럼 (x 가 가까운 노드들) 끼리 y 정렬 후 최소 간격 보장
+ * - 다른 컬럼이라도 bbox 가 겹치면 뒤 노드를 아래로 밀어냄
+ *
+ * Canvas 가 백엔드 layout + 사용자 저장 좌표를 합친 뒤 호출. anchor X 좌표는
+ * 보존, Y 만 조정.
+ */
+export function preventOverlap(positions: Array<{ id: string; x: number; y: number; isOut?: boolean }>) {
+  // 컬럼 그룹화 — x 차이 < CARD_W/2 면 같은 컬럼.
+  const sorted = [...positions].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cols: Array<typeof sorted> = [];
+  for (const p of sorted) {
+    const col = cols.find((c) => Math.abs(c[0].x - p.x) < CARD_W / 2);
+    if (col) col.push(p);
+    else cols.push([p]);
+  }
+  const idToPos = new Map(positions.map((p) => [p.id, p]));
+  for (const col of cols) {
+    col.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < col.length; i++) {
+      const prev = col[i - 1];
+      const cur  = col[i];
+      const prevH = prev.isOut ? OUT_CARD_H : CARD_H;
+      const minY = prev.y + prevH + MIN_GAP;
+      if (cur.y < minY) {
+        const target = idToPos.get(cur.id)!;
+        target.y = minY;
+        cur.y = minY;
+      }
+    }
+  }
+}
+
 export function layoutSnapshot(
   neurons: BackendNeuron[],
   synapses: BackendSynapse[],
@@ -124,14 +165,17 @@ export function layoutSnapshot(
   });
 
   // 4. 각 그룹을 컬럼 1개로 배치, 행은 아래로 (backend neurons).
+  // OUT (population=output 또는 region=OUT) 은 별도 간격 적용 — 카드 자체가 큼.
   const nodes: LayoutNode[] = [];
   const visibleNames = new Set<string>();
   sortedKeys.forEach((key, colIdx) => {
     const list = groups.get(key)!;
     const [region, population] = key.split('|');
+    const isOutCol = (region === 'OUT' || population === 'output');
+    const rowH = isOutCol ? OUT_ROW_HEIGHT : ROW_HEIGHT;
     const x = LEFT_PAD + colIdx * COLUMN_WIDTH;
     list.forEach((n, rowIdx) => {
-      const y = TOP_PAD + rowIdx * ROW_HEIGHT;
+      const y = TOP_PAD + rowIdx * rowH;
       visibleNames.add(n.name);
       nodes.push({
         id: n.name,

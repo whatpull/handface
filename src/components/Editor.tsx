@@ -10,6 +10,7 @@ import PredictPanel from '@/components/snn/PredictPanel';
 import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
+import CameraQuickControls from '@/components/snn/CameraQuickControls';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import './snn-canvas.css';
@@ -86,6 +87,7 @@ export default function Editor() {
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
+            {view === 'neuron' && <CameraQuickControls cameraConnected={cameraConnected} />}
           </div>
           {status && (
             <div

@@ -39,6 +39,7 @@ export function renderNodeHtml(n: LayoutNode): string {
   }
   if (n.population === 'camera') {
     // 카메라 mount 영역 — HandTrackerHost 가 #snn-cam-video 와 #snn-cam-skel 을 찾아 부착.
+    // CameraQuickControls 가 #snn-cam-controls 에 React portal 로 mount.
     return `
       <div class="snn-canvas-neuron-card snn-canvas-source-card">
         <div class="snn-canvas-neuron-header">
@@ -52,6 +53,7 @@ export function renderNodeHtml(n: LayoutNode): string {
             <div>Camera disabled</div>
             <div class="snn-canvas-source-empty-hint">Enable from sidebar</div>
           </div>
+          <div id="snn-cam-controls" class="snn-cam-controls"></div>
         </div>
       </div>
     `;

@@ -369,51 +369,52 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         }
 
         // 30 frame 도달 → batch flush. cluster broadcast supervisor (8 OUT 모두).
+        // 사용자 catch 2026-05-06: fire-and-forget — await 폐기 (backend 응답 영역 30s+ slow
+        // 영역 다음 cluster frame capture 영역 차단 catch). 즉시 lock + background promise.
         if (clusterBuffersRef.current[ci].length >= CLUSTER_TARGET_FRAMES) {
           setTrainStatus(`${label}: batch supervised 진행 (${CLUSTER_TARGET_FRAMES} frames)…`);
           const batch = clusterBuffersRef.current[ci].slice();
-          // buffer drain — 추가 누적 회피.
           clusterBuffersRef.current[ci] = [];
-          const r = await getClient().clusterTrainSupervised(batch, cluster);
-          if (cancelled) return;
-          if (r.ok && r.data.ok) {
-            // frames[c] = 30 영구화 (학습 완료 사실).
-            const next = { ...framesRef.current };
-            next[ci] = CLUSTER_TARGET_FRAMES;
-            framesRef.current = next;
-            saveClusterFrames(next);
-            setClusterFrames(next);
-            setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
-
-            // cluster lock — 추가 학습 0 (catastrophic forgetting 회피).
-            if (!clusterLockedRef.current[ci]) {
+          // 즉시 lock — 다음 frame 영역 동일 cluster 학습 차단 (background promise 영역 비동기).
+          clusterLockedRef.current[ci] = true;
+          const next = { ...framesRef.current };
+          next[ci] = CLUSTER_TARGET_FRAMES;
+          framesRef.current = next;
+          saveClusterFrames(next);
+          setClusterFrames(next);
+          // background batch flush — tick loop 차단 0.
+          void (async () => {
+            const r = await getClient().clusterTrainSupervised(batch, cluster);
+            if (cancelled) return;
+            if (r.ok && r.data.ok) {
+              setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
               const lockR = await getClient().clusterLock(cluster, { lock: true });
               if (cancelled) return;
-              if (lockR.ok) clusterLockedRef.current[ci] = true;
+              if (!lockR.ok) {
+                setTrainStatus(`⚠ ${label} cluster_lock 실패: ${lockR.reason}`);
+              }
+              const newPhase = derivePhase(next, phaseRef.current, true);
+              if (newPhase !== phaseRef.current) {
+                phaseRef.current = newPhase;
+                savePhase(newPhase);
+                setPhase(newPhase);
+              }
+              if (newPhase === 'trained') {
+                phaseRef.current = 'inference';
+                savePhase('inference');
+                setPhase('inference');
+              }
+            } else {
+              const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
+              setTrainStatus(`✗ ${label} batch 실패: ${reason}`);
+              clusterLockedRef.current[ci] = false;
+              const rollback = { ...framesRef.current };
+              rollback[ci] = 0;
+              framesRef.current = rollback;
+              saveClusterFrames(rollback);
+              setClusterFrames(rollback);
             }
-
-            const newPhase = derivePhase(next, phaseRef.current, true);
-            if (newPhase !== phaseRef.current) {
-              phaseRef.current = newPhase;
-              savePhase(newPhase);
-              setPhase(newPhase);
-            }
-            // 4 cluster 영역 모두 학습 완료 영역 자동 'inference' 전환.
-            if (newPhase === 'trained') {
-              phaseRef.current = 'inference';
-              savePhase('inference');
-              setPhase('inference');
-            }
-          } else {
-            const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
-            setTrainStatus(`✗ ${label} batch 실패: ${reason}`);
-            // 실패 시 frames 영역 rollback (재시도 가능 catch).
-            const rollback = { ...framesRef.current };
-            rollback[ci] = 0;
-            framesRef.current = rollback;
-            saveClusterFrames(rollback);
-            setClusterFrames(rollback);
-          }
+          })();
         }
       } else {
         // 학습 trigger 미충족 — phase 영역 평가 영역 (frames 변경 0 영역 derive).

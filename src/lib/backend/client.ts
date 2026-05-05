@@ -28,7 +28,9 @@ interface FetchOpts {
 // retry 영역 exponential backoff — 1s / 2s / 4s, max 3 retry.
 // timeout / 5xx / network 영역만 retry — 4xx 영역 영역 retry 0 (영역 영역 영역).
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
-const FETCH_TIMEOUT_MS = 15000;
+// 사용자 catch 2026-05-06: cluster_train_supervised 30 frame × supervised inject 영역
+// HF Spaces (CPU sim) 영역 30-90s+ 영역 — 15s 영역 영역. 120s 영역 정합.
+const FETCH_TIMEOUT_MS = 120000;
 
 function shouldRetry(status: number | undefined, isNetwork: boolean): boolean {
   if (isNetwork) return true;            // network failure / timeout

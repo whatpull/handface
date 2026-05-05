@@ -38,6 +38,7 @@ import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
 import NodeLlm from './pipeline/NodeLlm';
 import Arrow from './pipeline/Arrow';
+import SummaryCard from './SummaryCard';
 import {
   PipelineEventProvider,
   usePipelineEvents,
@@ -90,18 +91,21 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
       aria-label="HandFace SNN pipeline"
     >
+      {/* Summary cards — PC top-right (사용자 명시 [UI/UX 40%]: 이미지 1 dashboard 정합).
+          mobile 영역 hide (CSS @media (max-width: 900px) display:none). */}
+      <SummaryCard />
       {/* Region cascade row 폐기 — INPUT/OUT region 영역 INPUT/OUT 노드 영역 중복.
           V1/V2 cortical region 영역 LEARN 노드 내부 영역 inline strip 영역 표시
           (NodeLearn.tsx — LearnRegionStrip). */}
       <div className="snn-pipeline-flow">
         <NodeInput cameraConnected={cameraConnected} />
-        <Arrow active={learnActive || flowActive} />
+        <Arrow active={learnActive || flowActive} segment={0} />
         <NodeLearn />
-        <Arrow active={flowActive} />
+        <Arrow active={flowActive} segment={1} />
         <NodeInfer />
-        <Arrow active={flowActive} />
+        <Arrow active={flowActive} segment={2} />
         <NodeOut />
-        <Arrow active={flowActive} />
+        <Arrow active={flowActive} segment={3} />
         <NodeLlm onLlmResult={onLlmResult} />
       </div>
       {ctrl.trainStatus && (

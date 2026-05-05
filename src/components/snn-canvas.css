@@ -144,35 +144,35 @@
   }
 }
 
+/* bezier connector v3 (2026-05-05) — Figma node editor 정합 영역 곡선 connector +
+   tone gradient + flow dot. Arrow.tsx 영역 SVG path/animateMotion 직접 영역 — 본 css 영역
+   layout + glow drop-shadow 영역. */
 .snn-pipeline-arrow {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  color: rgba(94, 234, 212, 0.35);
   flex-shrink: 0;
-  /* polish v2 (2026-05-05) — flow align stretch 영역 영역 arrow 영역 자동 vertical
-     center 정합 (padding-top 18px 영역 영역 — flex-start 영역 보정 영역). */
-  width: 14px;
+  width: 28px;
   position: relative;
-  transition: color 220ms ease;
+  transition: filter 220ms ease, opacity 220ms ease;
+  opacity: 0.85;
+}
+.snn-pipeline-arrow svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .snn-pipeline-arrow.is-active {
-  color: rgba(94, 234, 212, 0.95);
-}
-.snn-pipeline-arrow.is-active svg {
-  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.7));
-}
-.snn-pipeline-arrow-pulse {
-  animation: snn-pipeline-flow 1.4s linear infinite;
-}
-@keyframes snn-pipeline-flow {
-  0%   { transform: translateX(0);    opacity: 0; }
-  20%  { opacity: 1; }
-  80%  { opacity: 1; }
-  100% { transform: translateX(28px); opacity: 0; }
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(94, 234, 212, 0.35));
 }
 @media (max-width: 900px) {
-  .snn-pipeline-arrow { transform: rotate(90deg); width: auto; height: 24px; }
+  .snn-pipeline-arrow {
+    transform: rotate(90deg);
+    width: auto;
+    height: 28px;
+    margin: 4px 0;
+  }
 }
 
 .snn-pipeline-node {
@@ -211,11 +211,62 @@
   }
   .snn-pipeline-node:hover { transform: none; }
 }
-.snn-pipeline-node--input  { border-color: rgba(167, 139, 250, 0.35); }
-.snn-pipeline-node--learn  { border-color: rgba(251, 191, 36, 0.35); }
-.snn-pipeline-node--infer  { border-color: rgba(94, 234, 212, 0.35); }
-.snn-pipeline-node--out    { border-color: rgba(244, 114, 182, 0.35); }
-.snn-pipeline-node--llm    { border-color: rgba(96, 165, 250, 0.35); }
+/* tone glow v3 — 5 node 영역 box-shadow 영역 영역 tone alpha glow + top accent bar (1px gradient).
+   reference 영역 정합 (이미지 1 dashboard + 이미지 2 control flow) — visual hierarchy 영역 직접 영역. */
+.snn-pipeline-node--input  {
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(167, 139, 250, 0.08),
+              0 0 14px rgba(167, 139, 250, 0.10) inset;
+}
+.snn-pipeline-node--learn  {
+  border-color: rgba(251, 191, 36, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(251, 191, 36, 0.08),
+              0 0 14px rgba(251, 191, 36, 0.10) inset;
+}
+.snn-pipeline-node--infer  {
+  border-color: rgba(94, 234, 212, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(94, 234, 212, 0.08),
+              0 0 14px rgba(94, 234, 212, 0.10) inset;
+}
+.snn-pipeline-node--out    {
+  border-color: rgba(244, 114, 182, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(244, 114, 182, 0.08),
+              0 0 14px rgba(244, 114, 182, 0.10) inset;
+}
+.snn-pipeline-node--llm    {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 0 0 1px rgba(96, 165, 250, 0.08),
+              0 0 14px rgba(96, 165, 250, 0.10) inset;
+}
+/* node hover — tone border ↑ + shadow ↑ (사용자 catch micro-interactions). */
+.snn-pipeline-node--input:hover  { border-color: rgba(167, 139, 250, 0.7); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 22px rgba(167, 139, 250, 0.18); }
+.snn-pipeline-node--learn:hover  { border-color: rgba(251, 191, 36, 0.7);  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 22px rgba(251, 191, 36, 0.18); }
+.snn-pipeline-node--infer:hover  { border-color: rgba(94, 234, 212, 0.7);  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 22px rgba(94, 234, 212, 0.18); }
+.snn-pipeline-node--out:hover    { border-color: rgba(244, 114, 182, 0.7); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 22px rgba(244, 114, 182, 0.18); }
+.snn-pipeline-node--llm:hover    { border-color: rgba(96, 165, 250, 0.7);  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 22px rgba(96, 165, 250, 0.18); }
+/* top accent bar — 1px tone gradient strip (visual hierarchy 영역 정합). */
+.snn-pipeline-node {
+  position: relative;
+}
+.snn-pipeline-node::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 10px 10px 0 0;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.snn-pipeline-node--input::before  { background: linear-gradient(90deg, transparent 0%, #a78bfa 50%, transparent 100%); }
+.snn-pipeline-node--learn::before  { background: linear-gradient(90deg, transparent 0%, #fbbf24 50%, transparent 100%); }
+.snn-pipeline-node--infer::before  { background: linear-gradient(90deg, transparent 0%, #5eead4 50%, transparent 100%); }
+.snn-pipeline-node--out::before    { background: linear-gradient(90deg, transparent 0%, #f472b6 50%, transparent 100%); }
+.snn-pipeline-node--llm::before    { background: linear-gradient(90deg, transparent 0%, #60a5fa 50%, transparent 100%); }
 
 /* 학습 중 영역 — Learn 노드 영역 amber 영역 발광. */
 .snn-pipeline.is-learning .snn-pipeline-node--learn {
@@ -791,12 +842,76 @@
   .snn-pipeline-current-value { font-size: 13px; }
 }
 
+/* ─────────────────────────────────────── Summary Card v3 ─────────────────────
+   reference 영역 정합 (이미지 1 dashboard summary card 22.870 / +71.8% / +28.2%) —
+   본 프로젝트 영역 cluster trained / accuracy / firings 영역 dashboard panel.
+   PC 영역 absolute top-right (Sidebar 영역 영역 영역 — pipeline 영역 영역 floating).
+   모바일 (≤768) 영역 hide (공간 부족 — MobileBottomBar 영역 별도 영역). */
+.snn-summary-cards {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  z-index: 5;
+  pointer-events: none; /* 카드 자체 영역 click pass-through — info only. */
+}
+.snn-summary-card {
+  background: linear-gradient(180deg, rgba(24, 24, 30, 0.92) 0%, rgba(18, 18, 22, 0.92) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.snn-summary-card-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+.snn-summary-card-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: #e1e8f5;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.snn-summary-card-delta {
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+.snn-summary-card-delta.is-up   { color: #5eead4; }
+.snn-summary-card-delta.is-warn { color: #fbbf24; }
+.snn-summary-card-delta.is-down { color: #f472b6; }
+/* tone variants — 3 카드 영역 cluster (cyan) / accuracy (amber) / firings (violet). */
+.snn-summary-card--cyan   { border-color: rgba(94, 234, 212, 0.3); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(94, 234, 212, 0.10); }
+.snn-summary-card--cyan   .snn-summary-card-value { color: #5eead4; }
+.snn-summary-card--amber  { border-color: rgba(251, 191, 36, 0.3); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(251, 191, 36, 0.10); }
+.snn-summary-card--amber  .snn-summary-card-value { color: #fde68a; }
+.snn-summary-card--violet { border-color: rgba(167, 139, 250, 0.3); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(167, 139, 250, 0.10); }
+.snn-summary-card--violet .snn-summary-card-value { color: #c4b5fd; }
+@media (max-width: 900px) {
+  .snn-summary-cards { display: none; }
+}
+
 /* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ─────────────
    사용자 OS 영역 motion-reduce 설정 영역 정합 — 모든 keyframe + transition 영역
    영역 0.01ms 영역 단축 (즉시 정지 영역 영역 시각 변화 영역 보존). animation 영역
    `none` 영역 0 — `0.01ms` 영역 영역 frame 영역 1 영역 영역 영역 영역 정합. */
 @media (prefers-reduced-motion: reduce) {
-  .snn-pipeline-arrow-pulse,
+  .snn-pipeline-conn-dot,
   .snn-mode-progress-fill.is-active,
   .snn-pipeline-current.is-active,
   .snn-pipeline-rate-row.is-winner,

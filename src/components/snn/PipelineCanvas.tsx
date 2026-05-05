@@ -49,17 +49,18 @@ type NodeId = 'input' | 'learn' | 'infer' | 'out' | 'llm';
 interface Pos { x: number; y: number; }
 type PositionMap = Record<NodeId, Pos>;
 
-const STORAGE_KEY = 'handface.pipeline.positions.v1';
-const NODE_WIDTH = 240;
-const NODE_HEIGHT_ESTIMATE = 280; // bezier endpoint 영역 estimate (실제 height 영역 자식 fit).
+const STORAGE_KEY = 'handface.pipeline.positions.v2';
+const NODE_WIDTH = 220;
+const NODE_HEIGHT_ESTIMATE = 320; // bezier endpoint 영역 estimate (실제 height 영역 자식 fit).
 
-// initial position — 사용자 mandatory horizontal pipeline (240px gap × 4 + 80 left margin).
+// initial position — 사용자 catch (스크린샷): viewport fit + top-aligned.
+// 5 × 220 = 1100 + 4 × gap 18 = 72 + left margin 16 = 1188 (viewport 1280 fit).
 const INITIAL_POS: PositionMap = {
-  input: { x: 40, y: 200 },
-  learn: { x: 320, y: 200 },
-  infer: { x: 600, y: 200 },
-  out: { x: 880, y: 200 },
-  llm: { x: 1160, y: 200 },
+  input: { x: 16, y: 16 },
+  learn: { x: 254, y: 16 },
+  infer: { x: 492, y: 16 },
+  out: { x: 730, y: 16 },
+  llm: { x: 968, y: 16 },
 };
 
 // segment edge — 4 connector (5 노드 chain).
@@ -267,14 +268,14 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
   };
 
-  // SVG canvas size — node 영역 최대 right/bottom + margin.
+  // SVG canvas size — node 영역 최대 right/bottom + margin (사용자 catch: viewport fit + top-aligned).
   const stageWidth = Math.max(
-    1280,
-    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].x + NODE_WIDTH + 40)),
+    1188,
+    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].x + NODE_WIDTH + 16)),
   );
   const stageHeight = Math.max(
-    600,
-    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].y + heights[k] + 40)),
+    360,
+    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].y + heights[k] + 16)),
   );
 
   // node renderer — 5 노드 분기.

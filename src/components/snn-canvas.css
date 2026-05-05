@@ -232,9 +232,9 @@
    active: stroke 강 + drop-shadow glow + animateMotion dot. */
 .snn-pipeline-stage {
   position: relative;
-  width: var(--stage-w, 1280px);
-  height: var(--stage-h, 600px);
-  min-height: 600px;
+  width: var(--stage-w, 1188px);
+  height: var(--stage-h, 360px);
+  min-height: 360px;
   /* canvas grid background — admin minimalist subtle dot grid. */
   background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
@@ -267,7 +267,7 @@
   position: absolute;
   left: var(--node-x, 0px);
   top: var(--node-y, 0px);
-  width: 240px;
+  width: 220px;
   z-index: 2;
   touch-action: none;
 }

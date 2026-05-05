@@ -1,10 +1,10 @@
 'use client';
 
 // NodeOut — winner gesture + RenameButton + Export JSON.
-// HIGH #3 정합 보존: deriveWinner 영역 단일 source.
+// HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
+// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 영역 영역.
 
 import { useEffect, useRef, useState } from 'react';
-import { onBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import {
   loadExemplars,
@@ -12,34 +12,18 @@ import {
   setExemplarLabel,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
-import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { WINNER_MARGIN, initialCollapsedForMobile } from './shared';
+import { initialCollapsedForMobile } from './shared';
+import { usePipelineEvents } from './PipelineEventContext';
 
-export default function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
-  void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
+export default function NodeOut() {
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
-  const [winner, setWinner] = useState<{ cluster: number | null; confidence: number; margin: number }>(
-    { cluster: null, confidence: 0, margin: 0 },
-  );
   const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
 
   useEffect(() => subscribeExemplars(setExemplars), []);
 
-  useEffect(() => {
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
-      const w = deriveWinner(d.out_rates || {}, {
-        marginThreshold: WINNER_MARGIN,
-        clusterRates: d.cluster_rates,
-        winnerCluster: d.winner_cluster,
-        winnerMargin: d.winner_margin,
-      });
-      setWinner({ cluster: w.cluster, confidence: w.confidence, margin: w.margin });
-    });
-    return off;
-  }, []);
+  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
+  const { winner } = usePipelineEvents();
 
   const winnerKey = winner.cluster !== null ? `out_${winner.cluster}_0` : null;
   const winnerEx = winnerKey ? exemplars[winnerKey] : undefined;

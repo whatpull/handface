@@ -3,23 +3,25 @@
 // NodeLearn — 학습 진행상황.
 // 5-phase + 4 cluster progress + Δw 합계 + teacher 표시 + V1/V2 cascade strip.
 // HIGH #4 정정 보존: synapses_changed 우선 + d.synapses diff fallback.
+// UX 4th HIGH 정정: neuron-firing 영역 직접 구독 (2 listener) → PipelineEventContext
+// 영역 lastDetail 영역 effect 영역 1 effect 영역 정합 (단일 listener provider).
 //
 // V1/V2 cortical region strip (inline, 직전 RegionCascade.tsx 영역 흡수):
 //  - INPUT/OUT region 영역 INPUT/OUT 노드 자체 영역 정합 → 위쪽 row 폐기.
 //  - V1/V2 영역 학습 substrate 영역 정합 → LEARN 노드 내부 영역 inline.
-//  - data source: getFullSnapshot 영역 1회 totals + neuron-firing 영역 active count.
+//  - data source: getFullSnapshot 영역 1회 totals + lastDetail 영역 active count.
 //    rates / active_neurons_by_region / rates_by_region 영역 region 영역 catch.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   onBackendEvent,
-  type NeuronFiringDetail,
   type HandFeatureDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import NodeShell from './NodeShell';
 import { CLUSTER_LABELS, CLUSTER_TARGET, initialCollapsedForMobile } from './shared';
+import { usePipelineEvents } from './PipelineEventContext';
 
 // inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
 // V1/V2 영역 영역 영역 영역).
@@ -61,83 +63,87 @@ export default function NodeLearn() {
     return () => { cancelled = true; };
   }, []);
 
+  // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
+  const { lastDetail } = usePipelineEvents();
+
+  // Δw 산출 — lastDetail 변경 시점 영역 effect.
+  // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
+  // backend 영역 synapses_changed 영역 emit 영역 — 본 path 영역 첫 frame 영역
+  // 학습 사실 catch 사실 (delta.delta 영역 직접 제공 영역).
+  // Fallback (d.synapses 영역 diff) 영역 baseline cache only — 첫 호출 시
+  // prev === undefined → 첫 frame 영역 Δw = 0 표시 (baseline cache only).
+  // 직후 frame 영역 정상 catch 사실. 정직 한계 박음: backend synapses_changed
+  // 영역 미emit 영역 영역 첫 frame 영역 학습 사실 0 표시 회피 0.
   useEffect(() => {
-    // HIGH #4 정정: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
-    // backend 영역 synapses_changed 영역 emit 영역 — 본 path 영역 첫 frame 영역
-    // 학습 사실 catch 사실 (delta.delta 영역 직접 제공 영역).
-    // Fallback (d.synapses 영역 diff) 영역 baseline cache only — 첫 호출 시
-    // prev === undefined → 첫 frame 영역 Δw = 0 표시 (baseline cache only).
-    // 직후 frame 영역 정상 catch 사실. 정직 한계 박음: backend synapses_changed
-    // 영역 미emit 영역 영역 첫 frame 영역 학습 사실 0 표시 회피 0.
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      let ltp = 0, ltd = 0, changed = 0;
-      const cache = prevWeights.current;
-      const ch = d.synapses_changed;
-      if (ch && ch.length > 0) {
-        // 정합 path: backend 영역 Δw 영역 emit — 첫 frame 영역 학습 catch 사실.
-        for (const s of ch) {
-          const dw = s.delta;
+    if (!lastDetail) return;
+    let ltp = 0, ltd = 0, changed = 0;
+    const cache = prevWeights.current;
+    const ch = lastDetail.synapses_changed;
+    if (ch && ch.length > 0) {
+      // 정합 path: backend 영역 Δw 영역 emit — 첫 frame 영역 학습 catch 사실.
+      for (const s of ch) {
+        const dw = s.delta;
+        if (Math.abs(dw) >= 0.1) {
+          changed += 1;
+          if (dw > 0) ltp += dw; else ltd += dw;
+        }
+        cache.set(`${s.pre}->${s.post}`, s.weight);
+      }
+    } else {
+      // Fallback path: 직접 diff — 첫 호출 영역 baseline cache only (Δw 0 표시).
+      const syn = lastDetail.synapses || [];
+      for (const s of syn) {
+        const key = `${s.pre}->${s.post}`;
+        const prev = cache.get(key);
+        if (prev !== undefined) {
+          const dw = s.weight - prev;
           if (Math.abs(dw) >= 0.1) {
             changed += 1;
             if (dw > 0) ltp += dw; else ltd += dw;
           }
-          cache.set(`${s.pre}->${s.post}`, s.weight);
         }
-      } else {
-        // Fallback path: 직접 diff — 첫 호출 영역 baseline cache only (Δw 0 표시).
-        const syn = d.synapses || [];
-        for (const s of syn) {
-          const key = `${s.pre}->${s.post}`;
-          const prev = cache.get(key);
-          if (prev !== undefined) {
-            const dw = s.weight - prev;
-            if (Math.abs(dw) >= 0.1) {
-              changed += 1;
-              if (dw > 0) ltp += dw; else ltd += dw;
-            }
-          }
-          cache.set(key, s.weight);
-        }
+        cache.set(key, s.weight);
       }
-      if (changed > 0) setDelta({ ltp, ltd, changed });
-    });
-    return off;
-  }, []);
+    }
+    if (changed > 0) setDelta({ ltp, ltd, changed });
+  }, [lastDetail]);
 
-  // V1/V2 active count + cascade glow (별도 listener — Δw 영역 분리 영역 정합).
+  // V1/V2 active count + cascade glow (별도 effect — Δw 영역 분리 영역 정합).
   useEffect(() => {
+    if (!lastDetail) return;
     const FIRE_DURATION_MS = 1500;
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      const rates = d.rates || {};
-      const byActive = d.active_neurons_by_region || {};
-      const byRegionRate = d.rates_by_region || {};
-      const counts = { V1: 0, V2: 0 };
-      for (const [name, rate] of Object.entries(rates)) {
-        if (rate <= 0) continue;
-        const region = inferRegion(name);
-        if (region === 'V1' || region === 'V2') counts[region] += 1;
-      }
-      for (const region of ['V1', 'V2'] as const) {
-        const fromActive = (byActive[region] || []).length;
-        if (fromActive > counts[region]) counts[region] = fromActive;
-      }
-      setRegionActive(counts);
+    const rates = lastDetail.rates || {};
+    const byActive = lastDetail.active_neurons_by_region || {};
+    const byRegionRate = lastDetail.rates_by_region || {};
+    const counts = { V1: 0, V2: 0 };
+    for (const [name, rate] of Object.entries(rates)) {
+      if (rate <= 0) continue;
+      const region = inferRegion(name);
+      if (region === 'V1' || region === 'V2') counts[region] += 1;
+    }
+    for (const region of ['V1', 'V2'] as const) {
+      const fromActive = (byActive[region] || []).length;
+      if (fromActive > counts[region]) counts[region] = fromActive;
+    }
+    setRegionActive(counts);
 
-      for (const region of ['V1', 'V2'] as const) {
-        const avgRate = byRegionRate[region] || 0;
-        if (counts[region] > 0 || avgRate > 0) {
-          setRegionFired((p) => p[region] ? p : { ...p, [region]: true });
-          if (fireTimers.current[region]) clearTimeout(fireTimers.current[region]);
-          fireTimers.current[region] = setTimeout(() => {
-            setRegionFired((p) => ({ ...p, [region]: false }));
-            delete fireTimers.current[region];
-          }, FIRE_DURATION_MS);
-        }
+    for (const region of ['V1', 'V2'] as const) {
+      const avgRate = byRegionRate[region] || 0;
+      if (counts[region] > 0 || avgRate > 0) {
+        setRegionFired((p) => p[region] ? p : { ...p, [region]: true });
+        if (fireTimers.current[region]) clearTimeout(fireTimers.current[region]);
+        fireTimers.current[region] = setTimeout(() => {
+          setRegionFired((p) => ({ ...p, [region]: false }));
+          delete fireTimers.current[region];
+        }, FIRE_DURATION_MS);
       }
-    });
+    }
+  }, [lastDetail]);
+
+  // Cleanup — fire timers 영역 unmount 시점 1회 정리.
+  useEffect(() => {
     const timers = fireTimers.current;
     return () => {
-      off();
       for (const k of Object.keys(timers)) clearTimeout(timers[k]);
     };
   }, []);

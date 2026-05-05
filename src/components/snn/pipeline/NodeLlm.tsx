@@ -1,13 +1,13 @@
 'use client';
 
 // NodeLlm — endpoint + payload preview + Test send + auto stream toggle.
-// HIGH #3 정합 보존: deriveWinner 영역 단일 source.
+// HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
+// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 영역 영역.
 // auto stream — winner 변경 시점만 POST (cfg.auto && endpoint 영역 정합).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   onBackendEvent,
-  type NeuronFiringDetail,
   type HandFeatureDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
@@ -25,9 +25,9 @@ import {
   type LlmConfig,
   type LlmSendResult,
 } from '@/lib/snn/llm-client';
-import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { HISTORY_MAX, WINNER_MARGIN, initialCollapsedForMobile } from './shared';
+import { HISTORY_MAX, initialCollapsedForMobile } from './shared';
+import { usePipelineEvents } from './PipelineEventContext';
 
 export default function NodeLlm({
   onLlmResult,
@@ -38,13 +38,6 @@ export default function NodeLlm({
   const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
-  const [winner, setWinner] = useState<{
-    cluster: number | null;
-    rates: number[];
-    counts: number[];
-    confidence: number;
-    margin: number;
-  }>({ cluster: null, rates: [0, 0, 0, 0], counts: [0, 0, 0, 0], confidence: 0, margin: 0 });
   const [history, setHistory] = useState<WinnerHistoryEntry[]>([]);
   const [last, setLast] = useState<LlmSendResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,26 +48,8 @@ export default function NodeLlm({
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', setFeat), []);
 
-  useEffect(() => {
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
-      const w = deriveWinner(d.out_rates || {}, {
-        marginThreshold: WINNER_MARGIN,
-        clusterRates: d.cluster_rates,
-        winnerCluster: d.winner_cluster,
-        winnerMargin: d.winner_margin,
-      });
-      setWinner({
-        cluster: w.cluster,
-        rates: w.clusterRates,
-        counts: w.clusterCounts,
-        confidence: w.confidence,
-        margin: w.margin,
-      });
-    });
-    return off;
-  }, []);
+  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
+  const { winner } = usePipelineEvents();
 
   // history 영역 winner 변경 시점 영역 누적.
   useEffect(() => {
@@ -108,7 +83,7 @@ export default function NodeLlm({
     winnerCluster: winner.cluster,
     confidence: winner.confidence,
     margin: winner.margin,
-    clusterRates: winner.rates,
+    clusterRates: winner.clusterRates,
     clusterCounts,
     history,
     gestureName: feat?.gestureName ?? null,
@@ -157,7 +132,7 @@ export default function NodeLlm({
       return JSON.stringify(buildPayload(), null, 2);
     } catch { return '{}'; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phaseName, winner.cluster, winner.rates, winner.confidence, winner.margin,
+  }, [phaseName, winner.cluster, winner.clusterRates, winner.confidence, winner.margin,
       clusterCountsKey, history.length, feat?.gestureName, feat?.gestureScore]);
 
   return (

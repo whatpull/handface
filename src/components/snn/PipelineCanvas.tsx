@@ -10,8 +10,10 @@
 //  - useHandControl(autoLive=true, autoCapture=true) 영역 본 파일 영역 직접 호출 →
 //    별도 카메라 토글 컴포넌트 의존 0 (Pipeline view 영역 standalone 영역 작동).
 //    (CameraQuickControls 컴포넌트는 영구 폐기됨 — Pipeline view 통합)
-//  - 단일 listener (training-phase / neuron-firing) 영역 flow state hoist —
-//    arrow 영역 active 영역 정합.
+//  - PipelineEventProvider 영역 영역 single neuron-firing listener — 5 child node
+//    영역 context 영역 winner / clusterRates / activeByRegion / margin 공유 (UX 4th
+//    HIGH 정정 — 4 중복 catch 제거).
+//  - training-phase listener 영역 본 파일 영역 단일 — phase / arrow flow 영역 hoist.
 //  - 5 노드 영역 component 영역 ./pipeline/Node*.tsx 영역 분리 (758 line monolithic 영역 해소).
 //
 // 정직 한계 박음:
@@ -20,67 +22,55 @@
 //    영역 영구화 영역 보존 사실.
 //  - LLM auto stream 영역 winner 변경 시점 영역 1회 POST. endpoint 영역 CORS / rate
 //    limit 영역 사용자 환경 영역.
-//  - 분리 사실 영역 동작 변경 0 — 같은 deriveWinner / 같은 listener / 같은 hooks.
+//  - PipelineEventProvider 영역 영역 listener 1회 등록 — 5 child 영역 context 구독 영역
+//    추가 listener 0. 직전 6 listener (PipelineCanvas 1 + child 5) 영역 1 영역 (-83%).
 
 import { useEffect, useState } from 'react';
 import {
   onBackendEvent,
-  type NeuronFiringDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { useHandControl } from '@/lib/snn/use-hand-control';
 import { type LlmSendResult } from '@/lib/snn/llm-client';
-// HIGH #3 정정: cluster winner 산출 단일 source.
-import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeInput from './pipeline/NodeInput';
 import NodeLearn from './pipeline/NodeLearn';
 import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
 import NodeLlm from './pipeline/NodeLlm';
 import Arrow from './pipeline/Arrow';
-import { WINNER_MARGIN } from './pipeline/shared';
+import {
+  PipelineEventProvider,
+  usePipelineEvents,
+} from './pipeline/PipelineEventContext';
 
 interface Props {
   cameraConnected: boolean;
 }
 
-// 활성 흐름 (active flow) 영역 단일 source — winner 정합 시 cyan 흐름 발광.
-// child node 영역 hoist — Pipeline 컨텍스트 영역 단일 phase/winner 흐름 영역 정합.
-interface FlowState {
-  phase: string;
-  winnerCluster: number | null;
+export default function PipelineCanvas({ cameraConnected }: Props) {
+  return (
+    <PipelineEventProvider>
+      <PipelineCanvasInner cameraConnected={cameraConnected} />
+    </PipelineEventProvider>
+  );
 }
 
-export default function PipelineCanvas({ cameraConnected }: Props) {
+function PipelineCanvasInner({ cameraConnected }: Props) {
   // useHandControl 영역 본 파일 영역 driver — Pipeline view 영역 standalone.
   const ctrl = useHandControl(cameraConnected, true, true);
 
-  const [flow, setFlow] = useState<FlowState>({ phase: 'untrained', winnerCluster: null });
-
-  // 단일 listener — 모든 노드 영역 phase/winner 영역 공유 영역 (arrow 흐름 정합).
+  // training-phase 영역 본 파일 영역 단일 listener (neuron-firing 영역 PipelineEventProvider 영역).
+  const [phase, setPhase] = useState<string>('untrained');
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
-    setFlow((p) => ({ ...p, phase: d.phase }));
+    setPhase(d.phase);
   }), []);
 
-  useEffect(() => {
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      // Backend B+3 combo (a8e8165) 영역 cluster_rates / winner_cluster / winner_margin
-      // 영역 동봉 영역 그것 영역 우선 활용 — frontend 자체 cluster mean 산출 회피.
-      const w = deriveWinner(d.out_rates || {}, {
-        marginThreshold: WINNER_MARGIN,
-        clusterRates: d.cluster_rates,
-        winnerCluster: d.winner_cluster,
-        winnerMargin: d.winner_margin,
-      });
-      setFlow((p) => p.winnerCluster === w.cluster ? p : { ...p, winnerCluster: w.cluster });
-    });
-    return off;
-  }, []);
+  // winnerCluster 영역 context 영역 추출 — flow active 산출 영역 영역 사용.
+  const { winnerCluster } = usePipelineEvents();
 
-  const flowActive = flow.winnerCluster !== null && (flow.phase === 'trained' || flow.phase === 'inference');
-  const learnActive = flow.phase === 'learning' || flow.phase === 'partial';
-  const phaseClass = `is-phase-${flow.phase}`;
+  const flowActive = winnerCluster !== null && (phase === 'trained' || phase === 'inference');
+  const learnActive = phase === 'learning' || phase === 'partial';
+  const phaseClass = `is-phase-${phase}`;
 
   // LLM transient toast — Test send 영역 success/error 영역 일시 표시 (auto fade).
   const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
@@ -108,9 +98,9 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
         <Arrow active={learnActive || flowActive} />
         <NodeLearn />
         <Arrow active={flowActive} />
-        <NodeInfer winnerCluster={flow.winnerCluster} />
+        <NodeInfer />
         <Arrow active={flowActive} />
-        <NodeOut winnerCluster={flow.winnerCluster} />
+        <NodeOut />
         <Arrow active={flowActive} />
         <NodeLlm onLlmResult={onLlmResult} />
       </div>

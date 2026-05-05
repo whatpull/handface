@@ -1,62 +1,42 @@
 'use client';
 
 // NodeInfer — winner cluster + margin + cluster mean + winner timeline + WTA tie 사실.
-// HIGH #3 정합 보존: deriveWinner 영역 단일 source 영역 위임.
+// HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
+// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 영역 영역.
 
 import { useEffect, useRef, useState } from 'react';
 import {
   onBackendEvent,
-  type NeuronFiringDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
-import { deriveWinner } from '@/lib/snn/winner-derivation';
 import NodeShell from './NodeShell';
-import { CLUSTER_LABELS, SATURATION_HZ, WINNER_MARGIN, initialCollapsedForMobile } from './shared';
+import { CLUSTER_LABELS, SATURATION_HZ, initialCollapsedForMobile } from './shared';
+import { usePipelineEvents } from './PipelineEventContext';
 
-export default function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
-  void winnerCluster; // 영역 정합 — 내부 winner 영역 직접 catch.
+export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
-  const [winner, setWinner] = useState<{
-    cluster: number | null;
-    rates: number[];
-    confidence: number;
-    margin: number;
-    saturated: boolean;
-  }>({ cluster: null, rates: [0, 0, 0, 0], confidence: 0, margin: 0, saturated: false });
   const [history, setHistory] = useState<number[]>([]);
   const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
 
+  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
+  const { winner } = usePipelineEvents();
+  const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
+
+  // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
+  const lastClusterRef = useRef<number | null>(null);
   useEffect(() => {
-    const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
-      // Backend cluster_rates / winner 영역 우선 활용 (B+3 combo 정합).
-      const w = deriveWinner(d.out_rates || {}, {
-        marginThreshold: WINNER_MARGIN,
-        clusterRates: d.cluster_rates,
-        winnerCluster: d.winner_cluster,
-        winnerMargin: d.winner_margin,
-      });
-      const saturated = w.clusterRates.every((v) => v >= SATURATION_HZ);
-      setWinner({
-        cluster: w.cluster,
-        rates: w.clusterRates,
-        confidence: w.confidence,
-        margin: w.margin,
-        saturated,
-      });
-      if (w.cluster !== null) {
-        setHistory((h) => [...h.slice(-9), w.cluster!]);
-      }
-    });
-    return off;
-  }, []);
+    if (winner.cluster === null) return;
+    if (winner.cluster === lastClusterRef.current) return;
+    lastClusterRef.current = winner.cluster;
+    setHistory((h) => [...h.slice(-9), winner.cluster!]);
+  }, [winner.cluster]);
 
   const pname = phase?.phase ?? 'untrained';
   const trained = pname === 'trained' || pname === 'inference';
-  const max = Math.max(...winner.rates, 1);
+  const max = Math.max(...winner.clusterRates, 1);
   const winnerLabel = winner.cluster !== null ? CLUSTER_TO_LABEL[winner.cluster] : null;
   const confPct = (winner.confidence * 100).toFixed(0);
 
@@ -81,11 +61,11 @@ export default function NodeInfer({ winnerCluster }: { winnerCluster: number | n
         <span className="snn-pipeline-row-value">
           {winner.cluster !== null
             ? `${CLUSTER_TO_LABEL[winner.cluster]} (margin ${(winner.margin * 100).toFixed(0)}%)`
-            : (winner.rates.some((v) => v > 0) ? 'WTA tie' : '—')}
+            : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
         </span>
       </div>
       <div className="snn-pipeline-rate-grid">
-        {winner.rates.map((r, i) => (
+        {winner.clusterRates.map((r, i) => (
           <RateBar key={i} label={CLUSTER_LABELS[i]} rate={r} max={max}
             isWinner={winner.cluster === i} />
         ))}
@@ -96,7 +76,7 @@ export default function NodeInfer({ winnerCluster }: { winnerCluster: number | n
           {history.length === 0 ? '—' : history.map(spark).join('')}
         </span>
       </div>
-      {winner.saturated && (
+      {saturated && (
         <div className="snn-pipeline-warn">⚠ saturation — 모든 OUT ≥ {SATURATION_HZ}Hz</div>
       )}
     </NodeShell>

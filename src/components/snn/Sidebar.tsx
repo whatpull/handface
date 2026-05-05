@@ -30,7 +30,7 @@ export default function Sidebar({
 
   const btn = (active: boolean) =>
     `flex h-9 w-9 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white ` +
-    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60 ` +
+    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 ` +
     (active ? 'bg-violet-500/25 text-violet-200 ring-1 ring-violet-400/40' : '');
   const evolveBtn =
     `flex h-9 w-9 items-center justify-center rounded text-white/70 transition-colors ` +

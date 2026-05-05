@@ -161,7 +161,7 @@ function drawSkeleton(canvas: HTMLCanvasElement, lms: HandLandmarks | null) {
     ctx.lineTo(lb.x * W, lb.y * H);
   }
   ctx.stroke();
-  ctx.fillStyle = '#5eead4';
+  ctx.fillStyle = '#c4b5fd';
   for (const lm of lms) {
     if (!lm) continue;
     ctx.beginPath();

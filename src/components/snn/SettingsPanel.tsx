@@ -70,7 +70,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             type="button"
             aria-label="Close settings"
             onClick={onClose}
-            className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60"
+            className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
           >
             ✕
           </button>
@@ -84,7 +84,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               onChange={(e) => setEndpoint(e.target.value)}
               autoComplete="off"
               spellCheck={false}
-              className="w-full rounded border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none focus:border-violet-400/50 focus-visible:ring-2 focus-visible:ring-teal-300/60"
+              className="w-full rounded border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none focus:border-violet-400/50 focus-visible:ring-2 focus-visible:ring-violet-300/60"
             />
           </label>
           <label className="block">
@@ -95,21 +95,21 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               onChange={(e) => setApiKey(e.target.value)}
               autoComplete="new-password"
               spellCheck={false}
-              className="w-full rounded border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none focus:border-violet-400/50 focus-visible:ring-2 focus-visible:ring-teal-300/60"
+              className="w-full rounded border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none focus:border-violet-400/50 focus-visible:ring-2 focus-visible:ring-violet-300/60"
             />
           </label>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={save}
-              className="flex-1 rounded bg-violet-500/20 px-3 py-1.5 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60"
+              className="flex-1 rounded bg-violet-500/20 px-3 py-1.5 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
               Save
             </button>
             <button
               type="button"
               onClick={test}
-              className="flex-1 rounded bg-white/5 px-3 py-1.5 text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60"
+              className="flex-1 rounded bg-white/5 px-3 py-1.5 text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
               Test
             </button>

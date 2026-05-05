@@ -367,7 +367,7 @@ export default function ValidationPanel({ open, onClose }: ValidationPanelProps)
             type="button"
             aria-label="Close validation"
             onClick={onClose}
-            className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60"
+            className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
           >
             ✕
           </button>

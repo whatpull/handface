@@ -10,7 +10,7 @@ interface MobileBottomBarProps {
 
 const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
   'text-[10px] text-white/70 hover:bg-white/5 active:bg-white/10 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60 focus-visible:ring-inset';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
 
 export default function MobileBottomBar(p: MobileBottomBarProps) {
   return (

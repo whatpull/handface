@@ -58,14 +58,14 @@ export default class ErrorBoundary extends Component<Props, State> {
             <button
               type="button"
               onClick={this.reset}
-              className="rounded bg-violet-500/30 px-4 py-1.5 text-xs text-violet-100 ring-1 ring-violet-400/50 hover:bg-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+              className="rounded bg-violet-500/30 px-4 py-1.5 text-xs text-violet-100 ring-1 ring-violet-400/50 hover:bg-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
             >
               다시 시도
             </button>
             <button
               type="button"
               onClick={this.reload}
-              className="rounded bg-white/10 px-4 py-1.5 text-xs text-white/90 ring-1 ring-white/15 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+              className="rounded bg-white/10 px-4 py-1.5 text-xs text-white/90 ring-1 ring-white/15 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
             >
               새로고침
             </button>

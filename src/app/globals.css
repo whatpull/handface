@@ -20,9 +20,10 @@ body {
 }
 
 /* ─────────────────────── Scrollbar — 디자인 정합 (ComfyUI/Weavy dark) ───────
-   본 시스템 영역 #0a0a0c 배경 + cyan(#5eead4) accent 영역 정합.
+   본 시스템 영역 #0a0a0c 배경 + violet(#a78bfa) accent 영역 정합 (HandFace brand
+   2026-05-05 — cyan 영역 폐기, warm + bio + neural tone 영역 정합).
    - WebKit (Chrome/Safari/Edge): track transparent + thumb slim+rounded.
-     hover 시 cyan tint — connection hover 색감 영역 정합.
+     hover 시 violet tint — connection hover 색감 영역 정합.
    - Firefox: scrollbar-width:thin + scrollbar-color (track 영역 영역 영역 0
      — Firefox 영역 spec 한계, 단 thumb 색감 정합).
    - 모바일: pointer:coarse 영역 영역 native overlay scrollbar 영역 (overflow
@@ -47,10 +48,10 @@ body {
   transition: background 180ms ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(94, 234, 212, 0.4);
+  background: rgba(167, 139, 250, 0.4);
 }
 ::-webkit-scrollbar-thumb:active {
-  background: rgba(94, 234, 212, 0.55);
+  background: rgba(167, 139, 250, 0.55);
 }
 ::-webkit-scrollbar-corner {
   background: transparent;

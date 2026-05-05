@@ -1,23 +1,21 @@
 'use client';
 
-// Arrow — persistent bezier connector v4 (사용자 catch [UI/UX 10/100]:
-// "연결 라인 항상 visible + cyan single tone 통일 + flow dot 항상 흐름").
+// Arrow — persistent horizontal bezier connector v6 (사용자 catch [UI/UX 99]:
+// "wave artifact 폐기 + right edge → left edge 본격 정합 + violet brand tone").
 //
-// 직전 5 tone gradient (violet/amber/cyan/pink/blue) 영역 폐기 — 사용자 명시:
-// 단일 cyan palette (#06b6d4 main + #67e8f9 accent + alpha glow) 영역 통일.
+// 직전 v5 영역 path 'M 2 30 C 14 14, 22 46, 34 30' 영역 강 S-curve 영역 wave artifact
+// 영역 박힘 (사용자 catch). 본 v6 영역 단순 horizontal bezier — 좌·우 box edge 영역
+// 동일 y 영역 박힘 (slight curve 영역 control point 동일 y) → 시각 wave 0.
 //
-// 본격 변경:
-//  - active prop 영역 visual flag 영역만 (stroke opacity 영역 분기) — path/dot 영역 항상 render.
-//  - flow dot 영역 항상 animateMotion (1.6s loop) — active 영역 영역 0.6 alpha + brightness 0.7
-//    영역 dim. learn/flow active 영역 1.0 alpha + glow drop-shadow.
-//  - bezier curve 영역 cubic S 영역 박음 (slight lift in middle) — node editor aesthetic.
-//  - segment prop 영역 무시 (호환 영역 보존) — tone 통일 영역 정합.
-//
-// 정직 한계:
-//  - SVG width 28px 좁음 → bezier control point 영역 영역 영역 곡률 영역 영역.
-//  - prefers-reduced-motion 영역 dot animation 영역 0.01ms 정지 (.snn-pipeline-conn-dot 정합).
-//  - 4 connector 영역 영역 1 dot 영역 — 사용자 명시 "16 dot" 영역 SVG path 영역 영역
-//    multi-particle 영역 영역 영역 (영역 단순 영역 1 dot 영역 폐기 회피).
+// 본격 변경 (2026-05-05):
+//  - path: 'M 0 30 C 18 30, 18 30, 36 30' — pure horizontal (control point 동일 y).
+//    bezier curve 영역 영역 영역 영역 영역 단순 line 영역 정합 (no wave).
+//  - viewBox 36×60 영역 영역 36×60 영역 보존 — height 영역 align-self stretch 영역
+//    parent height 영역 fill 영역 vertical center y=30 영역 좌·우 박스 mid 영역 align.
+//  - tone 영역 violet 영역 swap (cyan #06b6d4 → violet #a78bfa). gradient stop 영역
+//    violet light/main/dark 영역 정합.
+//  - flow dot 영역 항상 animateMotion (사용자 명시 — 5s loop infinite 폐기 → 1.8s
+//    loop 영역 영역 영역 보존, 본 영역 visual 영역 연속 정합).
 
 interface ArrowProps {
   active?: boolean;
@@ -25,22 +23,22 @@ interface ArrowProps {
   segment?: 0 | 1 | 2 | 3;
 }
 
-// path d v5 (2026-05-05) — 곡률 ↑ (직전 slight S 영역 더 강한 cubic S) +
-// node editor aesthetic 영역 정합. 28px width 영역 영역 영역 control point 영역
-// 큰 변화 영역 정합 영역 영역.
-const PATH_D = 'M 2 30 C 14 14, 22 46, 34 30';
-// dashed underlay path — animated dash 영역 stream 영역 visualize (사용자 명시 99 path).
-const DASH_LEN = 32; // SVG path length approx 영역 전체 — circle motion 영역 정합.
+// path d v6 (2026-05-05) — pure horizontal bezier (control point 동일 y=30).
+// 좌·우 box edge mid 영역 직선 영역 정합 — wave artifact 영역 0. control point 영역
+// x 영역 영역 영역 — 단순 cubic 영역 horizontal line 영역 영역 정합 (visual 동일).
+const PATH_D = 'M 0 30 C 18 30, 18 30, 36 30';
+// dashed underlay path — animated dash 영역 stream 영역 visualize.
+const DASH_LEN = 36;
 
 export default function Arrow({ active = false }: ArrowProps) {
   return (
     <div className={`snn-pipeline-arrow ${active ? 'is-active' : 'is-idle'}`} aria-hidden>
       <svg viewBox="0 0 36 60" width="36" height="60" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="snn-conn-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stopColor="#0891b2" stopOpacity="0.9" />
-            <stop offset="50%"  stopColor="#06b6d4" stopOpacity="1.0" />
-            <stop offset="100%" stopColor="#67e8f9" stopOpacity="0.95" />
+          <linearGradient id="snn-conn-violet" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stopColor="#7c3aed" stopOpacity="0.9" />
+            <stop offset="50%"  stopColor="#a78bfa" stopOpacity="1.0" />
+            <stop offset="100%" stopColor="#c4b5fd" stopOpacity="0.95" />
           </linearGradient>
           <filter id="snn-conn-glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="2.0" result="b" />
@@ -50,24 +48,23 @@ export default function Arrow({ active = false }: ArrowProps) {
             </feMerge>
           </filter>
         </defs>
-        {/* base edge — 항상 visible (alpha 0.55 → active 1.0). 본격 stroke 2.0 영역
-            visual depth ↑ + 곡률 강 cubic S. */}
+        {/* base edge — horizontal bezier (control point 동일 y=30) → wave 0. 항상
+            visible (alpha 0.55 → active 1.0). stroke 2.0 영역 visual depth ↑. */}
         <path
           className="snn-pipeline-conn-path"
           d={PATH_D}
-          stroke="url(#snn-conn-cyan)"
+          stroke="url(#snn-conn-violet)"
           strokeWidth="2.0"
           fill="none"
           strokeLinecap="round"
           filter="url(#snn-conn-glow)"
         />
-        {/* animated dash overlay — 사용자 catch "animated dash + flow dot stream".
-            base path 영역 dasharray 4-3 + dashoffset animate (active 영역 영역 영역). */}
+        {/* animated dash overlay — active 영역 영역 영역. */}
         {active && (
           <path
             className="snn-pipeline-conn-dash"
             d={PATH_D}
-            stroke="#a5f3fc"
+            stroke="#ddd6fe"
             strokeWidth="1.0"
             fill="none"
             strokeLinecap="round"
@@ -78,11 +75,11 @@ export default function Arrow({ active = false }: ArrowProps) {
               dur="0.9s" repeatCount="indefinite" />
           </path>
         )}
-        {/* flow dot — 항상 animateMotion 영역 5s loop 영역 (사용자 catch). */}
+        {/* flow dot — 항상 animateMotion 영역 1.8s loop. */}
         <circle
           className="snn-pipeline-conn-dot"
           r="2.6"
-          fill="#67e8f9"
+          fill="#c4b5fd"
         >
           <animateMotion dur="1.8s" repeatCount="indefinite" path={PATH_D} />
         </circle>

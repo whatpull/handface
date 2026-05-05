@@ -99,7 +99,7 @@ function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
         type="button"
         aria-label="Dismiss notification"
         onClick={onDismiss}
-        className="shrink-0 rounded px-1 text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+        className="shrink-0 rounded px-1 text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
       >
         <span aria-hidden>✕</span>
       </button>

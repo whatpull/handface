@@ -128,7 +128,7 @@
   inset: 0;
   /* admin minimalist v5 — flat #000 단색. */
   background: #000000;
-  overflow: auto;
+  overflow: hidden;
   padding: var(--pipe-gap-md);
   display: flex;
   flex-direction: column;
@@ -232,16 +232,17 @@
    active: stroke 강 + drop-shadow glow + animateMotion dot. */
 .snn-pipeline-stage {
   position: relative;
-  width: var(--stage-w, 1188px);
-  height: var(--stage-h, 360px);
-  min-height: 360px;
+  /* viewport fit — width 100% + height flex-1 (사용자 catch: 빈공간 채우기 + 스크롤바 폐기). */
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   /* canvas grid background — admin minimalist subtle dot grid. */
   background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: 0 0;
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
-  overflow: auto;
+  overflow: hidden;
 }
 .snn-pipeline-svg {
   position: absolute;

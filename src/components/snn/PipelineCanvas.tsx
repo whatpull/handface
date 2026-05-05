@@ -255,6 +255,15 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     }
   }, []);
 
+  // Toolbar 'Reset layout' button → custom event listener (사용자 명시 catch — top 메뉴 영역).
+  useEffect(() => {
+    const handler = () => resetLayout();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('handface.pipeline.reset-layout', handler);
+      return () => window.removeEventListener('handface.pipeline.reset-layout', handler);
+    }
+  }, [resetLayout]);
+
   // bezier path — source right-edge midpoint → target left-edge midpoint.
   // C control point: source.x + 60, target.x - 60 (horizontal smooth).
   const buildPath = (a: NodeId, b: NodeId): string => {
@@ -268,13 +277,14 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
   };
 
-  // SVG canvas size — node 영역 최대 right/bottom + margin (사용자 catch: viewport fit + top-aligned).
+  // SVG canvas size — node 영역 최대 right/bottom + margin (사용자 catch v2: stage 100% 영역 fit).
+  // 사용자 명시: 빈공간 채우기 + 스크롤바 제거 → stage 영역 container 100%.
   const stageWidth = Math.max(
-    1188,
+    1100,
     Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].x + NODE_WIDTH + 16)),
   );
   const stageHeight = Math.max(
-    360,
+    400,
     Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].y + heights[k] + 16)),
   );
 
@@ -357,14 +367,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
             {renderNode(id)}
           </div>
         ))}
-        <button
-          type="button"
-          className="snn-pipeline-reset"
-          onClick={resetLayout}
-          title="Reset node layout to default"
-        >
-          Reset layout
-        </button>
       </div>
       {ctrl.trainStatus && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">

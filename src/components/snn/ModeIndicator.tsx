@@ -27,6 +27,8 @@ interface TeacherStatus {
   gestureName: string | null;
   gestureScore: number;
   hasHand: boolean;
+  // 같은 gesture name 연속 frame 카운트 (mappable + conf 충족 시만 누적).
+  stableCount: number;
 }
 
 // saturation 임계 — 모든 OUT 이 이 이상 firing rate 이면 selectivity 0 catch.
@@ -39,7 +41,13 @@ const DW_EPSILON = 0.1;
 const IDLE_FADE_MS = 1500;
 
 // supervised teacher 정합 임계 — use-hand-control 정합 (0.6).
-const TEACHER_CONF_MIN = 0.6;
+// 0.6 → 0.8 상향 (N3 한계 돌파 1: noisy teacher 회피, use-hand-control 정합).
+const TEACHER_CONF_MIN = 0.8;
+// N consecutive same-gesture frame 합의 — use-hand-control GESTURE_STABLE_FRAMES 정합.
+const TEACHER_STABLE_FRAMES = 3;
+// MediaPipe GestureRecognizer 라벨 화이트리스트 (mappable 만 stability 카운트).
+// use-hand-control GESTURE_LABEL_TO_CLUSTER 정합.
+const MAPPABLE_GESTURES = new Set(['Pointing_Up', 'Open_Palm', 'Closed_Fist', 'Victory']);
 
 export default function ModeIndicator() {
   const [status, setStatus] = useState<ModeStatus | null>(null);
@@ -47,14 +55,31 @@ export default function ModeIndicator() {
   // pre->post 별 직전 weight 보관. Δw 계산 = current - prev.
   const prevWeights = useRef<Map<string, number>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // teacher stability tracking — use-hand-control 과 독립 카운트 (events 추가 회피).
+  // 같은 mappable gesture + conf 충족 frame 연속 시 카운트, 아니면 리셋.
+  const teacherStableRef = useRef<{ name: string | null; count: number }>({ name: null, count: 0 });
 
   // MediaPipe gesture (teacher signal) subscribe.
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
+      const name = d.gestureName ?? null;
+      const score = d.gestureScore ?? 0;
+      const mappable = name !== null && MAPPABLE_GESTURES.has(name);
+      // stability counter — mappable + conf 충족 시만 누적, 아니면 0 리셋.
+      if (d.hasHand && mappable && score >= TEACHER_CONF_MIN) {
+        if (name === teacherStableRef.current.name) {
+          teacherStableRef.current.count += 1;
+        } else {
+          teacherStableRef.current = { name, count: 1 };
+        }
+      } else {
+        teacherStableRef.current = { name: null, count: 0 };
+      }
       setTeacher({
-        gestureName: d.gestureName ?? null,
-        gestureScore: d.gestureScore ?? 0,
+        gestureName: name,
+        gestureScore: score,
         hasHand: d.hasHand,
+        stableCount: teacherStableRef.current.count,
       });
     });
     return off;
@@ -141,18 +166,29 @@ export default function ModeIndicator() {
     : status.mode === 'inference' ? 'INFERENCE'
     : 'IDLE';
 
-  // Teacher badge 사실 — MediaPipe GestureRecognizer 라벨 + confidence 1:1.
-  const supervised = !!teacher && teacher.hasHand
-    && teacher.gestureName !== null && teacher.gestureName !== 'None'
-    && teacher.gestureScore >= TEACHER_CONF_MIN;
-  const teacherBg = supervised
+  // Teacher badge 사실 — MediaPipe GestureRecognizer 라벨 + confidence + N=3 합의 1:1.
+  // 3단 상태:
+  //   1) stable supervised — conf >= 0.8 AND mappable AND stableCount >= 3 (amber bright)
+  //   2) stabilizing       — conf >= 0.8 AND mappable AND stableCount < 3   (amber dim)
+  //   3) unsupervised      — 그 외 (gray)
+  const teacherMappable = !!teacher && teacher.gestureName !== null
+    && MAPPABLE_GESTURES.has(teacher.gestureName);
+  const confOk = !!teacher && teacher.hasHand && teacher.gestureScore >= TEACHER_CONF_MIN;
+  const stableSupervised = confOk && teacherMappable
+    && (teacher!.stableCount >= TEACHER_STABLE_FRAMES);
+  const stabilizing = confOk && teacherMappable && !stableSupervised;
+  const teacherBg = stableSupervised
     ? 'bg-amber-500/15 ring-amber-400/40 text-amber-200'
-    : 'bg-white/5 ring-white/15 text-white/40';
-  const teacherLabel = supervised
+    : stabilizing
+      ? 'bg-amber-500/8 ring-amber-400/25 text-amber-200/70'
+      : 'bg-white/5 ring-white/15 text-white/40';
+  const teacherLabel = stableSupervised
     ? `teacher: ${teacher!.gestureName}`
-    : (teacher?.hasHand
-        ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, < ${(TEACHER_CONF_MIN * 100).toFixed(0)}% — unsupervised)`
-        : 'teacher: no hand');
+    : stabilizing
+      ? `teacher: ${teacher!.gestureName} (stabilizing ${teacher!.stableCount}/${TEACHER_STABLE_FRAMES})`
+      : (teacher?.hasHand
+          ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, low conf or unstable — unsupervised)`
+          : 'teacher: no hand');
 
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col items-end gap-1.5 font-mono text-[11px]">
@@ -160,9 +196,14 @@ export default function ModeIndicator() {
       {teacher && (
         <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${teacherBg} min-w-[180px]`}>
           <div className="font-semibold tracking-wider">{teacherLabel}</div>
-          {supervised && (
+          {stableSupervised && (
             <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
               conf {(teacher!.gestureScore * 100).toFixed(0)}% — supervised STDP
+            </div>
+          )}
+          {stabilizing && (
+            <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
+              conf {(teacher!.gestureScore * 100).toFixed(0)}% — N=3 합의 대기 (unsupervised)
             </div>
           )}
         </div>

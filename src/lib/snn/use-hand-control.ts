@@ -24,7 +24,11 @@ export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
   Victory:     3,
 };
 // supervised teacher 신호 임계 — confidence 이 이하면 unsupervised STDP only.
-export const GESTURE_CONFIDENCE_MIN = 0.6;
+// 0.6 → 0.8 상향 (N3 한계 돌파 1: noisy teacher 회피 mandatory).
+// MediaPipe GestureRecognizer 가 0.6 ~ 0.8 영역에서 라벨 자주 흔들림 (유사 자세 혼동).
+export const GESTURE_CONFIDENCE_MIN = 0.8;
+// N consecutive same gesture frames 요구 — 단발 라벨 noise 회피 (N3 정합).
+export const GESTURE_STABLE_FRAMES = 3;
 
 export interface LivePredictResult {
   winner: string | null;
@@ -150,6 +154,9 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     let lastWinner: string | null = null;
     let stableCount = 0;
     let homeostasisCount = 0;
+    // teacher gesture stability — N consecutive same-name frame 합의 필수 (noisy teacher 회피).
+    let lastGestureName: string | null = null;
+    let gestureStableCount = 0;
     const lastRecordAt: Record<string, number> = {};
 
     const tick = async () => {
@@ -158,6 +165,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       if (!hasHandRef.current || !feat) {
         lastWinner = null;
         stableCount = 0;
+        lastGestureName = null;
+        gestureStableCount = 0;
         setLiveResult(null);
         if (!cancelled) setTimeout(tick, AUTO_TICK_MS);
         return;
@@ -174,10 +183,22 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       // 기준 미만이면 unsupervised STDP only (기존 동작).
       const gName = gestureNameRef.current;
       const gScore = gestureScoreRef.current;
-      const cluster = (gName && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined)
-        ? GESTURE_LABEL_TO_CLUSTER[gName]
-        : null;
-      const supervised = cluster !== null && gScore >= GESTURE_CONFIDENCE_MIN;
+      // teacher stability tracking — 같은 gesture name 연속 시만 count 누적, 다르면 리셋.
+      // unsupervised STDP 는 stability 와 무관하게 항상 진행 (기존 동작 보존).
+      const gestureMappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
+      if (gestureMappable && gScore >= GESTURE_CONFIDENCE_MIN) {
+        if (gName === lastGestureName) gestureStableCount += 1;
+        else { lastGestureName = gName; gestureStableCount = 1; }
+      } else {
+        // mappable 아니거나 conf 미달 → stability 리셋 (다른 라벨이 들어왔을 가능성).
+        lastGestureName = null;
+        gestureStableCount = 0;
+      }
+      const cluster = gestureMappable ? GESTURE_LABEL_TO_CLUSTER[gName!] : null;
+      // supervised 진입 조건: conf >= 0.8 AND N=3 consecutive same-name frame 합의.
+      const supervised = cluster !== null
+        && gScore >= GESTURE_CONFIDENCE_MIN
+        && gestureStableCount >= GESTURE_STABLE_FRAMES;
       const targetOut = supervised ? `out_${cluster}_0` : undefined;
 
       const r = await getClient().injectPattern(pattern, { stdp: true, targetOut });

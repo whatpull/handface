@@ -168,26 +168,6 @@
   text-overflow: ellipsis;
 }
 
-.snn-canvas-neuron-lock {
-  font-size: 10px;
-  margin-left: 4px;
-  opacity: 0.65;
-  filter: grayscale(0.3);
-}
-
-.snn-canvas-neuron-menu {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
-  letter-spacing: 1px;
-  cursor: pointer;
-  padding: 0 4px;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.snn-canvas-neuron-menu:hover {
-  color: rgba(255, 255, 255, 0.7);
-}
-
 .snn-canvas-neuron-body {
   padding: 6px 10px;
   display: flex;
@@ -219,19 +199,6 @@
 .snn-canvas-neuron--fired .snn-canvas-neuron-card {
   border-color: var(--neuron-color);
   box-shadow: 0 0 8px var(--neuron-color), 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-/* 시스템 노드 잠금 표시. */
-.snn-canvas-neuron--locked .snn-canvas-neuron-card {
-  filter: saturate(0.85);
-}
-.snn-canvas-neuron--locked .snn-canvas-neuron-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1px dashed rgba(255, 255, 255, 0.05);
-  border-radius: inherit;
-  pointer-events: none;
 }
 
 /* population별 색감 (rollback branch 정합). */

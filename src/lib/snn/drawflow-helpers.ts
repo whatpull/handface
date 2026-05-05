@@ -16,8 +16,7 @@ export function inferRegion(name: string): 'INPUT' | 'OUT' | 'V1' | 'V2' | 'OTHE
 // drawflow 노드 className 빌드.
 export function buildNodeClass(n: LayoutNode): string {
   const popClass = n.population.toLowerCase().replace(/\W+/g, '_');
-  const lock = n.isSystem ? ' snn-canvas-neuron--locked' : '';
-  return `snn-canvas-neuron snn-canvas-neuron--${popClass} snn-canvas-node-${n.id}${lock}`;
+  return `snn-canvas-neuron snn-canvas-neuron--${popClass} snn-canvas-node-${n.id}`;
 }
 
 // 카드 HTML 렌더 — population 별 분기.
@@ -28,7 +27,6 @@ export function renderNodeHtml(n: LayoutNode): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
-          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-neuron-body">
           <div class="snn-canvas-neuron-row">
@@ -46,7 +44,6 @@ export function renderNodeHtml(n: LayoutNode): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
-          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-source-mount" id="snn-cam-mount">
           <video id="snn-cam-video" class="snn-camera-mirror snn-cam-video" playsinline muted></video>
@@ -67,7 +64,6 @@ export function renderNodeHtml(n: LayoutNode): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
-          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-source-mount snn-feat-mount" id="snn-feat-mount">
           <div class="snn-feat-bars" id="snn-feat-bars">${bars}</div>
@@ -85,7 +81,6 @@ export function renderNodeHtml(n: LayoutNode): string {
         <div class="snn-canvas-neuron-header">
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
-          <span class="snn-canvas-neuron-menu">···</span>
         </div>
         <div class="snn-canvas-neuron-body">
           <div class="snn-canvas-neuron-row">
@@ -100,14 +95,11 @@ export function renderNodeHtml(n: LayoutNode): string {
       </div>
     `;
   }
-  const lock = n.isSystem ? '<span class="snn-canvas-neuron-lock" title="시스템">🔒</span>' : '';
   return `
     <div class="snn-canvas-neuron-card">
       <div class="snn-canvas-neuron-header">
         <span class="snn-canvas-neuron-dot"></span>
         <span class="snn-canvas-neuron-label">${n.label}</span>
-        ${lock}
-        <span class="snn-canvas-neuron-menu">···</span>
       </div>
       <div class="snn-canvas-neuron-body">
         <div class="snn-canvas-neuron-row">

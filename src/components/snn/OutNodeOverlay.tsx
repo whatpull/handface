@@ -8,7 +8,12 @@ import {
 } from '@/lib/snn/out-exemplars';
 import { getClient } from '@/lib/backend/client';
 
-const OUT_KEYS = ['out_0', 'out_1', 'out_2', 'out_3'];
+// N3 본격 회로 = 4 cluster × 8 OUT (out_{ci}_{idx}). cluster 의 첫 OUT (out_X_0) 에만
+// 라벨/count UI mount — cluster 대표 영역. backward compat 으로 out_0..3 도 인식.
+const OUT_KEYS = [
+  'out_0_0', 'out_1_0', 'out_2_0', 'out_3_0',
+  'out_0', 'out_1', 'out_2', 'out_3',
+];
 
 // 4개 OUT 노드 안 .snn-out-label-mount 에 React portal 로 라벨 + count + ✎ rename UI 마운트.
 // 발견된 패턴에 사용자가 의미 부여 (예: "Pattern #2" → "Pointing").

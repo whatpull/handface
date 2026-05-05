@@ -73,7 +73,7 @@ export function renderNodeHtml(n: LayoutNode): string {
       </div>
     `;
   }
-  if (n.population === 'output' || n.id.startsWith('out_')) {
+  if (n.population === 'output' || n.population.startsWith('cluster_') || n.id.startsWith('out_')) {
     return `
       <div class="snn-canvas-neuron-card snn-canvas-out-card">
         <div class="snn-canvas-neuron-header">

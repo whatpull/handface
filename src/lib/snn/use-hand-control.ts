@@ -8,11 +8,23 @@ import { incrementTrainCount } from '@/lib/snn/train-counts';
 import { recordExemplar } from '@/lib/snn/out-exemplars';
 
 export const HAND_GESTURES = [
-  { id: 'pointing', label: 'Pointing',  short: 'P', out: 'out_0' },
-  { id: 'openpalm', label: 'Open palm', short: 'O', out: 'out_1' },
-  { id: 'thumbsup', label: 'Thumbs up', short: 'T', out: 'out_2' },
-  { id: 'victory',  label: 'Victory',   short: 'V', out: 'out_3' },
+  { id: 'pointing', label: 'Pointing',  short: 'P', cluster: 0 },
+  { id: 'openpalm', label: 'Open palm', short: 'O', cluster: 1 },
+  { id: 'fist',     label: 'Fist',      short: 'F', cluster: 2 },
+  { id: 'victory',  label: 'Victory',   short: 'V', cluster: 3 },
 ];
+
+// MediaPipe GestureRecognizer 라벨 → OUT cluster id (N3 본격 회로 정합).
+// out cluster 0..3 은 backend N3 design 의 4 cluster × 8 OUT neurons 정합.
+// 매핑 안 된 라벨 (Thumb_Up/Down, ILoveYou, None) 은 unsupervised STDP.
+export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
+  Pointing_Up: 0,
+  Open_Palm:   1,
+  Closed_Fist: 2,
+  Victory:     3,
+};
+// supervised teacher 신호 임계 — confidence 이 이하면 unsupervised STDP only.
+export const GESTURE_CONFIDENCE_MIN = 0.6;
 
 export interface LivePredictResult {
   winner: string | null;
@@ -40,11 +52,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
 
   const featRef = useRef<number[] | null>(null);
   const hasHandRef = useRef(false);
+  const gestureNameRef = useRef<string | null>(null);
+  const gestureScoreRef = useRef<number>(0);
 
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
       featRef.current = d.feature;
       hasHandRef.current = d.hasHand;
+      gestureNameRef.current = d.gestureName ?? null;
+      gestureScoreRef.current = d.gestureScore ?? 0;
       setHasHand(d.hasHand);
     });
     return off;
@@ -153,20 +169,47 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         void getClient().homeostatic(5.0).catch(() => null);
       }
       const pattern = feat.slice(0, 16);
-      // 자율 STDP — target_out 없이 STDP=on. cortical lateral 회로가 winner 결정.
-      const r = await getClient().injectPattern(pattern, { stdp: true });
+      // Bootstrap supervised STDP (N3): MediaPipe gesture label → cluster id →
+      // target_out (cluster 의 첫 OUT, supervised teacher signal). confidence
+      // 기준 미만이면 unsupervised STDP only (기존 동작).
+      const gName = gestureNameRef.current;
+      const gScore = gestureScoreRef.current;
+      const cluster = (gName && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined)
+        ? GESTURE_LABEL_TO_CLUSTER[gName]
+        : null;
+      const supervised = cluster !== null && gScore >= GESTURE_CONFIDENCE_MIN;
+      const targetOut = supervised ? `out_${cluster}_0` : undefined;
+
+      const r = await getClient().injectPattern(pattern, { stdp: true, targetOut });
       if (cancelled) return;
       if (r.ok) {
+        // out_rates → cluster mean readout (population coding, N3 회로 정합).
         const rates = (r.data.out_rates || {}) as Record<string, number>;
+        const clusterRates: number[] = [0, 0, 0, 0];
+        const clusterCounts: number[] = [0, 0, 0, 0];
+        for (const [k, v] of Object.entries(rates)) {
+          // expected name: out_{cluster}_{idx}
+          const m = /^out_(\d+)_(\d+)$/.exec(k);
+          if (!m) continue;
+          const ci = Number(m[1]);
+          if (ci >= 0 && ci < 4) {
+            clusterRates[ci] += v;
+            clusterCounts[ci] += 1;
+          }
+        }
+        const clusterMean = clusterRates.map((s, i) => clusterCounts[i] > 0 ? s / clusterCounts[i] : 0);
         let winner: string | null = null;
         let max = 0;
         let total = 0;
-        for (const [k, v] of Object.entries(rates)) {
-          total += v;
-          if (v > max) { max = v; winner = k; }
+        for (let i = 0; i < 4; i += 1) {
+          total += clusterMean[i];
+          if (clusterMean[i] > max) { max = clusterMean[i]; winner = `cluster_${i}`; }
         }
         const conf = total > 0 ? max / total : 0;
-        setLiveResult({ winner, rates, confidence: conf });
+        // exposed rates 영역도 cluster 단위로 표시 (기존 winner string 호환 위해 cluster_i 명명).
+        const ratesExposed: Record<string, number> = {};
+        for (let i = 0; i < 4; i += 1) ratesExposed[`cluster_${i}`] = clusterMean[i];
+        setLiveResult({ winner, rates: ratesExposed, confidence: conf });
 
         if (winner && conf >= MIN_CONFIDENCE) {
           if (winner === lastWinner) stableCount += 1;
@@ -177,8 +220,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             const last = lastRecordAt[winner] || 0;
             if (now - last >= COOLDOWN_MS) {
               lastRecordAt[winner] = now;
-              // self-reinforce: 같은 winner 를 supervisor 로 강제 (Hebbian co-activation 강화).
-              await getClient().injectPattern(pattern, { stdp: true, targetOut: winner });
+              // self-reinforce — winner cluster 의 첫 OUT 을 supervisor target 으로.
+              // (cluster 내 mutual excitation 으로 cluster 전체 강화 정합.)
+              const m = /^cluster_(\d+)$/.exec(winner);
+              const reinforceTarget = m ? `out_${m[1]}_0` : winner;
+              await getClient().injectPattern(pattern, { stdp: true, targetOut: reinforceTarget });
               recordExemplar(winner, feat);
               setTrainStatus(`✓ ${winner} 강화 (안정 발화 캡처)`);
               // 한 번 캡처 후 stability 리셋 — 손 잠깐 흔들고 다시 안정화될 때까지 대기.

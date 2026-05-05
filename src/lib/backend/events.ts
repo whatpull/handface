@@ -7,6 +7,11 @@ export interface HandFeatureDetail {
   feature: number[];          // 16-dim (smoothed)
   raw: number[];              // 16-dim (unsmoothed)
   hasHand: boolean;
+  // MediaPipe GestureRecognizer 라벨 — supervised STDP 의 teacher signal.
+  // categoryName 예: 'Pointing_Up' / 'Open_Palm' / 'Closed_Fist' / 'Victory' /
+  //                  'Thumb_Up' / 'Thumb_Down' / 'ILoveYou' / 'None' / null.
+  gestureName?: string | null;
+  gestureScore?: number;      // 0..1 confidence
 }
 
 export interface NeuronFiringDetail {

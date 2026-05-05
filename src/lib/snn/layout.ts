@@ -38,11 +38,12 @@ const REGION_ORDER = [
   'PFC', 'AMG', 'BG', 'CRB', 'HIPPO', 'TH', 'OUT',
 ];
 
-// region 안 population 표시 순서.
+// region 안 population 표시 순서. cluster_0..3 = N3 본격 회로의 OUT cluster.
 const POPULATION_ORDER = [
   'camera', 'gesture', 'input',
   'L4_E', 'L4_I', 'L23_E', 'L23_I', 'L5_E', 'L5_I', 'L6_E', 'L6_I',
   'output',
+  'cluster_0', 'cluster_1', 'cluster_2', 'cluster_3',
 ];
 
 // population 별 최대 표시 개수 (전체 200개 등 큰 그룹 sampling).

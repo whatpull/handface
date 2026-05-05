@@ -9,7 +9,7 @@
 //  - 학습 모드인데 Δw 0 → "no Δw detected" 명시
 
 import { useEffect, useRef, useState } from 'react';
-import { onBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail } from '@/lib/backend/events';
 
 interface ModeStatus {
   mode: 'learning' | 'inference' | 'idle';
@@ -23,6 +23,12 @@ interface ModeStatus {
   ts: number;
 }
 
+interface TeacherStatus {
+  gestureName: string | null;
+  gestureScore: number;
+  hasHand: boolean;
+}
+
 // saturation 임계 — 모든 OUT 이 이 이상 firing rate 이면 selectivity 0 catch.
 const SATURATION_HZ = 400;
 // 의미 있는 winner margin (max - second) / max — 이 이하면 tie 로 간주.
@@ -32,11 +38,27 @@ const DW_EPSILON = 0.1;
 // 응답 없는 idle 시간 — 이 이상 안 들어오면 idle 표시로 fade.
 const IDLE_FADE_MS = 1500;
 
+// supervised teacher 정합 임계 — use-hand-control 정합 (0.6).
+const TEACHER_CONF_MIN = 0.6;
+
 export default function ModeIndicator() {
   const [status, setStatus] = useState<ModeStatus | null>(null);
+  const [teacher, setTeacher] = useState<TeacherStatus | null>(null);
   // pre->post 별 직전 weight 보관. Δw 계산 = current - prev.
   const prevWeights = useRef<Map<string, number>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // MediaPipe gesture (teacher signal) subscribe.
+  useEffect(() => {
+    const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
+      setTeacher({
+        gestureName: d.gestureName ?? null,
+        gestureScore: d.gestureScore ?? 0,
+        hasHand: d.hasHand,
+      });
+    });
+    return off;
+  }, []);
 
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
@@ -119,8 +141,32 @@ export default function ModeIndicator() {
     : status.mode === 'inference' ? 'INFERENCE'
     : 'IDLE';
 
+  // Teacher badge 사실 — MediaPipe GestureRecognizer 라벨 + confidence 1:1.
+  const supervised = !!teacher && teacher.hasHand
+    && teacher.gestureName !== null && teacher.gestureName !== 'None'
+    && teacher.gestureScore >= TEACHER_CONF_MIN;
+  const teacherBg = supervised
+    ? 'bg-amber-500/15 ring-amber-400/40 text-amber-200'
+    : 'bg-white/5 ring-white/15 text-white/40';
+  const teacherLabel = supervised
+    ? `teacher: ${teacher!.gestureName}`
+    : (teacher?.hasHand
+        ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, < ${(TEACHER_CONF_MIN * 100).toFixed(0)}% — unsupervised)`
+        : 'teacher: no hand');
+
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col items-end gap-1.5 font-mono text-[11px]">
+      {/* Teacher badge — MediaPipe gesture 사실 1:1 */}
+      {teacher && (
+        <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${teacherBg} min-w-[180px]`}>
+          <div className="font-semibold tracking-wider">{teacherLabel}</div>
+          {supervised && (
+            <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
+              conf {(teacher!.gestureScore * 100).toFixed(0)}% — supervised STDP
+            </div>
+          )}
+        </div>
+      )}
       {/* Mode badge — 사실 1:1 표시 */}
       <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${modeBg} min-w-[180px]`}>
         <div className="flex items-center gap-1.5 font-semibold tracking-wider">

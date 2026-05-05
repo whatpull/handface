@@ -288,16 +288,42 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         rates = synth;
       }
 
-      // OUT winner 분리 — out_rates max 가 두 번째보다 ≥10% margin 일 때만 winner.
-      // 거짓 회피: 모든 OUT 동시 ACTIVE 표시 금지. tie 면 모두 dim + tie 표시.
+      // OUT cluster mean readout (N3 본격 회로 정합) — out_{cluster}_{idx} 명명 정합.
+      // 거짓 회피: 모든 OUT 동시 ACTIVE 표시 금지. cluster mean margin <10% 면 tie.
       const outRates = d.out_rates || {};
-      const outsSorted = Object.entries(outRates).sort((a, b) => b[1] - a[1]);
-      let winnerOut: string | null = null;
-      if (outsSorted.length >= 2) {
-        const max = outsSorted[0][1];
-        const second = outsSorted[1][1];
-        const margin = max > 0 ? (max - second) / max : 0;
-        if (margin >= 0.10) winnerOut = outsSorted[0][0];
+      const clusterSum: number[] = Array.from({ length: 4 }, () => 0);
+      const clusterCnt: number[] = Array.from({ length: 4 }, () => 0);
+      for (const [k, v] of Object.entries(outRates)) {
+        const m = /^out_(\d+)_(\d+)$/.exec(k);
+        if (m) {
+          const ci = Number(m[1]);
+          if (ci >= 0 && ci < 4) {
+            clusterSum[ci] += v;
+            clusterCnt[ci] += 1;
+          }
+        }
+      }
+      const clusterMean = clusterSum.map((s, i) => clusterCnt[i] > 0 ? s / clusterCnt[i] : 0);
+      // 직전 single-OUT (out_0..3) backward compat — N3 매핑 안 되면 fallback.
+      const noN3 = clusterCnt[0] + clusterCnt[1] + clusterCnt[2] + clusterCnt[3] === 0;
+      if (noN3) {
+        for (const [k, v] of Object.entries(outRates)) {
+          const sm = /^out_(\d+)$/.exec(k);
+          if (sm) {
+            const ci = Number(sm[1]);
+            if (ci >= 0 && ci < 4) { clusterMean[ci] = v; clusterCnt[ci] = 1; }
+          }
+        }
+      }
+      const sortedClusters = clusterMean
+        .map((rate, ci) => ({ ci, rate }))
+        .sort((a, b) => b.rate - a.rate);
+      let winnerCluster: number | null = null;
+      if (sortedClusters[0].rate > 0) {
+        const max = sortedClusters[0].rate;
+        const second = sortedClusters[1]?.rate || 0;
+        const margin = (max - second) / max;
+        if (margin >= 0.10) winnerCluster = sortedClusters[0].ci;
       }
 
       // 시냅스 Δw flash — 이전 weight cache 와 비교, |Δw|≥0.1 면 LTP(green)/LTD(orange) flash.
@@ -335,12 +361,14 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
           const card = nodeRefMap.current[id];
           if (card) {
             const outRate = outRates[id] ?? rate;
-            const isWinner = winnerOut === id;
-            const isTie = winnerOut === null && outRate > 0;
+            // cluster id 추출 — out_{ci}_{idx} 또는 out_{ci} 둘 다 정합.
+            const m = /^out_(\d+)(?:_\d+)?$/.exec(id);
+            const ci = m ? Number(m[1]) : -1;
+            const isWinner = winnerCluster !== null && ci === winnerCluster;
+            const isTie = winnerCluster === null && (clusterCnt[ci]?.valueOf() || 0) > 0 && (clusterMean[ci] || 0) > 0;
             const rows = card.querySelectorAll('.snn-canvas-neuron-row-value');
             if (rows[0]) rows[0].textContent = isWinner ? 'WINNER' : (isTie ? 'tie' : (outRate > 0 ? 'fire' : 'idle'));
             if (rows[1]) rows[1].textContent = outRate > 0 ? outRate.toFixed(0) : '0';
-            // winner 만 활성 강조 — 거짓 multi-winner 회피.
             card.classList.toggle('snn-canvas-out--active', isWinner);
             card.classList.toggle('snn-canvas-out--tie', isTie);
           }

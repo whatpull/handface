@@ -84,7 +84,11 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
             const raw = encodeLandmarks(frame.landmarks);
             const smoothed = smoother.push(raw);
             updateFeatureBars(barFills, smoothed);
-            emitBackendEvent('hand-feature', { feature: smoothed, raw, hasHand: true });
+            emitBackendEvent('hand-feature', {
+              feature: smoothed, raw, hasHand: true,
+              gestureName: frame.gestureName,
+              gestureScore: frame.gestureScore,
+            });
           } else {
             smoother.reset();
             // 손 미감지 — 막대 0 으로 초기화.
@@ -96,6 +100,8 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
               feature: new Array(FEATURE_DIM).fill(0),
               raw: new Array(FEATURE_DIM).fill(0),
               hasHand: false,
+              gestureName: null,
+              gestureScore: 0,
             });
           }
           onFrame?.(frame);

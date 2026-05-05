@@ -414,7 +414,9 @@ export class NeuronFaceClient {
       body: {
         patterns: p16Patterns,
         target_cluster: targetCluster,
-        supervisor_weight: opts.supervisorWeight ?? 30.0,
+        // 사용자 catch 2026-05-05 (audit ac19aa47): supervisor_weight 30 영역 약 — 60 영역 강.
+        // inject_feature16 default=60 영역 정합 (cluster broadcast supervisor 영역 강 mandatory).
+        supervisor_weight: opts.supervisorWeight ?? 60.0,
         supervisor_delay_ms: opts.supervisorDelayMs ?? 30.0,
         // B+6: 16-dim [0,1] sub-threshold catch — backend default 1.0 → 2.0 정합.
         intensity: opts.intensity ?? 2.0,

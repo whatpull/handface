@@ -170,6 +170,25 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
+  // 사용자 catch 2026-05-05 (audit ac19aa47 catch [2][3]): Reset 후 stale ref clear.
+  // training-cleared event (actions.ts Reset 영역 emit) 영역 listener — buffer/lock/state ref 일괄 wipe.
+  useEffect(() => {
+    const off = onBackendEvent('training-cleared', () => {
+      clusterBuffersRef.current = { 0: [], 1: [], 2: [], 3: [] };
+      clusterLockedRef.current = { 0: false, 1: false, 2: false, 3: false };
+      learningActiveRef.current = false;
+      lastGestureNameRef.current = null;
+      gestureStableCountRef.current = 0;
+      trainingCompleteEmittedRef.current = false;
+      setClusterFrames({ 0: 0, 1: 0, 2: 0, 3: 0 });
+      setPhase('untrained');
+      framesRef.current = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      phaseRef.current = 'untrained';
+      setTrainStatus('Reset 완료 — 학습 데이터 폐기. 카메라 영역 4개 자세 보여주세요.');
+    });
+    return off;
+  }, []);
+
   // phase emit — PipelineCanvas (LEARN/INFER 노드) 가 'training-phase' event 구독.
   // (ModeIndicator 컴포넌트는 영구 폐기 — Pipeline view 통합)
   useEffect(() => {

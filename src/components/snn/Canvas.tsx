@@ -9,7 +9,7 @@ import {
   applyCameraConnected, attachManualPan, buildNodeClass, buildRegionLayout,
   fitToView, inferRegion, renderNodeHtml,
 } from '@/lib/snn/drawflow-helpers';
-import { onBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 
 interface CanvasProps {
@@ -275,6 +275,44 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     return () => {
       off();
       for (const k of Object.keys(fireTimers)) clearTimeout(fireTimers[k]);
+    };
+  }, [view]);
+
+  // Hand feature 이벤트 → src_camera/src_gesture 가상 노드 + 출력 시냅스 활성화.
+  // 손 감지되는 동안 fired class 유지 (제거는 손 미감지 시).
+  useEffect(() => {
+    if (view !== 'neuron') return;
+    const SOURCES = ['src_camera', 'src_gesture'];
+    const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
+      // 1) 노드 카드 fired 토글
+      for (const id of SOURCES) {
+        const el = nodeRefMap.current[id];
+        if (!el) continue;
+        el.classList.toggle('snn-canvas-neuron--fired', d.hasHand);
+      }
+      // 2) src_camera / src_gesture 발 시냅스 fired 토글
+      for (const key in connRefMap.current) {
+        const sep = key.indexOf('->');
+        if (sep < 0) continue;
+        const pre = key.slice(0, sep);
+        if (pre === 'src_camera' || pre === 'src_gesture') {
+          connRefMap.current[key].classList.toggle('fired', d.hasHand);
+        }
+      }
+    });
+    return () => {
+      off();
+      // cleanup: fired class 제거.
+      for (const id of SOURCES) {
+        const el = nodeRefMap.current[id];
+        el?.classList.remove('snn-canvas-neuron--fired');
+      }
+      for (const key in connRefMap.current) {
+        const [pre] = key.split('->');
+        if (pre === 'src_camera' || pre === 'src_gesture') {
+          connRefMap.current[key].classList.remove('fired');
+        }
+      }
     };
   }, [view]);
 

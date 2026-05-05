@@ -39,13 +39,6 @@ import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type Training
 // HIGH #3 정정: cluster winner 산출 단일 source.
 import { deriveWinner } from '@/lib/snn/winner-derivation';
 
-export const HAND_GESTURES = [
-  { id: 'pointing', label: 'Pointing',  short: 'P', cluster: 0 },
-  { id: 'openpalm', label: 'Open palm', short: 'O', cluster: 1 },
-  { id: 'fist',     label: 'Fist',      short: 'F', cluster: 2 },
-  { id: 'victory',  label: 'Victory',   short: 'V', cluster: 3 },
-];
-
 // MediaPipe GestureRecognizer 라벨 → OUT cluster id (N3 본격 회로 정합).
 export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
   Pointing_Up: 0,
@@ -70,15 +63,10 @@ export const GESTURE_STABLE_FRAMES = 5;
 // cluster 당 supervised inject 영역 target frame 수 — 30 (사용자 명시 redesign).
 export const CLUSTER_TARGET_FRAMES = 30;
 
-export type TrainingPhase = 'untrained' | 'learning' | 'partial' | 'trained' | 'inference' | 'evolving';
+export type TrainingPhase = 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
 
-// EVOLVING phase 영역 supervised retrain frame 수 — 5..10 권장 영역 10 사실.
-// 낮은 weight (EVOLVE_SUPERVISOR_WEIGHT=15) 영역 saturated weight 영역 새 변형 catch.
-// 학술 정합: Parisi et al. 2019 (lifelong learning continuous adaptation).
-// 한계 박음: cluster boundary cross 영역 catastrophic forgetting 회복 0 — McCloskey & Cohen 1989.
-//   별도 검증 mandatory.
-export const EVOLVE_TARGET_FRAMES = 10;
-export const EVOLVE_SUPERVISOR_WEIGHT = 15;
+// (직전 EVOLVING phase + EVOLVE_TARGET_FRAMES / EVOLVE_SUPERVISOR_WEIGHT 폐기 — 사용자
+//  명시: Sidebar Evolve 버튼 폐기 + lifelong learning 진입점 자체 회수.)
 
 export interface ClusterFrames {
   0: number;
@@ -125,8 +113,6 @@ function loadPhase(): TrainingPhase {
     const raw = localStorage.getItem(TRAINING_PHASE_KEY);
     if (raw === 'untrained' || raw === 'learning' || raw === 'partial'
       || raw === 'trained' || raw === 'inference') return raw;
-    // 'evolving' 영역 transient — reload 영역 buffer 손실 → 'inference' fallback.
-    if (raw === 'evolving') return 'inference';
   } catch { /* noop */ }
   return 'untrained';
 }
@@ -136,20 +122,12 @@ function savePhase(phase: TrainingPhase) {
   try { localStorage.setItem(TRAINING_PHASE_KEY, phase); } catch { /* noop */ }
 }
 
-export function clearTrainingProgress() {
-  if (typeof window === 'undefined') return;
-  try { localStorage.removeItem(CLUSTER_FRAMES_KEY); } catch { /* noop */ }
-  try { localStorage.removeItem(TRAINING_PHASE_KEY); } catch { /* noop */ }
-}
-
 // phase 결정 영역 (cluster frames 기준 1:1).
 //   trained cluster count = 4 → 'trained' (또는 'inference' 진입 후 보존)
 //   1..3 → 'partial'
 //   stableCount 진행 중 (>=1) → 'learning'
 //   else → 'untrained'
 function derivePhase(frames: ClusterFrames, current: TrainingPhase, learningActive: boolean): TrainingPhase {
-  // EVOLVING 영역 transient — 외부 (tick loop) 영역 명시 종료. derive 영역 보존 사실.
-  if (current === 'evolving') return 'evolving';
   const trainedCount = [0, 1, 2, 3].filter((i) => frames[i as 0|1|2|3] >= CLUSTER_TARGET_FRAMES).length;
   if (trainedCount === 4) {
     // 4 cluster 영역 모두 학습 완료 → 'trained' (1회 emit 후 'inference' 영역 진입은 외부 호출자).
@@ -161,10 +139,10 @@ function derivePhase(frames: ClusterFrames, current: TrainingPhase, learningActi
 }
 
 export function useHandControl(cameraConnected: boolean, autoLive = false, autoCapture = false) {
-  const [hasHand, setHasHand] = useState(false);
+  const [, setHasHand] = useState(false);
   const [trainStatus, setTrainStatus] = useState<string>('');
-  const [livePredict, setLivePredict] = useState(false);
-  const [liveResult, setLiveResult] = useState<LivePredictResult | null>(null);
+  const [, setLivePredict] = useState(false);
+  const [, setLiveResult] = useState<LivePredictResult | null>(null);
   const [clusterFrames, setClusterFrames] = useState<ClusterFrames>(() => loadClusterFrames());
   const [phase, setPhase] = useState<TrainingPhase>(() => loadPhase());
 
@@ -185,18 +163,9 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   const learningActiveRef = useRef<boolean>(false);
   const lastGestureNameRef = useRef<string | null>(null);
   const gestureStableCountRef = useRef<number>(0);
-  // EVOLVING — pattern buffer + target cluster + frame count.
-  // INFERENCE 영역 'evolve-trigger' event 영역 본격 진입 — 현 winner cluster 영역 target.
-  // 학술 정합: Parisi et al. 2019; 한계: McCloskey & Cohen 1989 (catastrophic forgetting).
-  //   별도 검증 mandatory.
-  const evolveBufferRef = useRef<number[][]>([]);
-  const evolveTargetClusterRef = useRef<number | null>(null);
-  const [evolveFrames, setEvolveFrames] = useState<number>(0);
-  // stale closure 회피 — liveResult ref mirror.
-  const liveResultRef = useRef<LivePredictResult | null>(null);
+  // (직전 EVOLVING phase + liveResultRef 폐기 — Sidebar Evolve 버튼 회수, 사용자 명시.)
 
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
-  useEffect(() => { liveResultRef.current = liveResult; }, [liveResult]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // phase emit — PipelineCanvas (LEARN/INFER 노드) 가 'training-phase' event 구독.
@@ -206,15 +175,13 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       phase,
       clusterFrames: { ...clusterFrames },
       target: CLUSTER_TARGET_FRAMES,
-      evolveFrames: phase === 'evolving' ? evolveFrames : 0,
-      evolveTarget: EVOLVE_TARGET_FRAMES,
     };
     emitBackendEvent<TrainingPhaseDetail>('training-phase', detail);
     if ((phase === 'trained' || phase === 'inference') && !trainingCompleteEmittedRef.current) {
       trainingCompleteEmittedRef.current = true;
       emitBackendEvent('training-complete', detail);
     }
-  }, [phase, clusterFrames, evolveFrames]);
+  }, [phase, clusterFrames]);
 
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
@@ -227,44 +194,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     return off;
   }, []);
 
-  // EVOLVING trigger — Sidebar Evolve button 영역 'evolve-trigger' emit 영역 정합.
-  // INFERENCE phase 영역 영역만 정합. cluster_lock(false) → tick loop 영역 EVOLVING handler.
-  // 학술 정합: Parisi et al. 2019; 한계: McCloskey & Cohen 1989 (catastrophic forgetting).
-  //   별도 검증 mandatory.
-  useEffect(() => {
-    const off = onBackendEvent('evolve-trigger', () => {
-      if (phaseRef.current !== 'inference') {
-        setTrainStatus('Evolve: INFERENCE phase 영역 영역만 활성 — trigger 무시.');
-        return;
-      }
-      const winner = liveResultRef.current?.winner ?? null;
-      let target: number | null = null;
-      if (winner && winner.startsWith('cluster_')) {
-        const ci = parseInt(winner.slice('cluster_'.length), 10);
-        if (Number.isFinite(ci) && ci >= 0 && ci <= 3) target = ci;
-      }
-      if (target === null) {
-        setTrainStatus('Evolve: winner cluster 영역 0 — 자세 영역 보이세요.');
-        return;
-      }
-      evolveTargetClusterRef.current = target;
-      evolveBufferRef.current = [];
-      setEvolveFrames(0);
-      // backend cluster_lock body {lock: false} (commit 70bc020 docs 정합).
-      void (async () => {
-        const label = CLUSTER_TO_LABEL[target] ?? `cluster ${target}`;
-        setTrainStatus(`Evolve: ${label} cluster unlock + 진화 시작…`);
-        for (let c = 0; c < 4; c += 1) {
-          const r = await getClient().clusterLock(c, { lock: false });
-          if (r.ok) clusterLockedRef.current[c as 0|1|2|3] = false;
-        }
-        phaseRef.current = 'evolving';
-        savePhase('evolving');
-        setPhase('evolving');
-      })();
-    });
-    return off;
-  }, []);
+  // (직전 'evolve-trigger' listener 폐기 — Sidebar Evolve 버튼 회수, 사용자 명시.)
 
   // autoLive: 카메라 연결 동기화.
   useEffect(() => {
@@ -313,56 +243,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       const gScore = gestureScoreRef.current;
       const currentPhase = phaseRef.current;
 
-      // EVOLVING phase — INFERENCE 영역 cluster_lock(false) 후 N=10 frame 영역
-      // lower-weight (15) supervised retrain. 도달 영역 1회 batch
-      // clusterTrainSupervised → cluster_lock(true) → INFERENCE 복귀.
-      // 학술 정합: Parisi et al. 2019; 한계: McCloskey & Cohen 1989.
-      if (currentPhase === 'evolving') {
-        const targetC = evolveTargetClusterRef.current;
-        if (targetC === null) {
-          phaseRef.current = 'inference';
-          savePhase('inference');
-          setPhase('inference');
-          if (!cancelled) setTimeout(tick, TICK_MS);
-          return;
-        }
-        const gestureMappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
-        const okScore = gScore >= GESTURE_CONFIDENCE_MIN;
-        const matchTarget = gestureMappable && GESTURE_LABEL_TO_CLUSTER[gName!] === targetC;
-        if (matchTarget && okScore) {
-          evolveBufferRef.current.push(pattern);
-          const next = evolveBufferRef.current.length;
-          setEvolveFrames(next);
-          const label = CLUSTER_TO_LABEL[targetC] ?? `cluster ${targetC}`;
-          setTrainStatus(`Evolve: ${label} 진화 중 ${next}/${EVOLVE_TARGET_FRAMES}…`);
-          if (next >= EVOLVE_TARGET_FRAMES) {
-            const batch = evolveBufferRef.current.slice();
-            evolveBufferRef.current = [];
-            const r = await getClient().clusterTrainSupervised(batch, targetC, {
-              supervisorWeight: EVOLVE_SUPERVISOR_WEIGHT,
-            });
-            if (cancelled) return;
-            if (r.ok && r.data.ok) {
-              setTrainStatus(`✓ Evolve ${label} 완료 (Δw ${r.data.weight_changes_count} syn). cluster lock 영구화…`);
-              for (let c = 0; c < 4; c += 1) {
-                const lockR = await getClient().clusterLock(c, { lock: true });
-                if (cancelled) return;
-                if (lockR.ok) clusterLockedRef.current[c as 0|1|2|3] = true;
-              }
-            } else {
-              const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
-              setTrainStatus(`✗ Evolve ${label} 실패: ${reason}`);
-            }
-            evolveTargetClusterRef.current = null;
-            setEvolveFrames(0);
-            phaseRef.current = 'inference';
-            savePhase('inference');
-            setPhase('inference');
-          }
-        }
-        if (!cancelled) setTimeout(tick, TICK_MS);
-        return;
-      }
+      // (직전 EVOLVING phase tick 폐기 — Sidebar Evolve 버튼 회수, 사용자 명시.)
 
       // INFERENCE phase — STDP 폐기, cluster mean readout 영역만.
       if (currentPhase === 'inference') {
@@ -529,16 +410,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     return () => { cancelled = true; };
   }, [autoCapture, cameraConnected]);
 
-  return {
-    hasHand,
-    trainStatus,
-    livePredict,
-    liveResult,
-    setLivePredict,
-    setTrainStatus,
-    clusterFrames,
-    phase,
-    evolveFrames,
-    evolveTarget: EVOLVE_TARGET_FRAMES,
-  };
+  // 외부 (PipelineCanvas) 는 현재 trainStatus 만 사용. 그 외 상태는 'training-phase'
+  // event 영역 구독자 (LEARN/INFER 노드) 영역 직접 hoist — 본 hook 영역 단순 driver 사실.
+  return { trainStatus };
 }

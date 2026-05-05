@@ -5,7 +5,6 @@ import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
-import ValidationPanel from '@/components/snn/pipeline/ValidationPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import { onBackendEvent } from '@/lib/backend/events';
@@ -21,7 +20,6 @@ export default function Editor() {
   //   합쳐주면 좋겠습니다" 정합.
   // ('neuron' = drawflow 472 sampling detail — 영역 영역 폐기, 데이터 정합 0.)
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [validationOpen, setValidationOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
   const [canvasNonce, setCanvasNonce] = useState(0);
@@ -84,7 +82,6 @@ export default function Editor() {
           cameraConnected={cameraConnected}
           onToggleCamera={() => setCameraConnected((v) => !v)}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenValidation={() => setValidationOpen(true)}
         />
         <main className="relative flex flex-1 flex-col min-w-0">
           <Toolbar onStatusChange={setStatus} />
@@ -117,7 +114,6 @@ export default function Editor() {
         </main>
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <ValidationPanel open={validationOpen} onClose={() => setValidationOpen(false)} />
     </div>
     </ToastProvider>
   );

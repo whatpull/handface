@@ -165,22 +165,19 @@ export default function NodeLearn() {
     const p = phase?.phase ?? 'untrained';
     const activeLabel = activeCluster >= 0 ? CLUSTER_LABELS[activeCluster] : '';
     const activeCount = activeCluster >= 0 && phase ? phase.clusterFrames[activeCluster as 0|1|2|3] : 0;
-    // EVOLVING — phase.evolveFrames / evolveTarget (training-phase event 동봉).
-    const evFrames = phase?.evolveFrames ?? 0;
-    const evTarget = phase?.evolveTarget ?? 10;
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
         label: 'UNTRAINED',
         tone: 'idle',
         sub: 'awaiting teacher (N=5 stable + conf ≥ 0.85)',
-        hint: '카메라 영역 4개 자세 영역 보이세요 — Pointing / Open palm / Fist / Victory',
+        hint: '카메라에 4개 자세를 보여주세요 — Pointing / Open palm / Fist / Victory',
       },
       learning: {
         label: 'LEARNING',
         tone: 'amber',
         sub: 'batch supervised — capturing frames',
         hint: activeLabel
-          ? `${activeLabel} 자세 영역 유지하세요 (${activeCount}/${CLUSTER_TARGET})`
+          ? `${activeLabel} 자세를 유지하세요 (${activeCount}/${CLUSTER_TARGET})`
           : 'capturing frames…',
       },
       partial: {
@@ -195,22 +192,13 @@ export default function NodeLearn() {
         label: '✓ TRAINED — frozen',
         tone: 'green',
         sub: '4 clusters locked · weight permanent',
-        hint: '학습 완료 — Infer 영역 winner 영역 catch 사실',
+        hint: '학습 완료 — Infer 노드에서 winner 확인',
       },
       inference: {
         label: 'INFERENCE',
         tone: 'blue',
         sub: 'STDP off · cluster mean readout',
-        hint: '실시간 추론 영역 — 자세 영역 보이세요',
-      },
-      // EVOLVING — INFERENCE 영역 사용자 trigger lifelong learning.
-      // cluster_lock(false) → 10 frame supervised retrain (weight=15) → cluster_lock(true).
-      // 학술 정합: Parisi et al. 2019; 한계: McCloskey & Cohen 1989.
-      evolving: {
-        label: '✦ EVOLVING — lifelong learning',
-        tone: 'fuchsia',
-        sub: 'cluster unlocked · supervised retrain (weight=15)',
-        hint: `진화 중 (${evFrames}/${evTarget} frame) — 자세 영역 유지하세요`,
+        hint: '실시간 추론 — 자세를 보여주세요',
       },
     };
     return config[p];

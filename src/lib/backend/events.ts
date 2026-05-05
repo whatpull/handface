@@ -1,26 +1,20 @@
 // 클라이언트 → UI 발화/학습 이벤트 버스. EventTarget 기반.
 // Canvas 가 'neuron-firing' 구독 → fired class + synapse pulse 토글.
 
-// 'training-cleared' — 명시 reset / explicit wipe path 영역만 emit (Toolbar Reset, rebuildToBaseline).
-//   stored snapshot 영역 폐기 신호. 'circuit-changed' 영역 분리 — 자동 wipe 영역 폐기 (P1 fix).
-// 'evolve-trigger' — Sidebar Evolve button → use-hand-control 영역 EVOLVING phase 진입 신호.
-//   INFERENCE phase 영역 사용자 trigger 영역만 emit (acc636cd P2 lifelong learning path).
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'evolve-trigger';
+// 'training-cleared' — 명시 reset / explicit wipe path만 emit (Toolbar Reset, rebuildToBaseline).
+//   stored snapshot 폐기 신호. 'circuit-changed' 와 분리 — 자동 wipe 폐기 (P1 fix).
+// (직전 'evolve-trigger' 폐기 — Sidebar Evolve 버튼 + EVOLVING phase 모두 회수, 사용자 명시.)
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete';
 
-// Training state machine phase event — use-hand-control 영역 emit.
-// phase: untrained / learning / partial / trained / inference / evolving (사용자 명시 redesign).
-// 'evolving' 영역 = INFERENCE 도달 영역 cluster_lock(false) 영역 unfreeze 후
-//   N=10 frame 영역 낮은 weight (15) 영역 supervised retrain → cluster_lock(true) 영역 영구화.
-//   학술 정합: Parisi et al. 2019 (lifelong learning), McCloskey & Cohen 1989 (catastrophic forgetting).
+// Training state machine phase event — use-hand-control 가 emit.
+// phase: untrained / learning / partial / trained / inference (사용자 명시 redesign).
+// (직전 'evolving' 폐기 — lifelong learning 진입점 자체 회수.)
 // clusterFrames: cluster 별 supervised inject 누적 (target=30 frame each).
-// 'training-complete' 영역 = 4 cluster 영역 모두 30 frame 도달 1회 emit.
+// 'training-complete' 는 4 cluster 모두 30 frame 도달 시 1회 emit.
 export interface TrainingPhaseDetail {
-  phase: 'untrained' | 'learning' | 'partial' | 'trained' | 'inference' | 'evolving';
+  phase: 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
   clusterFrames: { 0: number; 1: number; 2: number; 3: number };
   target: number;
-  // EVOLVING phase 진행률 (0..target_frames). 그 외 phase 영역 0.
-  evolveFrames?: number;
-  evolveTarget?: number;
 }
 
 export interface HandFeatureDetail {

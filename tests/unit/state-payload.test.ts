@@ -91,7 +91,7 @@ describe('buildStatePayload — schema invariants', () => {
   });
 
   it('all phase variants accepted', () => {
-    const phases: Phase[] = ['untrained', 'learning', 'partial', 'trained', 'inference', 'evolving'];
+    const phases: Phase[] = ['untrained', 'learning', 'partial', 'trained', 'inference'];
     for (const ph of phases) {
       const p = buildStatePayload({ ...baseInputs, phase: ph });
       expect(p.phase).toBe(ph);

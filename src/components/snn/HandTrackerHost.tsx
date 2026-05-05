@@ -47,13 +47,14 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
     (async () => {
       const video = (await waitForMount('#snn-cam-video')) as HTMLVideoElement | null;
       const skel = (await waitForMount('#snn-cam-skel')) as HTMLCanvasElement | null;
+      // Gesture 노드 mount 도 polling 으로 기다림 (Camera 와 다른 시점에 mount 가능).
+      const featBars = (await waitForMount('#snn-feat-bars')) as HTMLElement | null;
       const empty = document.getElementById('snn-cam-empty');
       const featEmpty = document.getElementById('snn-feat-empty');
-      const featBars = document.getElementById('snn-feat-bars');
       if (cancelled || !video || !skel) return;
 
       // 16-dim 막대 그래프 element 캐시 + 라벨 tooltip 부여.
-      const barFills = featBars
+      let barFills: HTMLElement[] = featBars
         ? Array.from(featBars.querySelectorAll<HTMLElement>('.snn-feat-bar'))
         : [];
       barFills.forEach((bar, i) => {
@@ -74,6 +75,17 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
         await tracker.start(video, (frame) => {
           if (cancelled) return;
           drawSkeleton(skel, frame.landmarks);
+          // Gesture 노드 lazy lookup — mount 가 늦게 되거나 view 전환으로 stale 한 경우.
+          if (barFills.length === 0) {
+            const fb = document.getElementById('snn-feat-bars');
+            if (fb) {
+              barFills = Array.from(fb.querySelectorAll<HTMLElement>('.snn-feat-bar'));
+              barFills.forEach((bar, i) => { bar.title = FEATURE_LABELS[i] || `feat ${i}`; });
+              fb.style.display = 'flex';
+              const fe = document.getElementById('snn-feat-empty');
+              if (fe) fe.style.display = 'none';
+            }
+          }
           if (frame.landmarks) {
             const raw = encodeLandmarks(frame.landmarks);
             const smoothed = smoother.push(raw);

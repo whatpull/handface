@@ -515,7 +515,13 @@
 
 .snn-pipeline-node-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--pipe-gap-sm);
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md);
+}
+@media (pointer: coarse) {
+  .snn-pipeline-node-header { padding: var(--pipe-gap-md) var(--pipe-gap-lg); }
 }
 .snn-pipeline-node-toggle {
   display: flex;

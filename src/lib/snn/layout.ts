@@ -69,14 +69,14 @@ function cap(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-// 백엔드에 없는 frontend 전용 virtual source 노드 (camera + gesture).
-// SNN 회로 외부의 sensor 입력을 표현 — MediaPipe 카메라 mount 영역 + 16-dim feature 시각화.
-const VIRTUAL_SOURCE_NODES: BackendNeuron[] = [
-  { name: 'src_camera',  region: 'SOURCE', population: 'camera' },
-  { name: 'src_gesture', region: 'SOURCE', population: 'gesture' },
+// frontend 전용 virtual source 노드 (camera + gesture).
+// 컬럼 grid 바깥 (음수 X) 에 고정 위치 — backend INPUT 컬럼과 충돌 방지.
+const VIRTUAL_SOURCE: Array<LayoutNode> = [
+  { id: 'src_camera',  label: 'Camera',  region: 'SOURCE', population: 'camera',  x: -260, y: 80,  isSystem: true },
+  { id: 'src_gesture', label: 'Gesture', region: 'SOURCE', population: 'gesture', x: -260, y: 280, isSystem: true },
 ];
 
-// SOURCE → INPUT 시냅스 (8 inputs 모두에게 fanout, 시각적 데이터 흐름 표시용).
+// SOURCE → INPUT 시냅스 (시각적 데이터 흐름 표시용).
 const VIRTUAL_SOURCE_SYNAPSES: BackendSynapse[] = [
   { pre: 'src_camera',  post: 'src_gesture', weight: 50 },
   { pre: 'src_gesture', post: 'in_pinch',    weight: 50 },
@@ -93,13 +93,11 @@ export function layoutSnapshot(
   neurons: BackendNeuron[],
   synapses: BackendSynapse[],
 ): LayoutResult {
-  // virtual source 노드 prepend (백엔드와 무관, 카메라/제스처 mount 영역).
-  const allNeurons = [...VIRTUAL_SOURCE_NODES, ...neurons];
-  const allSynapses = [...VIRTUAL_SOURCE_SYNAPSES, ...synapses];
+  // virtual source 는 컬럼 grid 밖에 별도 배치 — backend column 과 충돌 방지.
 
-  // 1. region × population 그룹화.
+  // 1. region × population 그룹화 (backend neurons 만, virtual source 제외).
   const groups = new Map<string, BackendNeuron[]>();
-  for (const n of allNeurons) {
+  for (const n of neurons) {
     const region = n.region || 'OTHER';
     const population = n.population || 'unknown';
     const key = `${region}|${population}`;
@@ -126,7 +124,7 @@ export function layoutSnapshot(
     return a.localeCompare(b);
   });
 
-  // 4. 각 그룹을 컬럼 1개로 배치, 행은 아래로.
+  // 4. 각 그룹을 컬럼 1개로 배치, 행은 아래로 (backend neurons).
   const nodes: LayoutNode[] = [];
   const visibleNames = new Set<string>();
   sortedKeys.forEach((key, colIdx) => {
@@ -147,8 +145,15 @@ export function layoutSnapshot(
     });
   });
 
-  // 5. 시냅스: 양 끝이 visible 인 것만 + 노드당 outgoing top 2개 (weight 절댓값 기준).
-  // 시각 노이즈 감소 — 200+ 시냅스 → ~50개로.
+  // 5. virtual source 노드 (camera + gesture) prepend — 컬럼 grid 좌측 고정 위치.
+  for (const v of VIRTUAL_SOURCE) {
+    nodes.unshift(v);
+    visibleNames.add(v.id);
+  }
+
+  // 6. 시냅스: 양 끝이 visible 인 것만 + 노드당 outgoing top 2개 (weight 절댓값 기준).
+  // virtual source 시냅스 + backend 시냅스 통합.
+  const allSynapses = [...VIRTUAL_SOURCE_SYNAPSES, ...synapses];
   const candidate = allSynapses.filter(
     (s) => visibleNames.has(s.pre) && visibleNames.has(s.post),
   );

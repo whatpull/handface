@@ -311,6 +311,11 @@
   color: #c4b5fd;
 }
 
+/* HandCameraView — 셀카 미러링 (좌우 반전). */
+.snn-camera-mirror {
+  transform: scaleX(-1);
+}
+
 /* Canvas 로딩 오버레이 — 캔버스 영역에만 표시 (rollback 정합). */
 .snn-canvas-loading {
   position: absolute;

@@ -9,6 +9,7 @@ import StatsPanel from '@/components/snn/StatsPanel';
 import PredictionPanel from '@/components/snn/PredictionPanel';
 import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
+import HandCameraView from '@/components/snn/HandCameraView';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import './snn-canvas.css';
@@ -80,6 +81,14 @@ export default function Editor() {
               open={predictOpen}
               onClose={() => setPredictOpen(false)}
             />
+            {cameraConnected && (
+              <div className="absolute right-3 top-3 z-20">
+                <HandCameraView
+                  active={cameraConnected}
+                  onError={(m) => setStatus(`✗ camera: ${m}`)}
+                />
+              </div>
+            )}
           </div>
           {status && (
             <div

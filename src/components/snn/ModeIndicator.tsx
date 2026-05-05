@@ -1,18 +1,27 @@
 'use client';
 
-// ModeIndicator — 회로의 학습 / 추론 / idle 모드를 backend 응답 사실 1:1 로 표시.
+// ModeIndicator — 본질 redesign (사용자 명시): 5-phase state machine 표시.
+//
+// State machine (use-hand-control 영역 정합):
+//   1. UNTRAINED  — 학습 0, batch loop 비활성. gray badge.
+//   2. LEARNING   — N=5 stable + conf >= 0.85 영역 batch supervised 진행 중. amber.
+//   3. PARTIAL    — 1-3 cluster 학습됨 (>=30 frame). orange.
+//   4. TRAINED    — 4 cluster 모두 학습 완료. green badge "✓ TRAINED — inference active".
+//   5. INFERENCE  — MediaPipe 보조만, cluster mean readout = winner. blue.
+//
+// 학습 진행률 표시 — cluster 4 영역 progress bar (예: "Pointing: 18/30 frames").
 //
 // 거짓 표시 회피 원칙 (사용자 명시):
-//  - 모드는 "STDP weight 변화 detected" / "out fire only" / "no fire" 사실로만 분기
-//  - winner 는 out_rates max 가 두 번째보다 >=10% margin 일 때만 표시. tie 면 "WTA tie" 명시
-//  - saturation 사실 (모든 OUT >= 400Hz) 은 별도 경고 표시 → selectivity 0 사실 노출
-//  - 학습 모드인데 Δw 0 → "no Δw detected" 명시
+//  - phase 영역 backend 응답 사실 1:1 (clusterFrames count 직접).
+//  - winner 는 out_rates max 가 두 번째보다 >=10% margin 일 때만 표시. tie 면 "WTA tie" 명시.
+//  - saturation 사실 (모든 OUT >= 400Hz) 은 별도 경고 표시.
+//
+// 직전 R-STDP / astrocyte 영역 badge 영역 폐기 — autoCapture 폐기 영역 정합.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail, type RStdpPulseDetail, type AstrocyteHomeostasisDetail } from '@/lib/backend/events';
+import { onBackendEvent, type NeuronFiringDetail, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
 
 interface ModeStatus {
-  mode: 'learning' | 'inference' | 'idle';
   ltpSum: number;
   ltdSum: number;
   changedSyn: number;
@@ -33,101 +42,74 @@ interface TeacherStatus {
 
 // saturation 임계 — 모든 OUT 이 이 이상 firing rate 이면 selectivity 0 catch.
 const SATURATION_HZ = 400;
-// 의미 있는 winner margin (max - second) / max — 이 이하면 tie 로 간주.
+// 의미 있는 winner margin — 이 이하면 tie 로 간주.
 const WINNER_MARGIN = 0.10;
-// 의미 있는 Δw — 이 이하 변경은 noise 로 간주 (시냅스 weight 영역에서 최소 catch 단위).
+// 의미 있는 Δw — 이 이하 변경은 noise.
 const DW_EPSILON = 0.1;
-// 응답 없는 idle 시간 — 이 이상 안 들어오면 idle 표시로 fade.
-const IDLE_FADE_MS = 1500;
 
-// supervised teacher 정합 임계 — use-hand-control 정합 (0.6).
-// 0.6 → 0.8 상향 (N3 한계 돌파 1: noisy teacher 회피, use-hand-control 정합).
-const TEACHER_CONF_MIN = 0.8;
-// N consecutive same-gesture frame 합의 — use-hand-control GESTURE_STABLE_FRAMES 정합.
-const TEACHER_STABLE_FRAMES = 3;
-// MediaPipe GestureRecognizer 라벨 화이트리스트 (mappable 만 stability 카운트).
-// use-hand-control GESTURE_LABEL_TO_CLUSTER 정합.
+// supervised teacher 영역 정합 임계 — use-hand-control 영역 정합 (0.85, N=5).
+const TEACHER_CONF_MIN = 0.85;
+const TEACHER_STABLE_FRAMES = 5;
+// MediaPipe GestureRecognizer 영역 mappable 영역 set.
 const MAPPABLE_GESTURES = new Set(['Pointing_Up', 'Open_Palm', 'Closed_Fist', 'Victory']);
 
-interface RStdpCounter {
-  pulses: number;
-  totalAmplified: number;
-  lastDeltaSum: number;
-  lastSynapses: number;
-  lastReward: number;
-  lastTs: number;
-}
+// cluster id → display label.
+const CLUSTER_LABELS = ['Pointing', 'Open palm', 'Fist', 'Victory'] as const;
+const CLUSTER_TARGET = 30;
 
-// Phase 26: per-neuron V_th astrocyte homeostasis pulse counter.
-// silence escape mechanism 본격 활성화 영역 표시 — 사실 1:1.
-interface AstrocyteCounter {
-  pulses: number;
-  totalSilence: number;       // 누적 silence neuron 수 (V_th 하향)
-  totalHyperactive: number;   // 누적 hyperactive neuron 수 (V_th 상향)
-  lastSilence: number;
-  lastHyperactive: number;
-  lastAdjusted: number;
-  lastTs: number;
+type Phase = TrainingPhaseDetail['phase'];
+
+// 진행률 bar — width 영역 ref + useEffect 영역 imperative 갱신 (HandTrackerHost 정합).
+// inline style={{...}} 회피 — Next.js eslint 정합.
+function ClusterProgressRow({ label, count, done }: { label: string; count: number; done: boolean }) {
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (fillRef.current) {
+      const pct = Math.min(100, (count / CLUSTER_TARGET) * 100);
+      fillRef.current.style.setProperty('--w', `${pct}%`);
+    }
+  }, [count]);
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] tabular-nums">
+      <span className={`w-16 ${done ? 'text-green-300' : 'opacity-80'}`}>
+        {done ? '✓ ' : ''}{label}
+      </span>
+      <div className="flex-1 h-1.5 rounded-sm bg-white/10 overflow-hidden">
+        <div
+          ref={fillRef}
+          className={`snn-mode-progress-fill ${done ? 'bg-green-400' : 'bg-amber-400'}`}
+        />
+      </div>
+      <span className="w-10 text-right opacity-70">
+        {count}/{CLUSTER_TARGET}
+      </span>
+    </div>
+  );
 }
 
 export default function ModeIndicator() {
   const [status, setStatus] = useState<ModeStatus | null>(null);
   const [teacher, setTeacher] = useState<TeacherStatus | null>(null);
-  const [rstdp, setRstdp] = useState<RStdpCounter | null>(null);
-  const [astrocyte, setAstrocyte] = useState<AstrocyteCounter | null>(null);
+  const [phaseDetail, setPhaseDetail] = useState<TrainingPhaseDetail | null>(null);
   // pre->post 별 직전 weight 보관. Δw 계산 = current - prev.
   const prevWeights = useRef<Map<string, number>>(new Map());
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // teacher stability tracking — use-hand-control 과 독립 카운트 (events 추가 회피).
-  // 같은 mappable gesture + conf 충족 frame 연속 시 카운트, 아니면 리셋.
+  // teacher stability tracking — use-hand-control 영역 정합 카운트.
   const teacherStableRef = useRef<{ name: string | null; count: number }>({ name: null, count: 0 });
 
-  // R-STDP pulse 발생 subscribe — 카운터 + 마지막 amplified syn / delta 기록.
-  // 사실 1:1 — backend 응답 ok 시만 카운트.
+  // training phase event 구독 — 사실 1:1 (use-hand-control 영역 emit).
   useEffect(() => {
-    const off = onBackendEvent<RStdpPulseDetail>('rstdp-pulse', (d) => {
-      if (!d.ok) return;
-      setRstdp((prev) => ({
-        pulses: (prev?.pulses ?? 0) + 1,
-        totalAmplified: (prev?.totalAmplified ?? 0) + (d.totalAmplifiedDelta ?? 0),
-        lastDeltaSum: d.totalAmplifiedDelta ?? 0,
-        lastSynapses: d.synapsesAmplified ?? 0,
-        lastReward: d.rewardStrength,
-        lastTs: Date.now(),
-      }));
+    const off = onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
+      setPhaseDetail(d);
     });
     return off;
   }, []);
 
-  // Phase 26: astrocyte per-neuron V_th homeostasis pulse subscribe.
-  // silence (rate < target/4) V_th 하향 + hyperactive (rate > target×2) V_th 상향.
-  // 사실 1:1 — backend 응답 ok 시만 카운트.
-  useEffect(() => {
-    const off = onBackendEvent<AstrocyteHomeostasisDetail>('astrocyte-homeostasis', (d) => {
-      if (!d.ok) return;
-      const sil = d.silenceCount ?? 0;
-      const hyp = d.hyperactiveCount ?? 0;
-      const adj = d.adjusted ?? (sil + hyp);
-      setAstrocyte((prev) => ({
-        pulses: (prev?.pulses ?? 0) + 1,
-        totalSilence: (prev?.totalSilence ?? 0) + sil,
-        totalHyperactive: (prev?.totalHyperactive ?? 0) + hyp,
-        lastSilence: sil,
-        lastHyperactive: hyp,
-        lastAdjusted: adj,
-        lastTs: Date.now(),
-      }));
-    });
-    return off;
-  }, []);
-
-  // MediaPipe gesture (teacher signal) subscribe.
+  // MediaPipe gesture (teacher signal) 구독.
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
       const name = d.gestureName ?? null;
       const score = d.gestureScore ?? 0;
       const mappable = name !== null && MAPPABLE_GESTURES.has(name);
-      // stability counter — mappable + conf 충족 시만 누적, 아니면 0 리셋.
       if (d.hasHand && mappable && score >= TEACHER_CONF_MIN) {
         if (name === teacherStableRef.current.name) {
           teacherStableRef.current.count += 1;
@@ -151,17 +133,13 @@ export default function ModeIndicator() {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       const outRates = d.out_rates || {};
 
-      // Δw 계산 — backend delta 사실 1:1.
-      // Fast-path: `synapses_changed` (commit 443e48f, default) — backend 가 |Δw|≥threshold 변경분만 송신.
-      //            delta 직접 합산, frontend cache 비교 불필요.
-      // Fallback: `synapses` 전체 + 자체 cache 비교 (구버전 backend 또는 `?synapses_full=true`).
+      // Δw 계산.
       let ltpSum = 0;
       let ltdSum = 0;
       let changedSyn = 0;
       const changed = d.synapses_changed;
       const cache = prevWeights.current;
       if (changed && changed.length > 0) {
-        // delta-only path — backend 사실 직접 활용.
         for (let i = 0; i < changed.length; i += 1) {
           const s = changed[i];
           const dw = s.delta;
@@ -171,11 +149,9 @@ export default function ModeIndicator() {
             if (dw > 0) ltpSum += dw;
             else ltdSum += dw;
           }
-          // fallback path 정합 영역 cache 영역만 갱신 (전체 syn 비교 시 baseline).
           cache.set(`${s.pre}->${s.post}`, s.weight);
         }
       } else {
-        // Fallback — 전체 syn cache Δw.
         const syn = d.synapses || [];
         for (let i = 0; i < syn.length; i += 1) {
           const s = syn[i];
@@ -194,7 +170,7 @@ export default function ModeIndicator() {
         }
       }
 
-      // winner 분리도 — out_rates max 가 두 번째보다 의미 있게 클 때만 winner.
+      // winner 분리도.
       const outs = Object.entries(outRates).sort((a, b) => b[1] - a[1]);
       let winner: string | null = null;
       let winnerRate = 0;
@@ -208,41 +184,19 @@ export default function ModeIndicator() {
           winner = outs[0][0];
           winnerRate = max;
         }
-        // saturation 사실 — 모든 OUT 이 SATURATION_HZ 이상.
         outAllSaturated = outs.every(([, v]) => v >= SATURATION_HZ);
       }
 
-      // 모드 추론 — Δw detected = learning, 발화만 있고 Δw 0 = inference, 둘 다 0 = idle.
-      let mode: ModeStatus['mode'] = 'idle';
-      const anyFire = Object.values(outRates).some((v) => v > 0)
-        || (d.active_neurons_by_region && Object.values(d.active_neurons_by_region).some((arr) => (arr as string[]).length > 0));
-      if (changedSyn > 0) mode = 'learning';
-      else if (anyFire) mode = 'inference';
-
       setStatus({
-        mode, ltpSum, ltdSum, changedSyn,
+        ltpSum, ltdSum, changedSyn,
         winner, winnerRate, winnerMargin, outAllSaturated,
         ts: Date.now(),
       });
-
-      // idle fade timer — 응답이 안 들어오면 idle 로 표시 변경.
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => {
-        setStatus((s) => (s ? { ...s, mode: 'idle' } : s));
-      }, IDLE_FADE_MS);
     });
-    return () => {
-      off();
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
+    return off;
   }, []);
 
-  // Teacher badge 사실 — MediaPipe GestureRecognizer 라벨 + confidence + N=3 합의 1:1.
-  // 3단 상태:
-  //   1) stable supervised — conf >= 0.8 AND mappable AND stableCount >= 3 (amber bright)
-  //   2) stabilizing       — conf >= 0.8 AND mappable AND stableCount < 3   (amber dim)
-  //   3) unsupervised      — 그 외 (gray)
-  // useMemo — teacher 객체 변경 시만 재계산 (status frame 마다 재계산 회피).
+  // Teacher badge 사실.
   const { teacherBg, teacherLabel, stableSupervised, stabilizing } = useMemo(() => {
     const teacherMappable = !!teacher && teacher.gestureName !== null
       && MAPPABLE_GESTURES.has(teacher.gestureName);
@@ -260,115 +214,128 @@ export default function ModeIndicator() {
       : _stabilizing
         ? `teacher: ${teacher!.gestureName} (stabilizing ${teacher!.stableCount}/${TEACHER_STABLE_FRAMES})`
         : (teacher?.hasHand
-            ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, low conf or unstable — unsupervised)`
+            ? `teacher: ${teacher.gestureName ?? 'none'} (${(teacher.gestureScore * 100).toFixed(0)}%, low conf or unstable)`
             : 'teacher: no hand');
     return { teacherBg: _bg, teacherLabel: _label, stableSupervised: _stableSupervised, stabilizing: _stabilizing };
   }, [teacher]);
 
-  // mode 분기도 useMemo — status 변경 시만 재계산.
-  const { modeBg, modeDot, modeLabel } = useMemo(() => {
-    if (!status) return { modeBg: '', modeDot: '', modeLabel: '' };
-    return {
-      modeBg: status.mode === 'learning' ? 'bg-green-500/15 ring-green-400/40 text-green-200'
-        : status.mode === 'inference' ? 'bg-blue-500/15 ring-blue-400/40 text-blue-200'
-        : 'bg-white/5 ring-white/15 text-white/50',
-      modeDot: status.mode === 'learning' ? 'bg-green-400'
-        : status.mode === 'inference' ? 'bg-blue-400'
-        : 'bg-white/30',
-      modeLabel: status.mode === 'learning' ? 'LEARNING'
-        : status.mode === 'inference' ? 'INFERENCE'
-        : 'IDLE',
+  // 5-phase 영역 표시 영역 (use-hand-control 영역 사실 1:1).
+  const { phaseBg, phaseDot, phaseLabel, phaseSubtitle } = useMemo(() => {
+    const phase: Phase = phaseDetail?.phase ?? 'untrained';
+    const trainedCount = phaseDetail
+      ? [0, 1, 2, 3].filter((i) => phaseDetail.clusterFrames[i as 0|1|2|3] >= CLUSTER_TARGET).length
+      : 0;
+    const config: Record<Phase, { bg: string; dot: string; label: string; sub: string }> = {
+      untrained: {
+        bg: 'bg-white/5 ring-white/15 text-white/60',
+        dot: 'bg-white/30',
+        label: 'UNTRAINED',
+        sub: 'awaiting teacher (N=5 stable + conf ≥ 0.85)',
+      },
+      learning: {
+        bg: 'bg-amber-500/15 ring-amber-400/40 text-amber-200',
+        dot: 'bg-amber-400 animate-pulse',
+        label: 'LEARNING',
+        sub: 'batch supervised — capturing frames',
+      },
+      partial: {
+        bg: 'bg-orange-500/15 ring-orange-400/40 text-orange-200',
+        dot: 'bg-orange-400',
+        label: 'PARTIAL',
+        sub: `${trainedCount}/4 clusters trained — others rejected`,
+      },
+      trained: {
+        bg: 'bg-green-500/20 ring-green-400/50 text-green-100',
+        dot: 'bg-green-400',
+        label: '✓ TRAINED — inference active',
+        sub: '4 clusters complete · cluster mean readout',
+      },
+      inference: {
+        bg: 'bg-blue-500/15 ring-blue-400/40 text-blue-200',
+        dot: 'bg-blue-400',
+        label: 'INFERENCE',
+        sub: 'cluster mean readout · MediaPipe assist only',
+      },
     };
-  }, [status]);
+    const c = config[phase];
+    return { phaseBg: c.bg, phaseDot: c.dot, phaseLabel: c.label, phaseSubtitle: c.sub };
+  }, [phaseDetail]);
 
-  if (!status) return null;
+  if (!phaseDetail && !status) return null;
+
+  const phase: Phase = phaseDetail?.phase ?? 'untrained';
+  const showProgress = phase === 'untrained' || phase === 'learning' || phase === 'partial';
+  const showInferenceWinner = phase === 'inference' || phase === 'trained';
 
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col items-end gap-1.5 font-mono text-[11px]">
       {/* Teacher badge — MediaPipe gesture 사실 1:1 */}
-      {teacher && (
-        <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${teacherBg} min-w-[180px]`}>
+      {teacher && (phase !== 'inference' && phase !== 'trained') && (
+        <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${teacherBg} min-w-[200px]`}>
           <div className="font-semibold tracking-wider">{teacherLabel}</div>
           {stableSupervised && (
             <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
-              conf {(teacher!.gestureScore * 100).toFixed(0)}% — supervised STDP
-              {rstdp && rstdp.pulses > 0 && ` + R-STDP active`}
+              conf {(teacher!.gestureScore * 100).toFixed(0)}% — batch supervised inject
             </div>
-          )}
-          {stableSupervised && rstdp && rstdp.pulses > 0 && (
-            <>
-              <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
-                rstdp: {rstdp.pulses} pulses · last +{rstdp.lastDeltaSum.toFixed(2)} ({rstdp.lastSynapses} syn × {rstdp.lastReward.toFixed(1)}x)
-              </div>
-              {/* 사실 catch — backend commit 443f69c (target_post_prefix) + frontend 정합 적용.
-                  use-hand-control 영역 supervised cluster 의 `out_{cluster}_` prefix 만 amplify
-                  → winner 와 무관하게 supervised teacher cluster 강화 (monopoly 회피 본격). */}
-              <div className="mt-0.5 text-[10px] leading-tight text-amber-300/90">
-                R-STDP target cluster amplify (monopoly 회피 본격)
-                <br />
-                <span className="opacity-70">target_post_prefix = supervised cluster 의 OUT 시냅스만 LTP 증폭.</span>
-              </div>
-            </>
           )}
           {stabilizing && (
             <div className="mt-0.5 text-[10px] tabular-nums opacity-70">
-              conf {(teacher!.gestureScore * 100).toFixed(0)}% — N=3 합의 대기 (unsupervised)
+              conf {(teacher!.gestureScore * 100).toFixed(0)}% — N=5 합의 대기
             </div>
           )}
         </div>
       )}
-      {/* Mode badge — 사실 1:1 표시 */}
-      <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${modeBg} min-w-[180px]`}>
+
+      {/* Phase badge — 5-state 사실 1:1 */}
+      <div className={`pointer-events-auto rounded ring-1 px-2.5 py-1.5 ${phaseBg} min-w-[200px]`}>
         <div className="flex items-center gap-1.5 font-semibold tracking-wider">
-          <span className={`h-2 w-2 rounded-full ${modeDot}`} />
-          {modeLabel}
+          <span className={`h-2 w-2 rounded-full ${phaseDot}`} />
+          {phaseLabel}
         </div>
-        {status.mode === 'learning' && (
-          <div className="mt-1 text-[10px] tabular-nums opacity-80">
-            Δw +{status.ltpSum.toFixed(2)} / {status.ltdSum.toFixed(2)} · {status.changedSyn} syn
+        <div className="mt-0.5 text-[10px] opacity-75">{phaseSubtitle}</div>
+
+        {/* Progress bars — untrained / learning / partial 영역만 표시.
+            CSS class .snn-mode-progress-fill (--w 영역 동적 width) — inline style 회피. */}
+        {showProgress && phaseDetail && (
+          <div className="mt-1.5 flex flex-col gap-0.5">
+            {[0, 1, 2, 3].map((i) => {
+              const count = phaseDetail.clusterFrames[i as 0|1|2|3];
+              const done = count >= CLUSTER_TARGET;
+              return (
+                <ClusterProgressRow
+                  key={i}
+                  label={CLUSTER_LABELS[i]}
+                  count={count}
+                  done={done}
+                />
+              );
+            })}
           </div>
         )}
-        {status.mode === 'inference' && (
-          <div className="mt-1 text-[10px] tabular-nums opacity-80">
+
+        {/* Inference winner — trained / inference 영역만 표시 */}
+        {showInferenceWinner && status && (
+          <div className="mt-1 text-[10px] tabular-nums opacity-90">
             {status.winner
               ? `winner: ${status.winner} (margin ${(status.winnerMargin * 100).toFixed(0)}%, ${status.winnerRate.toFixed(0)}Hz)`
               : 'WTA tie — no winner detected'}
           </div>
         )}
-        {status.mode === 'idle' && (
-          <div className="mt-1 text-[10px] opacity-60">no fire / no Δw</div>
+
+        {/* learning Δw 사실 — learning / partial 영역만 표시 */}
+        {(phase === 'learning' || phase === 'partial') && status && status.changedSyn > 0 && (
+          <div className="mt-1 text-[10px] tabular-nums opacity-70">
+            Δw +{status.ltpSum.toFixed(2)} / {status.ltdSum.toFixed(2)} · {status.changedSyn} syn
+          </div>
         )}
       </div>
 
       {/* Saturation 경고 — 사실 catch */}
-      {status.outAllSaturated && (
-        <div className="pointer-events-auto rounded ring-1 px-2.5 py-1.5 bg-orange-500/15 ring-orange-400/40 text-orange-200 min-w-[180px]">
+      {status?.outAllSaturated && (
+        <div className="pointer-events-auto rounded ring-1 px-2.5 py-1.5 bg-orange-500/15 ring-orange-400/40 text-orange-200 min-w-[200px]">
           <div className="font-semibold tracking-wider">⚠ SATURATION</div>
           <div className="mt-0.5 text-[10px] opacity-80">
             모든 OUT ≥ {SATURATION_HZ}Hz — selectivity 0 사실
-          </div>
-        </div>
-      )}
-
-      {/* Phase 26: astrocyte per-neuron V_th homeostasis — silence escape mechanism.
-          사실 1:1 — backend astrocytes/homeostasis_step ok 응답 시만 카운트 누적. */}
-      {astrocyte && astrocyte.pulses > 0 && (
-        <div className="pointer-events-auto rounded ring-1 px-2.5 py-1.5 bg-amber-500/12 ring-amber-400/35 text-amber-200/90 min-w-[180px]">
-          <div className="font-semibold tracking-wider">
-            astrocyte: {astrocyte.pulses} pulses
-          </div>
-          <div className="mt-0.5 text-[10px] tabular-nums opacity-80">
-            V_th regulation · silence escape
-          </div>
-          <div className="mt-0.5 text-[10px] tabular-nums opacity-75">
-            last: silence {astrocyte.lastSilence} ↓ / hyperactive {astrocyte.lastHyperactive} ↑
-          </div>
-          <div className="mt-0.5 text-[10px] tabular-nums opacity-65">
-            total: {astrocyte.totalSilence} silenced ↓ · {astrocyte.totalHyperactive} hyperactive ↑
-          </div>
-          {/* 정직 한계 박음 — V_th 변경만, fire 시작 영역은 추가 stimulus mandatory */}
-          <div className="mt-0.5 text-[10px] leading-tight text-amber-300/70">
-            V_th 변경만 — fire 시작은 stimulus mandatory.
           </div>
         </div>
       )}

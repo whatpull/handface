@@ -1,7 +1,17 @@
 // 클라이언트 → UI 발화/학습 이벤트 버스. EventTarget 기반.
 // Canvas 가 'neuron-firing' 구독 → fired class + synapse pulse 토글.
 
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'hand-feature' | 'rstdp-pulse' | 'astrocyte-homeostasis';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'hand-feature' | 'rstdp-pulse' | 'astrocyte-homeostasis' | 'training-phase' | 'training-complete';
+
+// Training state machine phase event — use-hand-control 영역 emit.
+// phase: untrained / learning / partial / trained / inference (사용자 명시 redesign).
+// clusterFrames: cluster 별 supervised inject 누적 (target=30 frame each).
+// 'training-complete' 영역 = 4 cluster 영역 모두 30 frame 도달 1회 emit.
+export interface TrainingPhaseDetail {
+  phase: 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
+  clusterFrames: { 0: number; 1: number; 2: number; 3: number };
+  target: number;
+}
 
 export interface RStdpPulseDetail {
   ok: boolean;

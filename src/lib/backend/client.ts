@@ -486,6 +486,21 @@ export class NeuronFaceClient {
     return { ok: true, data: { trained, total: patterns.length } };
   }
 
+  // batch supervised 학습 — state machine LEARNING phase 영역 호출 영역.
+  // 본질 redesign (사용자 명시): online self-organizing STDP 폐기, 명시적 batch
+  // supervised teacher signal 영역으로 cluster 별 30 frame 학습.
+  //
+  // 정직 한계 박음: 현재 영역은 wrapper (trainHandGesture 영역 동일 영역) — backend 영역
+  // 신규 batch endpoint (e.g. `/networks/:id/training/supervised_batch`) 영역 정합
+  // mandatory. backend agent 보고 영역 도착 후 정합 정정 영역.
+  async handfaceTrainSupervised(
+    patterns: number[][],
+    targetOut: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<Result<{ trained: number; total: number }>> {
+    return this.trainHandGesture(patterns, targetOut, onProgress);
+  }
+
 }
 
 let _client: NeuronFaceClient | null = null;

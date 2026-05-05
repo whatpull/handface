@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useHandControl, type LivePredictResult } from '@/lib/snn/use-hand-control';
+import { useHandControl, clearTrainingProgress, type LivePredictResult } from '@/lib/snn/use-hand-control';
 import {
   loadExemplars, subscribeExemplars, clearExemplars, displayLabel,
   type OutExemplars,
@@ -81,8 +81,12 @@ function CameraControlsBody({ ctrl, disabled }: BodyProps) {
     if (!window.confirm('학습된 패턴을 모두 폐기하고 처음부터 다시 시작할까요?')) return;
     clearExemplars();
     clearStoredSnapshot();
+    // state machine cluster frames + phase 영역도 폐기 — 'untrained' 영역 재진입.
+    clearTrainingProgress();
     // 백엔드 회로도 baseline 으로 — weight 폭주 방지.
     await getClient().rebuildToBaseline().catch(() => null);
+    // 페이지 reload — useHandControl ref/state 영역 초기화 (live re-mount 영역 단순화).
+    if (typeof window !== 'undefined') window.location.reload();
   };
 
   return (

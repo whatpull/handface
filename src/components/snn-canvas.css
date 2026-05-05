@@ -518,6 +518,14 @@
   color: #f9a8d4;
 }
 
+/* Mode indicator — cluster 학습 진행 bar fill (CSS var --w 영역 동적 width).
+   inline style 회피 — Next.js eslint 정합. */
+.snn-mode-progress-fill {
+  width: var(--w, 0%);
+  height: 100%;
+  transition: width 120ms linear;
+}
+
 /* gesture 노드 — 16-dim feature 막대 그래프. */
 .snn-feat-mount {
   height: 110px;

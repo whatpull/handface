@@ -13,6 +13,7 @@ import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import CameraQuickControls from '@/components/snn/CameraQuickControls';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
+import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
 import './snn-canvas.css';
 
 export default function Editor() {
@@ -40,6 +41,8 @@ export default function Editor() {
     const off = onBackendEvent('circuit-changed', () => {
       setCanvasNonce((n) => n + 1);
     });
+    // 자동 학습 weight 저장 — 1회 install (training-changed → debounced save).
+    installAutoSnapshot();
     return off;
   }, []);
 

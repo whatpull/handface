@@ -38,6 +38,9 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
     (async () => {
       // 백엔드에서 실제 회로 로드 — frontend 고정 노드 폐기.
       const client = getClient();
+      // 학습 weight 자동 복원 (네트워크 ensure 후 1회만 적용).
+      const { restoreSnapshotOnce } = await import('@/lib/snn/auto-snapshot');
+      await restoreSnapshotOnce().catch(() => null);
       const r = await client.getFullSnapshot();
       if (cancelled) return;
       if (!r.ok) {

@@ -472,10 +472,18 @@
 .snn-pipeline-cam {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
   background: #050505;
   border-radius: var(--pipe-gap-xs);
   overflow: hidden;
+}
+/* content-fit v4 — 카메라 active 영역 4/3 expand, 미연결 영역 단순 1-line height auto.
+   사용자 catch "INPUT 카메라 미연결 영역 placeholder height 영역 영역 영역". */
+.snn-pipeline-cam.is-active {
+  aspect-ratio: 4 / 3;
+}
+.snn-pipeline-cam.is-empty {
+  aspect-ratio: auto;
+  min-height: 0;
 }
 .snn-pipeline-cam .snn-cam-video,
 .snn-pipeline-cam .snn-cam-skel {
@@ -488,12 +496,21 @@
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
-  /* contrast (WCAG 1.4.3): 0.6 → 0.78 영역 #050505 영역 ~5.2:1 (AA pass). */
-  color: rgba(255, 255, 255, 0.78);
-  font-size: var(--pipe-font-xs);
+  color: var(--pipe-text-dim);
+  font-size: var(--pipe-font-md);
   gap: var(--pipe-gap-xs);
 }
-.snn-pipeline-cam-hint { font-size: 9px; opacity: 0.85; }
+/* content-fit v4 — is-empty 영역 absolute 영역 1-line block 영역 영역 (aspect 0). */
+.snn-pipeline-cam.is-empty .snn-pipeline-cam-empty {
+  position: relative;
+  inset: auto;
+  padding: var(--pipe-gap-md) var(--pipe-gap-sm);
+  font-size: var(--pipe-font-md);
+  text-align: center;
+}
+.snn-pipeline-cam.is-empty .snn-cam-video,
+.snn-pipeline-cam.is-empty .snn-cam-skel { display: none; }
+.snn-pipeline-cam-hint { font-size: var(--pipe-font-sm); color: var(--pipe-text-muted); }
 .snn-pipeline-feat-wrap { display: flex; flex-direction: column; gap: 3px; }
 .snn-pipeline-feat-title {
   font-size: 9px;
@@ -756,16 +773,18 @@
 }
 .snn-pipeline-out-count-row:last-child { border-bottom: 0; }
 .snn-pipeline-out-count-label {
-  opacity: 0.85;
+  color: var(--pipe-text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1;
 }
 .snn-pipeline-out-count-value {
   font-family: ui-monospace, monospace;
-  opacity: 0.9;
+  color: var(--pipe-text);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .snn-pipeline-btn {
@@ -884,12 +903,13 @@
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* phase 별 background tint — monochrome (사용자 mandatory). 영역 lightness 영역 미세 단계. */
-.snn-pipeline.is-phase-untrained { background: linear-gradient(180deg, var(--pipe-bg) 0%, #08080a 100%); }
-.snn-pipeline.is-phase-learning  { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0e0e12 100%); }
-.snn-pipeline.is-phase-partial   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #0c0c10 100%); }
-.snn-pipeline.is-phase-trained   { background: linear-gradient(180deg, var(--pipe-bg) 0%, #101014 100%); }
-.snn-pipeline.is-phase-inference { background: linear-gradient(180deg, var(--pipe-bg) 0%, #12121a 100%); }
+/* phase 별 background — 사용자 catch v4 "너무 밝음" → 모든 phase 영역 #000 영역.
+   직전 lightness 단계 영역 catch — 본 영역 단조 deep black 영역 hierarchy 0. */
+.snn-pipeline.is-phase-untrained,
+.snn-pipeline.is-phase-learning,
+.snn-pipeline.is-phase-partial,
+.snn-pipeline.is-phase-trained,
+.snn-pipeline.is-phase-inference { background: #000000; }
 
 /* TRAINED phase 영역 LEARN 노드 영역 white glow + ✓ checkmark badge (monochrome 정합). */
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
@@ -1021,12 +1041,13 @@
 }
 .snn-summary-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.10);
+  /* deeper black v4 — summary card 영역 #0a0a0a 영역 (직전 #1c1c24 + #0e0e14 영역 영역 영역). */
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--pipe-radius-md);
-  padding: 14px 18px 12px;
+  padding: var(--pipe-gap-md) var(--pipe-gap-lg);
   min-width: 0;
-  min-height: 102px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1040,15 +1061,11 @@
   overflow: hidden;
 }
 .snn-summary-card::after {
+  /* monochrome v4 — corner blur tint 폐기 (사용자 catch "튀는 거 0"). */
   content: '';
   position: absolute;
-  top: -42px;
-  right: -42px;
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  opacity: 0.5;
-  filter: blur(30px);
+  top: 0; right: 0;
+  width: 0; height: 0;
   pointer-events: none;
   z-index: 0;
 }
@@ -1082,10 +1099,10 @@
 }
 .snn-summary-card-label {
   flex: 1;
-  font-size: var(--pipe-font-sm);
+  font-size: var(--pipe-font-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--pipe-text-dim);
   font-weight: 600;
   min-width: 0;
   overflow: hidden;
@@ -1093,13 +1110,14 @@
   white-space: nowrap;
 }
 .snn-summary-card-value {
-  font-size: 28px;
+  /* readable v4 — value 22px (직전 28 영역 너무 큼, hierarchy 영역 정합 영역). */
+  font-size: 22px;
   font-weight: 700;
   font-family: ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   color: var(--pipe-text);
-  line-height: 1.05;
-  letter-spacing: -0.025em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
   margin: 2px 0;
 }
 .snn-summary-card-delta {
@@ -1145,78 +1163,55 @@
 /* 3 카드 cyan single tone variants — lightness 차별 (light / main / dark).
    tone-aware corner glow + value text-shadow + icon tint. */
 .snn-summary-card--cyan {
-  background:
-    linear-gradient(135deg, rgba(var(--pipe-tone-cyan-light), 0.12) 0%, rgba(14, 14, 20, 0.96) 55%),
-    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
-  border-color: rgba(var(--pipe-tone-cyan-light), 0.45);
-  box-shadow:
-    var(--pipe-shadow-md),
-    0 0 24px rgba(var(--pipe-tone-cyan-light), 0.16),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  /* monochrome v4 — flat #0a0a0a + subtle gray border (사용자 "튀는 거 0"). */
+  background: #0a0a0a;
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: var(--pipe-shadow-md);
 }
-.snn-summary-card--cyan::after { background: rgb(var(--pipe-tone-cyan-light)); }
-.snn-summary-card--cyan .snn-summary-card-value {
-  color: rgb(var(--pipe-tone-cyan-light));
-  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan-light), 0.4);
-}
+.snn-summary-card--cyan::after { background: transparent; }
+.snn-summary-card--cyan .snn-summary-card-value { color: var(--pipe-text); text-shadow: none; }
 .snn-summary-card--cyan .snn-summary-card-icon {
-  color: rgb(var(--pipe-tone-cyan-light));
-  border-color: rgba(var(--pipe-tone-cyan-light), 0.4);
-  background: rgba(var(--pipe-tone-cyan-light), 0.10);
+  color: var(--pipe-text);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 .snn-summary-card--cyan:hover {
-  border-color: rgba(var(--pipe-tone-cyan-light), 0.7);
-  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan-light), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: var(--pipe-shadow-lg);
 }
 
 .snn-summary-card--amber {
-  background:
-    linear-gradient(135deg, rgba(var(--pipe-tone-cyan), 0.12) 0%, rgba(14, 14, 20, 0.96) 55%),
-    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
-  border-color: rgba(var(--pipe-tone-cyan), 0.45);
-  box-shadow:
-    var(--pipe-shadow-md),
-    0 0 24px rgba(var(--pipe-tone-cyan), 0.16),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  background: #0a0a0a;
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: var(--pipe-shadow-md);
 }
-.snn-summary-card--amber::after { background: rgb(var(--pipe-tone-cyan)); }
-.snn-summary-card--amber .snn-summary-card-value {
-  color: rgb(var(--pipe-tone-cyan));
-  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan), 0.4);
-}
+.snn-summary-card--amber::after { background: transparent; }
+.snn-summary-card--amber .snn-summary-card-value { color: var(--pipe-text); text-shadow: none; }
 .snn-summary-card--amber .snn-summary-card-icon {
-  color: rgb(var(--pipe-tone-cyan));
-  border-color: rgba(var(--pipe-tone-cyan), 0.4);
-  background: rgba(var(--pipe-tone-cyan), 0.10);
+  color: var(--pipe-text);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 .snn-summary-card--amber:hover {
-  border-color: rgba(var(--pipe-tone-cyan), 0.7);
-  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: var(--pipe-shadow-lg);
 }
 
 .snn-summary-card--violet {
-  background:
-    linear-gradient(135deg, rgba(var(--pipe-tone-cyan-dark), 0.14) 0%, rgba(14, 14, 20, 0.96) 55%),
-    linear-gradient(180deg, rgba(28, 28, 36, 0.92) 0%, rgba(14, 14, 20, 0.96) 100%);
-  border-color: rgba(var(--pipe-tone-cyan-dark), 0.5);
-  box-shadow:
-    var(--pipe-shadow-md),
-    0 0 24px rgba(var(--pipe-tone-cyan-dark), 0.16),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  background: #0a0a0a;
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: var(--pipe-shadow-md);
 }
-.snn-summary-card--violet::after { background: rgb(var(--pipe-tone-cyan-dark)); }
-.snn-summary-card--violet .snn-summary-card-value {
-  color: rgba(var(--pipe-tone-cyan-light), 0.92);
-  text-shadow: 0 0 18px rgba(var(--pipe-tone-cyan-dark), 0.4);
-}
+.snn-summary-card--violet::after { background: transparent; }
+.snn-summary-card--violet .snn-summary-card-value { color: var(--pipe-text); text-shadow: none; }
 .snn-summary-card--violet .snn-summary-card-icon {
-  color: rgb(var(--pipe-tone-cyan-light));
-  border-color: rgba(var(--pipe-tone-cyan-dark), 0.5);
-  background: rgba(var(--pipe-tone-cyan-dark), 0.14);
+  color: var(--pipe-text);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 .snn-summary-card--violet:hover {
-  border-color: rgba(var(--pipe-tone-cyan-dark), 0.75);
-  box-shadow: var(--pipe-shadow-lg), 0 0 32px rgba(var(--pipe-tone-cyan-dark), 0.25), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: var(--pipe-shadow-lg);
 }
 
 @media (max-width: 900px) {

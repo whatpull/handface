@@ -588,20 +588,21 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--pipe-gap-sm);
-  font-size: var(--pipe-font-md);
-  line-height: 1.4;
+  font-size: var(--pipe-font-sm);
+  line-height: 1.3;
+  padding: 1px 0;
 }
 .snn-pipeline-row-label {
-  /* readable v4 — gray-500 (#6b7280) dim + 11px (직전 9px 영역 너무 작음). */
   color: var(--pipe-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: var(--pipe-font-xs);
+  font-size: 10px;
 }
 .snn-pipeline-row-value {
   text-align: right;
   color: var(--pipe-text);
   word-break: break-all;
+  font-size: var(--pipe-font-sm);
 }
 .snn-pipeline-mono { font-family: ui-monospace, monospace; }
 
@@ -632,16 +633,15 @@
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
   color: var(--pipe-text-dim);
-  font-size: var(--pipe-font-md);
+  font-size: var(--pipe-font-xs);
   gap: var(--pipe-gap-xs);
-}
-/* content-fit v4 — is-empty 영역 absolute 영역 1-line block 영역 영역 (aspect 0). */
-.snn-pipeline-cam.is-empty .snn-pipeline-cam-empty {
-  position: relative;
-  inset: auto;
-  padding: var(--pipe-gap-md) var(--pipe-gap-sm);
-  font-size: var(--pipe-font-md);
   text-align: center;
+  padding: var(--pipe-gap-sm);
+  pointer-events: none;
+}
+/* 카메라 active 영역 placeholder 영역 hide (사용자 catch: 글씨 움직임 0). */
+.snn-pipeline-cam.is-active .snn-pipeline-cam-empty {
+  display: none;
 }
 .snn-pipeline-cam.is-empty .snn-cam-video,
 .snn-pipeline-cam.is-empty .snn-cam-skel { display: none; }
@@ -885,21 +885,21 @@
 .snn-pipeline-out-counts {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 .snn-pipeline-out-count-row {
   display: flex; justify-content: space-between;
   align-items: baseline;
   gap: var(--pipe-gap-sm);
-  /* readable v4 — body 13px (직전 10 영역 영역 영역). */
-  font-size: var(--pipe-font-md);
-  padding: 2px 0;
+  font-size: var(--pipe-font-sm);
+  padding: 1px 0;
   min-width: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 .snn-pipeline-out-count-row:last-child { border-bottom: 0; }
 .snn-pipeline-out-count-label {
   color: var(--pipe-text-dim);
+  font-size: var(--pipe-font-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -909,6 +909,7 @@
 .snn-pipeline-out-count-value {
   font-family: ui-monospace, monospace;
   color: var(--pipe-text);
+  font-size: var(--pipe-font-sm);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }

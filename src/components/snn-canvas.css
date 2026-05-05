@@ -385,8 +385,8 @@
 }
 .snn-cam-btn { position: relative; }
 .snn-cam-btn--live {
-  width: 28px;
-  font-size: 11px;
+  /* size 동일 — P/O/T/V 와 일관된 정사각형 22×22 (SVG 아이콘 정중앙 정렬). */
+  margin-left: 4px;
 }
 .snn-cam-btn--live-on {
   background: rgba(94, 234, 212, 0.3);

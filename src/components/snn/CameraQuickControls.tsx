@@ -94,7 +94,15 @@ function CameraControlsBody({ ctrl, disabled }: BodyProps) {
           title={liveOn ? 'Stop live predict' : 'Start live predict'}
           className={`snn-cam-btn snn-cam-btn--live ${liveOn ? 'snn-cam-btn--live-on' : ''}`}
         >
-          {liveOn ? '⏹' : '⏺'}
+          {liveOn ? (
+            <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+              <rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
+            </svg>
+          ) : (
+            <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+              <circle cx="5" cy="5" r="4" fill="currentColor" />
+            </svg>
+          )}
         </button>
       </div>
 

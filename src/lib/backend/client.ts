@@ -321,18 +321,6 @@ export class NeuronFaceClient {
     });
   }
 
-  async fetchCommunityWeights(
-    minContributors = 1,
-  ): Promise<Result<{
-    ok: boolean;
-    synapses: Array<{ pre: string; post: string; weight: number; contributors: number; samples: number }>;
-    count: number;
-  }>> {
-    return this.request(
-      `/community/weights/aggregate?network_preset=feature16&min_contributors=${minContributors}`,
-    );
-  }
-
   async contributeExemplar(
     outKey: string,
     feature: number[],

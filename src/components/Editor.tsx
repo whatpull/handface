@@ -2,24 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
-import Toolbar, { type ViewMode } from '@/components/snn/Toolbar';
-import Canvas from '@/components/snn/Canvas';
+import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
-import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
+import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapshot';
 import './snn-canvas.css';
 
 export default function Editor() {
   const [editMode, setEditMode] = useState(false);
   const [cameraConnected, setCameraConnected] = useState(false);
-  // 'pipeline' = 5-node 본격 redesign (default).
-  // 'region' = 4박스 (INPUT/V1/V2/OUT) 단순 cluster 표시 — 디버깅 보조.
-  // ('neuron' = drawflow 472 sampling detail — 폐기됨, 데이터 정합 0.)
-  const [view, setView] = useState<ViewMode>('pipeline');
+  // 통합 view — Pipeline (5-node) + Region cascade (4-box) 영역 단일 화면.
+  // 직전 ViewMode toggle (pipeline/region) 영역 폐기 — 사용자 명시 "region과 pipeline을
+  //   합쳐주면 좋겠습니다" 정합.
+  // ('neuron' = drawflow 472 sampling detail — 영역 영역 폐기, 데이터 정합 0.)
+  // editMode 영역 Sidebar 영역 prop 영역 보존 — 직전 Region drawflow 영역 영역 영역
+  //   영역 영역 dead 영역 (Pipeline 영역 사용 0). 본 turn 영역 폐기 회피 — 별도 turn.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -38,6 +39,9 @@ export default function Editor() {
     });
     // 자동 학습 weight 저장 — 1회 install (training-changed → debounced save).
     installAutoSnapshot();
+    // 페이지 로드 직후 1회 — localStorage 영역 stored snapshot 영역 backend 영역 복원.
+    // 사용자 학습 weight 영역 reload 영역 보존 catch (silent UX regression 정정).
+    void restoreSnapshotOnce();
     return off;
   }, []);
 
@@ -56,29 +60,16 @@ export default function Editor() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <main className="relative flex flex-1 flex-col min-w-0">
-          <Toolbar
-            view={view}
-            onViewChange={setView}
-            onStatusChange={setStatus}
-          />
+          <Toolbar onStatusChange={setStatus} />
           <div className="relative flex-1 min-h-0 overflow-hidden">
-            {view === 'pipeline' ? (
-              <PipelineCanvas
-                key={`pipeline-${canvasNonce}`}
-                cameraConnected={cameraConnected}
-              />
-            ) : (
-              <Canvas
-                key={`region-${canvasNonce}`}
-                editMode={editMode}
-              />
-            )}
+            <PipelineCanvas
+              key={`pipeline-${canvasNonce}`}
+              cameraConnected={cameraConnected}
+            />
             {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel
-                / .snn-feat-bars) 영역 polling — Pipeline view 영역 mount 정합.
-                key={view} 영역 view 전환 영역 stale closure (video/skel/barFills 영역
-                unmounted DOM ref) 영역 catch — 카메라 까만 화면 회피 catch. */}
+                / .snn-feat-bars) 영역 polling — Pipeline view 영역 mount 정합. */}
             <HandTrackerHost
-              key={`htrack-${view}-${canvasNonce}`}
+              key={`htrack-${canvasNonce}`}
               active={cameraConnected}
               onError={(m) => setStatus(`✗ camera: ${m}`)}
             />
@@ -93,8 +84,6 @@ export default function Editor() {
             </div>
           )}
           <MobileBottomBar
-            view={view}
-            onViewChange={setView}
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
           />

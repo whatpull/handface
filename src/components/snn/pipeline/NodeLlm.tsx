@@ -11,7 +11,7 @@ import {
   type HandFeatureDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
-import { useHandControl, CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
+import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import { loadExemplars } from '@/lib/snn/out-exemplars';
 import {
   buildStatePayload,
@@ -30,10 +30,8 @@ import NodeShell from './NodeShell';
 import { HISTORY_MAX, WINNER_MARGIN } from './shared';
 
 export default function NodeLlm({
-  ctrl,
   onLlmResult,
 }: {
-  ctrl: ReturnType<typeof useHandControl>;
   onLlmResult?: (r: LlmSendResult) => void;
 }) {
   const [cfg, setCfg] = useState<LlmConfig>(() => loadLlmConfig());
@@ -223,10 +221,6 @@ export default function NodeLlm({
           )}
         </div>
       )}
-      {/* ctrl 영역 reference 영역 영역 정합 — phase 영역 driver 영역 useHandControl 영역. */}
-      <div className="snn-pipeline-llm-ctrl-hint">
-        {ctrl.busy ? `(driver: ${ctrl.busy})` : null}
-      </div>
     </NodeShell>
   );
 }

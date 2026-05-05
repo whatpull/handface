@@ -89,8 +89,6 @@ const CLUSTER_FRAMES_KEY = 'handface.cluster.frames.v1';
 const TRAINING_PHASE_KEY = 'handface.training.phase.v1';
 
 const TICK_MS = 350;        // batch supervised + inference loop 주기
-const TRAIN_INTERVAL_MS = 80;
-const TRAIN_FRAMES = 30;
 
 // localStorage 영구 보존 — 페이지 reload 영역 학습 진행 영역 보존 catch.
 function loadClusterFrames(): ClusterFrames {
@@ -152,7 +150,6 @@ function derivePhase(frames: ClusterFrames, current: TrainingPhase, learningActi
 
 export function useHandControl(cameraConnected: boolean, autoLive = false, autoCapture = false) {
   const [hasHand, setHasHand] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
   const [trainStatus, setTrainStatus] = useState<string>('');
   const [livePredict, setLivePredict] = useState(false);
   const [liveResult, setLiveResult] = useState<LivePredictResult | null>(null);
@@ -212,49 +209,6 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     setLivePredict(cameraConnected);
     if (!cameraConnected) setLiveResult(null);
   }, [autoLive, cameraConnected]);
-
-  // 수동 N frame supervised — 외부 호출자용 (호환 보존, 현재 미사용 가능).
-  // N4 정합: cluster prefix 영역 추론 (`out_{cluster}_*` → cluster) 후 batch
-  // `clusterTrainSupervised` 호출. single target_out wrapper 영역 폐기 사실.
-  const train = async (gestureId: string, targetOut: string, label: string) => {
-    if (busy || !cameraConnected) return;
-    setBusy(gestureId);
-    setTrainStatus(`${label} 학습 시작 — 손 자세 유지`);
-    const patterns: number[][] = [];
-    for (let i = 0; i < TRAIN_FRAMES; i += 1) {
-      let waited = 0;
-      while (!hasHandRef.current || !featRef.current) {
-        if (waited > 3000) break;
-        await new Promise((r) => setTimeout(r, 50));
-        waited += 50;
-      }
-      if (!hasHandRef.current || !featRef.current) {
-        setTrainStatus(`✗ ${label}: 손 미감지 (${i}/${TRAIN_FRAMES})`);
-        break;
-      }
-      patterns.push(featRef.current.slice(0, 16));
-      setTrainStatus(`${label} 캡처 ${i + 1}/${TRAIN_FRAMES}…`);
-      await new Promise((r) => setTimeout(r, TRAIN_INTERVAL_MS));
-    }
-    if (patterns.length === 0) { setBusy(null); return; }
-    // targetOut (예: "out_2_0") 에서 cluster id 추출.
-    const m = /^out_(\d+)_\d+$/.exec(targetOut);
-    if (!m) {
-      setTrainStatus(`✗ ${label}: invalid targetOut="${targetOut}" — expected out_{cluster}_{idx}`);
-      setBusy(null);
-      return;
-    }
-    const cluster = Number(m[1]);
-    setTrainStatus(`${label} batch supervised 진행 ${patterns.length} 패턴…`);
-    const r = await getClient().clusterTrainSupervised(patterns, cluster);
-    if (r.ok && r.data.ok) {
-      setTrainStatus(`✓ ${label} 학습 완료 (${r.data.trained} 패턴, Δw ${r.data.weight_changes_count} syn)`);
-    } else {
-      const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;
-      setTrainStatus(`✗ ${label}: ${reason}`);
-    }
-    setBusy(null);
-  };
 
   // 메인 batch supervised + inference loop (N4 정합).
   // autoCapture=true 시 진입. cameraConnected + hasHand 영역 매 350ms tick.
@@ -443,11 +397,9 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
 
   return {
     hasHand,
-    busy,
     trainStatus,
     livePredict,
     liveResult,
-    train,
     setLivePredict,
     setTrainStatus,
     clusterFrames,

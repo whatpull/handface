@@ -4,7 +4,6 @@
 
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent } from '@/lib/backend/events';
-import { clearTrainCounts } from '@/lib/snn/train-counts';
 
 // v2: feature16 preset (in_feat_0..15) 도입 — v1 (in_pinch 등 8-INPUT) snapshot 은
 // 시냅스 pre/post 이름이 다르므로 자동 폐기.
@@ -103,9 +102,8 @@ export function installAutoSnapshot() {
   // 학습 완료 이벤트 → debounced save.
   onBackendEvent('training-changed', () => scheduleSave());
   // 회로 자체가 바뀐 케이스 (Reset / BrainBuilder / Import 등) → 학습이 무효화된 것이므로
-  // 다음 학습 후에 다시 save 되도록 stored 폐기 + train counts 도 reset.
+  // 다음 학습 후에 다시 save 되도록 stored 폐기.
   onBackendEvent('circuit-changed', () => {
     clearStoredSnapshot();
-    clearTrainCounts();
   });
 }

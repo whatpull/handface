@@ -366,6 +366,26 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
 
       // INFERENCE phase — STDP 폐기, cluster mean readout 영역만.
       if (currentPhase === 'inference') {
+        // Offline fallback — backend 불가 영역 GestureRecognizer label 영역 직접 cluster predict.
+        // 정직 한계 박음: SNN inference 영역 영역 0, 학습 진행 0. 학술 정합 0 (단순 lookup).
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (isOffline) {
+          const cluster = (gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined)
+            ? GESTURE_LABEL_TO_CLUSTER[gName]
+            : null;
+          const ratesExposed: Record<string, number> = {
+            cluster_0: 0, cluster_1: 0, cluster_2: 0, cluster_3: 0,
+          };
+          if (cluster !== null) ratesExposed[`cluster_${cluster}`] = gScore;
+          setLiveResult({
+            winner: cluster !== null ? `cluster_${cluster}` : null,
+            rates: ratesExposed,
+            confidence: cluster !== null ? gScore : 0,
+          });
+          setTrainStatus('Offline — MediaPipe-only fallback (SNN 영역 0)');
+          if (!cancelled) setTimeout(tick, TICK_MS);
+          return;
+        }
         const r = await getClient().injectPattern(pattern, { stdp: false });
         if (cancelled) return;
         if (r.ok) {

@@ -21,6 +21,24 @@ async function autoRestoreFromStorage(): Promise<void> {
 interface FetchOpts {
   method?: 'GET' | 'POST' | 'DELETE';
   body?: unknown;
+  // retry 회피 신호 — initialize/reset 영역 외 영역 빠른 fail 영역.
+  noRetry?: boolean;
+}
+
+// retry 영역 exponential backoff — 1s / 2s / 4s, max 3 retry.
+// timeout / 5xx / network 영역만 retry — 4xx 영역 영역 retry 0 (영역 영역 영역).
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+const FETCH_TIMEOUT_MS = 15000;
+
+function shouldRetry(status: number | undefined, isNetwork: boolean): boolean {
+  if (isNetwork) return true;            // network failure / timeout
+  if (status === undefined) return true; // unknown — treat as network
+  if (status >= 500 && status <= 599) return true; // 5xx server fault
+  return false;                          // 4xx (4xx 영역 영역 영역)
+}
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface OkResult<T> { ok: true; data: T; }
@@ -94,21 +112,60 @@ export class NeuronFaceClient {
     const headers: Record<string, string> = {};
     if (this.apiKey) headers['x-api-key'] = this.apiKey;
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
-    try {
-      const r = await fetch(url, {
-        method: opts.method || 'GET',
-        headers,
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      });
-      if (!r.ok) {
-        const txt = await r.text().catch(() => '');
-        return { ok: false, reason: `HTTP ${r.status} ${txt.slice(0, 200)}`, status: r.status };
-      }
-      const data = (await r.json()) as T;
-      return { ok: true, data };
-    } catch (e) {
-      return { ok: false, reason: (e as Error).message || 'fetch failed' };
+    const body = opts.body !== undefined ? JSON.stringify(opts.body) : undefined;
+    const method = opts.method || 'GET';
+
+    // offline path — navigator.onLine === false 영역 즉시 fail (silent fail 회피).
+    // retry 진입 0, 4xx 영역 정합 reason 영역 영역 영역.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { ok: false, reason: 'offline (navigator.onLine=false)' };
     }
+
+    const attempts = opts.noRetry ? 1 : RETRY_DELAYS_MS.length + 1;
+    let lastReason = 'fetch failed';
+    let lastStatus: number | undefined;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      // AbortController 영역 timeout — fetch hang catch.
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = ctrl
+        ? setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+        : null;
+      try {
+        const r = await fetch(url, {
+          method,
+          headers,
+          body,
+          signal: ctrl?.signal,
+        });
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!r.ok) {
+          const txt = await r.text().catch(() => '');
+          lastReason = `HTTP ${r.status} ${txt.slice(0, 200)}`;
+          lastStatus = r.status;
+          if (!shouldRetry(r.status, false) || attempt === attempts - 1) {
+            return { ok: false, reason: lastReason, status: r.status };
+          }
+          await delay(RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        const data = (await r.json()) as T;
+        return { ok: true, data };
+      } catch (e) {
+        if (timeoutId) clearTimeout(timeoutId);
+        const err = e as Error;
+        const isAbort = err.name === 'AbortError';
+        lastReason = isAbort
+          ? `timeout (>${FETCH_TIMEOUT_MS}ms)`
+          : (err.message || 'fetch failed');
+        lastStatus = undefined;
+        if (!shouldRetry(undefined, true) || attempt === attempts - 1) {
+          return { ok: false, reason: lastReason };
+        }
+        await delay(RETRY_DELAYS_MS[attempt]);
+      }
+    }
+    return { ok: false, reason: lastReason, status: lastStatus };
   }
 
   async health(): Promise<Result<{ status: string }>> {

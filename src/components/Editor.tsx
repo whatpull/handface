@@ -11,6 +11,7 @@ import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import { onBackendEvent } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapshot';
+import { ToastProvider, showToast } from '@/components/ui/Toast';
 import './snn-canvas.css';
 
 export default function Editor() {
@@ -44,7 +45,35 @@ export default function Editor() {
     return off;
   }, []);
 
+  // Network online/offline detection — silent fail 회피 catch path.
+  // online: success toast + refresh 신호 (circuit-changed → canvasNonce++).
+  // offline: warning toast — MediaPipe-only fallback path (NodeInfer 영역 표시).
+  // 정직 한계 박음: offline 영역 SNN inference 불가 — MediaPipe label 영역 직접 readout.
+  // 학습 진행 0 (backend 영역 doss).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOnline = () => {
+      showToast({ kind: 'success', message: 'Online — backend 복귀 사실' });
+      // backend 복귀 신호 — Canvas 영역 refresh, ensureNetwork 재시도 catch.
+      setCanvasNonce((n) => n + 1);
+    };
+    const onOffline = () => {
+      showToast({
+        kind: 'warning',
+        message: 'Offline — MediaPipe-only 사실 (SNN 영역 영역 영역 학습 진행 0)',
+        duration: 6000,
+      });
+    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
   return (
+    <ToastProvider>
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
       <header className="flex items-center justify-between border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
         <span className="text-sm font-semibold tracking-wider">HandFace</span>
@@ -90,5 +119,6 @@ export default function Editor() {
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ValidationPanel open={validationOpen} onClose={() => setValidationOpen(false)} />
     </div>
+    </ToastProvider>
   );
 }

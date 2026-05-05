@@ -18,8 +18,25 @@ export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
+  // Online/offline detection — MediaPipe-only badge 표시 catch path.
+  // SSR 영역 typeof navigator undefined → default true (online assume).
+  const [online, setOnline] = useState<boolean>(
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const setOn = () => setOnline(true);
+    const setOff = () => setOnline(false);
+    window.addEventListener('online', setOn);
+    window.addEventListener('offline', setOff);
+    return () => {
+      window.removeEventListener('online', setOn);
+      window.removeEventListener('offline', setOff);
+    };
+  }, []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
   const { winner } = usePipelineEvents();
@@ -43,6 +60,11 @@ export default function NodeInfer() {
   return (
     <NodeShell title="INFER" subtitle="추론 상세" tone="infer"
       collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+      {!online && (
+        <div className="snn-pipeline-warn">
+          ⚠ MediaPipe only — offline (SNN 영역 0, 학습 진행 0)
+        </div>
+      )}
       {!trained && (
         <div className="snn-pipeline-note">
           추론 영역 — TRAINED 후만 작동 사실 (현재: {pname})

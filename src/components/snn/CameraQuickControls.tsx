@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHandControl, HAND_GESTURES, type LivePredictResult } from '@/lib/snn/use-hand-control';
+import { loadTrainCounts, subscribeTrainCounts, type TrainCounts } from '@/lib/snn/train-counts';
 
 interface Props {
   cameraConnected: boolean;
@@ -47,6 +48,8 @@ function CameraControlsBody({ ctrl, disabled }: BodyProps) {
   const liveOn = ctrl.livePredict;
   const winner = ctrl.liveResult?.winner;
   const conf = ctrl.liveResult?.confidence ?? 0;
+  const [counts, setCounts] = useState<TrainCounts>(() => loadTrainCounts());
+  useEffect(() => subscribeTrainCounts(setCounts), []);
 
   return (
     <>
@@ -61,18 +64,22 @@ function CameraControlsBody({ ctrl, disabled }: BodyProps) {
       {/* 하단 row — Train shortcuts + Live 토글 */}
       <div className="snn-cam-toolbar">
         <div className="snn-cam-train-group" title="Train as gesture">
-          {HAND_GESTURES.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              disabled={disabled || !ctrl.hasHand || !!ctrl.busy}
-              onClick={() => ctrl.train(g.id, g.out, g.label)}
-              title={`Train as ${g.label}`}
-              className={`snn-cam-btn ${ctrl.busy === g.id ? 'snn-cam-btn--busy' : ''}`}
-            >
-              {g.short}
-            </button>
-          ))}
+          {HAND_GESTURES.map((g) => {
+            const n = counts[g.id] || 0;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                disabled={disabled || !ctrl.hasHand || !!ctrl.busy}
+                onClick={() => ctrl.train(g.id, g.out, g.label)}
+                title={`Train as ${g.label} ${n > 0 ? `(${n}회 학습됨)` : ''}`}
+                className={`snn-cam-btn ${ctrl.busy === g.id ? 'snn-cam-btn--busy' : ''} ${n > 0 ? 'snn-cam-btn--trained' : ''}`}
+              >
+                {g.short}
+                {n > 0 && <span className="snn-cam-btn-badge">{n}</span>}
+              </button>
+            );
+          })}
         </div>
         <button
           type="button"

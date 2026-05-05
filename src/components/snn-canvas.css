@@ -361,6 +361,29 @@
   background: rgba(167, 139, 250, 0.4);
   color: #c4b5fd;
 }
+.snn-cam-btn--trained {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+}
+.snn-cam-btn-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 11px;
+  height: 11px;
+  padding: 0 2px;
+  border-radius: 6px;
+  background: #10b981;
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.snn-cam-btn { position: relative; }
 .snn-cam-btn--live {
   width: 28px;
   font-size: 11px;

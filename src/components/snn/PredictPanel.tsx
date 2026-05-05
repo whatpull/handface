@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
 import { featuresToInputs } from '@/lib/mediapipe/input-mapper';
+import { loadTrainCounts, subscribeTrainCounts, incrementTrainCount, type TrainCounts } from '@/lib/snn/train-counts';
 
 interface PredictPanelProps {
   open: boolean;
@@ -48,6 +49,8 @@ export default function PredictPanel({ open, cameraConnected, onClose }: Predict
   const [livePredict, setLivePredict] = useState(false);
   const featRef = useRef<number[] | null>(null);
   const hasHandRef = useRef(false);
+  const [trainCounts, setTrainCounts] = useState<TrainCounts>(() => loadTrainCounts());
+  useEffect(() => subscribeTrainCounts(setTrainCounts), []);
 
   useEffect(() => {
     const off = onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
@@ -104,7 +107,12 @@ export default function PredictPanel({ open, cameraConnected, onClose }: Predict
     const r = await getClient().trainHandGesture(patterns, targetOut, (done, total) => {
       setTrainStatus(`${label} 학습 ${done}/${total}…`);
     });
-    setTrainStatus(r.ok ? `✓ ${label} 학습 완료 (${r.data.trained} 패턴)` : `✗ ${label}: ${r.reason}`);
+    if (r.ok) {
+      incrementTrainCount(gestureId);
+      setTrainStatus(`✓ ${label} 학습 완료 (${r.data.trained} 패턴)`);
+    } else {
+      setTrainStatus(`✗ ${label}: ${r.reason}`);
+    }
     setBusy(null);
   };
 
@@ -248,17 +256,26 @@ export default function PredictPanel({ open, cameraConnected, onClose }: Predict
           <div className="mb-3">
             <div className="mb-2 text-[10px] uppercase tracking-wider text-white/50">Train as</div>
             <div className="grid grid-cols-2 gap-1.5">
-              {GESTURES.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  disabled={!cameraConnected || !hasHand || !!busy}
-                  onClick={() => trainAs(g.id, g.out, g.label)}
-                  className="rounded border border-white/10 bg-white/5 px-2.5 py-2 text-left text-[11px] text-white/80 transition-colors hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-violet-200 disabled:opacity-40"
-                >
-                  {busy === g.id ? '⏳ ' : '🎯 '}{g.label}
-                </button>
-              ))}
+              {GESTURES.map((g) => {
+                const n = trainCounts[g.id] || 0;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    disabled={!cameraConnected || !hasHand || !!busy}
+                    onClick={() => trainAs(g.id, g.out, g.label)}
+                    className={
+                      'flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-[11px] transition-colors disabled:opacity-40 ' +
+                      (n > 0
+                        ? 'border-emerald-400/30 bg-emerald-500/5 text-emerald-100 hover:border-emerald-400/60 hover:bg-emerald-500/15'
+                        : 'border-white/10 bg-white/5 text-white/80 hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-violet-200')
+                    }
+                  >
+                    <span>{busy === g.id ? '⏳ ' : '🎯 '}{g.label}</span>
+                    {n > 0 && <span className="font-mono text-[10px] text-emerald-300">✓×{n}</span>}
+                  </button>
+                );
+              })}
             </div>
             {cameraHint && <div className="mt-2 text-[10px] text-white/40">{cameraHint}</div>}
             {trainStatus && (

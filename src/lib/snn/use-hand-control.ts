@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
 import { featuresToInputs } from '@/lib/mediapipe/input-mapper';
+import { incrementTrainCount } from '@/lib/snn/train-counts';
 
 export const HAND_GESTURES = [
   { id: 'pointing', label: 'Pointing',  short: 'P', out: 'out_0' },
@@ -69,7 +70,12 @@ export function useHandControl(cameraConnected: boolean) {
     const r = await getClient().trainHandGesture(patterns, targetOut, (done, total) => {
       setTrainStatus(`${label} 학습 ${done}/${total}…`);
     });
-    setTrainStatus(r.ok ? `✓ ${label} 학습 완료 (${r.data.trained} 패턴)` : `✗ ${label}: ${r.reason}`);
+    if (r.ok) {
+      incrementTrainCount(gestureId);
+      setTrainStatus(`✓ ${label} 학습 완료 (${r.data.trained} 패턴)`);
+    } else {
+      setTrainStatus(`✗ ${label}: ${r.reason}`);
+    }
     setBusy(null);
   };
 

@@ -116,7 +116,7 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
       cancelled = true;
       tracker?.dispose();
       stream?.getTracks().forEach((t) => t.stop());
-      // mount 영역 정리 — placeholder 복원 + 막대 0 으로 reset.
+      // mount 측 정리 — placeholder 복원 + 막대 0 으로 reset.
       const empty = document.getElementById('snn-cam-empty');
       if (empty) empty.style.display = '';
       const v = document.getElementById('snn-cam-video') as HTMLVideoElement | null;

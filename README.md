@@ -4,7 +4,7 @@
 
 브라우저 카메라로 잡은 손 제스처를 Spiking Neural Network 가 직접 학습하고, 그 추론 결과(JSON state payload)를 사용자가 지정한 외부 endpoint(LLM 등) 로 흘려보내는 실험용 프론트엔드.
 
-> **정직 한계 박음 (먼저 읽으세요):** 본 프로젝트는 학술 검증된 분류기가 아닙니다. SNN 의 4-way 제스처 분류는 STDP / R-STDP / WTA / population coding 기반 비교적 단순한 셋업이며 — 학습 안정성, 일반화, 노이즈 강건성은 보장되지 않습니다. 동작은 환경(카메라/조명/손 위치/MediaPipe 신뢰도)에 민감합니다. 이 README 는 사용자 onboarding 만 다루며, 분류 정확도 / endpoint 호환성 / 동작 보장은 **0** 입니다.
+> **정직 한계 명시 (먼저 읽으세요):** 본 프로젝트는 학술 검증된 분류기가 아닙니다. SNN 의 4-way 제스처 분류는 STDP / R-STDP / WTA / population coding 기반 비교적 단순한 셋업이며 — 학습 안정성, 일반화, 노이즈 강건성은 보장되지 않습니다. 동작은 환경(카메라/조명/손 위치/MediaPipe 신뢰도)에 민감합니다. 이 README 는 사용자 onboarding 만 다루며, 분류 정확도 / endpoint 호환성 / 동작 보장은 **0** 입니다.
 
 라이브: <https://whatpull.github.io/handface/>
 
@@ -31,7 +31,7 @@
 | **OUT** | winner cluster 라벨 (✎ rename 가능 — 예: "Pointing" → "다음 슬라이드"), 4 cluster 별 누적 카운트, JSON export. |
 | **LLM** | endpoint URL + API key (localStorage), state payload preview, manual Test send, auto stream toggle (winner 변경 시점만 POST). |
 
-### SNN 학술 배경 (정직 박음)
+### SNN 학술 배경 (정직 명시)
 
 - **STDP** — Spike-Timing Dependent Plasticity. pre/post 발화 timing 차이로 weight 갱신.
 - **R-STDP** — STDP 에 dopamine reward signal 을 추가한 supervised 변형. teacher gesture 가 N=5 frame 안정 + conf ≥ 0.85 일 때 `target_post_prefix` 로 reward pulse 인가.
@@ -83,7 +83,7 @@ LLM 노드에서:
 - **auto stream** = winner cluster 가 변경될 때마다 1 회 POST
 - **Test send** = 현재 state 즉시 송신
 
-> **정직 한계 박음:** endpoint 의 CORS 허용 / rate limit / 응답 schema / 비용은 전적으로 사용자 환경 책임입니다. 본 프로젝트는 단순 `fetch(POST, JSON)` wrapper 만 제공합니다.
+> **정직 한계 명시:** endpoint 의 CORS 허용 / rate limit / 응답 schema / 비용은 전적으로 사용자 환경 책임입니다. 본 프로젝트는 단순 `fetch(POST, JSON)` wrapper 만 제공합니다.
 
 ---
 
@@ -129,7 +129,7 @@ LLM 노드에서:
 
 - **neuronface** ([whatpull/neuronface](https://github.com/whatpull/neuronface)) — FastAPI + N3 SNN
 - 통신: REST + 클라이언트 측 이벤트 버스 (`neuron-firing`, `synapses_changed`, `training-phase`, `hand-feature`)
-- **회로 size (정직 박음)**: handface client 는 `v1_l4e_count=50` 으로 deploy 하므로 실제 회로는 **322 neurons** (= 16 input + 50 V1_L4_E + 32 V1_L4_I + 64 V1_L23_E + 64 V2_L4_E + 32 V2_L23_E + 32 V2_L5_E + 32 OUT). neuronface backend 의 `feature16` preset default (`v1_l4e_count=200`) 로 직접 호출하면 **472 neurons**. neuronface README 의 "472 neurons" 표기는 backend default 기준이며, handface 가 띄우는 회로와 다릅니다.
+- **회로 size (정직 명시)**: handface client 는 `v1_l4e_count=50` 으로 deploy 하므로 실제 회로는 **322 neurons** (= 16 input + 50 V1_L4_E + 32 V1_L4_I + 64 V1_L23_E + 64 V2_L4_E + 32 V2_L23_E + 32 V2_L5_E + 32 OUT). neuronface backend 의 `feature16` preset default (`v1_l4e_count=200`) 로 직접 호출하면 **472 neurons**. neuronface README 의 "472 neurons" 표기는 backend default 기준이며, handface 가 띄우는 회로와 다릅니다.
 - 핵심 라우트:
   - `POST /networks/{id}/inject_feature16` — 16-dim 자극 + cascade fire
   - `POST /networks/{id}/cluster_train_supervised` — cluster prefix `out_{c}_` 8 OUT 모두 supervisor batch 학습 (N3 핵심)
@@ -239,7 +239,7 @@ MIT.
 
 ---
 
-## 정직 한계 박음 (반복)
+## 정직 한계 명시 (반복)
 
 - 4-way 제스처 분류조차 SNN 으로는 학술적으로 nontrivial — 본 프로젝트는 **검증된 분류기가 아니라** 학습/추론 흐름의 *시각화 + LLM agent 연동 실험* 입니다.
 - 5-node Pipeline view 는 진행 중인 redesign 이며, Toolbar 의 legacy view 토글 등 일부 fragment 가 코드에 잔존합니다 (drawflow Region / Neuron view 자체는 commit f4a278d 에서 폐기).

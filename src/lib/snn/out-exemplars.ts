@@ -1,5 +1,5 @@
 // OUT 노드별 자동 캡처된 exemplar feature + 사용자 라벨.
-// 안정 발화 (winner stability) 시 use-hand-control 이 record. PipelineCanvas OUT 노드 영역 표시/명명.
+// 안정 발화 (winner stability) 시 use-hand-control 이 record. PipelineCanvas OUT 노드에서 표시/명명.
 // (OutNodeOverlay 컴포넌트는 영구 폐기됨 — Pipeline view 통합)
 
 const KEY = 'handface.out.exemplars.v1';

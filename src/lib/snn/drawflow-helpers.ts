@@ -57,7 +57,7 @@ export function renderNodeHtml(n: LayoutNode): string {
     `;
   }
   if (n.population === 'gesture') {
-    // 제스처 mount 영역 — 16-dim feature 막대 그래프 호스트 (Phase B 에서 채움).
+    // 제스처 mount 영역 — 16-dim feature 막대 그래프 (HandTrackerHost 가 라이브 갱신).
     const bars = Array.from({ length: 16 }, (_, i) => `<div class="snn-feat-bar" data-i="${i}"><div class="snn-feat-bar-fill"></div></div>`).join('');
     return `
       <div class="snn-canvas-neuron-card snn-canvas-source-card">
@@ -65,12 +65,8 @@ export function renderNodeHtml(n: LayoutNode): string {
           <span class="snn-canvas-neuron-dot"></span>
           <span class="snn-canvas-neuron-label">${n.label}</span>
         </div>
-        <div class="snn-canvas-source-mount snn-feat-mount" id="snn-feat-mount">
-          <div class="snn-feat-bars" id="snn-feat-bars">${bars}</div>
-          <div id="snn-feat-empty" class="snn-canvas-source-empty">
-            <div>No hand detected</div>
-            <div class="snn-canvas-source-empty-hint">Enable camera</div>
-          </div>
+        <div class="snn-canvas-source-mount snn-feat-mount">
+          <div class="snn-feat-bars">${bars}</div>
         </div>
       </div>
     `;

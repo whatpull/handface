@@ -47,10 +47,9 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
     (async () => {
       const video = (await waitForMount('#snn-cam-video')) as HTMLVideoElement | null;
       const skel = (await waitForMount('#snn-cam-skel')) as HTMLCanvasElement | null;
-      // Gesture 노드 mount 도 polling 으로 기다림 (Camera 와 다른 시점에 mount 가능).
-      const featBars = (await waitForMount('#snn-feat-bars')) as HTMLElement | null;
+      // Gesture 노드 mount 폴링 (className — drawflow 가 ID 일부 strip 가능성 회피).
+      const featBars = (await waitForMount('.snn-feat-bars')) as HTMLElement | null;
       const empty = document.getElementById('snn-cam-empty');
-      const featEmpty = document.getElementById('snn-feat-empty');
       if (cancelled || !video || !skel) return;
 
       // 16-dim 막대 그래프 element 캐시 + 라벨 tooltip 부여.
@@ -68,8 +67,6 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
         video.srcObject = stream;
         await video.play();
         if (empty) empty.style.display = 'none';
-        if (featEmpty) featEmpty.style.display = 'none';
-        if (featBars) featBars.style.display = 'flex';
 
         tracker = new HandTracker();
         await tracker.start(video, (frame) => {
@@ -77,13 +74,10 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
           drawSkeleton(skel, frame.landmarks);
           // Gesture 노드 lazy lookup — mount 가 늦게 되거나 view 전환으로 stale 한 경우.
           if (barFills.length === 0) {
-            const fb = document.getElementById('snn-feat-bars');
+            const fb = document.querySelector<HTMLElement>('.snn-feat-bars');
             if (fb) {
               barFills = Array.from(fb.querySelectorAll<HTMLElement>('.snn-feat-bar'));
               barFills.forEach((bar, i) => { bar.title = FEATURE_LABELS[i] || `feat ${i}`; });
-              fb.style.display = 'flex';
-              const fe = document.getElementById('snn-feat-empty');
-              if (fe) fe.style.display = 'none';
             }
           }
           if (frame.landmarks) {
@@ -116,13 +110,9 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
       cancelled = true;
       tracker?.dispose();
       stream?.getTracks().forEach((t) => t.stop());
-      // mount 영역 placeholder 복원.
+      // mount 영역 정리 — placeholder 복원 + 막대 0 으로 reset.
       const empty = document.getElementById('snn-cam-empty');
-      const featEmpty = document.getElementById('snn-feat-empty');
-      const featBars = document.getElementById('snn-feat-bars');
       if (empty) empty.style.display = '';
-      if (featEmpty) featEmpty.style.display = '';
-      if (featBars) featBars.style.display = 'none';
       const v = document.getElementById('snn-cam-video') as HTMLVideoElement | null;
       if (v) v.srcObject = null;
       const s = document.getElementById('snn-cam-skel') as HTMLCanvasElement | null;
@@ -130,6 +120,9 @@ export default function HandTrackerHost({ active, onFrame, onError }: HandTracke
         const ctx = s.getContext('2d');
         ctx?.clearRect(0, 0, s.width, s.height);
       }
+      // gesture 막대 모두 0% 로.
+      document.querySelectorAll<HTMLElement>('.snn-feat-bar-fill')
+        .forEach((el) => { el.style.height = '0%'; });
     };
   }, [active, onFrame, onError]);
 

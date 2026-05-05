@@ -302,7 +302,7 @@
   padding: 4px;
 }
 .snn-feat-bars {
-  display: none;
+  display: flex;
   flex-direction: row;
   align-items: flex-end;
   gap: 1px;

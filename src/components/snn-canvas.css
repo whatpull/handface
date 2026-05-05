@@ -1154,6 +1154,66 @@
 .snn-pipeline.is-phase-trained   { background: linear-gradient(180deg, #0a0a0c 0%, #051209 100%); }
 .snn-pipeline.is-phase-inference { background: linear-gradient(180deg, #0a0a0c 0%, #050a14 100%); }
 
+/* TRAINED phase 영역 LEARN 노드 영역 green glow + ✓ checkmark badge — 학습 완료 영역 사용자 영역 본격 영역. */
+.snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.22),
+              0 0 18px rgba(34, 197, 94, 0.22),
+              0 4px 16px rgba(0, 0, 0, 0.45);
+}
+.snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title {
+  color: #bbf7d0;
+}
+.snn-pipeline.is-phase-trained .snn-pipeline-node--learn .snn-pipeline-node-title::after {
+  content: ' ✓';
+  color: #4ade80;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.65);
+  font-weight: 800;
+}
+
+/* INFERENCE phase 영역 INFER 노드 영역 강조 cyan glow (is-flowing 영역 영역 영역). */
+.snn-pipeline.is-phase-inference .snn-pipeline-node--infer {
+  border-color: rgba(94, 234, 212, 0.6);
+  box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25),
+              0 0 18px rgba(94, 234, 212, 0.22),
+              0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* ─────────────────────────────────────────── Mobile (≤768px) ────────────────
+   본격 mobile — 카메라 영역 영역 + Toolbar 영역 영역 + touch friendly. */
+@media (max-width: 768px) {
+  .snn-pipeline {
+    padding: 8px;
+  }
+  .snn-pipeline-flow {
+    gap: 6px;
+  }
+  /* camera/skeleton 영역 모바일 영역 영역 (사용자 보기 편하게) — 4:3 → 16:11 영역. */
+  .snn-pipeline-cam {
+    aspect-ratio: 16 / 11;
+  }
+  .snn-pipeline-feat-bars { height: 32px; }
+  .snn-pipeline-node-title { font-size: 11px; }
+  .snn-pipeline-node-body { padding: 8px 10px; gap: 6px; }
+  .snn-pipeline-input-field,
+  .snn-pipeline-out-input {
+    font-size: 12px;
+    padding: 7px 8px;
+  }
+  /* hover scale 영역 — touch device 영역 영역. */
+  .snn-pipeline-node:hover { transform: none; }
+}
+
+/* 더 작은 영역 (≤480px) — text/width 영역 단순화. */
+@media (max-width: 480px) {
+  .snn-pipeline-cluster-label { width: 56px; font-size: 9px; }
+  .snn-pipeline-cluster-count { width: 32px; font-size: 8px; }
+  .snn-pipeline-rate-label { width: 56px; font-size: 9px; }
+  .snn-pipeline-rate-value { width: 32px; font-size: 8px; }
+  .snn-pipeline-node-sub { display: none; }
+  .snn-pipeline-current-value { font-size: 13px; }
+}
+
 /* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ─────────────
    사용자 OS 영역 motion-reduce 설정 영역 정합 — 모든 keyframe + transition 영역
    영역 0.01ms 영역 단축 (즉시 정지 영역 영역 시각 변화 영역 보존). animation 영역

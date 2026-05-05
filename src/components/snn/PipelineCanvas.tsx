@@ -158,7 +158,7 @@ function Arrow({ active = false }: { active?: boolean }) {
 // ───────────────────────────────────────────────────────── INPUT ─────────────
 function NodeInput({ cameraConnected }: { cameraConnected: boolean }) {
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   // feature 막대 ref — HandTrackerHost 영역 .snn-feat-bars 영역 selector 로 직접 갱신.
 
   useEffect(() => {
@@ -214,18 +214,26 @@ function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const prevWeights = useRef<Map<string, number>>(new Map());
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', setTeacher), []);
 
   useEffect(() => {
+    // HIGH #4 정정: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
+    // backend 영역 synapses_changed 영역 emit 영역 — 본 path 영역 첫 frame 영역
+    // 학습 사실 catch 사실 (delta.delta 영역 직접 제공 영역).
+    // Fallback (d.synapses 영역 diff) 영역 baseline cache only — 첫 호출 시
+    // prev === undefined → 첫 frame 영역 Δw = 0 표시 (baseline cache only).
+    // 직후 frame 영역 정상 catch 사실. 정직 한계 박음: backend synapses_changed
+    // 영역 미emit 영역 영역 첫 frame 영역 학습 사실 0 표시 회피 0.
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
       let ltp = 0, ltd = 0, changed = 0;
       const cache = prevWeights.current;
       const ch = d.synapses_changed;
       if (ch && ch.length > 0) {
+        // 정합 path: backend 영역 Δw 영역 emit — 첫 frame 영역 학습 catch 사실.
         for (const s of ch) {
           const dw = s.delta;
           if (Math.abs(dw) >= 0.1) {
@@ -235,6 +243,7 @@ function NodeLearn() {
           cache.set(`${s.pre}->${s.post}`, s.weight);
         }
       } else {
+        // Fallback path: 직접 diff — 첫 호출 영역 baseline cache only (Δw 0 표시).
         const syn = d.synapses || [];
         for (const s of syn) {
           const key = `${s.pre}->${s.post}`;
@@ -387,7 +396,7 @@ function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
     saturated: boolean;
   }>({ cluster: null, rates: [0, 0, 0, 0], confidence: 0, margin: 0, saturated: false });
   const [history, setHistory] = useState<number[]>([]);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
 
@@ -491,7 +500,7 @@ function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
   const [winner, setWinner] = useState<{ cluster: number | null; confidence: number; margin: number }>(
     { cluster: null, confidence: 0, margin: 0 },
   );
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => subscribeExemplars(setExemplars), []);
 
@@ -598,6 +607,7 @@ function RenameButton({ outKey, label, hasLabel }:
         className="snn-pipeline-out-input"
         value={draft}
         maxLength={32}
+        aria-label="winner cluster label"
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
@@ -613,6 +623,7 @@ function RenameButton({ outKey, label, hasLabel }:
       type="button"
       className={`snn-pipeline-out-winner-btn ${hasLabel ? 'is-named' : ''}`}
       onClick={() => setEditing(true)}
+      aria-label={`rename ${label}`}
       title="클릭 — 이름 변경"
     >
       <span>{label}</span>
@@ -633,7 +644,7 @@ function NodeLlm({
   onLlmResult?: (r: LlmSendResult) => void;
 }) {
   const [cfg, setCfg] = useState<LlmConfig>(() => loadLlmConfig());
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
   const [winner, setWinner] = useState<{

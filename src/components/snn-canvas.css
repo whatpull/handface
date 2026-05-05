@@ -121,14 +121,17 @@
 .snn-pipeline-flow {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  gap: 6px;
+  /* content-fit — 각 node 영역 자체 height 영역 영역 빈 공간 0 catch.
+     직전 align-items: stretch 폐기 사실 (사용자 catch 2026-05-05). */
+  align-items: flex-start;
+  gap: 24px;
   min-width: max-content;
-  min-height: 100%;
 }
 @media (max-width: 900px) {
   .snn-pipeline-flow {
     flex-direction: column;
+    align-items: center;
+    gap: 16px;
     min-width: 0;
   }
 }
@@ -139,7 +142,10 @@
   justify-content: center;
   color: rgba(94, 234, 212, 0.35);
   flex-shrink: 0;
-  width: 32px;
+  width: 24px;
+  /* node header height (~ 38px) 영역 정합 영역 vertical center catch — flow align-items
+     영역 flex-start 영역 영역 arrow 영역 위쪽 정합 자체 padding 영역 보정 영역. */
+  padding-top: 18px;
   position: relative;
   transition: color 220ms ease;
 }
@@ -159,24 +165,30 @@
   100% { transform: translateX(28px); opacity: 0; }
 }
 @media (max-width: 900px) {
-  .snn-pipeline-arrow { transform: rotate(90deg); width: auto; height: 24px; }
+  .snn-pipeline-arrow { transform: rotate(90deg); width: auto; height: 24px; padding-top: 0; }
 }
 
 .snn-pipeline-node {
-  background: rgba(20, 20, 24, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(24, 24, 30, 0.96) 0%, rgba(18, 18, 22, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
   width: 280px;
+  /* content-fit — 자체 content height 영역 영역 (빈 공간 catch 영역). */
+  height: max-content;
+  min-height: 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   font-size: 11px;
   color: #e1e8f5;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              0 1px 0 rgba(255, 255, 255, 0.04) inset;
   transition: border-color 200ms ease, box-shadow 200ms ease, transform 180ms ease;
 }
 .snn-pipeline-node:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6),
+              0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 @media (max-width: 900px) {
   .snn-pipeline-node { width: 100%; max-width: 420px; margin: 0 auto; }
@@ -253,8 +265,8 @@
 .snn-pipeline-node-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 14px 14px 16px;
 }
 
 .snn-pipeline-row {
@@ -681,7 +693,7 @@
     padding: 8px;
   }
   .snn-pipeline-flow {
-    gap: 6px;
+    gap: 14px;
   }
   /* camera/skeleton 영역 모바일 영역 영역 (사용자 보기 편하게) — 4:3 → 16:11 영역. */
   .snn-pipeline-cam {
@@ -689,7 +701,7 @@
   }
   .snn-pipeline-feat-bars { height: 32px; }
   .snn-pipeline-node-title { font-size: 11px; }
-  .snn-pipeline-node-body { padding: 8px 10px; gap: 6px; }
+  .snn-pipeline-node-body { padding: 12px; gap: 8px; }
   .snn-pipeline-input-field,
   .snn-pipeline-out-input {
     font-size: 12px;

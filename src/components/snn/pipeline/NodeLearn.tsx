@@ -168,7 +168,7 @@ export default function NodeLearn() {
       untrained: {
         label: 'UNTRAINED',
         tone: 'idle',
-        sub: 'awaiting teacher (N=5 stable + conf ≥ 0.85)',
+        sub: 'awaiting teacher (N=5 stable + conf ≥ 0.6)',
         hint: '카메라에 4개 자세를 보여주세요 — Pointing / Open palm / Fist / Victory',
       },
       learning: {

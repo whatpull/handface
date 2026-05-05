@@ -195,93 +195,28 @@
   .snn-pipeline-learn-region-box { padding: 3px 6px; }
   .snn-pipeline-learn-region-arrow svg { width: 20px; height: 8px; }
 }
-/* ReactFlow 캔버스 wrapper (2026-05-05 사용자 mandatory: 편집 가능한 노드 캔버스).
-   직전 grid layout 폐기 — PipelineFlow.tsx 영역 ReactFlow 영역 위임.
-   canvas 영역 fixed height 720px (desktop) / 600px (mobile) 영역 내부 노드 drag 영역. */
-.snn-pipeline-flow-canvas {
+/* 5 node × 4 arrow grid layout — ReactFlow rollback 2026-05-05 (사용자 catch).
+   "5 node × node width viewport fit + LLM squeeze 0".
+   grid-template-columns: 5 × 1fr (uniform width) + 4 × auto (arrow 36px).
+   viewport 1280px (1280 - padding 24 - gap 4 × 12) ÷ 5 = ~241px per node.
+   모든 node uniform width + content-fit height (align-items: start). */
+.snn-pipeline-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: start;
+  gap: var(--pipe-gap-md);
+  min-width: 0;
   width: 100%;
-  height: 720px;
-  background: var(--pipe-bg);
-  border: 3px solid var(--pipe-border);
-  border-radius: var(--pipe-radius-sm);
-  position: relative;
-  overflow: hidden;
 }
 @media (max-width: 900px) {
-  .snn-pipeline-flow-canvas {
-    height: 600px;
+  .snn-pipeline-flow {
+    /* mobile — grid 폐기 flex column 단순 vertical stack. */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--pipe-gap-md);
+    min-width: 0;
   }
-}
-
-/* ReactFlow 내부 element 영역 monochrome black tone 정합 (사용자 mandatory). */
-.snn-pipeline-flow-canvas .react-flow__background {
-  background: var(--pipe-bg);
-}
-.snn-pipeline-flow-canvas .react-flow__node {
-  /* node wrapper 영역 자체 styling 0 — 본 div 영역 NodeShell 영역 3px border 정합. */
-  border: none;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-.snn-pipeline-flow-canvas .react-flow__node.selected {
-  /* selectable=false 영역 영역 적용 안 됨 — defensive override. */
-  outline: none;
-  box-shadow: none;
-}
-.snn-pipeline-flow-canvas .react-flow__node .snn-pipeline-node {
-  /* ReactFlow 내부 mount 시 width 100% 영역 wrapper style 영역 fit. */
-  width: 100%;
-  min-height: 0;
-}
-
-/* ReactFlow handle (source/target 점) 영역 hide — connect 0 정합 (4 edge fixed). */
-.snn-pipeline-flow-canvas .react-flow__handle {
-  opacity: 0;
-  pointer-events: none;
-  width: 6px;
-  height: 6px;
-}
-
-/* ReactFlow 컨트롤 / 미니맵 영역 폐기 — minimalist (사용자 mandatory). */
-.snn-pipeline-flow-canvas .react-flow__controls,
-.snn-pipeline-flow-canvas .react-flow__minimap,
-.snn-pipeline-flow-canvas .react-flow__attribution {
-  display: none;
-}
-
-/* edge — idle gray / active white + glow (drawflow fired class 정합). */
-.snn-pipeline-flow-canvas .snn-flow-edge .react-flow__edge-path {
-  stroke: rgba(255, 255, 255, 0.30);
-  stroke-width: 2;
-  transition: stroke 220ms ease, stroke-width 220ms ease, filter 220ms ease;
-  fill: none;
-}
-.snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
-  stroke: rgba(255, 255, 255, 0.92);
-  stroke-width: 3;
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
-}
-/* animated dash — ReactFlow default 영역 보존 (animated=true 시 dasharray + offset anim). */
-.snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
-  stroke-dasharray: 6 4;
-  animation: snn-flow-edge-dash 1.2s linear infinite;
-}
-@keyframes snn-flow-edge-dash {
-  from { stroke-dashoffset: 10; }
-  to { stroke-dashoffset: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .snn-pipeline-flow-canvas .snn-flow-edge.is-active .react-flow__edge-path {
-    animation: none;
-  }
-}
-
-/* legacy .snn-pipeline-flow grid 영역 폐기 — 본 selector 영역 영역 사용 안 됨.
-   defensive — 잔존 selector 영역 width 100% 영역 child 영역 fit. */
-.snn-pipeline-flow {
-  width: 100%;
 }
 
 /* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.

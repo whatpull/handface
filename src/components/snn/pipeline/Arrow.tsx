@@ -13,6 +13,8 @@
 
 interface ArrowProps {
   active?: boolean;
+  /** legacy prop — 4 segment segment별 trigger 정합 (PipelineCanvas). */
+  segment?: 0 | 1 | 2 | 3;
 }
 
 export default function Arrow({ active = false }: ArrowProps) {

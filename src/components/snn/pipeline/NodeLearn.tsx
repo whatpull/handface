@@ -165,6 +165,9 @@ export default function NodeLearn() {
     const p = phase?.phase ?? 'untrained';
     const activeLabel = activeCluster >= 0 ? CLUSTER_LABELS[activeCluster] : '';
     const activeCount = activeCluster >= 0 && phase ? phase.clusterFrames[activeCluster as 0|1|2|3] : 0;
+    // EVOLVING — phase.evolveFrames / evolveTarget (training-phase event 동봉).
+    const evFrames = phase?.evolveFrames ?? 0;
+    const evTarget = phase?.evolveTarget ?? 10;
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
         label: 'UNTRAINED',
@@ -199,6 +202,15 @@ export default function NodeLearn() {
         tone: 'blue',
         sub: 'STDP off · cluster mean readout',
         hint: '실시간 추론 영역 — 자세 영역 보이세요',
+      },
+      // EVOLVING — INFERENCE 영역 사용자 trigger lifelong learning.
+      // cluster_lock(false) → 10 frame supervised retrain (weight=15) → cluster_lock(true).
+      // 학술 정합: Parisi et al. 2019; 한계: McCloskey & Cohen 1989.
+      evolving: {
+        label: '✦ EVOLVING — lifelong learning',
+        tone: 'fuchsia',
+        sub: 'cluster unlocked · supervised retrain (weight=15)',
+        hint: `진화 중 (${evFrames}/${evTarget} frame) — 자세 영역 유지하세요`,
       },
     };
     return config[p];

@@ -11,7 +11,7 @@
 import { CLUSTER_TO_LABEL } from './use-hand-control';
 import { loadExemplars } from './out-exemplars';
 
-export type Phase = 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
+export type Phase = 'untrained' | 'learning' | 'partial' | 'trained' | 'inference' | 'evolving';
 
 export interface WinnerHistoryEntry {
   winner: string;       // 예: 'cluster_2' 또는 'out_2_0'

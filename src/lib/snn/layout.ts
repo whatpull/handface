@@ -195,10 +195,12 @@ export function layoutSnapshot(
     visibleNames.add(v.id);
   }
 
-  // 6. 시냅스: 양 끝이 visible 인 것만 + 노드당 outgoing top 2개 (weight 절댓값 기준).
-  // virtual source 시냅스 + backend 시냅스 통합.
-  const allSynapses = [...VIRTUAL_SOURCE_SYNAPSES, ...synapses];
-  const candidate = allSynapses.filter(
+  // 6. 시냅스 visible 결정.
+  //    - virtual source (src_camera/src_gesture) → 모든 outgoing 표시 (사용자 의도
+  //      = 16-feature 흐름 가시화 mandatory). top-N filter 면제.
+  //    - backend 시냅스 = 노드당 outgoing top 2개 (weight 절댓값 기준, 화면 노이즈 회피).
+  const VIRTUAL_PRES = new Set(['src_camera', 'src_gesture']);
+  const candidate = [...VIRTUAL_SOURCE_SYNAPSES, ...synapses].filter(
     (s) => visibleNames.has(s.pre) && visibleNames.has(s.post),
   );
   const byPre: Record<string, typeof candidate> = {};
@@ -209,8 +211,13 @@ export function layoutSnapshot(
   const TOP_PER_PRE = 2;
   const visibleSyn: typeof candidate = [];
   for (const pre of Object.keys(byPre)) {
-    const sorted = byPre[pre].slice().sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
-    visibleSyn.push(...sorted.slice(0, TOP_PER_PRE));
+    if (VIRTUAL_PRES.has(pre)) {
+      // virtual source: 모든 outgoing visible (사용자 의도 정합).
+      visibleSyn.push(...byPre[pre]);
+    } else {
+      const sorted = byPre[pre].slice().sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+      visibleSyn.push(...sorted.slice(0, TOP_PER_PRE));
+    }
   }
 
   return { nodes, synapses: visibleSyn, visibleNames };

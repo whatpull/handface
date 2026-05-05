@@ -168,7 +168,7 @@
   border-radius: 6px;
   min-width: 120px;
   color: #e1e8f5;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   transition: box-shadow 200ms, border-color 200ms;
@@ -713,6 +713,12 @@
   border-color: rgba(244, 114, 182, 0.65);
   box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.22), 0 6px 22px rgba(0, 0, 0, 0.55);
 }
+.snn-pipeline.is-flowing .snn-pipeline-node--llm {
+  border-color: rgba(96, 165, 250, 0.7);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25),
+              0 0 18px rgba(96, 165, 250, 0.20),
+              0 6px 22px rgba(0, 0, 0, 0.55);
+}
 
 .snn-pipeline-node-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -826,7 +832,7 @@
 .snn-pipeline-phase-label {
   font-weight: 700;
   letter-spacing: 0.08em;
-  font-size: 11px;
+  font-size: 13px;
 }
 .snn-pipeline-phase-sub {
   font-size: 9px;
@@ -986,7 +992,7 @@
   padding: 6px 0;
 }
 .snn-pipeline-out-winner-empty {
-  font-size: 18px; color: rgba(255,255,255,0.3);
+  font-size: 18px; color: rgba(255,255,255,0.5);
 }
 .snn-pipeline-out-winner-btn {
   background: rgba(244,114,182,0.10);
@@ -1112,7 +1118,7 @@
 .snn-pipeline-llm-result.is-ok   { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.08); }
 .snn-pipeline-llm-result.is-fail { border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.08); }
 .snn-pipeline-llm-ctrl-hint {
-  font-size: 9px; color: rgba(255,255,255,0.35);
+  font-size: 9px; color: rgba(255,255,255,0.6);
   font-family: ui-monospace, monospace;
 }
 

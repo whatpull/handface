@@ -21,7 +21,12 @@ export interface NeuronFiringDetail {
   rates_by_region?: Record<string, number>;
   active_neurons_by_region?: Record<string, string[]>;
   out_rates?: Record<string, number>;
+  // 전체 시냅스 weight (backward compat — `?synapses_full=true` 또는 누락 시 빈 배열).
+  // 기본 응답에서는 비어있거나 누락. Δw 계산은 `synapses_changed` 우선 사용.
   synapses?: Array<{ pre: string; post: string; weight: number }>;
+  // Backend delta-only 페이로드 (commit 443e48f 이후 default). |Δw|≥threshold 변경분만.
+  // delta = current - previous (backend cache 기준). frontend 자체 cache 비교 불필요.
+  synapses_changed?: Array<{ pre: string; post: string; weight: number; delta: number }>;
 }
 
 export interface BackendEvent<T = unknown> extends CustomEvent<T> {

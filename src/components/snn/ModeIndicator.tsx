@@ -87,30 +87,49 @@ export default function ModeIndicator() {
 
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      const syn = d.synapses || [];
       const outRates = d.out_rates || {};
 
-      // Δw 계산 (이전 cache 와 비교) — 실제 backend 사실.
-      // micro-opt: ref 한 번 deref, hot loop 안에서는 변수 접근만.
-      // TODO: backend agent 가 `synapses_changed` (변경분만) 필드 추가 시 그쪽 정합 우선.
+      // Δw 계산 — backend delta 사실 1:1.
+      // Fast-path: `synapses_changed` (commit 443e48f, default) — backend 가 |Δw|≥threshold 변경분만 송신.
+      //            delta 직접 합산, frontend cache 비교 불필요.
+      // Fallback: `synapses` 전체 + 자체 cache 비교 (구버전 backend 또는 `?synapses_full=true`).
       let ltpSum = 0;
       let ltdSum = 0;
       let changedSyn = 0;
+      const changed = d.synapses_changed;
       const cache = prevWeights.current;
-      for (let i = 0; i < syn.length; i += 1) {
-        const s = syn[i];
-        const key = `${s.pre}->${s.post}`;
-        const prev = cache.get(key);
-        if (prev !== undefined) {
-          const dw = s.weight - prev;
+      if (changed && changed.length > 0) {
+        // delta-only path — backend 사실 직접 활용.
+        for (let i = 0; i < changed.length; i += 1) {
+          const s = changed[i];
+          const dw = s.delta;
           const adw = dw >= 0 ? dw : -dw;
           if (adw >= DW_EPSILON) {
             changedSyn += 1;
             if (dw > 0) ltpSum += dw;
             else ltdSum += dw;
           }
+          // fallback path 정합 영역 cache 영역만 갱신 (전체 syn 비교 시 baseline).
+          cache.set(`${s.pre}->${s.post}`, s.weight);
         }
-        cache.set(key, s.weight);
+      } else {
+        // Fallback — 전체 syn cache Δw.
+        const syn = d.synapses || [];
+        for (let i = 0; i < syn.length; i += 1) {
+          const s = syn[i];
+          const key = `${s.pre}->${s.post}`;
+          const prev = cache.get(key);
+          if (prev !== undefined) {
+            const dw = s.weight - prev;
+            const adw = dw >= 0 ? dw : -dw;
+            if (adw >= DW_EPSILON) {
+              changedSyn += 1;
+              if (dw > 0) ltpSum += dw;
+              else ltdSum += dw;
+            }
+          }
+          cache.set(key, s.weight);
+        }
       }
 
       // winner 분리도 — out_rates max 가 두 번째보다 의미 있게 클 때만 winner.

@@ -326,24 +326,25 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
         if (margin >= 0.10) winnerCluster = sortedClusters[0].ci;
       }
 
-      // 시냅스 Δw flash — 이전 weight cache 와 비교, |Δw|≥0.1 면 LTP(green)/LTD(orange) flash.
-      // 최적화: backend 응답 9000+ syn 중 화면에 보이는 syn (connRefMap 등록된 영역) 만 처리.
-      // 안 보이는 syn cache 도 skip — 시각화 0 영역이라 cache 의미 0 catch.
-      // TODO: backend agent 가 `synapses_changed` (변경분만) 필드 추가 시 그쪽 정합 우선.
-      const synapses = d.synapses || [];
+      // 시냅스 Δw flash — backend delta 사실 1:1 LTP(green)/LTD(orange) flash.
+      // Fast-path: `synapses_changed` (commit 443e48f, default) — backend 가 |Δw|≥threshold 변경분만 송신.
+      //            delta 직접 사용, frontend cache 비교 불필요. 9000+ syn → 변경분 N개로 페이로드 98% 축소.
+      // Fallback: `synapses` 전체 + 자체 cache 비교 (`?synapses_full=true` 또는 구버전 backend).
+      // 화면에 없는 syn 은 connRefMap miss 로 skip — 시각화 0 영역 cache 의미 0.
       const connRef = connRefMap.current;
       const cache = synapseWeightCache.current;
-      for (const s of synapses) {
-        const key = `${s.pre}->${s.post}`;
-        const conn = connRef[key];
-        if (!conn) continue;  // 화면에 없는 syn → cache + Δw skip
-        const prev = cache.get(key);
-        if (prev !== undefined) {
-          const dw = s.weight - prev;
+      const changed = d.synapses_changed;
+      if (changed && changed.length > 0) {
+        // delta-only path — backend 가 base. frontend cache 는 fallback path 정합 영역만 갱신.
+        for (const s of changed) {
+          const key = `${s.pre}->${s.post}`;
+          cache.set(key, s.weight);
+          const conn = connRef[key];
+          if (!conn) continue;
+          const dw = s.delta;
           if (Math.abs(dw) >= 0.1) {
             const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
             conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
-            // force reflow → 같은 class 재적용 시 animation restart
             void (conn as HTMLElement).offsetHeight;
             conn.classList.add(flashClass);
             const tk = `__dw_${key}`;
@@ -354,7 +355,31 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
             }, 1500);
           }
         }
-        cache.set(key, s.weight);
+      } else {
+        // Fallback — 전체 syn 순회 + 자체 cache Δw (구버전 backend 정합).
+        const synapses = d.synapses || [];
+        for (const s of synapses) {
+          const key = `${s.pre}->${s.post}`;
+          const conn = connRef[key];
+          if (!conn) continue;  // 화면에 없는 syn → cache + Δw skip
+          const prev = cache.get(key);
+          if (prev !== undefined) {
+            const dw = s.weight - prev;
+            if (Math.abs(dw) >= 0.1) {
+              const flashClass = dw > 0 ? 'weight-flash-ltp' : 'weight-flash-ltd';
+              conn.classList.remove('weight-flash-ltp', 'weight-flash-ltd');
+              void (conn as HTMLElement).offsetHeight;
+              conn.classList.add(flashClass);
+              const tk = `__dw_${key}`;
+              if (fireTimers[tk]) clearTimeout(fireTimers[tk]);
+              fireTimers[tk] = setTimeout(() => {
+                conn.classList.remove(flashClass);
+                delete fireTimers[tk];
+              }, 1500);
+            }
+          }
+          cache.set(key, s.weight);
+        }
       }
 
       const firedSet = new Set<string>();

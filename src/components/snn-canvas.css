@@ -138,8 +138,10 @@
 @media (max-width: 900px) {
   .snn-pipeline-flow {
     flex-direction: column;
-    align-items: center;
-    gap: 16px;
+    align-items: stretch;
+    /* mobile pixel-perfect — 박스 폭 100% (stretch) + tight gap 16→12 정합
+       (사용자 catch 2026-05-05 "여백 0 + 깔끔"). */
+    gap: 12px;
     min-width: 0;
   }
 }
@@ -204,10 +206,21 @@
 @media (max-width: 900px) {
   .snn-pipeline-node {
     flex: 0 0 auto;
+    /* mobile pixel-perfect — 박스 폭 100% 영역 0 여백 (사용자 catch 2026-05-05). */
     width: 100%;
-    max-width: 420px;
+    max-width: 100%;
     min-width: 0;
-    margin: 0 auto;
+    margin: 0;
+    /* mobile vertical scroll 영역 영역 너무 길지 않음 — 각 박스 max 320px (사용자
+       spec). 단 INPUT 카메라 박스 영역 cam aspect-ratio 영역 동적 — 본 max-height
+       영역 넘치 영역 body 영역 자체 vertical scroll 영역 보존 정합. */
+    max-height: 320px;
+  }
+  /* INPUT 박스 영역 카메라 영역 영역 영역 영역 — max-height 폐기. */
+  .snn-pipeline-node--input { max-height: none; }
+  .snn-pipeline-node-body {
+    /* 본 max-height 320 정합 — 자식 영역 영역 영역 vertical scroll 영역. */
+    overflow: auto;
   }
   .snn-pipeline-node:hover { transform: none; }
 }
@@ -808,38 +821,77 @@
 }
 
 /* ─────────────────────────────────────────── Mobile (≤768px) ────────────────
-   본격 mobile — 카메라 영역 영역 + Toolbar 영역 영역 + touch friendly. */
+   본격 mobile pixel-perfect (2026-05-05) — 사용자 catch:
+   1. 카메라 4/3 영역 정합 (PC 영역 정합 — full-width × 4/3).
+   2. typography 14px+ a11y (cluster label 12px 영역 영역).
+   3. touch target ≥32px ((pointer:coarse) 영역 영역).
+   4. tight spacing — gap 12-14, padding 12. */
 @media (max-width: 768px) {
   .snn-pipeline {
     padding: 8px;
   }
   .snn-pipeline-flow {
-    gap: 14px;
+    gap: 12px;
   }
-  /* camera/skeleton 영역 모바일 영역 영역 (사용자 보기 편하게) — 4:3 → 16:11 영역. */
+  /* mobile pixel-perfect — INPUT 카메라 영역 4/3 영역 영역 (PC 영역 정합).
+     full-width × aspect 4/3 — 사용자 catch 2026-05-05. */
   .snn-pipeline-cam {
-    aspect-ratio: 16 / 11;
+    aspect-ratio: 4 / 3;
   }
-  .snn-pipeline-feat-bars { height: 32px; }
-  .snn-pipeline-node-title { font-size: 11px; }
-  .snn-pipeline-node-body { padding: 12px; gap: 8px; }
+  .snn-pipeline-feat-bars { height: 36px; }
+  /* mobile pixel-perfect — typography 영역 14px+ a11y (사용자 catch).
+     단 cluster/rate label 영역 12px 영역 영역 (밀집 영역 정합). */
+  .snn-pipeline-node-title { font-size: 14px; letter-spacing: 0.10em; }
+  .snn-pipeline-node-sub { font-size: 12px; }
+  .snn-pipeline-node-body { padding: 12px; gap: 10px; }
+  .snn-pipeline-row { font-size: 12px; }
+  .snn-pipeline-row-label { font-size: 11px; }
+  /* INFER recent timestamp + OUT count value — mono 영역 영역 영역 12px 정합 */
+  .snn-pipeline-mono { font-size: 12px; }
+  .snn-pipeline-cluster-label { font-size: 12px; width: 60px; }
+  .snn-pipeline-cluster-count { font-size: 11px; }
+  .snn-pipeline-rate-label { font-size: 12px; width: 60px; }
+  .snn-pipeline-rate-value { font-size: 11px; }
+  .snn-pipeline-current-label { font-size: 11px; }
+  .snn-pipeline-current-value { font-size: 16px; }
+  /* OUT — 4 라벨 영역 row 정합 (label fits + count 영역 ellipsis 영역). */
+  .snn-pipeline-out-counts { gap: 4px; }
+  .snn-pipeline-out-count-row { font-size: 12px; padding: 3px 0; }
+  .snn-pipeline-out-count-label { font-size: 12px; }
+  .snn-pipeline-out-count-value { font-size: 12px; }
   .snn-pipeline-input-field,
   .snn-pipeline-out-input {
-    font-size: 12px;
-    padding: 7px 8px;
+    font-size: 14px;
+    padding: 8px 10px;
   }
+  .snn-pipeline-feat-title,
+  .snn-pipeline-field-label { font-size: 11px; }
+  .snn-pipeline-note,
+  .snn-pipeline-warn,
+  .snn-pipeline-hint { font-size: 12px; }
   /* hover scale 영역 — touch device 영역 영역. */
   .snn-pipeline-node:hover { transform: none; }
+  /* touch target ≥32px — (pointer:coarse) 영역 영역 영역, 본 영역 mobile width
+     영역 영역 영역. button 영역 영역 영역 padding 영역 32px catch. */
+  .snn-pipeline-btn { min-height: 32px; padding: 8px 12px; }
+  .snn-pipeline-out-winner-btn { min-height: 36px; padding: 8px 14px; font-size: 14px; }
 }
 
-/* 더 작은 영역 (≤480px) — text/width 영역 단순화. */
+/* 더 작은 영역 (≤480px) — pixel-perfect mobile (375px viewport 정합).
+   사용자 catch — column layout + 깔끔 + 여백 0. cluster label 영역 12px 영역 영역
+   (a11y exception per spec — 밀집 영역 정합 영역 영역 12px 영역 영역). */
 @media (max-width: 480px) {
-  .snn-pipeline-cluster-label { width: 56px; font-size: 9px; }
-  .snn-pipeline-cluster-count { width: 32px; font-size: 8px; }
-  .snn-pipeline-rate-label { width: 56px; font-size: 9px; }
-  .snn-pipeline-rate-value { width: 32px; font-size: 8px; }
+  .snn-pipeline { padding: 8px; }
+  .snn-pipeline-cluster-label { width: 52px; font-size: 12px; }
+  .snn-pipeline-cluster-count { width: 30px; font-size: 11px; }
+  .snn-pipeline-rate-label { width: 52px; font-size: 12px; }
+  .snn-pipeline-rate-value { width: 30px; font-size: 11px; }
   .snn-pipeline-node-sub { display: none; }
-  .snn-pipeline-current-value { font-size: 13px; }
+  .snn-pipeline-node-title { font-size: 14px; }
+  .snn-pipeline-current-value { font-size: 15px; }
+  /* 375px viewport 영역 박스 max-height 280-320 영역 영역 — INPUT 영역 cam 영역 영역. */
+  .snn-pipeline-node { max-height: 300px; }
+  .snn-pipeline-node--input { max-height: none; }
 }
 
 /* ─────────────────────────────────────── Summary Card v3 ─────────────────────

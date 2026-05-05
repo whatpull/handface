@@ -3,7 +3,7 @@
 export const ENDPOINT_KEY = 'handface.settings.endpoint';
 export const APIKEY_KEY   = 'handface.settings.apikey';
 
-export const DEFAULT_ENDPOINT = 'http://localhost:7861';
+export const DEFAULT_ENDPOINT = 'https://whatpull-neuronface.hf.space';
 
 export interface BackendSettings {
   endpoint: string;

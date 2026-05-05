@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
-// Inter — snn-canvas.css 영역 .snn-canvas-neuron 영역 'Inter' 정합 (자체 호스팅).
+// Inter — pipeline node 영역 'Inter' family 정합 (자체 호스팅).
 // next/font/google 영역 build-time fetch + woff2 self-host — output: 'export' 정합.
 const inter = Inter({
   subsets: ['latin'],

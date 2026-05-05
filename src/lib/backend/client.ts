@@ -321,23 +321,6 @@ export class NeuronFaceClient {
     });
   }
 
-  async contributeExemplar(
-    outKey: string,
-    feature: number[],
-    label: string | null,
-    contributorId?: string | null,
-  ): Promise<Result<{ ok: boolean }>> {
-    return this.request(`/community/exemplars/contribute`, {
-      method: 'POST',
-      body: {
-        out_key: outKey,
-        feature: feature.slice(0, 64),
-        label,
-        contributor_id: contributorId ?? null,
-      },
-    });
-  }
-
   // N4 batch supervised — cluster 전체 broadcast supervisor (backend ddb220e 정합).
   // backend endpoint: POST /networks/{id}/cluster_train_supervised
   // body: {patterns: N×16, target_cluster: 0..15, supervisor_weight, supervisor_delay_ms,

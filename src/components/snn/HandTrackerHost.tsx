@@ -151,8 +151,15 @@ function drawSkeleton(canvas: HTMLCanvasElement, lms: HandLandmarks | null) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!lms) return;
   const W = canvas.width, H = canvas.height;
-  ctx.strokeStyle = 'rgba(167, 139, 250, 0.85)';
-  ctx.lineWidth = 2;
+  // 사용자 catch 2026-05-05: handmark 영역 visibility ↑.
+  // 1) 검정 윤곽 stroke 영역 (line + dot) — 카메라 영역 영역 영역 영역 contrast.
+  // 2) 흰색 main stroke + dot 영역 brightness ↑.
+  // 3) line 4px / dot radius 5px (3 → 5 영역 강 visibility).
+
+  // skeleton line — black halo 6px → white core 3px.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+  ctx.lineWidth = 6;
   ctx.beginPath();
   for (const [a, b] of CONNECTIONS) {
     const la = lms[a], lb = lms[b];
@@ -161,11 +168,30 @@ function drawSkeleton(canvas: HTMLCanvasElement, lms: HandLandmarks | null) {
     ctx.lineTo(lb.x * W, lb.y * H);
   }
   ctx.stroke();
-  ctx.fillStyle = '#c4b5fd';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (const [a, b] of CONNECTIONS) {
+    const la = lms[a], lb = lms[b];
+    if (!la || !lb) continue;
+    ctx.moveTo(la.x * W, la.y * H);
+    ctx.lineTo(lb.x * W, lb.y * H);
+  }
+  ctx.stroke();
+
+  // dot — black halo radius 7 → white core radius 5.
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
   for (const lm of lms) {
     if (!lm) continue;
     ctx.beginPath();
-    ctx.arc(lm.x * W, lm.y * H, 3, 0, Math.PI * 2);
+    ctx.arc(lm.x * W, lm.y * H, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#ffffff';
+  for (const lm of lms) {
+    if (!lm) continue;
+    ctx.beginPath();
+    ctx.arc(lm.x * W, lm.y * H, 5, 0, Math.PI * 2);
     ctx.fill();
   }
 }

@@ -115,7 +115,7 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
 }
 
 function PipelineCanvasInner({ cameraConnected }: Props) {
-  const ctrl = useHandControl(cameraConnected, true);
+  const ctrl = useHandControl(cameraConnected, true, true);
 
   const [phase, setPhase] = useState<string>('untrained');
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {

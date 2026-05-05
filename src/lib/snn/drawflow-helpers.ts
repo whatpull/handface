@@ -39,8 +39,8 @@ export function renderNodeHtml(n: LayoutNode): string {
       </div>
     `;
   }
-  if (n.population === 'camera' || n.population === 'gesture') {
-    const placeholder = n.population === 'camera' ? 'Camera disabled' : 'Hand detection disabled';
+  if (n.population === 'camera') {
+    // 카메라 mount 영역 — HandTrackerHost 가 #snn-cam-video 와 #snn-cam-skel 을 찾아 부착.
     return `
       <div class="snn-canvas-neuron-card snn-canvas-source-card">
         <div class="snn-canvas-neuron-header">
@@ -48,10 +48,32 @@ export function renderNodeHtml(n: LayoutNode): string {
           <span class="snn-canvas-neuron-label">${n.label}</span>
           <span class="snn-canvas-neuron-menu">···</span>
         </div>
-        <div class="snn-canvas-source-mount">
-          <div class="snn-canvas-source-empty">
-            <div>${placeholder}</div>
+        <div class="snn-canvas-source-mount" id="snn-cam-mount">
+          <video id="snn-cam-video" class="snn-camera-mirror snn-cam-video" playsinline muted></video>
+          <canvas id="snn-cam-skel" class="snn-camera-mirror snn-cam-skel" width="640" height="480"></canvas>
+          <div id="snn-cam-empty" class="snn-canvas-source-empty">
+            <div>Camera disabled</div>
             <div class="snn-canvas-source-empty-hint">Enable from sidebar</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (n.population === 'gesture') {
+    // 제스처 mount 영역 — 16-dim feature 막대 그래프 호스트 (Phase B 에서 채움).
+    const bars = Array.from({ length: 16 }, (_, i) => `<div class="snn-feat-bar" data-i="${i}"><div class="snn-feat-bar-fill"></div></div>`).join('');
+    return `
+      <div class="snn-canvas-neuron-card snn-canvas-source-card">
+        <div class="snn-canvas-neuron-header">
+          <span class="snn-canvas-neuron-dot"></span>
+          <span class="snn-canvas-neuron-label">${n.label}</span>
+          <span class="snn-canvas-neuron-menu">···</span>
+        </div>
+        <div class="snn-canvas-source-mount snn-feat-mount" id="snn-feat-mount">
+          <div class="snn-feat-bars" id="snn-feat-bars">${bars}</div>
+          <div id="snn-feat-empty" class="snn-canvas-source-empty">
+            <div>No hand detected</div>
+            <div class="snn-canvas-source-empty-hint">Enable camera</div>
           </div>
         </div>
       </div>

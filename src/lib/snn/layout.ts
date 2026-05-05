@@ -69,13 +69,37 @@ function cap(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
+// 백엔드에 없는 frontend 전용 virtual source 노드 (camera + gesture).
+// SNN 회로 외부의 sensor 입력을 표현 — MediaPipe 카메라 mount 영역 + 16-dim feature 시각화.
+const VIRTUAL_SOURCE_NODES: BackendNeuron[] = [
+  { name: 'src_camera',  region: 'SOURCE', population: 'camera' },
+  { name: 'src_gesture', region: 'SOURCE', population: 'gesture' },
+];
+
+// SOURCE → INPUT 시냅스 (8 inputs 모두에게 fanout, 시각적 데이터 흐름 표시용).
+const VIRTUAL_SOURCE_SYNAPSES: BackendSynapse[] = [
+  { pre: 'src_camera',  post: 'src_gesture', weight: 50 },
+  { pre: 'src_gesture', post: 'in_pinch',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_fist',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_palm',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_point',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_gaze',     weight: 50 },
+  { pre: 'src_gesture', post: 'in_blink',    weight: 50 },
+  { pre: 'src_gesture', post: 'in_thumbsup', weight: 50 },
+  { pre: 'src_gesture', post: 'in_victory',  weight: 50 },
+];
+
 export function layoutSnapshot(
   neurons: BackendNeuron[],
   synapses: BackendSynapse[],
 ): LayoutResult {
+  // virtual source 노드 prepend (백엔드와 무관, 카메라/제스처 mount 영역).
+  const allNeurons = [...VIRTUAL_SOURCE_NODES, ...neurons];
+  const allSynapses = [...VIRTUAL_SOURCE_SYNAPSES, ...synapses];
+
   // 1. region × population 그룹화.
   const groups = new Map<string, BackendNeuron[]>();
-  for (const n of neurons) {
+  for (const n of allNeurons) {
     const region = n.region || 'OTHER';
     const population = n.population || 'unknown';
     const key = `${region}|${population}`;
@@ -125,7 +149,7 @@ export function layoutSnapshot(
 
   // 5. 시냅스: 양 끝이 visible 인 것만 + 노드당 outgoing top 2개 (weight 절댓값 기준).
   // 시각 노이즈 감소 — 200+ 시냅스 → ~50개로.
-  const candidate = synapses.filter(
+  const candidate = allSynapses.filter(
     (s) => visibleNames.has(s.pre) && visibleNames.has(s.post),
   );
   const byPre: Record<string, typeof candidate> = {};

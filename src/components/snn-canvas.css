@@ -311,9 +311,53 @@
   color: #c4b5fd;
 }
 
-/* HandCameraView — 셀카 미러링 (좌우 반전). */
+/* 카메라 mount — src_camera 노드 안의 video + canvas (셀카 미러링). */
 .snn-camera-mirror {
   transform: scaleX(-1);
+}
+.snn-cam-video,
+.snn-cam-skel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: block;
+}
+.snn-cam-video { object-fit: cover; }
+
+/* gesture 노드 — 16-dim feature 막대 그래프. */
+.snn-feat-mount {
+  height: 110px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 4px;
+}
+.snn-feat-bars {
+  display: none;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+}
+.snn-feat-bar {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+.snn-feat-bar-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(180deg, #5eead4 0%, #4dd0e1 100%);
+  border-radius: 1px;
+  height: 0%;
+  transition: height 80ms linear;
 }
 
 /* Canvas 로딩 오버레이 — 캔버스 영역에만 표시 (rollback 정합). */

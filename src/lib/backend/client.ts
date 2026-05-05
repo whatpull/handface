@@ -350,12 +350,14 @@ export class NeuronFaceClient {
     // 파라미터 — saturation 회피 (세션 37 N1 정정).
     // 직전: intensity=3.75 (base_weight=80) + observe_ms=80 → 모든 OUT 500Hz tie.
     // 정정: intensity=1.0 (base_weight=25) + observe_ms=30 → cascade 자극 약화.
-    // 본질 catch (WTA 부재 / V2→OUT weight 과도) 는 backend 영역 — N2 별도.
+    // B+6: intensity 1.0 영역 16-dim [0,1] sub-threshold (V1=2-3 Hz, OUT silent) catch
+    // 영역 (backend probe_intensity_sweep.py 검증). 1.0 → 2.0 영역 V1=14-19 Hz / OUT
+    // cluster_rates>0 / selectivity 0/4 → 2/4 emerge. backend default 영역 정합.
     const r = await this.request<FireResponse>(`/networks/${net.data}/inject_feature16`, {
       method: 'POST',
       body: {
         pattern: p16,
-        intensity: opts.intensity ?? 1.0,
+        intensity: opts.intensity ?? 2.0,
         stimulus_duration_ms: opts.stimulusDurationMs ?? 15,
         observe_ms: opts.observeMs ?? 30,
         stdp: opts.stdp ?? false,
@@ -464,7 +466,8 @@ export class NeuronFaceClient {
         target_cluster: targetCluster,
         supervisor_weight: opts.supervisorWeight ?? 30.0,
         supervisor_delay_ms: opts.supervisorDelayMs ?? 30.0,
-        intensity: opts.intensity ?? 1.0,
+        // B+6: 16-dim [0,1] sub-threshold catch — backend default 1.0 → 2.0 정합.
+        intensity: opts.intensity ?? 2.0,
         observe_ms: opts.observeMs ?? 80.0,
         stimulus_duration_ms: opts.stimulusDurationMs ?? 20.0,
         stdp_mode: opts.stdpMode ?? 'pair',

@@ -273,7 +273,17 @@ export default function Canvas({ editMode, cameraConnected, view }: CanvasProps)
       }
 
       // Neuron 뷰: 각 neuron rate 별 처리.
-      const rates = d.rates || {};
+      // backend 응답 schema 변종 대응 — rates 가 비어있으면 active_neurons_by_region 의
+      // neuron 이름들을 rate=1 로 합성 (fire 정합). inject_feature16 같이 active_neurons_by_region
+      // 만 내려주는 endpoint 시각화 wiring 정합.
+      let rates = d.rates || {};
+      if (Object.keys(rates).length === 0 && d.active_neurons_by_region) {
+        const synth: Record<string, number> = {};
+        for (const list of Object.values(d.active_neurons_by_region)) {
+          for (const name of list as string[]) synth[name] = 1;
+        }
+        rates = synth;
+      }
       const firedSet = new Set<string>();
       for (const id of Object.keys(rates)) {
         const rate = rates[id] || 0;

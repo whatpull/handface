@@ -275,8 +275,8 @@
 .snn-pipeline-node-drag-handle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  padding: 2px 0;
   background: #141414;
   border: 1px solid var(--pipe-border);
   border-bottom: 0;
@@ -285,9 +285,8 @@
   cursor: grab;
   -webkit-user-select: none;
   user-select: none;
-  font-size: var(--pipe-font-xs);
-  color: var(--pipe-text-dim);
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  color: var(--pipe-text-muted);
 }
 .snn-pipeline-node-drag-handle:active { cursor: grabbing; }
 .snn-pipeline-node-drag-grip {

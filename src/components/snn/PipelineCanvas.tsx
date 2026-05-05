@@ -355,14 +355,13 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
             style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
             onPointerDown={onPointerDownNode(id)}
           >
-            {/* drag handle bar — header 위쪽 짧은 grip. drag 시작 영역. */}
+            {/* drag handle bar — grip icon only (사용자 catch: 제목 중복 폐기 — NodeShell header 영역 본 제목 영역). */}
             <div
               className="snn-pipeline-node-drag-handle"
               role="presentation"
               title="Drag to reposition"
             >
               <span className="snn-pipeline-node-drag-grip" aria-hidden>⋮⋮</span>
-              <span className="snn-pipeline-node-drag-id">{id.toUpperCase()}</span>
             </div>
             {renderNode(id)}
           </div>

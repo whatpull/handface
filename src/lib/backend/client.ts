@@ -6,6 +6,17 @@ import { loadBackendSettings, normalizeEndpoint } from './settings';
 import { emitBackendEvent, type NeuronFiringDetail } from './events';
 
 const NETWORK_KEY = 'handface.network.id';
+// HF Spaces ephemeral container 영역 networkId stale → 새 network 생성 시점 영역
+// localStorage stored snapshot 영역 자동 loadSnapshot chain. 재귀 회피 lazy import.
+async function autoRestoreFromStorage(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const m = await import('@/lib/snn/auto-snapshot');
+    await m.restoreFromStorage();
+  } catch (e) {
+    console.warn('[client] auto-restore failed:', e);
+  }
+}
 
 interface FetchOpts {
   method?: 'GET' | 'POST' | 'DELETE';
@@ -130,6 +141,10 @@ export class NeuronFaceClient {
     if (typeof window !== 'undefined') localStorage.setItem(NETWORK_KEY, this.networkId);
     const presetOk = await this.ensureCorticalPreset();
     if (!presetOk.ok) return presetOk;
+    // 새 network 생성 직후 — localStorage stored snapshot 자동 복원 chain.
+    // HF Spaces ephemeral 영역 weight 영역 자동 catch path. loadSnapshot 영역 재진입 시점
+    // 영역 networkId 영역 set / presetEnsured=true 영역 영역 영역 probe path 정합.
+    void autoRestoreFromStorage();
     return { ok: true, data: this.networkId };
   }
 
@@ -186,6 +201,9 @@ export class NeuronFaceClient {
   // 전체 회로 초기화 — 누적된 뉴런/시냅스 모두 폐기 후 base cortical preset 만 유지.
   // BrainBuilder 빌드 누적, Grow 누적 등으로 회로가 비대해진 경우 사용.
   async rebuildToBaseline(): Promise<Result<{ networkId: string }>> {
+    // 0. 명시 wipe — stored snapshot 영역 영역 폐기 신호. ensureNetwork 영역 autoRestore
+    //    체인 영역 stale 영역 영역 영역 catch (training-cleared listener 영역 storage 폐기).
+    emitBackendEvent('training-cleared', {});
     // 1. 기존 네트워크 폐기 시도 (네트워크 없을 수도 있어 실패 무시).
     if (this.networkId) {
       await this.request(`/networks/${this.networkId}`, { method: 'DELETE' }).catch(() => null);

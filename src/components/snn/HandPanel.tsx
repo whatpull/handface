@@ -185,9 +185,11 @@ export default function HandPanel({ open, cameraConnected, onClose }: HandPanelP
             <div className="text-violet-200">
               {OUT_LABELS[predictResult.winner] || predictResult.winner}
             </div>
-            <div className="text-[10px] text-white/50">
+            <div className="mb-2 text-[10px] text-white/50">
               confidence: {(predictResult.conf * 100).toFixed(0)}%
             </div>
+            {/* 4 OUT rates 분포 — winner 외 활성도도 함께 표시. */}
+            <OutRatesBars rates={predictResult.rates} winner={predictResult.winner} />
           </div>
         )}
         {livePredict && (!predictResult || !predictResult.winner) && (
@@ -201,6 +203,42 @@ export default function HandPanel({ open, cameraConnected, onClose }: HandPanelP
         💡 Train as X → 카메라 앞에 해당 자세 유지 → 30 frame 자동 학습.<br />
         Live predict → 매 0.6s 마다 SNN 추론 → winner 표시.
       </div>
+    </div>
+  );
+}
+
+// 4 OUT rates 막대 — width 동적 갱신을 ref 로 imperatively 설정 (inline style 회피).
+function OutRatesBars({ rates, winner }: { rates: Record<string, number>; winner: string | null }) {
+  const refs = useRef<Record<string, HTMLDivElement | null>>({});
+  const max = Math.max(1, ...Object.values(rates));
+  useEffect(() => {
+    for (const k of ['out_0', 'out_1', 'out_2', 'out_3']) {
+      const el = refs.current[k];
+      if (el) el.style.width = `${((rates[k] || 0) / max) * 100}%`;
+    }
+  }, [rates, max]);
+  return (
+    <div className="space-y-1">
+      {(['out_0', 'out_1', 'out_2', 'out_3'] as const).map((k) => {
+        const v = rates[k] || 0;
+        const isWinner = k === winner;
+        return (
+          <div key={k} className="text-[10px]">
+            <div className="flex justify-between">
+              <span className={isWinner ? 'text-violet-200' : 'text-white/50'}>
+                {OUT_LABELS[k]}
+              </span>
+              <span className="text-white/60">{v.toFixed(1)} Hz</span>
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded bg-white/5">
+              <div
+                ref={(el) => { refs.current[k] = el; }}
+                className={isWinner ? 'h-full bg-violet-400' : 'h-full bg-white/25'}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

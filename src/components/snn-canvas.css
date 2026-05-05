@@ -223,6 +223,141 @@
   }
 }
 
+/* ───── editable canvas v9 (2026-05-05 사용자 mandatory: 편집 가능 노드 + drag) ─────
+   "node 연결은 어디로 갔나요? 편집 가능한 노드로 구성 못하면 해고당하실 수 있어요"
+   drawflow 정합 — vanilla lib 사용 0, 순수 SVG + React 직접 구현.
+   stage size: --stage-w / --stage-h (PipelineCanvas.tsx 영역 동적).
+   node position: --node-x / --node-y (각 wrap 영역 동적).
+   path: SVG bezier — node 위치 변경 시 React state 영역 자동 redraw.
+   active: stroke 강 + drop-shadow glow + animateMotion dot. */
+.snn-pipeline-stage {
+  position: relative;
+  width: var(--stage-w, 1280px);
+  height: var(--stage-h, 600px);
+  min-height: 600px;
+  /* canvas grid background — admin minimalist subtle dot grid. */
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
+  overflow: auto;
+}
+.snn-pipeline-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.30);
+}
+.snn-pipeline-edge {
+  transition: color 220ms ease, filter 220ms ease;
+}
+.snn-pipeline-edge.is-active {
+  color: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+}
+.snn-pipeline-edge-path {
+  transition: stroke-width 200ms ease;
+}
+.snn-pipeline-edge-dot {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+}
+.snn-pipeline-node-wrap {
+  position: absolute;
+  left: var(--node-x, 0px);
+  top: var(--node-y, 0px);
+  width: 240px;
+  z-index: 2;
+  touch-action: none;
+}
+.snn-pipeline-node-drag-handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #141414;
+  border: 1px solid var(--pipe-border);
+  border-bottom: 0;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  font-size: var(--pipe-font-xs);
+  color: var(--pipe-text-dim);
+  letter-spacing: 0.1em;
+}
+.snn-pipeline-node-drag-handle:active { cursor: grabbing; }
+.snn-pipeline-node-drag-grip {
+  font-size: 10px;
+  letter-spacing: -1px;
+  color: var(--pipe-text-muted);
+}
+.snn-pipeline-node-drag-id {
+  font-weight: 700;
+  color: var(--pipe-text);
+}
+.snn-pipeline-reset {
+  position: sticky;
+  left: calc(var(--stage-w, 1280px) - 140px);
+  bottom: 12px;
+  z-index: 3;
+  margin-left: auto;
+  display: block;
+  padding: 6px 12px;
+  background: var(--pipe-surface);
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
+  color: var(--pipe-text-dim);
+  font-size: var(--pipe-font-xs);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.snn-pipeline-reset:hover {
+  background: var(--pipe-hover);
+  color: var(--pipe-text);
+  border-color: var(--pipe-border-strong);
+}
+.snn-pipeline-reset:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-edge-dot { animation-duration: 0.01ms !important; }
+}
+@media (max-width: 900px) {
+  /* mobile — drag/absolute 영역 부적합 → stage 영역 vertical flex 영역 fallback.
+     node-wrap 영역 absolute 폐기, drag-handle hide, SVG hide. */
+  .snn-pipeline-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--pipe-gap-md);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    background-image: none;
+    border: 0;
+    overflow: visible;
+  }
+  .snn-pipeline-svg { display: none; }
+  .snn-pipeline-node-wrap {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+  }
+  .snn-pipeline-node-drag-handle { display: none; }
+  .snn-pipeline-reset {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    margin: var(--pipe-gap-sm) auto 0;
+  }
+}
+
 /* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.
    직전 bezier + dash anim + animateMotion dot + drop-shadow glow 영역 모두 폐기.
    영역 영역 영역 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).

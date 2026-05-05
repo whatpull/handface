@@ -1,27 +1,27 @@
 'use client';
 
-// PipelineCanvas — 5-node redesign 메인 컴포넌트 (grid layout 부활 2026-05-05).
+// PipelineCanvas — 편집 가능 SVG 노드 캔버스 (2026-05-05 사용자 mandatory).
 //
-// 사용자 명시 design:
-//   INPUT (제스처) → Learn (진행상황) → Infer (추론) → OUT (결과값) → LLM (외부)
+// 사용자 명시:
+//   "node 연결은 어디로 갔나요?"
+//   "이거 캔버스에 편집 가능한 노드로 구성 못하면 해고당하실 수 있어요"
 //
-// 본 파일 책임:
-//  - 5 노드 horizontal grid layout 표시 (drawflow / ReactFlow 미사용 — 5 고정 박스 overkill).
-//  - useHandControl(autoLive=true, autoCapture=true) 본 파일 직접 호출 →
-//    별도 카메라 토글 컴포넌트 의존 0 (Pipeline view standalone 작동).
-//  - PipelineEventProvider single neuron-firing listener — 5 child node
-//    context 공유 (winner / clusterRates / activeByRegion / margin).
-//  - training-phase listener 단일 — phase / arrow flow 산출.
-//  - 5 노드 component ./pipeline/Node*.tsx 분리 (758 line monolithic 해소).
+// 설계 (drawflow 정합 — 단 vanilla JS lib 사용 0, 순수 SVG + React 직접 구현):
+//   - 5 노드 absolute position (px) — INPUT/LEARN/INFER/OUT/LLM.
+//   - 각 노드 draggable: header onPointerDown → Move/Up + transform translate.
+//   - SVG overlay (absolute inset-0) — 4 bezier path (INPUT→LEARN→INFER→OUT→LLM).
+//   - 노드 위치 변경 시 SVG path 자동 redraw (state 기반).
+//   - localStorage 'handface.pipeline.positions.v1' — 노드 위치 영구 보존.
+//   - active 발화 시 path stroke 강 + drop-shadow glow + animateMotion dot.
+//   - 우측 하단 "Reset Layout" 버튼 — localStorage clear + initial 복귀.
 //
-// 정직 한계 (rollback 정합):
-//  - View 토글 시점 컴포넌트 remount → useHandControl cluster buffer
-//    reset 가능 (loop closure 새로 시작). 학습 진행 localStorage 영구화 보존.
-//  - LLM auto stream winner 변경 시점 1회 POST. endpoint CORS / rate
-//    limit 사용자 환경.
-//  - 노드 drag / position 편집 0 — grid layout 정합 (편집 가능 노드 별도 turn).
+// 정직 한계:
+//   - mobile (≤900) 영역 절대좌표 drag 부적합 → 종전 vertical stack flex layout
+//     보존 (snn-pipeline-flow 단순 column). 본 editable canvas 영역 desktop only.
+//   - 노드 간 edge add/remove UI 0 — 5 고정 path (사용자 mandatory pipeline shape).
+//   - canvas pan/zoom 0 — 단일 1280px wide stage (overflow auto).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   onBackendEvent,
   type TrainingPhaseDetail,
@@ -33,7 +33,6 @@ import NodeLearn from './pipeline/NodeLearn';
 import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
 import NodeLlm from './pipeline/NodeLlm';
-import Arrow from './pipeline/Arrow';
 import SummaryCard from './SummaryCard';
 import {
   PipelineEventProvider,
@@ -42,6 +41,62 @@ import {
 
 interface Props {
   cameraConnected: boolean;
+}
+
+// 5 노드 키 — drawflow node id 정합.
+type NodeId = 'input' | 'learn' | 'infer' | 'out' | 'llm';
+
+interface Pos { x: number; y: number; }
+type PositionMap = Record<NodeId, Pos>;
+
+const STORAGE_KEY = 'handface.pipeline.positions.v1';
+const NODE_WIDTH = 240;
+const NODE_HEIGHT_ESTIMATE = 280; // bezier endpoint 영역 estimate (실제 height 영역 자식 fit).
+
+// initial position — 사용자 mandatory horizontal pipeline (240px gap × 4 + 80 left margin).
+const INITIAL_POS: PositionMap = {
+  input: { x: 40, y: 200 },
+  learn: { x: 320, y: 200 },
+  infer: { x: 600, y: 200 },
+  out: { x: 880, y: 200 },
+  llm: { x: 1160, y: 200 },
+};
+
+// segment edge — 4 connector (5 노드 chain).
+const EDGES: Array<[NodeId, NodeId]> = [
+  ['input', 'learn'],
+  ['learn', 'infer'],
+  ['infer', 'out'],
+  ['out', 'llm'],
+];
+
+function loadPositions(): PositionMap {
+  if (typeof window === 'undefined') return { ...INITIAL_POS };
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { ...INITIAL_POS };
+    const parsed = JSON.parse(raw) as Partial<PositionMap>;
+    // shape 검증 — 5 키 모두 존재 + numeric.
+    const out: PositionMap = { ...INITIAL_POS };
+    (Object.keys(INITIAL_POS) as NodeId[]).forEach((k) => {
+      const p = parsed[k];
+      if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+        out[k] = { x: p.x, y: p.y };
+      }
+    });
+    return out;
+  } catch {
+    return { ...INITIAL_POS };
+  }
+}
+
+function savePositions(pos: PositionMap) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
+  } catch {
+    /* quota / private mode — silent. */
+  }
 }
 
 export default function PipelineCanvas({ cameraConnected }: Props) {
@@ -53,31 +108,23 @@ export default function PipelineCanvas({ cameraConnected }: Props) {
 }
 
 function PipelineCanvasInner({ cameraConnected }: Props) {
-  // useHandControl 본 파일 driver — Pipeline view standalone.
   const ctrl = useHandControl(cameraConnected, true);
 
-  // training-phase 본 파일 단일 listener (neuron-firing PipelineEventProvider 위임).
   const [phase, setPhase] = useState<string>('untrained');
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
     setPhase(d.phase);
   }), []);
 
-  // winnerCluster + lastFiringTimestamp context 추출 — flow active + segment trigger 산출.
   const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
 
   const flowActive = winnerCluster !== null && (phase === 'trained' || phase === 'inference');
   const learnActive = phase === 'learning' || phase === 'partial';
   const phaseClass = `is-phase-${phase}`;
 
-  // segment별 active state — 4 connector 발화 시점 trigger 1500ms 유지 (drawflow fired class 정합).
-  // seg 0 (INPUT→LEARN): neuron-firing — pattern inject 시점 (lastFiringTimestamp 변화).
-  // seg 1 (LEARN→INFER): cluster training 진행 시 (learnActive true 동안 firing 갱신 시).
-  // seg 2 (INFER→OUT): winnerCluster 변화 — 추론 결정 시점.
-  // seg 3 (OUT→LLM): winnerCluster 변화 — label render 후 LLM payload 송신 (300ms delay).
+  // segment active state — 4 edge active flag (1500ms 유지).
   const [segActive, setSegActive] = useState<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
   const ACTIVE_MS = 1500;
 
-  // seg 0 — INPUT→LEARN: firing active.
   useEffect(() => {
     if (lastFiringTimestamp === null) return;
     setSegActive((p) => [true, p[1], p[2], p[3]]);
@@ -85,7 +132,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [lastFiringTimestamp]);
 
-  // seg 1 — LEARN→INFER: learning/partial phase + firing 갱신 시.
   useEffect(() => {
     if (lastFiringTimestamp === null || !learnActive) return;
     setSegActive((p) => [p[0], true, p[2], p[3]]);
@@ -93,7 +139,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [lastFiringTimestamp, learnActive]);
 
-  // seg 2 — INFER→OUT: winnerCluster 변화 + flowActive.
   useEffect(() => {
     if (winnerCluster === null || !flowActive) return;
     setSegActive((p) => [p[0], p[1], true, p[3]]);
@@ -101,7 +146,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [winnerCluster, flowActive]);
 
-  // seg 3 — OUT→LLM: winnerCluster 변화 300ms delay 후 trigger (label render 후 송신).
   useEffect(() => {
     if (winnerCluster === null || !flowActive) return;
     let innerT: ReturnType<typeof setTimeout> | null = null;
@@ -115,7 +159,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     };
   }, [winnerCluster, flowActive]);
 
-  // LLM transient toast — Test send 성공/실패 일시 표시 (auto fade).
+  // LLM toast.
   const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
   useEffect(() => {
     if (!llmToast) return;
@@ -128,26 +172,198 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     msg: r.ok ? `LLM POST ok · ${r.status} · ${r.latencyMs}ms` : `LLM fail · ${r.error || `HTTP ${r.status}`}`,
   });
 
+  // ───────── editable canvas — node position state + drag handler ─────────
+  const [positions, setPositions] = useState<PositionMap>(() => loadPositions());
+
+  // node 실제 height 측정 — bezier path endpoint 정합 (자식 fit height).
+  const nodeRefs = useRef<Record<NodeId, HTMLDivElement | null>>({
+    input: null, learn: null, infer: null, out: null, llm: null,
+  });
+  const [heights, setHeights] = useState<Record<NodeId, number>>({
+    input: NODE_HEIGHT_ESTIMATE,
+    learn: NODE_HEIGHT_ESTIMATE,
+    infer: NODE_HEIGHT_ESTIMATE,
+    out: NODE_HEIGHT_ESTIMATE,
+    llm: NODE_HEIGHT_ESTIMATE,
+  });
+
+  // ResizeObserver — 각 노드 실제 height 추적.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return;
+    const observers: ResizeObserver[] = [];
+    (Object.keys(nodeRefs.current) as NodeId[]).forEach((id) => {
+      const el = nodeRefs.current[id];
+      if (!el) return;
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const h = Math.round(entry.contentRect.height);
+          setHeights((prev) => prev[id] === h ? prev : { ...prev, [id]: h });
+        }
+      });
+      ro.observe(el);
+      observers.push(ro);
+    });
+    return () => { observers.forEach((o) => o.disconnect()); };
+  }, []);
+
+  // drag state — 활성 노드 + offset (pointer position 영역 노드 origin offset).
+  const dragRef = useRef<{ id: NodeId; offsetX: number; offsetY: number } | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  const onPointerDownNode = useCallback((id: NodeId) => (e: React.PointerEvent<HTMLDivElement>) => {
+    // input element / button 영역 시작된 drag 영역 무시 (node body interaction 보존).
+    const target = e.target as HTMLElement;
+    if (!target.closest('.snn-pipeline-node-drag-handle')) return;
+    e.preventDefault();
+    const stage = stageRef.current;
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    const pos = positions[id];
+    dragRef.current = {
+      id,
+      offsetX: e.clientX - stageRect.left - pos.x,
+      offsetY: e.clientY - stageRect.top - pos.y,
+    };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [positions]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    const x = Math.max(0, e.clientX - stageRect.left - drag.offsetX);
+    const y = Math.max(0, e.clientY - stageRect.top - drag.offsetY);
+    setPositions((prev) => ({ ...prev, [drag.id]: { x, y } }));
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setPositions((prev) => {
+      savePositions(prev);
+      return prev;
+    });
+  }, []);
+
+  const resetLayout = useCallback(() => {
+    setPositions({ ...INITIAL_POS });
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* silent. */ }
+    }
+  }, []);
+
+  // bezier path — source right-edge midpoint → target left-edge midpoint.
+  // C control point: source.x + 60, target.x - 60 (horizontal smooth).
+  const buildPath = (a: NodeId, b: NodeId): string => {
+    const pa = positions[a]; const pb = positions[b];
+    const ha = heights[a]; const hb = heights[b];
+    const sx = pa.x + NODE_WIDTH;
+    const sy = pa.y + ha / 2;
+    const tx = pb.x;
+    const ty = pb.y + hb / 2;
+    const dx = Math.max(40, Math.abs(tx - sx) * 0.4);
+    return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+  };
+
+  // SVG canvas size — node 영역 최대 right/bottom + margin.
+  const stageWidth = Math.max(
+    1280,
+    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].x + NODE_WIDTH + 40)),
+  );
+  const stageHeight = Math.max(
+    600,
+    Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].y + heights[k] + 40)),
+  );
+
+  // node renderer — 5 노드 분기.
+  const renderNode = (id: NodeId): React.ReactNode => {
+    switch (id) {
+      case 'input': return <NodeInput cameraConnected={cameraConnected} />;
+      case 'learn': return <NodeLearn />;
+      case 'infer': return <NodeInfer />;
+      case 'out': return <NodeOut />;
+      case 'llm': return <NodeLlm onLlmResult={onLlmResult} />;
+    }
+  };
+
   return (
     <div
       className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
       aria-label="HandFace SNN pipeline"
     >
-      {/* Summary dashboard row — pipeline-flow 위쪽 stack. mobile (≤900) hide. */}
       <div className="snn-pipeline-dashboard">
         <SummaryCard />
       </div>
-      {/* 5 node × 4 arrow grid (desktop) / vertical flex (mobile) — grid 부활 2026-05-05. */}
-      <div className="snn-pipeline-flow">
-        <NodeInput cameraConnected={cameraConnected} />
-        <Arrow active={segActive[0]} segment={0} />
-        <NodeLearn />
-        <Arrow active={segActive[1]} segment={1} />
-        <NodeInfer />
-        <Arrow active={segActive[2]} segment={2} />
-        <NodeOut />
-        <Arrow active={segActive[3]} segment={3} />
-        <NodeLlm onLlmResult={onLlmResult} />
+      {/* editable canvas — desktop. mobile (≤900) 영역 종전 vertical flex 정합 fallback. */}
+      <div
+        className="snn-pipeline-stage"
+        ref={stageRef}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        style={{ '--stage-w': `${stageWidth}px`, '--stage-h': `${stageHeight}px` } as React.CSSProperties}
+      >
+        {/* SVG overlay — bezier 4 path. node z-index 위쪽 영역 path 영역 노드 뒤. */}
+        <svg
+          className="snn-pipeline-svg"
+          width={stageWidth}
+          height={stageHeight}
+          viewBox={`0 0 ${stageWidth} ${stageHeight}`}
+          aria-hidden
+        >
+          <defs>
+            {EDGES.map(([a, b], i) => (
+              <path key={`def-${i}`} id={`snn-edge-path-${i}`} d={buildPath(a, b)} fill="none" />
+            ))}
+          </defs>
+          {EDGES.map(([a, b], i) => {
+            const d = buildPath(a, b);
+            const active = segActive[i];
+            return (
+              <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'}`}>
+                <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? 2.4 : 1.6} fill="none" strokeLinecap="round" />
+                {active && (
+                  <circle r="4" className="snn-pipeline-edge-dot" fill="currentColor">
+                    <animateMotion dur="1.5s" repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
+                      <mpath href={`#snn-edge-path-${i}`} />
+                    </animateMotion>
+                  </circle>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+        {/* 5 absolute draggable node. */}
+        {(Object.keys(positions) as NodeId[]).map((id) => (
+          <div
+            key={id}
+            ref={(el) => { nodeRefs.current[id] = el; }}
+            className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id}`}
+            style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
+            onPointerDown={onPointerDownNode(id)}
+          >
+            {/* drag handle bar — header 위쪽 짧은 grip. drag 시작 영역. */}
+            <div
+              className="snn-pipeline-node-drag-handle"
+              role="presentation"
+              title="Drag to reposition"
+            >
+              <span className="snn-pipeline-node-drag-grip" aria-hidden>⋮⋮</span>
+              <span className="snn-pipeline-node-drag-id">{id.toUpperCase()}</span>
+            </div>
+            {renderNode(id)}
+          </div>
+        ))}
+        <button
+          type="button"
+          className="snn-pipeline-reset"
+          onClick={resetLayout}
+          title="Reset node layout to default"
+        >
+          Reset layout
+        </button>
       </div>
       {ctrl.trainStatus && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">

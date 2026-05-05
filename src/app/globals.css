@@ -18,3 +18,58 @@ body {
     Roboto, 'Helvetica Neue', Arial, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ─────────────────────── Scrollbar — 디자인 정합 (ComfyUI/Weavy dark) ───────
+   본 시스템 영역 #0a0a0c 배경 + cyan(#5eead4) accent 영역 정합.
+   - WebKit (Chrome/Safari/Edge): track transparent + thumb slim+rounded.
+     hover 시 cyan tint — connection hover 색감 영역 정합.
+   - Firefox: scrollbar-width:thin + scrollbar-color (track 영역 영역 영역 0
+     — Firefox 영역 spec 한계, 단 thumb 색감 정합).
+   - 모바일: pointer:coarse 영역 영역 native overlay scrollbar 영역 (overflow
+     영역 native 영역 영역 정합 영역 — 스크롤바 영역 영역 0).
+   - prefers-reduced-motion: hover transition 영역 단축. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  transition: background 180ms ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(94, 234, 212, 0.4);
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(94, 234, 212, 0.55);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 모바일/터치 — native overlay scrollbar 영역 (custom 영역 영역 0). */
+@media (pointer: coarse) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::-webkit-scrollbar-thumb {
+    transition-duration: 0.01ms !important;
+  }
+}

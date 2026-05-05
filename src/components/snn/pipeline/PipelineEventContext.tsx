@@ -5,21 +5,21 @@
 // 배경:
 //  fc5ae62 영역 5 노드 영역 각각 onBackendEvent('neuron-firing') 구독 영역 6 listener 영역
 //  중첩 (PipelineCanvas + NodeLearn x2 + NodeInfer + NodeLlm + NodeOut). 영역 deriveWinner /
-//  cluster mean 산출 영역 4회 영역 영역 — 동일 frame 영역 중복 비용. 본 Provider 영역 상위
-//  영역 단일 listener 영역 영역, 모든 derived state 영역 context value 영역 hoist.
+//  cluster mean 산출 영역 4회 일부 — 동일 frame 영역 중복 비용. 본 Provider 영역 상위
+//  영역 단일 listener 일부, 모든 derived state 영역 context value 영역 hoist.
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - Provider 영역 mount 영역 시점 영역 listener 1회 등록 / unmount 영역 1회 해제.
-//  - context value 영역 React reference 영역 — 매 frame 영역 새 객체 영역 영역 영역 자손
-//    consumer 영역 re-render 사실. 변경 영역 영역 frame 영역 (memoize 회피 — N=4 child 영역
-//    영역 영역 비용 영역 측정 0 영역 단순 보존).
+//  - context value 영역 React reference 영역 — 매 frame 영역 새 객체 대부분 자손
+//    consumer 영역 re-render 사실. 변경 일부 frame 영역 (memoize 회피 — N=4 child 영역
+//    일부 비용 영역 측정 0 영역 단순 보존).
 //  - Δw (NodeLearn) 영역 prev weight cache 영역 ref 기반 영역 — 본 provider 영역 raw detail
 //    영역 expose, 자손 영역 자체 useEffect 영역 detail 변경 영역 처리.
 //  - winnerCluster 영역 deriveWinner 영역 단일 source — PipelineCanvas 직전 코드 영역 정합.
 //
 // API:
 //   const { winnerCluster, clusterRates, ... lastDetail } = usePipelineEvents();
-//   detail === null 영역 영역 backend 영역 첫 frame 영역 미수신.
+//   detail === null 일부 backend 영역 첫 frame 영역 미수신.
 
 import {
   createContext,
@@ -44,7 +44,7 @@ export interface PipelineEventState {
   lastFiringTimestamp: number | null;
   /** deriveWinner 결과 — backend cluster_rates / winner 영역 우선 활용. */
   winner: WinnerResult;
-  /** alias — winner.cluster (4 consumer 영역 영역 사용 영역 추출). */
+  /** alias — winner.cluster (4 consumer 일부 사용 영역 추출). */
   winnerCluster: number | null;
   /** alias — winner.clusterRates. */
   clusterRates: number[];

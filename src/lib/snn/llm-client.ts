@@ -3,7 +3,7 @@
 // PipelineCanvas LLM 노드 영역 사용 — 사용자 영역 endpoint URL + (옵션) API key 영역
 // localStorage 영역 영구. winner 변경 시점 영역 auto stream 영역 또는 manual test send.
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - 본 파일 영역 = HTTP POST wrapper 영역만. 실제 endpoint 영역 사용자 환경 영역.
 //  - 응답 schema 영역 보장 0 — 그대로 string 영역 paste 영역 표시.
 //  - CORS 차단 가능성 — 사용자 영역 endpoint 영역 'Access-Control-Allow-Origin' 정합 필요.

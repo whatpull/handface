@@ -152,7 +152,7 @@ function drawSkeleton(canvas: HTMLCanvasElement, lms: HandLandmarks | null) {
   if (!lms) return;
   const W = canvas.width, H = canvas.height;
   // 사용자 catch 2026-05-05: handmark 영역 visibility ↑.
-  // 1) 검정 윤곽 stroke 영역 (line + dot) — 카메라 영역 영역 영역 영역 contrast.
+  // 1) 검정 윤곽 stroke 영역 (line + dot) — 카메라 대부분 영역 contrast.
   // 2) 흰색 main stroke + dot 영역 brightness ↑.
   // 3) line 4px / dot radius 5px (3 → 5 영역 강 visibility).
 

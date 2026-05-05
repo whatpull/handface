@@ -5,7 +5,7 @@
 :root {
   /* deeper black v2 (2026-05-05 사용자 catch "너무 밝음") — body #000 + foreground gray-300.
      직전 #0a0a0c (slight gray) + #ededed (near-white) 영역 white 100% 영역 가독성 catch.
-     본 영역 #000 + #d1d5db (gray-300) 영역 contrast ~13:1 (AAA pass) + 차분 정합. */
+     본 부분 #000 + #d1d5db (gray-300) 영역 contrast ~13:1 (AAA pass) + 차분 정합. */
   --background: #000000;
   --foreground: #d1d5db;
 }
@@ -27,10 +27,10 @@ body {
    2026-05-05 — cyan 영역 폐기, warm + bio + neural tone 영역 정합).
    - WebKit (Chrome/Safari/Edge): track transparent + thumb slim+rounded.
      hover 시 violet tint — connection hover 색감 영역 정합.
-   - Firefox: scrollbar-width:thin + scrollbar-color (track 영역 영역 영역 0
+   - Firefox: scrollbar-width:thin + scrollbar-color (track 대부분 0
      — Firefox 영역 spec 한계, 단 thumb 색감 정합).
-   - 모바일: pointer:coarse 영역 영역 native overlay scrollbar 영역 (overflow
-     영역 native 영역 영역 정합 영역 — 스크롤바 영역 영역 0).
+   - 모바일: pointer:coarse 일부 native overlay scrollbar 영역 (overflow
+     영역 native 일부 정합 영역 — 스크롤바 일부 0).
    - prefers-reduced-motion: hover transition 영역 단축. */
 * {
   scrollbar-width: thin;
@@ -61,7 +61,7 @@ body {
   background: transparent;
 }
 
-/* 모바일/터치 — native overlay scrollbar 영역 (custom 영역 영역 0). */
+/* 모바일/터치 — native overlay scrollbar 영역 (custom 일부 0). */
 @media (pointer: coarse) {
   * {
     scrollbar-width: auto;

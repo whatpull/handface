@@ -2,7 +2,7 @@
 
 // NodeOut — winner gesture + RenameButton + Export JSON.
 // HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
-// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 영역 영역.
+// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 일부.
 
 import { useEffect, useRef, useState } from 'react';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';

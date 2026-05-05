@@ -26,17 +26,17 @@ interface FetchOpts {
 }
 
 // retry 영역 exponential backoff — 1s / 2s / 4s, max 3 retry.
-// timeout / 5xx / network 영역만 retry — 4xx 영역 영역 retry 0 (영역 영역 영역).
+// timeout / 5xx / network 영역만 retry — 4xx 일부 retry 0 (대부분).
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
 // 사용자 catch 2026-05-06: cluster_train_supervised 30 frame × supervised inject 영역
-// HF Spaces (CPU sim) 영역 30-90s+ 영역 — 15s 영역 영역. 120s 영역 정합.
+// HF Spaces (CPU sim) 영역 30-90s+ 영역 — 15s 일부. 120s 영역 정합.
 const FETCH_TIMEOUT_MS = 120000;
 
 function shouldRetry(status: number | undefined, isNetwork: boolean): boolean {
   if (isNetwork) return true;            // network failure / timeout
   if (status === undefined) return true; // unknown — treat as network
   if (status >= 500 && status <= 599) return true; // 5xx server fault
-  return false;                          // 4xx (4xx 영역 영역 영역)
+  return false;                          // 4xx (4xx 대부분)
 }
 
 async function delay(ms: number): Promise<void> {
@@ -118,7 +118,7 @@ export class NeuronFaceClient {
     const method = opts.method || 'GET';
 
     // offline path — navigator.onLine === false 영역 즉시 fail (silent fail 회피).
-    // retry 진입 0, 4xx 영역 정합 reason 영역 영역 영역.
+    // retry 진입 0, 4xx 영역 정합 reason 대부분.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return { ok: false, reason: 'offline (navigator.onLine=false)' };
     }
@@ -208,7 +208,7 @@ export class NeuronFaceClient {
     if (!presetOk.ok) return presetOk;
     // 새 network 생성 직후 — localStorage stored snapshot 자동 복원 chain.
     // HF Spaces ephemeral 영역 weight 영역 자동 catch path. loadSnapshot 영역 재진입 시점
-    // 영역 networkId 영역 set / presetEnsured=true 영역 영역 영역 probe path 정합.
+    // 영역 networkId 영역 set / presetEnsured=true 대부분 probe path 정합.
     void autoRestoreFromStorage();
     return { ok: true, data: this.networkId };
   }
@@ -252,8 +252,8 @@ export class NeuronFaceClient {
   // 전체 회로 초기화 — 누적된 뉴런/시냅스 모두 폐기 후 base cortical preset 만 유지.
   // BrainBuilder 빌드 누적, Grow 누적 등으로 회로가 비대해진 경우 사용.
   async rebuildToBaseline(): Promise<Result<{ networkId: string }>> {
-    // 0. 명시 wipe — stored snapshot 영역 영역 폐기 신호. ensureNetwork 영역 autoRestore
-    //    체인 영역 stale 영역 영역 영역 catch (training-cleared listener 영역 storage 폐기).
+    // 0. 명시 wipe — stored snapshot 일부 폐기 신호. ensureNetwork 영역 autoRestore
+    //    체인 영역 stale 대부분 catch (training-cleared listener 영역 storage 폐기).
     emitBackendEvent('training-cleared', {});
     // 1. 기존 네트워크 폐기 시도 (네트워크 없을 수도 있어 실패 무시).
     if (this.networkId) {
@@ -366,7 +366,7 @@ export class NeuronFaceClient {
   // 본 endpoint 영역 cluster prefix `out_{cluster}_` 영역 8 OUT 모두 supervisor
   // pulse → cluster 8/8 fire 사실 (backend sanity test 통과 영역).
   //
-  // 정직 한계 박음: TRAINED 정확도 영역 보장 0 — SNN 4-way 영역 학술 nontrivial.
+  // 정직 한계 명시: TRAINED 정확도 영역 보장 0 — SNN 4-way 영역 학술 nontrivial.
   async clusterTrainSupervised(
     patterns: number[][],
     targetCluster: number,
@@ -443,8 +443,8 @@ export class NeuronFaceClient {
   // body: {cluster_id: 0..15, lock: bool}
   // batch 학습 완료 cluster 영역 catastrophic forgetting 회피 catch — 추가 학습 0.
   //
-  // 정직 한계 박음: backend 영역 R-STDP / homeostatic 영역 frozen flag check 영역
-  // 미검증 사실 (backend agent 영역 보고 영역 한계 박음). neuron.py STDP gate 영역만
+  // 정직 한계 명시: backend 영역 R-STDP / homeostatic 영역 frozen flag check 영역
+  // 미검증 사실 (backend agent 영역 보고 영역 한계 명시). neuron.py STDP gate 영역만
   // 정합 — R-STDP pulse / astrocyte V_th adjust 영역 frozen 영역 무시 가능.
   async clusterLock(
     clusterId: number,

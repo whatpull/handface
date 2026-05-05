@@ -6,7 +6,7 @@
 //
 // 사용 영역:
 //  1. 최상위 Editor 영역 <ToastProvider> wrap.
-//  2. 어느 컴포넌트 영역 영역 `showToast({ kind, message })` 호출 (전역 함수).
+//  2. 어느 컴포넌트 일부 `showToast({ kind, message })` 호출 (전역 함수).
 //
 // 동시 다발 toast 영역 stack — auto fade (default 4s).
 

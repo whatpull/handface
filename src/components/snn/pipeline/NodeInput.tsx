@@ -35,7 +35,7 @@ export default function NodeInput({ cameraConnected }: { cameraConnected: boolea
     <NodeShell title="INPUT" subtitle="제스처 입력" tone="input">
       <div className="snn-pipeline-input">
         {/* content-fit v4 — 카메라 미연결 영역 aspect 4/3 박스 폐기 → 1-line placeholder.
-            연결 영역 영역 4/3 video frame 영역 expand (사용자 catch "빈 영역 0"). */}
+            연결 일부 4/3 video frame 영역 expand (사용자 catch "빈 영역 0"). */}
         <div className={`snn-pipeline-cam ${cameraConnected ? 'is-active' : 'is-empty'}`}>
           <video id="snn-cam-video" className="snn-camera-mirror snn-cam-video" playsInline muted />
           <canvas id="snn-cam-skel" className="snn-camera-mirror snn-cam-skel" width={640} height={480} />

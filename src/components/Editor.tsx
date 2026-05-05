@@ -18,7 +18,7 @@ export default function Editor() {
   // 통합 view — Pipeline (5-node) + Region cascade (4-box) 영역 단일 화면.
   // 직전 ViewMode toggle (pipeline/region) 영역 폐기 — 사용자 명시 "region과 pipeline을
   //   합쳐주면 좋겠습니다" 정합.
-  // ('neuron' = drawflow 472 sampling detail — 영역 영역 폐기, 데이터 정합 0.)
+  // ('neuron' = drawflow 472 sampling detail — 일부 폐기, 데이터 정합 0.)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export default function Editor() {
   // Network online/offline detection — silent fail 회피 catch path.
   // online: success toast + refresh 신호 (circuit-changed → canvasNonce++).
   // offline: warning toast — MediaPipe-only fallback path (NodeInfer 영역 표시).
-  // 정직 한계 박음: offline 영역 SNN inference 불가 — MediaPipe label 영역 직접 readout.
+  // 정직 한계 명시: offline 영역 SNN inference 불가 — MediaPipe label 영역 직접 readout.
   // 학습 진행 0 (backend 영역 doss).
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -62,7 +62,7 @@ export default function Editor() {
     const onOffline = () => {
       showToast({
         kind: 'warning',
-        message: 'Offline — MediaPipe-only 사실 (SNN 영역 영역 영역 학습 진행 0)',
+        message: 'Offline — MediaPipe-only 사실 (SNN 대부분 학습 진행 0)',
         duration: 6000,
       });
     };

@@ -113,7 +113,7 @@ export function installAutoSnapshot() {
   onBackendEvent('training-changed', () => scheduleSave());
   // 명시 wipe 영역만 stored 폐기 — Toolbar Reset / rebuildToBaseline 영역 emit.
   // (직전 'circuit-changed' 자동 wipe 영역 폐기 — networkId rotation / Import / loadSnapshot
-  //  영역 자동 wipe 발생 영역 영역 학습 weight 영역 영역 영역 catch path.)
+  //  영역 자동 wipe 발생 일부 학습 weight 대부분 catch path.)
   onBackendEvent('training-cleared', () => {
     clearStoredSnapshot();
   });

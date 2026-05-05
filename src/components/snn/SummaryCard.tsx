@@ -6,12 +6,12 @@
 //   - 3 카드 (CLUSTERS / MARGIN / FRAMES) 영역 icon SVG + mini sparkline + gradient bg.
 //   - value font 28px (직전 24px) + tracking -0.025em + tabular-nums (number tick 영역 정합).
 //   - delta pill 영역 우측 상단 flex absolute (사용자 catch — "delta indicator").
-//   - sparkline 영역 SVG path (값 영역 영역 영역 영역 누적 영역) — flat 0 영역 polish ↑.
+//   - sparkline 영역 SVG path (값 대부분 영역 누적 영역) — flat 0 영역 polish ↑.
 //   - hover translateY-2 + tone glow ↑ (snn-canvas.css 정합).
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - sparkline 영역 sliding window (last 20 sample) 영역 — 누적 0 영역 idle 영역 flat 영역.
-//  - delta % 영역 직전 sample 영역 영역 — backend 영역 절대 정확도 영역 0 (margin proxy).
+//  - delta % 영역 직전 sample 일부 — backend 영역 절대 정확도 영역 0 (margin proxy).
 
 import { useEffect, useRef, useState } from 'react';
 import { onBackendEvent, type TrainingPhaseDetail } from '@/lib/backend/events';

@@ -26,12 +26,12 @@
 //    cluster 별 buffer 누적 → 30 도달 시점 1회 batch `clusterTrainSupervised` 호출.
 //  - 4 cluster 모두 학습 완료 → 자동 `clusterLock(0..3, lock=true)` → frozen 사실.
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - N=5 stable + 0.85 conf = 추측. 너무 엄격 / 느슨 가능 — 사용자 화면 검증 mandatory.
 //  - TRAINED 정확도 보장 0. SNN 4-way 영역 학술 nontrivial. cluster broadcast
 //    supervised 영역 single target 보다 본질 정합 가능성 ↑ (teacher signal 영역 8 OUT 영역).
 //  - clusterLock 영역 backend STDP gate 영역만 정합 — R-STDP pulse / astrocyte V_th
-//    adjust 영역 frozen 영역 무시 가능 (backend agent 한계 박음).
+//    adjust 영역 frozen 영역 무시 가능 (backend agent 한계 명시).
 
 import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
@@ -60,7 +60,7 @@ export const CLUSTER_TO_LABEL: Record<number, string> = {
 // GESTURE_STABLE_FRAMES = 5 영역 안정 frame ↑ + supervisor_weight ↓ (별도 turn).
 export const GESTURE_CONFIDENCE_MIN = 0.6;
 // N consecutive same-name frame 합의 — 5 (noisy teacher mitigation).
-// 0.6 conf 영역 misclass 영역 5 frame 동일 영역 영역 0 → 안정 frame ↑.
+// 0.6 conf 영역 misclass 영역 5 frame 동일 일부 0 → 안정 frame ↑.
 export const GESTURE_STABLE_FRAMES = 5;
 // cluster 당 supervised inject 영역 target frame 수 — 30 (사용자 명시 redesign).
 export const CLUSTER_TARGET_FRAMES = 30;
@@ -159,7 +159,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   // CRITICAL #2 정정: cluster pattern buffer + lock state 영역 컴포넌트-수준 useRef
   // 영역 hoist — circuit-changed → canvasNonce++ → PipelineCanvas remount 시점
   // useEffect cleanup 영역 buffer 영역 reset catch 영역 회피.
-  // 학습 진행 영역 view 전환 / circuit 변경 영역 영역 보존 사실.
+  // 학습 진행 영역 view 전환 / circuit 변경 일부 보존 사실.
   const clusterBuffersRef = useRef<Record<0|1|2|3, number[][]>>({ 0: [], 1: [], 2: [], 3: [] });
   const clusterLockedRef = useRef<Record<0|1|2|3, boolean>>({ 0: false, 1: false, 2: false, 3: false });
   const learningActiveRef = useRef<boolean>(false);
@@ -269,7 +269,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       // INFERENCE phase — STDP 폐기, cluster mean readout 영역만.
       if (currentPhase === 'inference') {
         // Offline fallback — backend 불가 영역 GestureRecognizer label 영역 직접 cluster predict.
-        // 정직 한계 박음: SNN inference 영역 영역 0, 학습 진행 0. 학술 정합 0 (단순 lookup).
+        // 정직 한계 명시: SNN inference 일부 0, 학습 진행 0. 학술 정합 0 (단순 lookup).
         const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
         if (isOffline) {
           const cluster = (gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined)
@@ -389,7 +389,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             if (r.ok && r.data.ok) {
               setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);
               // 사용자 catch 2026-05-06: V1/V2 fire visual 영역 — cluster_train_supervised 응답
-              // 영역 fire data 0 영역 영역 1회 inject_feature16(stdp=false) 영역 emit.
+              // 영역 fire data 0 일부 1회 inject_feature16(stdp=false) 영역 emit.
               const lastPattern = batch[batch.length - 1] || pattern;
               await getClient().injectPattern(lastPattern, { stdp: false });
               if (cancelled) return;

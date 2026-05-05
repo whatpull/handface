@@ -24,7 +24,7 @@
 
   /* typography scale — readable v4 (2026-05-05 사용자 catch "가독성 안 좋음").
      직전 10/11/12/13/14/15px 영역 너무 작음 (body 11-12px) + value 24-28px 영역 너무 큼.
-     본 영역 11/12/13/14/15/16 영역 영역 강 + body 13-14px + value 20px (분리 token).
+     본 부분 11/12/13/14/15/16 일부 강 + body 13-14px + value 20px (분리 token).
      dim text gray-500 영역 contrast ~5:1 (AA pass). */
   --pipe-font-xs: 11px;
   --pipe-font-sm: 12px;
@@ -35,7 +35,7 @@
   --pipe-font-value: 20px;
 
   /* monochrome black palette (2026-05-05 redesign — 사용자 catch "튀는 거 0").
-     직전 violet (#a78bfa) 영역 brand catch — 본 영역 단조 차분 tech professional 정합.
+     직전 violet (#a78bfa) 영역 brand catch — 본 부분 단조 차분 tech professional 정합.
      white main + gray-300 light + gray-600 dark — accent 0 (모든 box single white tint).
      legacy token name (cyan/input/learn/infer/out/llm) 영역 보존 — 모든 영역 white/gray
      redirect — 영역 catch 1 (mono signature). */
@@ -48,12 +48,12 @@
   --pipe-tone-out: 255, 255, 255;     /* legacy → white */
   --pipe-tone-llm: 255, 255, 255;     /* legacy → white */
 
-  /* tone alpha layers — monochrome 영역 영역 영역 영역 alpha ↓ 정합 (사용자 "튀지 않음"). */
+  /* tone alpha layers — monochrome 대부분 영역 alpha ↓ 정합 (사용자 "튀지 않음"). */
   --pipe-tone-alpha-glow: 0.18;
   --pipe-tone-alpha-border: 0.28;
   --pipe-tone-alpha-bg: 0.04;
 
-  /* text scale — 사용자 catch "white 100% 가독성 강 영역 영역 영역" → gray-300 main.
+  /* text scale — 사용자 catch "white 100% 가독성 강 대부분" → gray-300 main.
      #d1d5db (gray-300) main + #6b7280 (gray-500) dim + #4b5563 (gray-600) muted.
      #000 영역 contrast: 13:1 / 5:1 / 3.3:1 — main AAA, dim AA, muted decorative only. */
   --pipe-text: #d1d5db;
@@ -72,7 +72,7 @@
   --pipe-border-subtle: #141414;
 
   /* shadow scale — admin minimalist: shadow 영역 0 또는 매우 subtle (사용자 mandatory).
-     직전 6/20px blur 폐기 — 박스 hover 영역 border 영역 영역 변화. */
+     직전 6/20px blur 폐기 — 박스 hover 영역 border 일부 변화. */
   --pipe-shadow-sm: none;
   --pipe-shadow-md: none;
   --pipe-shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -397,7 +397,7 @@
 
 /* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.
    직전 bezier + dash anim + animateMotion dot + drop-shadow glow 영역 모두 폐기.
-   영역 영역 영역 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).
+   대부분 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).
    transition 영역 color 영역만, animation/filter 영역 0. */
 /* bezier connector v8 (2026-05-05 사용자 명시 부활):
    "node로 연결해줘 ... 발화하면 active 되었던 그 구성"
@@ -467,7 +467,7 @@
   transition: border-color 160ms ease, background 160ms ease;
 }
 .snn-pipeline-node:hover {
-  /* admin minimalist — hover 영역 background gray-900 + border 영역 영역 변화 (사용자 명시).
+  /* admin minimalist — hover 영역 background gray-900 + border 일부 변화 (사용자 명시).
      translateY / box-shadow 영역 폐기. */
   background: #0e0e0e;
   border-color: var(--pipe-border-strong);
@@ -483,22 +483,22 @@
     /* mobile 영역 desktop uniform min-height 380 영역 폐기 — vertical stack 영역
        자식 본문 fit. */
     min-height: 0;
-    /* mobile vertical scroll 영역 영역 너무 길지 않음 — 각 박스 max 320px (사용자
+    /* mobile vertical scroll 일부 너무 길지 않음 — 각 박스 max 320px (사용자
        spec). 단 INPUT 카메라 박스 영역 cam aspect-ratio 영역 동적 — 본 max-height
        영역 넘치 영역 body 영역 자체 vertical scroll 영역 보존 정합. */
     max-height: 320px;
   }
-  /* INPUT 박스 영역 카메라 영역 영역 영역 영역 — max-height 폐기. */
+  /* INPUT 박스 영역 카메라 대부분 영역 — max-height 폐기. */
   .snn-pipeline-node--input { max-height: none; }
   .snn-pipeline-node-body {
-    /* 본 max-height 320 정합 — 자식 영역 영역 영역 vertical scroll 영역. */
+    /* 본 max-height 320 정합 — 자식 대부분 vertical scroll 영역. */
     overflow: auto;
   }
   .snn-pipeline-node:hover { transform: none; }
 }
 /* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
    5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역
-   active state 영역 영역 보존 (top-level rule 정합). */
+   active state 일부 보존 (top-level rule 정합). */
 .snn-pipeline-node {
   position: relative;
 }
@@ -547,7 +547,7 @@
 .snn-pipeline-node-title {
   font-weight: 700;
   letter-spacing: 0.12em;
-  /* readable v4 — title 14px (직전 12 영역 너무 작음 + 정합 본 영역 hierarchy). */
+  /* readable v4 — title 14px (직전 12 영역 너무 작음 + 정합 본 부분 hierarchy). */
   font-size: var(--pipe-font-lg);
   color: var(--pipe-text);
 }
@@ -561,8 +561,8 @@
   flex: 1;
   font-size: var(--pipe-font-xs);
   opacity: 0.7;
-  /* 220-280px node 영역 영역 sub title 영역 ellipsis 영역 — 영역 영역 영역 width
-     overflow catch 영역 영역. */
+  /* 220-280px node 일부 sub title 영역 ellipsis 영역 — 대부분 width
+     overflow catch 일부. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -762,7 +762,7 @@
   color: rgba(255,255,255,0.55);
 }
 /* 현재 자세 카드 — TRAINED 영역 winner 영역 본격 표시.
-   readable v4 — padding 8×12 (직전 6×10 영역 영역 영역) + content-fit. */
+   readable v4 — padding 8×12 (직전 6×10 대부분) + content-fit. */
 .snn-pipeline-current {
   padding: var(--pipe-gap-sm) var(--pipe-gap-md);
   border-radius: 3px;
@@ -788,7 +788,7 @@
   color: var(--pipe-text-dim);
 }
 .snn-pipeline-current-value {
-  /* readable v4 — value 18px (직전 14 영역 영역 영역 영역 영역, hierarchy 강). */
+  /* readable v4 — value 18px (직전 14 대부분 일부, hierarchy 강). */
   font-size: 18px;
   font-weight: 700;
   color: var(--pipe-text);
@@ -834,7 +834,7 @@
 /* OUT */
 .snn-pipeline-out-winner {
   display: flex; justify-content: center;
-  /* content-fit v4 — vertical padding 4 (직전 6 영역 영역 영역 영역 영역). */
+  /* content-fit v4 — vertical padding 4 (직전 6 대부분 일부). */
   padding: var(--pipe-gap-xs) 0;
 }
 .snn-pipeline-out-winner-empty {
@@ -848,7 +848,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--pipe-text);
   padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 3px;
-  /* readable v4 — winner btn 영역 16px (직전 14 영역 영역 hierarchy ↑). */
+  /* readable v4 — winner btn 영역 16px (직전 14 일부 hierarchy ↑). */
   font-size: var(--pipe-font-title); font-weight: 600;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
@@ -879,8 +879,8 @@
   outline: none;
 }
 .snn-pipeline-out-input:focus { border-color: rgba(var(--pipe-tone-out), 0.85); }
-/* dense rows v4 (사용자 catch "OUT 4 라벨 영역 영역 4 row 영역 fit 빈 영역 0").
-   직전 2x2 grid 영역 빈 영역 catch — 본 영역 단일 column 4 row 영역 dense + label
+/* dense rows v4 (사용자 catch "OUT 4 라벨 일부 4 row 영역 fit 빈 영역 0").
+   직전 2x2 grid 영역 빈 영역 catch — 본 부분 단일 column 4 row 영역 dense + label
    left + value right (visual hierarchy 영역 정합). */
 .snn-pipeline-out-counts {
   display: flex;
@@ -1039,7 +1039,7 @@
 }
 
 /* phase 별 background — 사용자 catch v4 "너무 밝음" → 모든 phase 영역 #000 영역.
-   직전 lightness 단계 영역 catch — 본 영역 단조 deep black 영역 hierarchy 0. */
+   직전 lightness 단계 영역 catch — 본 부분 단조 deep black 영역 hierarchy 0. */
 .snn-pipeline.is-phase-untrained,
 .snn-pipeline.is-phase-learning,
 .snn-pipeline.is-phase-partial,
@@ -1068,8 +1068,8 @@
 /* ─────────────────────────────────────────── Mobile (≤768px) ────────────────
    본격 mobile pixel-perfect (2026-05-05) — 사용자 catch:
    1. 카메라 4/3 영역 정합 (PC 영역 정합 — full-width × 4/3).
-   2. typography 14px+ a11y (cluster label 12px 영역 영역).
-   3. touch target ≥32px ((pointer:coarse) 영역 영역).
+   2. typography 14px+ a11y (cluster label 12px 일부).
+   3. touch target ≥32px ((pointer:coarse) 일부).
    4. tight spacing — gap 12-14, padding 12. */
 @media (max-width: 768px) {
   .snn-pipeline {
@@ -1078,20 +1078,20 @@
   .snn-pipeline-flow {
     gap: var(--pipe-gap-md);
   }
-  /* mobile pixel-perfect — INPUT 카메라 영역 4/3 영역 영역 (PC 영역 정합).
+  /* mobile pixel-perfect — INPUT 카메라 영역 4/3 일부 (PC 영역 정합).
      full-width × aspect 4/3 — 사용자 catch 2026-05-05. */
   .snn-pipeline-cam {
     aspect-ratio: 4 / 3;
   }
   .snn-pipeline-feat-bars { height: 36px; }
   /* mobile pixel-perfect — typography 영역 14px+ a11y (사용자 catch).
-     단 cluster/rate label 영역 12px 영역 영역 (밀집 영역 정합). */
+     단 cluster/rate label 영역 12px 일부 (밀집 영역 정합). */
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); letter-spacing: 0.10em; }
   .snn-pipeline-node-sub { font-size: var(--pipe-font-md); }
   .snn-pipeline-node-body { padding: var(--pipe-gap-md); gap: 10px; }
   .snn-pipeline-row { font-size: var(--pipe-font-md); }
   .snn-pipeline-row-label { font-size: var(--pipe-font-sm); }
-  /* INFER recent timestamp + OUT count value — mono 영역 영역 영역 12px 정합 */
+  /* INFER recent timestamp + OUT count value — mono 대부분 12px 정합 */
   .snn-pipeline-mono { font-size: var(--pipe-font-md); }
   .snn-pipeline-cluster-label { font-size: var(--pipe-font-md); width: 60px; }
   .snn-pipeline-cluster-count { font-size: var(--pipe-font-sm); }
@@ -1114,17 +1114,17 @@
   .snn-pipeline-note,
   .snn-pipeline-warn,
   .snn-pipeline-hint { font-size: var(--pipe-font-md); }
-  /* hover scale 영역 — touch device 영역 영역. */
+  /* hover scale 영역 — touch device 일부. */
   .snn-pipeline-node:hover { transform: none; }
-  /* touch target ≥32px — (pointer:coarse) 영역 영역 영역, 본 영역 mobile width
-     영역 영역 영역. button 영역 영역 영역 padding 영역 32px catch. */
+  /* touch target ≥32px — (pointer:coarse) 대부분, 본 부분 mobile width
+     대부분. button 대부분 padding 영역 32px catch. */
   .snn-pipeline-btn { min-height: 32px; padding: var(--pipe-gap-sm) var(--pipe-gap-md); }
   .snn-pipeline-out-winner-btn { min-height: 36px; padding: var(--pipe-gap-sm) 14px; font-size: var(--pipe-font-xl); }
 }
 
 /* 더 작은 영역 (≤480px) — pixel-perfect mobile (375px viewport 정합).
-   사용자 catch — column layout + 깔끔 + 여백 0. cluster label 영역 12px 영역 영역
-   (a11y exception per spec — 밀집 영역 정합 영역 영역 12px 영역 영역). */
+   사용자 catch — column layout + 깔끔 + 여백 0. cluster label 영역 12px 일부
+   (a11y exception per spec — 밀집 영역 정합 일부 12px 일부). */
 @media (max-width: 480px) {
   .snn-pipeline { padding: var(--pipe-gap-sm); }
   .snn-pipeline-cluster-label { width: 52px; font-size: var(--pipe-font-md); }
@@ -1134,7 +1134,7 @@
   .snn-pipeline-node-sub { display: none; }
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); }
   .snn-pipeline-current-value { font-size: var(--pipe-font-title); }
-  /* 375px viewport 영역 박스 max-height 280-320 영역 영역 — INPUT 영역 cam 영역 영역. */
+  /* 375px viewport 영역 박스 max-height 280-320 일부 — INPUT 영역 cam 일부. */
   .snn-pipeline-node { max-height: 300px; }
   .snn-pipeline-node--input { max-height: none; }
 }
@@ -1170,7 +1170,7 @@
 }
 .snn-summary-card {
   position: relative;
-  /* deeper black v4 — summary card 영역 #0a0a0a 영역 (직전 #1c1c24 + #0e0e14 영역 영역 영역). */
+  /* deeper black v4 — summary card 영역 #0a0a0a 영역 (직전 #1c1c24 + #0e0e14 대부분). */
   background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--pipe-radius-md);
@@ -1350,8 +1350,8 @@
 
 /* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ─────────────
    사용자 OS 영역 motion-reduce 설정 영역 정합 — 모든 keyframe + transition 영역
-   영역 0.01ms 영역 단축 (즉시 정지 영역 영역 시각 변화 영역 보존). animation 영역
-   `none` 영역 0 — `0.01ms` 영역 영역 frame 영역 1 영역 영역 영역 영역 정합. */
+   영역 0.01ms 영역 단축 (즉시 정지 일부 시각 변화 영역 보존). animation 영역
+   `none` 영역 0 — `0.01ms` 일부 frame 영역 1 대부분 영역 정합. */
 @media (prefers-reduced-motion: reduce) {
   .snn-pipeline-conn-dot,
   .snn-pipeline-conn-dash,

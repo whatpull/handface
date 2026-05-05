@@ -3,10 +3,10 @@
 // PipelineCanvas 영역 OUT/LLM 노드 영역 외부 endpoint 영역 송출 payload 정합.
 // 사용자 영역 명시: { winner, confidence, cluster_rates, history, gesture_name, timestamp }.
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - 본 파일 영역 = 데이터 직렬화 영역만. 실제 송신 영역 llm-client.ts 영역.
 //  - winnerLabel 영역 OUT exemplar 라벨 영역 우선, 없으면 cluster id 영역 fallback.
-//  - history 영역 = 최근 winner 전이 영역 timeline (max 32).
+//  - history 영역 = 최근 winner 전이 부분 timeline (max 32).
 
 import { CLUSTER_TO_LABEL } from './use-hand-control';
 import { loadExemplars } from './out-exemplars';

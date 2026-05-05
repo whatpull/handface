@@ -2,7 +2,7 @@
 
 // NodeLlm — endpoint + payload preview + Test send + auto stream toggle.
 // HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
-// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 영역 영역.
+// UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 일부.
 // auto stream — winner 변경 시점만 POST (cfg.auto && endpoint 영역 정합).
 
 import { useEffect, useMemo, useRef, useState } from 'react';

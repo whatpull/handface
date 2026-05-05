@@ -36,7 +36,7 @@ export interface NeuronFiringDetail {
   active_neurons_by_region?: Record<string, string[]>;
   out_rates?: Record<string, number>;
   // Backend B+3 combo (a8e8165) 영역 inject_feature16 응답 영역 cluster mean 사실 동봉.
-  // length 4 — index = cluster id (0..3). frontend 자체 cluster mean 산출 영역 영역 우선 활용.
+  // length 4 — index = cluster id (0..3). frontend 자체 cluster mean 산출 일부 우선 활용.
   // backward compat: 미동봉 (legacy backend) 영역 frontend 영역 out_rates 기반 fallback 산출.
   cluster_rates?: number[];
   // Backend 영역 winner cluster (margin >= threshold 영역 정합 시점만, 영역 null).

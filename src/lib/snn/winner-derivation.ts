@@ -1,14 +1,14 @@
 // HIGH #3 정정: cluster winner / margin / confidence 영역 단일 source.
 //
 // 직전 산출 4 곳 중복 (PipelineCanvas.tsx:288-314 / 391-411 / 557-578 +
-// use-hand-control.ts:289-321) 영역 통합 — 일부 영역 차이 영역 catch 가능 catch.
+// use-hand-control.ts:289-321) 영역 통합 — 일부 영역 차이 부분 catch 가능 catch.
 //
 // Backend B+3 combo (a8e8165, HF live) 정합:
 //  - inject_feature16 응답 영역 `cluster_rates` (length 4) / `winner_cluster` /
-//    `winner_margin` 영역 동봉 영역 — 영역 영역 시점 영역 그것 영역 우선 활용 사실.
-//  - frontend 자체 산출 영역 round-trip 영역 영역 — backend cluster mean 영역 보내면
+//    `winner_margin` 영역 동봉 영역 — 일부 시점 영역 그것 영역 우선 활용 사실.
+//  - frontend 자체 산출 영역 round-trip 일부 — backend cluster mean 영역 보내면
 //    그것 영역 그대로 영역.
-//  - 미동봉 (legacy backend / 영역 영역 시점) 영역 out_rates 기반 fallback 산출 — backward
+//  - 미동봉 (legacy backend / 일부 시점) 영역 out_rates 기반 fallback 산출 — backward
 //    compat mandatory.
 //
 // 본 모듈 영역 책임:
@@ -19,10 +19,10 @@
 //    그 외 (rate 0 / margin 미달) → null (WTA tie 영역 catch).
 //  - clusterCounts — cluster 별 OUT neuron 수 (정합 사실 증명용).
 //
-// 정직 한계 박음:
+// 정직 한계 명시:
 //  - WINNER_MARGIN_DEFAULT 0.10 영역 추측. 너무 엄격 / 느슨 영역 사용자 화면 검증
 //    영역 mandatory.
-//  - out_{cluster} (suffix 없는 형식) 영역 backend 영역 영역 emit 영역 cluster 별
+//  - out_{cluster} (suffix 없는 형식) 영역 backend 일부 emit 영역 cluster 별
 //    1 OUT 영역 가정. 직전 4 곳 영역 동일 regex `^out_(\d+)(?:_\d+)?$` 영역 정합 사실.
 //  - backend cluster_rates 영역 우선 영역 = round-trip 영역 1 영역만. backend 영역 length
 //    !=4 영역 / 모두 0 시점 영역 fallback 자체 산출.
@@ -41,7 +41,7 @@ export interface WinnerResult {
   confidence: number;
   /** margin = (max - second) / max (0..1). max 0 영역 0. */
   margin: number;
-  /** max cluster rate (winner 영역 정합 0 영역 영역 그대로). */
+  /** max cluster rate (winner 영역 정합 0 일부 그대로). */
   max: number;
   /** total cluster mean sum. */
   total: number;
@@ -56,7 +56,7 @@ export interface WinnerResult {
 export interface DeriveWinnerOptions {
   /** Winner 결정 margin 임계 (기본 WINNER_MARGIN_DEFAULT = 0.10). */
   marginThreshold?: number;
-  /** Backend 영역 직접 emit 영역 cluster mean rate 4-tuple. length 4 영역 영역 사용. */
+  /** Backend 영역 직접 emit 영역 cluster mean rate 4-tuple. length 4 일부 사용. */
   clusterRates?: number[] | null;
   /** Backend 영역 결정 영역 winner cluster id (0..3) — margin 미달 영역 null. */
   winnerCluster?: number | null;
@@ -70,7 +70,7 @@ export interface DeriveWinnerOptions {
  * @param rates - backend 영역 emit 영역 out_rates (key: "out_{cluster}_{idx}" 또는 "out_{cluster}")
  * @param opts - margin threshold 영역, backend cluster_rates / winner 직접 활용 옵션.
  *
- * Backward compat: 두 번째 인자 영역 number 영역 영역 marginThreshold 영역 직접 영역 (legacy
+ * Backward compat: 두 번째 인자 영역 number 일부 marginThreshold 영역 직접 영역 (legacy
  * 호출 영역 정합 사실).
  */
 export function deriveWinner(
@@ -82,7 +82,7 @@ export function deriveWinner(
 
   // ── Backend 영역 우선 영역 ────────────────────────────────────────────────
   // backend cluster_rates 영역 length 4 영역 / 영역 정합 (number array) 영역 / 모두 0 영역
-  // 영역 영역 시점 영역 그것 영역 그대로 활용 — frontend 영역 자체 산출 회피.
+  // 일부 시점 영역 그것 영역 그대로 활용 — frontend 영역 자체 산출 회피.
   const backendRates = o.clusterRates;
   if (
     Array.isArray(backendRates)
@@ -91,7 +91,7 @@ export function deriveWinner(
     && backendRates.some((v) => v > 0)
   ) {
     const mean = backendRates.slice();
-    // clusterCounts 영역 fallback 산출 동일 regex 영역 영역 — 정합 사실 증명용.
+    // clusterCounts 영역 fallback 산출 동일 regex 일부 — 정합 사실 증명용.
     const cnt = new Array<number>(CLUSTER_COUNT).fill(0);
     for (const k of Object.keys(rates)) {
       const m = /^out_(\d+)(?:_\d+)?$/.exec(k);

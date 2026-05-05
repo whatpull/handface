@@ -182,8 +182,8 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   }, [llmToast]);
 
   // 사용자 catch 2026-05-06: trainStatus toast auto-dismiss 5s — stale "batch supervised 진행" 영역 catch.
-  // batch flush fire-and-forget 영역 진행 toast 영역 응답 영역 영역 setTrainStatus 영역 영역, 단
-  // background promise 영역 응답 영역 final '✓ 학습 완료' 영역 영역, 진행 toast 영역 stale 잔존 catch.
+  // batch flush fire-and-forget 영역 진행 toast 영역 응답 일부 setTrainStatus 일부, 단
+  // background promise 영역 응답 영역 final '✓ 학습 완료' 일부, 진행 toast 영역 stale 잔존 catch.
   const [statusVisible, setStatusVisible] = useState<string>('');
   useEffect(() => {
     if (!ctrl.trainStatus) { setStatusVisible(''); return; }
@@ -268,7 +268,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     const target = e.target as HTMLElement;
     // node-wrap 내부 영역 무시 (node drag 또는 body interaction).
     if (target.closest('.snn-pipeline-node-wrap')) return;
-    // SVG path 영역 무시 (pointer-events none 영역 — 본 영역 fallthrough).
+    // SVG path 영역 무시 (pointer-events none 영역 — 본 부분 fallthrough).
     panDragRef.current = {
       startX: e.clientX,
       startY: e.clientY,

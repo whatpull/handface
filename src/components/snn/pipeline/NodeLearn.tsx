@@ -24,7 +24,7 @@ import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
 
 // inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
-// V1/V2 영역 영역 영역 영역).
+// V1/V2 대부분 영역).
 function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
   if (name.startsWith('v1_')) return 'V1';
   if (name.startsWith('v2_')) return 'V2';
@@ -71,8 +71,8 @@ export default function NodeLearn() {
   // 학습 사실 catch 사실 (delta.delta 영역 직접 제공 영역).
   // Fallback (d.synapses 영역 diff) 영역 baseline cache only — 첫 호출 시
   // prev === undefined → 첫 frame 영역 Δw = 0 표시 (baseline cache only).
-  // 직후 frame 영역 정상 catch 사실. 정직 한계 박음: backend synapses_changed
-  // 영역 미emit 영역 영역 첫 frame 영역 학습 사실 0 표시 회피 0.
+  // 직후 frame 영역 정상 catch 사실. 정직 한계 명시: backend synapses_changed
+  // 영역 미emit 일부 첫 frame 영역 학습 사실 0 표시 회피 0.
   useEffect(() => {
     if (!lastDetail) return;
     let ltp = 0, ltd = 0, changed = 0;

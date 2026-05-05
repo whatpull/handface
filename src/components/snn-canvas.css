@@ -628,6 +628,88 @@
   background: #0a0a0c;
   overflow: auto;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ─────────────────────────────────────────── Region cascade (위쪽 row) ──────
+   사용자 명시 통합 — 직전 별도 Region drawflow view 영역 본 row 영역 흡수. */
+.snn-region-cascade {
+  flex-shrink: 0;
+  background: rgba(15, 17, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.snn-region-cascade-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.snn-region-cascade-flow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.snn-region-cascade-arrow {
+  color: rgba(94, 234, 212, 0.3);
+  transition: color 220ms ease;
+  flex-shrink: 0;
+}
+.snn-region-cascade-arrow.is-active {
+  color: rgba(94, 234, 212, 0.95);
+  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.6));
+}
+.snn-region-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 86px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(20, 20, 24, 0.85);
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 180ms ease;
+}
+.snn-region-box.is-fired {
+  box-shadow: 0 0 18px rgba(94, 234, 212, 0.55);
+  transform: translateY(-1px);
+}
+.snn-region-box-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.snn-region-box-counts {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+.snn-region-box-active { color: #5eead4; font-weight: 600; }
+.snn-region-box-sep { color: rgba(255, 255, 255, 0.3); }
+.snn-region-box-total { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
+.snn-region-box--input { border-color: rgba(167, 139, 250, 0.5); }
+.snn-region-box--input .snn-region-box-label { color: #c4b5fd; }
+.snn-region-box--v1 { border-color: rgba(96, 165, 250, 0.5); }
+.snn-region-box--v1 .snn-region-box-label { color: #93c5fd; }
+.snn-region-box--v2 { border-color: rgba(94, 234, 212, 0.5); }
+.snn-region-box--v2 .snn-region-box-label { color: #5eead4; }
+.snn-region-box--out { border-color: rgba(244, 114, 182, 0.5); }
+.snn-region-box--out .snn-region-box-label { color: #f9a8d4; }
+@media (max-width: 600px) {
+  .snn-region-box { min-width: 70px; padding: 6px 8px; }
+  .snn-region-cascade-arrow svg { width: 20px; height: 8px; }
 }
 .snn-pipeline-flow {
   display: flex;

@@ -10,6 +10,7 @@ interface ToolbarProps {
   onStatsResult?: (data: unknown) => void;
   onBrainBuilder?: () => void;
   onPredict?: () => void;
+  onConfusion?: () => void;
 }
 
 const groupCls = 'flex items-center gap-1';
@@ -19,7 +20,7 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
 export default function Toolbar({
-  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict,
+  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict, onConfusion,
 }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = createActions({
@@ -68,6 +69,9 @@ export default function Toolbar({
         </button>
         <button type="button" className={btnCls} onClick={() => onPredict?.()}>
           <Icon kind="predict" /> Predict
+        </button>
+        <button type="button" className={btnCls} onClick={() => onConfusion?.()}>
+          <Icon kind="matrix" /> Matrix
         </button>
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
@@ -137,6 +141,15 @@ function Icon({ kind }: { kind: string }) {
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
           <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6z" />
+        </svg>
+      );
+    case 'matrix':
+      return (
+        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       );
     case 'brain':

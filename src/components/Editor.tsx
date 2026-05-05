@@ -6,8 +6,7 @@ import Toolbar from '@/components/snn/Toolbar';
 import Canvas from '@/components/snn/Canvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import StatsPanel from '@/components/snn/StatsPanel';
-import PredictionPanel from '@/components/snn/PredictionPanel';
-import HandPanel from '@/components/snn/HandPanel';
+import PredictPanel from '@/components/snn/PredictPanel';
 import BrainBuilderDialog from '@/components/snn/BrainBuilderDialog';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
@@ -23,7 +22,6 @@ export default function Editor() {
   const [statsData, setStatsData] = useState<unknown>(null);
   const [statsOpen, setStatsOpen] = useState(false);
   const [predictOpen, setPredictOpen] = useState(false);
-  const [handOpen, setHandOpen] = useState(false);
   const [brainOpen, setBrainOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,7 +64,6 @@ export default function Editor() {
             onStatsResult={(d) => { setStatsData(d); setStatsOpen(true); }}
             onBrainBuilder={() => setBrainOpen(true)}
             onPredict={() => setPredictOpen(true)}
-            onHand={() => setHandOpen(true)}
           />
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <Canvas
@@ -80,14 +77,10 @@ export default function Editor() {
               data={statsData as Parameters<typeof StatsPanel>[0]['data']}
               onClose={() => setStatsOpen(false)}
             />
-            <PredictionPanel
+            <PredictPanel
               open={predictOpen}
-              onClose={() => setPredictOpen(false)}
-            />
-            <HandPanel
-              open={handOpen}
               cameraConnected={cameraConnected}
-              onClose={() => setHandOpen(false)}
+              onClose={() => setPredictOpen(false)}
             />
             <HandTrackerHost
               active={cameraConnected}

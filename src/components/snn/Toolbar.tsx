@@ -10,7 +10,6 @@ interface ToolbarProps {
   onStatsResult?: (data: unknown) => void;
   onBrainBuilder?: () => void;
   onPredict?: () => void;
-  onHand?: () => void;
 }
 
 const groupCls = 'flex items-center gap-1';
@@ -20,7 +19,7 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 const activeCls = 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-400/40';
 
 export default function Toolbar({
-  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict, onHand,
+  view, onViewChange, onStatusChange, onStatsResult, onBrainBuilder, onPredict,
 }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = createActions({
@@ -30,9 +29,6 @@ export default function Toolbar({
     onStatsResult,
   });
   const onBrain = () => onBrainBuilder?.();
-  // aria-pressed: 변수로 사전 추출 (linter 의 expression 검증 우회).
-  const regionPressed: boolean = view === 'region';
-  const neuronPressed: boolean = view === 'neuron';
 
   return (
     <div
@@ -44,7 +40,6 @@ export default function Toolbar({
           type="button"
           className={`${btnCls} ${view === 'region' ? activeCls : ''}`}
           onClick={() => onViewChange('region')}
-          aria-pressed={regionPressed}
           disabled={!!busy}
         >
           <Icon kind="region" /> Region
@@ -53,7 +48,6 @@ export default function Toolbar({
           type="button"
           className={`${btnCls} ${view === 'neuron' ? activeCls : ''}`}
           onClick={() => onViewChange('neuron')}
-          aria-pressed={neuronPressed}
           disabled={!!busy}
         >
           <Icon kind="neuron" /> Neuron
@@ -74,9 +68,6 @@ export default function Toolbar({
         </button>
         <button type="button" className={btnCls} onClick={() => onPredict?.()}>
           <Icon kind="predict" /> Predict
-        </button>
-        <button type="button" className={btnCls} onClick={() => onHand?.()}>
-          <Icon kind="hand" /> Hand
         </button>
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
           <Icon kind="reset" /> Reset
@@ -146,15 +137,6 @@ function Icon({ kind }: { kind: string }) {
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
           <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6z" />
-        </svg>
-      );
-    case 'hand':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 11V6a2 2 0 0 0-4 0v5" />
-          <path d="M14 10V4a2 2 0 0 0-4 0v6" />
-          <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
         </svg>
       );
     case 'brain':

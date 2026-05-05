@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'HandFace — Neural Mesh Editor',
+  title: 'HandFace — Neural Network Editor',
   description: 'Bio-SNN visualization & node editor framework',
 };
 

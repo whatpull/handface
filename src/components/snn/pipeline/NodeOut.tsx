@@ -13,12 +13,10 @@ import {
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import NodeShell from './NodeShell';
-import { initialCollapsedForMobile } from './shared';
 import { usePipelineEvents } from './PipelineEventContext';
 
 export default function NodeOut() {
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
-  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
 
   useEffect(() => subscribeExemplars(setExemplars), []);
 
@@ -50,8 +48,8 @@ export default function NodeOut() {
   };
 
   return (
-    <NodeShell title="OUT" subtitle="결과값" tone="out"
-      collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+    <NodeShell title="OUT" subtitle="결과값" tone="out">
+
       <div className="snn-pipeline-out-winner">
         {winnerLabel ? (
           <RenameButton outKey={winnerKey!} label={winnerLabel} hasLabel={!!winnerEx?.label} />

@@ -79,7 +79,7 @@ export default function Editor() {
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
       <header className="flex items-center justify-between border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
         <span className="text-sm font-semibold tracking-wider">HandFace</span>
-        <span className="text-[11px] text-white/40">Neural Mesh Editor</span>
+        <span className="text-[11px] text-white/40">Neural Network Editor</span>
       </header>
       <div className="flex flex-1 min-h-0">
         <Sidebar

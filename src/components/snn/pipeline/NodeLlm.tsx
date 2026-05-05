@@ -26,8 +26,8 @@ import {
   type LlmSendResult,
 } from '@/lib/snn/llm-client';
 import NodeShell from './NodeShell';
-import { HISTORY_MAX, initialCollapsedForMobile } from './shared';
 import { usePipelineEvents } from './PipelineEventContext';
+import { HISTORY_MAX } from './shared';
 
 export default function NodeLlm({
   onLlmResult,
@@ -35,7 +35,6 @@ export default function NodeLlm({
   onLlmResult?: (r: LlmSendResult) => void;
 }) {
   const [cfg, setCfg] = useState<LlmConfig>(() => loadLlmConfig());
-  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
   const [history, setHistory] = useState<WinnerHistoryEntry[]>([]);
@@ -136,8 +135,8 @@ export default function NodeLlm({
       clusterCountsKey, history.length, feat?.gestureName, feat?.gestureScore]);
 
   return (
-    <NodeShell title="LLM" subtitle="외부 연동" tone="llm"
-      collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+    <NodeShell title="LLM" subtitle="외부 연동" tone="llm">
+
       <label className="snn-pipeline-field">
         <span className="snn-pipeline-field-label">endpoint</span>
         <input

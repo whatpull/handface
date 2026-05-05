@@ -20,8 +20,8 @@ import {
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import NodeShell from './NodeShell';
-import { CLUSTER_LABELS, CLUSTER_TARGET, initialCollapsedForMobile } from './shared';
 import { usePipelineEvents } from './PipelineEventContext';
+import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
 
 // inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
 // V1/V2 영역 영역 영역 영역).
@@ -35,7 +35,6 @@ export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
-  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   const prevWeights = useRef<Map<string, number>>(new Map());
 
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
@@ -215,8 +214,8 @@ export default function NodeLearn() {
   const stripActive = regionFired.V1 || regionFired.V2;
 
   return (
-    <NodeShell title="LEARN" subtitle="진행상황" tone="learn"
-      collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+    <NodeShell title="LEARN" subtitle="진행상황" tone="learn">
+
       {/* V1/V2 cortical region strip — 학습 substrate cascade.
           INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}
       <div className="snn-pipeline-learn-region-strip" aria-label="V1/V2 cortical cascade">

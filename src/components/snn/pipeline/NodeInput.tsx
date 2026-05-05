@@ -9,11 +9,9 @@ import { useEffect, useState } from 'react';
 import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
 import { FEATURE_LABELS } from '@/lib/mediapipe/feature-encoder';
 import NodeShell from './NodeShell';
-import { initialCollapsedForMobile } from './shared';
 
 export default function NodeInput({ cameraConnected }: { cameraConnected: boolean }) {
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
-  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   // feature 막대 ref — HandTrackerHost 영역 .snn-feat-bars 영역 selector 로 직접 갱신.
 
   useEffect(() => {
@@ -34,8 +32,7 @@ export default function NodeInput({ cameraConnected }: { cameraConnected: boolea
     : (cameraConnected ? 'starting…' : 'camera off');
 
   return (
-    <NodeShell title="INPUT" subtitle="제스처 입력" tone="input"
-      collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+    <NodeShell title="INPUT" subtitle="제스처 입력" tone="input">
       <div className="snn-pipeline-input">
         {/* content-fit v4 — 카메라 미연결 영역 aspect 4/3 박스 폐기 → 1-line placeholder.
             연결 영역 영역 4/3 video frame 영역 expand (사용자 catch "빈 영역 0"). */}

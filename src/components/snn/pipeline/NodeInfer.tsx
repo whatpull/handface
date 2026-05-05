@@ -11,13 +11,12 @@ import {
 } from '@/lib/backend/events';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import NodeShell from './NodeShell';
-import { CLUSTER_LABELS, SATURATION_HZ, initialCollapsedForMobile } from './shared';
 import { usePipelineEvents } from './PipelineEventContext';
+import { CLUSTER_LABELS, SATURATION_HZ } from './shared';
 
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
-  const [collapsed, setCollapsed] = useState(initialCollapsedForMobile);
   // Online/offline detection — MediaPipe-only badge 표시 catch path.
   // SSR 영역 typeof navigator undefined → default true (online assume).
   const [online, setOnline] = useState<boolean>(
@@ -58,8 +57,8 @@ export default function NodeInfer() {
   const confPct = (winner.confidence * 100).toFixed(0);
 
   return (
-    <NodeShell title="INFER" subtitle="추론 상세" tone="infer"
-      collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)}>
+    <NodeShell title="INFER" subtitle="추론 상세" tone="infer">
+
       {!online && (
         <div className="snn-pipeline-warn">
           ⚠ MediaPipe only — offline (SNN 영역 0, 학습 진행 0)

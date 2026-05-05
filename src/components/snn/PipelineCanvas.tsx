@@ -19,7 +19,13 @@
 //   - mobile (≤900) 영역 절대좌표 drag 부적합 → 종전 vertical stack flex layout
 //     보존 (snn-pipeline-flow 단순 column). 본 editable canvas 영역 desktop only.
 //   - 노드 간 edge add/remove UI 0 — 5 고정 path (사용자 mandatory pipeline shape).
-//   - canvas pan/zoom 0 — 단일 1280px wide stage (overflow auto).
+//
+// pan + zoom (2026-05-05 사용자 mandatory P0 99점):
+//   - desktop stage 내부 transform wrapper — translate(pan) scale(zoom).
+//   - wheel → zoom delta (clamp 0.5-2.0).
+//   - background drag (drag-handle 외부 + node body 외부) → pan delta.
+//   - touch pinch (2-finger) → zoom.
+//   - Reset Layout → positions + pan/zoom 동시 reset.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
@@ -207,49 +213,161 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => { observers.forEach((o) => o.disconnect()); };
   }, []);
 
-  // drag state — 활성 노드 + offset (pointer position 영역 노드 origin offset).
+  // ───────── pan + zoom state (사용자 mandatory P0) ─────────
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // drag state — 활성 노드 drag (id) 또는 background pan (id null).
+  // pinch state — 2-touch zoom (initialDistance, initialZoom).
   const dragRef = useRef<{ id: NodeId; offsetX: number; offsetY: number } | null>(null);
+  const panDragRef = useRef<{ startX: number; startY: number; basePanX: number; basePanY: number; pointerId: number } | null>(null);
+  const pinchRef = useRef<{ initialDist: number; initialZoom: number } | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
 
   const onPointerDownNode = useCallback((id: NodeId) => (e: React.PointerEvent<HTMLDivElement>) => {
-    // input element / button 영역 시작된 drag 영역 무시 (node body interaction 보존).
+    // input / button / video / canvas / textarea / select 영역 외 영역 drag trigger.
     const target = e.target as HTMLElement;
-    if (!target.closest('.snn-pipeline-node-drag-handle')) return;
+    if (target.closest('input, button, textarea, select, video, canvas, label, summary, details, [contenteditable]')) return;
     e.preventDefault();
+    e.stopPropagation();
     const stage = stageRef.current;
     if (!stage) return;
     const stageRect = stage.getBoundingClientRect();
     const pos = positions[id];
+    // pointer 좌표 영역 stage 내부 → transform 역변환 (pan/zoom 보정).
+    const pointerStageX = (e.clientX - stageRect.left - pan.x) / zoom;
+    const pointerStageY = (e.clientY - stageRect.top - pan.y) / zoom;
     dragRef.current = {
       id,
-      offsetX: e.clientX - stageRect.left - pos.x,
-      offsetY: e.clientY - stageRect.top - pos.y,
+      offsetX: pointerStageX - pos.x,
+      offsetY: pointerStageY - pos.y,
     };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [positions]);
+  }, [positions, pan.x, pan.y, zoom]);
+
+  // background pan — stage 영역 직접 pointerdown (node-wrap 외부 + drag-handle 외부).
+  const onStagePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // node-wrap 내부 영역 무시 (node drag 또는 body interaction).
+    if (target.closest('.snn-pipeline-node-wrap')) return;
+    // SVG path 영역 무시 (pointer-events none 영역 — 본 영역 fallthrough).
+    panDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      basePanX: pan.x,
+      basePanY: pan.y,
+      pointerId: e.pointerId,
+    };
+    (e.currentTarget).setPointerCapture?.(e.pointerId);
+  }, [pan.x, pan.y]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    if (!drag) return;
-    const stage = stageRef.current;
-    if (!stage) return;
-    const stageRect = stage.getBoundingClientRect();
-    const x = Math.max(0, e.clientX - stageRect.left - drag.offsetX);
-    const y = Math.max(0, e.clientY - stageRect.top - drag.offsetY);
-    setPositions((prev) => ({ ...prev, [drag.id]: { x, y } }));
-  }, []);
+    if (drag) {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const stageRect = stage.getBoundingClientRect();
+      const pointerStageX = (e.clientX - stageRect.left - pan.x) / zoom;
+      const pointerStageY = (e.clientY - stageRect.top - pan.y) / zoom;
+      const x = Math.max(0, pointerStageX - drag.offsetX);
+      const y = Math.max(0, pointerStageY - drag.offsetY);
+      setPositions((prev) => ({ ...prev, [drag.id]: { x, y } }));
+      return;
+    }
+    const panDrag = panDragRef.current;
+    if (panDrag) {
+      const dx = e.clientX - panDrag.startX;
+      const dy = e.clientY - panDrag.startY;
+      setPan({ x: panDrag.basePanX + dx, y: panDrag.basePanY + dy });
+    }
+  }, [pan.x, pan.y, zoom]);
 
   const onPointerUp = useCallback(() => {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    setPositions((prev) => {
-      savePositions(prev);
-      return prev;
-    });
+    if (dragRef.current) {
+      dragRef.current = null;
+      setPositions((prev) => {
+        savePositions(prev);
+        return prev;
+      });
+    }
+    if (panDragRef.current) {
+      panDragRef.current = null;
+    }
   }, []);
+
+  // wheel zoom — 사용자 mandatory: 마우스 휠 영역 zoom (Ctrl 또는 default 둘 다).
+  // zoom anchor: stage 영역 mouse position 영역 — pan 보정 영역 stage 영역 fixed.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      // delta — wheel down 영역 zoom out, up 영역 in.
+      const delta = -e.deltaY * 0.0015;
+      setZoom((prevZoom) => {
+        const nextZoom = Math.max(0.5, Math.min(2.0, prevZoom * (1 + delta)));
+        if (nextZoom === prevZoom) return prevZoom;
+        // anchor — mouse 영역 stage 내부 영역 fixed (pan 영역 보정).
+        setPan((prevPan) => {
+          const stageX = (mouseX - prevPan.x) / prevZoom;
+          const stageY = (mouseY - prevPan.y) / prevZoom;
+          return {
+            x: mouseX - stageX * nextZoom,
+            y: mouseY - stageY * nextZoom,
+          };
+        });
+        return nextZoom;
+      });
+    };
+    stage.addEventListener('wheel', handler, { passive: false });
+    return () => stage.removeEventListener('wheel', handler);
+  }, []);
+
+  // pinch zoom — 2-touch event (touchstart/touchmove/touchend).
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const distance = (touches: TouchList) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchRef.current = { initialDist: distance(e.touches), initialZoom: zoom };
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault();
+        const dist = distance(e.touches);
+        const ratio = dist / pinchRef.current.initialDist;
+        const nextZoom = Math.max(0.5, Math.min(2.0, pinchRef.current.initialZoom * ratio));
+        setZoom(nextZoom);
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchRef.current = null;
+    };
+    stage.addEventListener('touchstart', onTouchStart, { passive: false });
+    stage.addEventListener('touchmove', onTouchMove, { passive: false });
+    stage.addEventListener('touchend', onTouchEnd);
+    stage.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      stage.removeEventListener('touchstart', onTouchStart);
+      stage.removeEventListener('touchmove', onTouchMove);
+      stage.removeEventListener('touchend', onTouchEnd);
+      stage.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [zoom]);
 
   const resetLayout = useCallback(() => {
     setPositions({ ...INITIAL_POS });
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
     if (typeof window !== 'undefined') {
       try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* silent. */ }
     }
@@ -311,61 +429,62 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       <div
         className="snn-pipeline-stage"
         ref={stageRef}
+        onPointerDown={onStagePointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
         style={{ '--stage-w': `${stageWidth}px`, '--stage-h': `${stageHeight}px` } as React.CSSProperties}
       >
-        {/* SVG overlay — bezier 4 path. node z-index 위쪽 영역 path 영역 노드 뒤. */}
-        <svg
-          className="snn-pipeline-svg"
-          width={stageWidth}
-          height={stageHeight}
-          viewBox={`0 0 ${stageWidth} ${stageHeight}`}
-          aria-hidden
+        {/* transform wrapper — pan + zoom 적용. SVG + node 모두 동일 transform 정합.
+            CSS var 영역 inline style 폐기 (eslint no-inline-styles 정합 — class 영역 var 영역 transform). */}
+        <div
+          className="snn-pipeline-transform"
+          style={{ '--pan-x': `${pan.x}px`, '--pan-y': `${pan.y}px`, '--zoom': zoom } as React.CSSProperties}
         >
-          <defs>
-            {EDGES.map(([a, b], i) => (
-              <path key={`def-${i}`} id={`snn-edge-path-${i}`} d={buildPath(a, b)} fill="none" />
-            ))}
-          </defs>
-          {EDGES.map(([a, b], i) => {
-            const d = buildPath(a, b);
-            const active = segActive[i];
-            return (
-              <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'}`}>
-                <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? 2.4 : 1.6} fill="none" strokeLinecap="round" />
-                {active && (
-                  <circle r="4" className="snn-pipeline-edge-dot" fill="currentColor">
-                    <animateMotion dur="1.5s" repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
-                      <mpath href={`#snn-edge-path-${i}`} />
-                    </animateMotion>
-                  </circle>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-        {/* 5 absolute draggable node. */}
-        {(Object.keys(positions) as NodeId[]).map((id) => (
-          <div
-            key={id}
-            ref={(el) => { nodeRefs.current[id] = el; }}
-            className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id}`}
-            style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
-            onPointerDown={onPointerDownNode(id)}
+          {/* SVG overlay — bezier 4 path. node z-index 위쪽 영역 path 영역 노드 뒤. */}
+          <svg
+            className="snn-pipeline-svg"
+            width={stageWidth}
+            height={stageHeight}
+            viewBox={`0 0 ${stageWidth} ${stageHeight}`}
+            aria-hidden
           >
-            {/* drag handle bar — grip icon only (사용자 catch: 제목 중복 폐기 — NodeShell header 영역 본 제목 영역). */}
+            <defs>
+              {EDGES.map(([a, b], i) => (
+                <path key={`def-${i}`} id={`snn-edge-path-${i}`} d={buildPath(a, b)} fill="none" />
+              ))}
+            </defs>
+            {EDGES.map(([a, b], i) => {
+              const d = buildPath(a, b);
+              const active = segActive[i];
+              return (
+                <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'}`}>
+                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? 2.4 : 1.6} fill="none" strokeLinecap="round" />
+                  {active && (
+                    <circle r="4" className="snn-pipeline-edge-dot" fill="currentColor">
+                      <animateMotion dur="1.5s" repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
+                        <mpath href={`#snn-edge-path-${i}`} />
+                      </animateMotion>
+                    </circle>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+          {/* 5 absolute draggable node. */}
+          {(Object.keys(positions) as NodeId[]).map((id) => (
             <div
-              className="snn-pipeline-node-drag-handle"
-              role="presentation"
-              title="Drag to reposition"
+              key={id}
+              ref={(el) => { nodeRefs.current[id] = el; }}
+              className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id}`}
+              style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
+              onPointerDown={onPointerDownNode(id)}
             >
-              <span className="snn-pipeline-node-drag-grip" aria-hidden>⋮⋮</span>
+              {/* drag handle bar 폐기 (사용자 catch: 불필요) — node-wrap 자체 영역 drag trigger. */}
+              {renderNode(id)}
             </div>
-            {renderNode(id)}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       {ctrl.trainStatus && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">

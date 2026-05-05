@@ -134,6 +134,13 @@
   flex-direction: column;
   gap: 10px;
 }
+@media (max-width: 900px) {
+  .snn-pipeline {
+    /* 모바일 vertical scroll 사용자 catch — overflow auto. */
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
 
 /* ─────────────── LEARN node 내부 V1/V2 cortical region strip ─────────────
    직전 위쪽 RegionCascade row 폐기 — INPUT/OUT region 영역 INPUT/OUT 노드 영역
@@ -243,6 +250,21 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   overflow: hidden;
+  /* pan cursor — 사용자 mandatory: 빈 영역 drag 영역 캔버스 이동. */
+  cursor: grab;
+  touch-action: none;
+}
+.snn-pipeline-stage:active { cursor: grabbing; }
+/* transform wrapper — pan + zoom (사용자 mandatory 99점). CSS var 영역 PipelineCanvas
+   영역 동적 set — translate(--pan-x, --pan-y) scale(--zoom). transform-origin top-left.
+   wrapper 영역 stage 내부 absolute fill — SVG + node 영역 동일 transform 적용. */
+.snn-pipeline-transform {
+  position: absolute;
+  inset: 0;
+  transform: translate(var(--pan-x, 0px), var(--pan-y, 0px)) scale(var(--zoom, 1));
+  transform-origin: 0 0;
+  /* will-change — wheel/drag 영역 GPU compositing 정합. */
+  will-change: transform;
 }
 .snn-pipeline-svg {
   position: absolute;
@@ -329,7 +351,8 @@
 }
 @media (max-width: 900px) {
   /* mobile — drag/absolute 영역 부적합 → stage 영역 vertical flex 영역 fallback.
-     node-wrap 영역 absolute 폐기, drag-handle hide, SVG hide. */
+     node-wrap 영역 absolute 폐기, drag-handle hide, SVG hide.
+     transform wrapper 영역 vertical stack 정합 — pan/zoom 영역 폐기 + flex column. */
   .snn-pipeline-stage {
     display: flex;
     flex-direction: column;
@@ -341,6 +364,20 @@
     background-image: none;
     border: 0;
     overflow: visible;
+    /* mobile 영역 pan cursor 폐기 — touch scroll 정합. */
+    cursor: auto;
+    touch-action: auto;
+  }
+  .snn-pipeline-transform {
+    /* mobile — transform 폐기, vertical flex 정합 (pan/zoom 영역 desktop only). */
+    position: static;
+    inset: auto;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--pipe-gap-md);
+    width: 100%;
+    will-change: auto;
   }
   .snn-pipeline-svg { display: none; }
   .snn-pipeline-node-wrap {
@@ -570,15 +607,12 @@
   background: #050505;
   border-radius: 3px;
   overflow: hidden;
-}
-/* content-fit v4 — 카메라 active 영역 4/3 expand, 미연결 영역 단순 1-line height auto.
-   사용자 catch "INPUT 카메라 미연결 영역 placeholder height 영역 영역 영역". */
-.snn-pipeline-cam.is-active {
+  /* fixed size — 사용자 catch (2026-05-05): active/empty 영역 동일 영역 4/3. */
   aspect-ratio: 4 / 3;
 }
+.snn-pipeline-cam.is-active,
 .snn-pipeline-cam.is-empty {
-  aspect-ratio: auto;
-  min-height: 0;
+  aspect-ratio: 4 / 3;
 }
 .snn-pipeline-cam .snn-cam-video,
 .snn-pipeline-cam .snn-cam-skel {

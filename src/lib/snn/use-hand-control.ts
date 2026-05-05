@@ -54,13 +54,14 @@ export const CLUSTER_TO_LABEL: Record<number, string> = {
   3: 'Victory',
 };
 
-// supervised teacher 정합 임계 — 0.65 (사용자 catch 2026-05-05: 0.85 영역 너무 엄격
-// — Open_Palm 77% conf 영역 영역 영역 trigger 0 → V1/V2 fire 0 본질 catch).
-// 0.65 영역 영역 noisy teacher 회피 + 영역 영역 영역 정상 인식 영역 영역 trigger 정합.
-export const GESTURE_CONFIDENCE_MIN = 0.65;
-// N consecutive same-name frame 합의 — 3 (직전 5 영역 하향: 응답 속도 영역).
-// 사용자 catch: 학습 trigger 영역 영역 빠르게 활성화 mandatory.
-export const GESTURE_STABLE_FRAMES = 3;
+// supervised teacher 정합 임계 — 0.6 (사용자 명시 2026-05-05).
+// 정직 한계: 0.6 영역 noisy teacher 영역 misclassification 영역 ↑ 가능 →
+// STDP cross-cluster contamination 영역 selectivity 영역 가능. mitigation:
+// GESTURE_STABLE_FRAMES = 5 영역 안정 frame ↑ + supervisor_weight ↓ (별도 turn).
+export const GESTURE_CONFIDENCE_MIN = 0.6;
+// N consecutive same-name frame 합의 — 5 (noisy teacher mitigation).
+// 0.6 conf 영역 misclass 영역 5 frame 동일 영역 영역 0 → 안정 frame ↑.
+export const GESTURE_STABLE_FRAMES = 5;
 // cluster 당 supervised inject 영역 target frame 수 — 30 (사용자 명시 redesign).
 export const CLUSTER_TARGET_FRAMES = 30;
 

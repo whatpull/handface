@@ -393,27 +393,18 @@ function NodeInfer({ winnerCluster }: { winnerCluster: number | null }) {
 
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      const out = d.out_rates || {};
-      const sum = [0, 0, 0, 0];
-      const cnt = [0, 0, 0, 0];
-      for (const [k, v] of Object.entries(out)) {
-        const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
-        if (!m) continue;
-        const ci = Number(m[1]);
-        if (ci >= 0 && ci < 4) { sum[ci] += v; cnt[ci] += 1; }
-      }
-      const mean = sum.map((s, i) => cnt[i] > 0 ? s / cnt[i] : 0);
-      const sorted = mean.map((rate, ci) => ({ rate, ci })).sort((a, b) => b.rate - a.rate);
-      const max = sorted[0].rate;
-      const second = sorted[1]?.rate ?? 0;
-      const margin = max > 0 ? (max - second) / max : 0;
-      const cluster = max > 0 && margin >= WINNER_MARGIN ? sorted[0].ci : null;
-      const saturated = mean.every((v) => v >= SATURATION_HZ);
-      const total = mean.reduce((a, b) => a + b, 0);
-      const confidence = total > 0 ? max / total : 0;
-      setWinner({ cluster, rates: mean, confidence, margin, saturated });
-      if (cluster !== null) {
-        setHistory((h) => [...h.slice(-9), cluster]);
+      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
+      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      const saturated = w.clusterRates.every((v) => v >= SATURATION_HZ);
+      setWinner({
+        cluster: w.cluster,
+        rates: w.clusterRates,
+        confidence: w.confidence,
+        margin: w.margin,
+        saturated,
+      });
+      if (w.cluster !== null) {
+        setHistory((h) => [...h.slice(-9), w.cluster!]);
       }
     });
     return off;
@@ -506,24 +497,9 @@ function NodeOut({ winnerCluster }: { winnerCluster: number | null }) {
 
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      const out = d.out_rates || {};
-      const sum = [0, 0, 0, 0];
-      const cnt = [0, 0, 0, 0];
-      for (const [k, v] of Object.entries(out)) {
-        const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
-        if (!m) continue;
-        const ci = Number(m[1]);
-        if (ci >= 0 && ci < 4) { sum[ci] += v; cnt[ci] += 1; }
-      }
-      const mean = sum.map((s, i) => cnt[i] > 0 ? s / cnt[i] : 0);
-      const sorted = mean.map((rate, ci) => ({ rate, ci })).sort((a, b) => b.rate - a.rate);
-      const max = sorted[0].rate;
-      const second = sorted[1]?.rate ?? 0;
-      const margin = max > 0 ? (max - second) / max : 0;
-      const total = mean.reduce((a, b) => a + b, 0);
-      const cluster = max > 0 && margin >= WINNER_MARGIN ? sorted[0].ci : null;
-      const confidence = total > 0 ? max / total : 0;
-      setWinner({ cluster, confidence, margin });
+      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
+      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      setWinner({ cluster: w.cluster, confidence: w.confidence, margin: w.margin });
     });
     return off;
   }, []);
@@ -679,24 +655,15 @@ function NodeLlm({
 
   useEffect(() => {
     const off = onBackendEvent<NeuronFiringDetail>('neuron-firing', (d) => {
-      const out = d.out_rates || {};
-      const sum = [0, 0, 0, 0];
-      const cnt = [0, 0, 0, 0];
-      for (const [k, v] of Object.entries(out)) {
-        const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
-        if (!m) continue;
-        const ci = Number(m[1]);
-        if (ci >= 0 && ci < 4) { sum[ci] += v; cnt[ci] += 1; }
-      }
-      const mean = sum.map((s, i) => cnt[i] > 0 ? s / cnt[i] : 0);
-      const sorted = mean.map((rate, ci) => ({ rate, ci })).sort((a, b) => b.rate - a.rate);
-      const max = sorted[0].rate;
-      const second = sorted[1]?.rate ?? 0;
-      const margin = max > 0 ? (max - second) / max : 0;
-      const cluster = max > 0 && margin >= WINNER_MARGIN ? sorted[0].ci : null;
-      const total = mean.reduce((a, b) => a + b, 0);
-      const confidence = total > 0 ? max / total : 0;
-      setWinner({ cluster, rates: mean, counts: cnt, confidence, margin });
+      // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
+      const w = deriveWinner(d.out_rates || {}, WINNER_MARGIN);
+      setWinner({
+        cluster: w.cluster,
+        rates: w.clusterRates,
+        counts: w.clusterCounts,
+        confidence: w.confidence,
+        margin: w.margin,
+      });
     });
     return off;
   }, []);

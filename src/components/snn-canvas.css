@@ -286,6 +286,10 @@
   border-color: rgba(94, 234, 212, 0.4);
   color: #99f6e4;
 }
+.snn-out-label-display:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.6);
+  outline-offset: 2px;
+}
 /* "named" 색 통합 — OUT tone 정합 (pink). Pipeline `.is-named` 영역 일치. */
 .snn-out-label-display--named {
   color: #f9a8d4;
@@ -1040,7 +1044,14 @@
   background: rgba(255,255,255,0.10);
   border-color: rgba(255,255,255,0.35);
 }
+.snn-pipeline-btn:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.6);
+  outline-offset: 2px;
+}
 .snn-pipeline-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (pointer: coarse) {
+  .snn-pipeline-btn { padding: 10px 12px; }
+}
 
 /* LLM */
 .snn-pipeline-field { display: flex; flex-direction: column; gap: 3px; }
@@ -1142,3 +1153,41 @@
 .snn-pipeline.is-phase-partial   { background: linear-gradient(180deg, #0a0a0c 0%, #100a06 100%); }
 .snn-pipeline.is-phase-trained   { background: linear-gradient(180deg, #0a0a0c 0%, #051209 100%); }
 .snn-pipeline.is-phase-inference { background: linear-gradient(180deg, #0a0a0c 0%, #050a14 100%); }
+
+/* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ─────────────
+   사용자 OS 영역 motion-reduce 설정 영역 정합 — 모든 keyframe + transition 영역
+   영역 0.01ms 영역 단축 (즉시 정지 영역 영역 시각 변화 영역 보존). animation 영역
+   `none` 영역 0 — `0.01ms` 영역 영역 frame 영역 1 영역 영역 영역 영역 정합. */
+@media (prefers-reduced-motion: reduce) {
+  #nf-snn-canvas .drawflow .connection.fired .main-path,
+  #nf-snn-canvas .drawflow .connection.weight-flash-ltp .main-path,
+  #nf-snn-canvas .drawflow .connection.weight-flash-ltd .main-path,
+  .snn-cam-chip--busy,
+  .snn-canvas-loading-spinner,
+  .snn-pipeline-arrow-pulse,
+  .snn-mode-progress-fill.is-active,
+  .snn-pipeline-current.is-active,
+  .snn-pipeline-rate-row.is-winner,
+  .snn-pipeline-toast {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  #nf-snn-canvas .drawflow .connection .main-path,
+  #nf-snn-canvas .drawflow-node .input,
+  #nf-snn-canvas .drawflow-node .output,
+  .snn-canvas-neuron-card,
+  .snn-out-label-display,
+  .snn-cam-chip,
+  .snn-cam-btn,
+  .snn-pipeline-node,
+  .snn-pipeline-btn,
+  .snn-pipeline-cluster-row,
+  .snn-pipeline-rate-row,
+  .snn-pipeline-current,
+  .snn-pipeline-out-winner-btn,
+  .snn-pipeline-arrow,
+  .snn-mode-progress-fill,
+  .snn-feat-bar-fill {
+    transition-duration: 0.01ms !important;
+  }
+}

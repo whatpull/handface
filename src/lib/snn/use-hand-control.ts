@@ -29,6 +29,7 @@ const AUTO_TICK_MS = 350;          // STDP-on inject 주기
 const STABILITY_FRAMES = 4;        // 같은 winner N frame 연속 → 안정
 const MIN_CONFIDENCE = 0.4;        // winner / total ratio
 const COOLDOWN_MS = 1500;          // 같은 OUT 연속 record 최소 간격
+const HOMEOSTASIS_EVERY = 30;      // N tick 마다 synaptic scaling — winner monopoly 회피
 
 export function useHandControl(cameraConnected: boolean, autoLive = false, autoCapture = false) {
   const [hasHand, setHasHand] = useState(false);
@@ -132,6 +133,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     let cancelled = false;
     let lastWinner: string | null = null;
     let stableCount = 0;
+    let homeostasisCount = 0;
     const lastRecordAt: Record<string, number> = {};
 
     const tick = async () => {
@@ -143,6 +145,12 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         setLiveResult(null);
         if (!cancelled) setTimeout(tick, AUTO_TICK_MS);
         return;
+      }
+      // Homeostatic synaptic scaling — N tick 마다 호출 → winner OUT weight 약화,
+      // silent OUT weight 강화 (Turrigiano 1998). monopoly 회피 mandatory.
+      homeostasisCount += 1;
+      if (homeostasisCount % HOMEOSTASIS_EVERY === 0) {
+        void getClient().homeostatic(5.0).catch(() => null);
       }
       const pattern = feat.slice(0, 16);
       // 자율 STDP — target_out 없이 STDP=on. cortical lateral 회로가 winner 결정.

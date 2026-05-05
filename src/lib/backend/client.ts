@@ -289,6 +289,17 @@ export class NeuronFaceClient {
     return r;
   }
 
+  // Homeostatic synaptic scaling — 자주 fire 한 뉴런 weight 약화, 미발화는 강화.
+  // Turrigiano (1998) 정합. autoCapture 에서 N tick 마다 호출 → winner monopoly 회피.
+  async homeostatic(targetHz = 5.0): Promise<Result<{ ok: boolean; adjusted: number }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    return this.request(`/networks/${net.data}/homeostatic`, {
+      method: 'POST',
+      body: { target_hz: targetHz, window_ms: 200, min_spikes: 1 },
+    });
+  }
+
   // 커뮤니티 — 학습 weight 기여 + 집계 baseline 가져오기.
   async contributeWeights(
     contributorId?: string | null,

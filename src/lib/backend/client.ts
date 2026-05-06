@@ -438,6 +438,123 @@ export class NeuronFaceClient {
     return r;
   }
 
+  // N13 orientation preset — generic V1/V2 + R-STDP self-organize substrate 빌드.
+  // backend endpoint: POST /networks/{id}/presets/orientation
+  // body: { v_threshold?: number, overwrite?: boolean }
+  // 4×4 pixel grid (= 16 INPUT) 정합 + 강 WTA + OUT cluster slot 4개 + R-STDP 학습으로
+  // 4 orientation (─ / │ / ╱ / ╲) selectivity 가 자연 emerge.
+  async presetOrientation(
+    opts: { vThreshold?: number; overwrite?: boolean } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    [key: string]: unknown;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const r = await this.request<{ ok: boolean; [key: string]: unknown }>(
+      `/networks/${net.data}/presets/orientation`,
+      {
+        method: 'POST',
+        body: {
+          v_threshold: opts.vThreshold ?? -55.0,
+          overwrite: opts.overwrite ?? false,
+        },
+      },
+    );
+    if (r.ok) {
+      // substrate 재빌드 후에는 prefix cache 갱신 필요 — feature16 preset 재진입 회피.
+      this.presetEnsured = true;
+      emitBackendEvent('circuit-changed', {});
+    }
+    return r;
+  }
+
+  // N13 R-STDP cluster training — supervisor pulse 폐기, INPUT 자극 + reward modulation.
+  // backend endpoint: POST /networks/{id}/cluster_train_rstdp
+  // body: {patterns: N×16, target_cluster: 0..3, intensity, observe_ms,
+  //        stimulus_duration_ms, stdp_mode, reward_strength, partial_reward, delta_threshold}
+  // 응답: {ok, method, trained, correct, fired_partial, accuracy, target_cluster,
+  //        target_outs, cluster_rates_history, total_amplified_delta, weight_changes, ...}
+  //
+  // grid orientation path (path Y) 전용 — clusterTrainSupervised 와 분리.
+  async clusterTrainRStdp(
+    patterns: number[][],
+    targetCluster: 0 | 1 | 2 | 3,
+    opts: {
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+      stdpMode?: 'pair' | 'triplet';
+      rewardStrength?: number;
+      partialReward?: number;
+      deltaThreshold?: number;
+    } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    method: string;
+    trained: number;
+    correct: number;
+    fired_partial: number;
+    accuracy: number;
+    target_cluster: number;
+    target_outs: string[];
+    reward_strength: number;
+    partial_reward: number;
+    stdp_mode: string;
+    total_amplified_delta: number;
+    cluster_rates_history: number[][];
+    weight_changes_count: number;
+    weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
+    synapses_total: number;
+    reason?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    // 16-dim padding/clamping per-pattern.
+    const p16Patterns = patterns.map((pattern) => {
+      const p16 = new Array<number>(16).fill(0);
+      for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+        const v = pattern[i];
+        p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+      }
+      return p16;
+    });
+    const r = await this.request<{
+      ok: boolean;
+      method: string;
+      trained: number;
+      correct: number;
+      fired_partial: number;
+      accuracy: number;
+      target_cluster: number;
+      target_outs: string[];
+      reward_strength: number;
+      partial_reward: number;
+      stdp_mode: string;
+      total_amplified_delta: number;
+      cluster_rates_history: number[][];
+      weight_changes_count: number;
+      weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
+      synapses_total: number;
+      reason?: string;
+    }>(`/networks/${net.data}/cluster_train_rstdp`, {
+      method: 'POST',
+      body: {
+        patterns: p16Patterns,
+        target_cluster: targetCluster,
+        intensity: opts.intensity ?? 3.0,
+        observe_ms: opts.observeMs ?? 150.0,
+        stimulus_duration_ms: opts.stimulusDurationMs ?? 20.0,
+        stdp_mode: opts.stdpMode ?? 'pair',
+        reward_strength: opts.rewardStrength ?? 2.0,
+        partial_reward: opts.partialReward ?? 1.2,
+        delta_threshold: opts.deltaThreshold ?? 0.01,
+      },
+    });
+    if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    return r;
+  }
+
   // N4 cluster lock — incoming 시냅스 STDP 영구 off (backend ddb220e 정합).
   // backend endpoint: POST /networks/{id}/cluster_lock
   // body: {cluster_id: 0..15, lock: bool}

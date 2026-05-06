@@ -260,9 +260,11 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   overflow: hidden;
-  /* pan cursor — 사용자 mandatory: 빈 영역 drag 영역 캔버스 이동. */
+  /* pan cursor — 데스크톱 mouse drag 으로 stage 이동. */
   cursor: grab;
-  touch-action: none;
+  /* touch: vertical scroll 은 페이지에 양보 (사용자 모바일 catch).
+     pinch-zoom 은 우리 핸들러가 직접 처리. */
+  touch-action: pan-y;
 }
 .snn-pipeline-stage:active { cursor: grabbing; }
 /* transform wrapper — pan + zoom (사용자 mandatory 99점). CSS var 영역 PipelineCanvas
@@ -302,7 +304,8 @@
   top: var(--node-y, 0px);
   width: 220px;
   z-index: 2;
-  touch-action: none;
+  /* touch: vertical scroll 은 페이지에 양보. drag 는 mouse/pen 만. */
+  touch-action: pan-y;
 }
 .snn-pipeline-node-drag-handle {
   display: flex;

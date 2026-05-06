@@ -269,9 +269,11 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   }, [positions]);
 
   const onPointerDownNode = useCallback((id: NodeId) => (e: React.PointerEvent<HTMLDivElement>) => {
-    // input / button / video / canvas / textarea / select 영역 외 영역 drag trigger.
+    // input / button / video / canvas / textarea / select 등은 drag 폐기.
     const target = e.target as HTMLElement;
     if (target.closest('input, button, textarea, select, video, canvas, label, summary, details, [contenteditable]')) return;
+    // 모바일 touch 는 native vertical scroll 우선 — node drag 폐기 (사용자 catch).
+    if (e.pointerType === 'touch') return;
     e.preventDefault();
     e.stopPropagation();
     const stage = stageRef.current;
@@ -289,12 +291,12 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, [positions, pan.x, pan.y, zoom]);
 
-  // background pan — stage 영역 직접 pointerdown (node-wrap 외부 + drag-handle 외부).
+  // background pan — stage 직접 pointerdown (node-wrap / drag-handle 외부).
   const onStagePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    // node-wrap 내부 영역 무시 (node drag 또는 body interaction).
     if (target.closest('.snn-pipeline-node-wrap')) return;
-    // SVG path 영역 무시 (pointer-events none 영역 — 본 부분 fallthrough).
+    // 모바일 touch 는 native vertical scroll 우선 — pan drag 폐기 (사용자 catch).
+    if (e.pointerType === 'touch') return;
     panDragRef.current = {
       startX: e.clientX,
       startY: e.clientY,

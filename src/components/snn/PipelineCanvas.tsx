@@ -313,22 +313,26 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     }
   }, []);
 
-  // wheel zoom — 사용자 mandatory: 마우스 휠 영역 zoom (Ctrl 또는 default 둘 다).
+  // wheel zoom — 사용자 catch 2026-05-06:
+  //  [1] delta 0.0015 영역 너무 극단 → 0.0004 (4배 milder, Figma/Miro 정합).
+  //  [2] Ctrl/Cmd + wheel 영역만 zoom — 일반 wheel 영역 native scroll 보존
+  //      (모바일 vertical scroll 차단 catch).
   // zoom anchor: stage 영역 mouse position 영역 — pan 보정 영역 stage 영역 fixed.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const handler = (e: WheelEvent) => {
+      // Ctrl/Cmd + wheel 영역만 zoom — 일반 wheel 영역 native scroll 보존.
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const rect = stage.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
-      // delta — wheel down 영역 zoom out, up 영역 in.
-      const delta = -e.deltaY * 0.0015;
+      // delta — 0.0015 → 0.0004 (사용자 catch: 너무 극단).
+      const delta = -e.deltaY * 0.0004;
       setZoom((prevZoom) => {
         const nextZoom = Math.max(0.5, Math.min(2.0, prevZoom * (1 + delta)));
         if (nextZoom === prevZoom) return prevZoom;
-        // anchor — mouse 영역 stage 내부 영역 fixed (pan 영역 보정).
         setPan((prevPan) => {
           const stageX = (mouseX - prevPan.x) / prevZoom;
           const stageY = (mouseY - prevPan.y) / prevZoom;

@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
-import { emitBackendEvent, type GridTrainingDetail } from '@/lib/backend/events';
+import { emitBackendEvent, type GridTrainingDetail, type GridInferDetail } from '@/lib/backend/events';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -132,12 +132,16 @@ export default function GridInput() {
   const runInfer = useCallback(async () => {
     setStatus({ kind: 'inferring' });
     setInfer(null);
+    emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
     const r = await getClient().injectPattern(grid, { stdp: false });
     if (r.ok) {
       const rates = r.data.cluster_rates ?? [];
       const cluster = r.data.winner_cluster ?? null;
       const margin = r.data.winner_margin ?? 0;
       setInfer({ cluster, rates, margin });
+      const winnerCluster = cluster !== null && cluster >= 0 && cluster <= 3
+        ? (cluster as 0 | 1 | 2 | 3)
+        : null;
       if (cluster !== null) {
         setStatus({
           kind: 'ok',
@@ -146,8 +150,10 @@ export default function GridInput() {
       } else {
         setStatus({ kind: 'ok', message: '추론 완료 — winner 없음 (WTA tie)' });
       }
+      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
     } else {
       setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
+      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
     }
   }, [grid]);
 

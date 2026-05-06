@@ -290,14 +290,16 @@
 }
 .snn-pipeline-edge.is-active {
   color: rgba(255, 255, 255, 0.92);
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+  /* glow 폐기 — 색만 강조. */
+  filter: none;
 }
 .snn-pipeline-edge-path {
   transition: stroke-width 200ms ease;
 }
-.snn-pipeline-edge-dot {
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
-}
+/* 사용자 catch 2026-05-07: 모서리 끝 조명 catch — animateMotion dot 의
+   drop-shadow glow 가 path 따라 이동하면서 stage 모서리에 빛 자국.
+   데스크톱도 dot 자체 폐기 + edge active glow 폐기. */
+.snn-pipeline-edge-dot { display: none; }
 .snn-pipeline-node-wrap {
   position: absolute;
   left: var(--node-x, 0px);
@@ -437,19 +439,17 @@
 .snn-pipeline-conn-head {
   transition: stroke-width 200ms ease, opacity 200ms ease;
 }
-/* active — white + drop-shadow glow (drawflow fired class 정합). */
+/* active — 색만 강조, glow 폐기 (사용자 catch 2026-05-07 모서리 조명 catch). */
 .snn-pipeline-arrow.is-active {
   color: rgba(255, 255, 255, 0.92);
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+  filter: none;
 }
 .snn-pipeline-arrow.is-active .snn-pipeline-conn-path,
 .snn-pipeline-arrow.is-active .snn-pipeline-conn-head {
   stroke-width: 2;
 }
-/* active dot — animateMotion 영역 path 영역 1.5s 1회 traversal. */
-.snn-pipeline-conn-dot {
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
-}
+/* active dot 폐기 — animateMotion + glow 가 모서리 조명 catch 의 본격 원인. */
+.snn-pipeline-conn-dot { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .snn-pipeline-conn-dot { animation-duration: 0.01ms !important; }
 }
@@ -460,29 +460,11 @@
     height: 36px;
     margin: var(--pipe-gap-xs) 0;
   }
-  /* 사용자 catch 2026-05-07: 모바일 반짝이는 하얀점 catch — 영역 벗어난
-     위치에 보임. 원인 후보 다수 (Arrow conn-dot / SVG edge-dot / cluster-
-     bar-pulse / tick-spinner glow). 모바일 한정 모두 hide — 데스크톱
-     흐름은 그대로 보존. */
-  .snn-pipeline-conn-dot,
-  .snn-pipeline-edge-dot,
-  .snn-pipeline-cluster-bar-pulse {
-    display: none !important;
-  }
-  /* active arrow / edge glow drop-shadow 도 폐기. */
-  .snn-pipeline-arrow.is-active,
-  .snn-pipeline-edge.is-active {
-    filter: none;
-  }
-  /* tick-spinner — 사용자 catch 2026-05-07 (캡처): status panel 안과
-     cluster bar 옆에 inline 으로 떠 있는 흰점이 vertical-align 깨진
-     위치에 표시. 학습 진행 신호는 텍스트 ("학습 중 (30 frame)..." /
-     "LEARNING — capturing frames") 자체로 충분하므로 점 element 폐기. */
-  .snn-pipeline-tick-spinner,
-  .snn-pipeline-tick-spinner--inline {
-    display: none !important;
-  }
-  /* 무한 fill pulse 도 약화. */
+  /* dot / glow / spinner / tick-spinner 데스크톱 정정 (위 base rule)
+     이 모든 환경에 적용되므로 모바일 한정 중복 폐기. cluster-bar-pulse
+     만 모바일 한정 hide (데스크톱은 capturing 시각화 보존). */
+  .snn-pipeline-cluster-bar-pulse { display: none !important; }
+  /* 무한 fill pulse 도 모바일 약화. */
   .snn-mode-progress-fill,
   .snn-pipeline-current,
   .snn-pipeline-out-winner-btn {
@@ -1018,8 +1000,18 @@
   }
 }
 .snn-pipeline-node-wrap.is-infer-active .snn-pipeline-node {
-  border-color: rgba(var(--pipe-tone-infer, 96 165 250), 0.40);
-  box-shadow: 0 0 12px rgba(var(--pipe-tone-infer, 96 165 250), 0.16);
+  border-color: rgba(var(--pipe-tone-infer, 96 165 250), 0.55);
+  box-shadow:
+    0 0 0 1px rgba(var(--pipe-tone-infer, 96 165 250), 0.30),
+    0 0 14px rgba(var(--pipe-tone-infer, 96 165 250), 0.22);
+}
+/* 사용자 catch 2026-05-07: 결과 표시 시 OUT 노드 강조. */
+.snn-pipeline-node-wrap.is-out-active .snn-pipeline-node {
+  border-color: rgba(132, 204, 22, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(132, 204, 22, 0.30),
+    0 0 14px rgba(132, 204, 22, 0.22);
+  transition: border-color 220ms ease, box-shadow 220ms ease;
 }
 
 /* 7) edge 영역 학습 fast — INPUT→LEARN, LEARN→INFER 영역 학습 중 강 glow. */
@@ -1704,12 +1696,15 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   color: var(--pipe-text);
-  padding: 4px 8px;
+  /* 사용자 catch 2026-05-07: cluster btn 과 train btn 동일 height. */
+  min-height: 32px;
+  padding: 4px 10px;
   cursor: pointer;
   transition: background 120ms ease;
 }
@@ -1743,13 +1738,18 @@
 }
 .snn-grid-train-btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--pipe-border-strong);
   border-radius: 3px;
   color: var(--pipe-text);
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.04em;
-  padding: 4px 10px;
+  /* preset btn 정합 height. */
+  min-height: 32px;
+  padding: 4px 12px;
   cursor: pointer;
   transition: background 120ms ease;
 }

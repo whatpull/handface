@@ -126,49 +126,71 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     setFramesNonce(sum);
   }), []);
 
-  // 사용자 catch 2026-05-07: grid path 학습 진행 시 모든 connector + 노드 활성화.
-  // GridInput 가 emit 하는 'grid-training' event 영역 listen → gridTrainingActive.
+  // 사용자 catch 2026-05-07: 단계별 활성화 — 학습/추론/결과 각 단계마다
+  // 해당 노드와 그 노드로 들어오는 connector 만 활성화.
   const [gridTrainingActive, setGridTrainingActive] = useState<boolean>(false);
+  const [gridInferActive, setGridInferActive] = useState<boolean>(false);
+  // 결과 표시 — 추론 완료 후 1500ms 동안 OUT 노드 highlight.
+  const [resultActive, setResultActive] = useState<boolean>(false);
+
   useEffect(() => onBackendEvent<{ kind: 'started' | 'finished' | 'error' }>('grid-training', (d) => {
-    if (d.kind === 'started') setGridTrainingActive(true);
-    else setGridTrainingActive(false);
+    setGridTrainingActive(d.kind === 'started');
   }), []);
+  useEffect(() => onBackendEvent<{ kind: 'started' | 'finished' | 'error' }>('grid-infer', (d) => {
+    if (d.kind === 'started') {
+      setGridInferActive(true);
+      setResultActive(false);
+    } else {
+      setGridInferActive(false);
+      if (d.kind === 'finished') setResultActive(true);
+    }
+  }), []);
+  // 결과 표시 — finished 후 자동 fade out (3초).
+  useEffect(() => {
+    if (!resultActive) return;
+    const t = setTimeout(() => setResultActive(false), 3000);
+    return () => clearTimeout(t);
+  }, [resultActive]);
 
   const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
 
   const flowActive = winnerCluster !== null && (phase === 'trained' || phase === 'inference');
-  // grid 학습도 learning state — connector / 노드 활성화 정합.
+  // 학습 active — camera path 또는 grid path.
   const learnActive = phase === 'learning' || phase === 'partial' || gridTrainingActive;
+  const inferActive = gridInferActive;
   const phaseClass = `is-phase-${phase}`;
 
-  // segment active state — 4 edge active flag (1500ms 유지).
+  // segment active — 단계별:
+  //   학습 시: segment 0 (INPUT→LEARN) 만
+  //   추론 시: segment 0 + 1 (INPUT→LEARN→INFER)
+  //   결과 시: segment 2 (INFER→OUT)
   const [segActive, setSegActive] = useState<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
   const ACTIVE_MS = 1500;
 
-  // 학습 active (camera or grid) — 4 segment 모두 active 유지.
   useEffect(() => {
-    if (!learnActive) return;
-    setSegActive([true, true, true, true]);
-    return () => setSegActive([false, false, false, false]);
-  }, [learnActive]);
+    if (learnActive) {
+      setSegActive([true, false, false, false]);
+      return () => setSegActive([false, false, false, false]);
+    }
+    if (inferActive) {
+      setSegActive([true, true, false, false]);
+      return () => setSegActive([false, false, false, false]);
+    }
+    if (resultActive) {
+      setSegActive([false, false, true, false]);
+      return () => setSegActive([false, false, false, false]);
+    }
+    setSegActive([false, false, false, false]);
+  }, [learnActive, inferActive, resultActive]);
 
-  // INPUT → LEARN connector — fire 또는 frame capture trigger.
+  // camera path fire — 학습/추론/결과 모두 inactive 일 때 segment 0/1 짧게 active.
   useEffect(() => {
-    if (learnActive) return; // 학습 중 영역 4 segment 모두 active — 충돌 차단.
+    if (learnActive || inferActive || resultActive) return;
     if (lastFiringTimestamp === null && framesNonce === 0) return;
     setSegActive((p) => [true, p[1], p[2], p[3]]);
     const t = setTimeout(() => setSegActive((p) => [false, p[1], p[2], p[3]]), ACTIVE_MS);
     return () => clearTimeout(t);
-  }, [lastFiringTimestamp, framesNonce, learnActive]);
-
-  // LEARN → INFER connector — 학습 중 또는 fire trigger.
-  useEffect(() => {
-    if (learnActive) return;
-    if (framesNonce === 0 && lastFiringTimestamp === null) return;
-    setSegActive((p) => [p[0], true, p[2], p[3]]);
-    const t = setTimeout(() => setSegActive((p) => [p[0], false, p[2], p[3]]), ACTIVE_MS);
-    return () => clearTimeout(t);
-  }, [lastFiringTimestamp, framesNonce, learnActive]);
+  }, [lastFiringTimestamp, framesNonce, learnActive, inferActive, resultActive]);
 
   // 사용자 catch 2026-05-07: INFER→OUT / OUT→LLM connector 항상 active catch.
   // saturate tie 영역 winnerCluster 영역 cluster 0/1 영역 빠르게 변동 → 매 변경 시
@@ -551,14 +573,16 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
           {/* 5 absolute draggable node.
               사용자 catch 2026-05-07: LEARN 노드 자체 영역 학습 active glow — phase=='learning'|'partial' 영역. */}
           {(Object.keys(positions) as NodeId[]).map((id) => {
-            // 사용자 catch 2026-05-07: 학습 진행 중 모든 노드 활성화 표시.
-            const isLearnActive = learnActive;
-            const isInferActive = id === 'infer' && (phase === 'trained' || phase === 'inference');
+            // 사용자 catch 2026-05-07: 단계별 — 학습 시 LEARN 만, 추론 시
+            // INFER 만, 결과 시 OUT 만 활성화.
+            const isLearnNodeActive = id === 'learn' && learnActive;
+            const isInferNodeActive = id === 'infer' && inferActive;
+            const isOutNodeActive = id === 'out' && resultActive;
             return (
               <div
                 key={id}
                 ref={(el) => { nodeRefs.current[id] = el; }}
-                className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id} ${isLearnActive ? 'is-learn-active' : ''} ${isInferActive ? 'is-infer-active' : ''}`}
+                className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id} ${isLearnNodeActive ? 'is-learn-active' : ''} ${isInferNodeActive ? 'is-infer-active' : ''} ${isOutNodeActive ? 'is-out-active' : ''}`}
                 onPointerDown={onPointerDownNode(id)}
               >
                 {/* drag handle bar 폐기 (사용자 catch: 불필요) — node-wrap 자체 영역 drag trigger. */}

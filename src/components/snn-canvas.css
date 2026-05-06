@@ -171,37 +171,38 @@
 }
 .snn-pipeline-learn-region-box {
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 4px;
-  padding: var(--pipe-gap-xs) 6px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 3px;
   background: rgba(20, 20, 24, 0.85);
   transition: box-shadow 200ms ease, border-color 200ms ease;
-  /* 사용자 catch 2026-05-07: V1/V2 숫자가 박스를 벗어나는 문제 — overflow 차단 + flex 1 균등. */
+  /* 사용자 catch 2026-05-07: V1/V2 박스 128/128 숫자 잘림 — vertical layout + flex 균등. */
   overflow: hidden;
   min-width: 0;
   flex: 1 1 0;
-  white-space: nowrap;
+  text-align: center;
 }
 .snn-pipeline-learn-region-box.is-fired {
   box-shadow: 0 0 14px rgba(var(--pipe-tone-infer), 0.55);
 }
 .snn-pipeline-learn-region-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  flex-shrink: 0;
+  opacity: 0.75;
 }
 .snn-pipeline-learn-region-counts {
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: baseline;
   gap: 1px;
   font-family: ui-monospace, monospace;
-  font-size: var(--pipe-font-sm);
+  font-size: 11px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 .snn-pipeline-learn-region-active { color: rgb(var(--pipe-tone-infer)); font-weight: 600; }
@@ -465,8 +466,9 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   min-width: 0;
-  min-height: 200px;
-  height: max-content;
+  /* 사용자 catch 2026-05-07: 컨텐츠 표현에 따라 노드 크기 변경 — 정신 사나움.
+     fixed height 480px 영역 모든 노드 통일 + 자식 영역 overflow auto 영역 본격 lock. */
+  height: 480px;
   display: flex;
   flex-direction: column;
   font-size: var(--pipe-font-md);
@@ -474,6 +476,12 @@
   box-shadow: none;
   overflow: hidden;
   transition: border-color 160ms ease, background 160ms ease;
+}
+.snn-pipeline-node-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 .snn-pipeline-node:hover {
   /* admin minimalist — hover 영역 background gray-900 + border 일부 변화 (사용자 명시).

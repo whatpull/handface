@@ -39,7 +39,6 @@ import NodeLearn from './pipeline/NodeLearn';
 import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
 import NodeLlm from './pipeline/NodeLlm';
-import SummaryCard from './SummaryCard';
 import {
   PipelineEventProvider,
   usePipelineEvents,
@@ -153,15 +152,20 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [lastFiringTimestamp, learnActive, framesNonce]);
 
+  // 사용자 catch 2026-05-07: INFER→OUT / OUT→LLM connector 항상 active catch.
+  // saturate tie 영역 winnerCluster 영역 cluster 0/1 영역 빠르게 변동 → 매 변경 시
+  // useEffect trigger → 1500ms 활성 누적 → 항상 active. fix: lastFiringTimestamp
+  // 영역 trigger (no hand 시점에 PipelineEventContext detail null → ts null →
+  // useEffect 영역 trigger 0 → connector idle).
   useEffect(() => {
-    if (winnerCluster === null || !flowActive) return;
+    if (lastFiringTimestamp === null || winnerCluster === null || !flowActive) return;
     setSegActive((p) => [p[0], p[1], true, p[3]]);
     const t = setTimeout(() => setSegActive((p) => [p[0], p[1], false, p[3]]), ACTIVE_MS);
     return () => clearTimeout(t);
-  }, [winnerCluster, flowActive]);
+  }, [lastFiringTimestamp, winnerCluster, flowActive]);
 
   useEffect(() => {
-    if (winnerCluster === null || !flowActive) return;
+    if (lastFiringTimestamp === null || winnerCluster === null || !flowActive) return;
     let innerT: ReturnType<typeof setTimeout> | null = null;
     const delay = setTimeout(() => {
       setSegActive((p) => [p[0], p[1], p[2], true]);
@@ -171,7 +175,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       clearTimeout(delay);
       if (innerT) clearTimeout(innerT);
     };
-  }, [winnerCluster, flowActive]);
+  }, [lastFiringTimestamp, winnerCluster, flowActive]);
 
   // LLM toast.
   const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
@@ -241,6 +245,28 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   const panDragRef = useRef<{ startX: number; startY: number; basePanX: number; basePanY: number; pointerId: number } | null>(null);
   const pinchRef = useRef<{ initialDist: number; initialZoom: number } | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const transformRef = useRef<HTMLDivElement | null>(null);
+
+  // 사용자 catch 2026-05-07: inline style → ref + setProperty (webhint no-inline-styles 정합).
+  // CSS var dynamic value (pan / zoom / node position) 영역 ref 경유 적용.
+  // stage size 영역 stageWidth/stageHeight 정의 line 영역 별도 effect 영역 mount.
+  useEffect(() => {
+    const t = transformRef.current;
+    if (t) {
+      t.style.setProperty('--pan-x', `${pan.x}px`);
+      t.style.setProperty('--pan-y', `${pan.y}px`);
+      t.style.setProperty('--zoom', `${zoom}`);
+    }
+  }, [pan.x, pan.y, zoom]);
+  useEffect(() => {
+    (Object.keys(positions) as NodeId[]).forEach((id) => {
+      const el = nodeRefs.current[id];
+      if (el) {
+        el.style.setProperty('--node-x', `${positions[id].x}px`);
+        el.style.setProperty('--node-y', `${positions[id].y}px`);
+      }
+    });
+  }, [positions]);
 
   const onPointerDownNode = useCallback((id: NodeId) => (e: React.PointerEvent<HTMLDivElement>) => {
     // input / button / video / canvas / textarea / select 영역 외 영역 drag trigger.
@@ -428,6 +454,15 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     Math.max(...(Object.keys(positions) as NodeId[]).map((k) => positions[k].y + heights[k] + 16)),
   );
 
+  // stage size CSS var setProperty (사용자 catch — webhint no-inline-styles 정합).
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (stage) {
+      stage.style.setProperty('--stage-w', `${stageWidth}px`);
+      stage.style.setProperty('--stage-h', `${stageHeight}px`);
+    }
+  }, [stageWidth, stageHeight]);
+
   // node renderer — 5 노드 분기.
   const renderNode = (id: NodeId): React.ReactNode => {
     switch (id) {
@@ -444,10 +479,9 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       className={`snn-pipeline ${phaseClass} ${flowActive ? 'is-flowing' : ''} ${learnActive ? 'is-learning' : ''}`}
       aria-label="HandFace SNN pipeline"
     >
-      <div className="snn-pipeline-dashboard">
-        <SummaryCard />
-      </div>
-      {/* editable canvas — desktop. mobile (≤900) 영역 종전 vertical flex 정합 fallback. */}
+      {/* SUMMARY 3 카드 (CLUSTERS / MARGIN / FRAMES) 제거 — 사용자 catch 2026-05-07: 불필요 + 의미 없음. */}
+      {/* editable canvas — desktop. mobile (≤900) 영역 종전 vertical flex 정합 fallback.
+          CSS var 영역 ref + setProperty 영역 적용 (webhint no-inline-styles 정합). */}
       <div
         className="snn-pipeline-stage"
         ref={stageRef}
@@ -455,13 +489,11 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
-        style={{ '--stage-w': `${stageWidth}px`, '--stage-h': `${stageHeight}px` } as React.CSSProperties}
       >
-        {/* transform wrapper — pan + zoom 적용. SVG + node 모두 동일 transform 정합.
-            CSS var 영역 inline style 폐기 (eslint no-inline-styles 정합 — class 영역 var 영역 transform). */}
+        {/* transform wrapper — pan + zoom 적용. SVG + node 모두 동일 transform 정합. */}
         <div
           className="snn-pipeline-transform"
-          style={{ '--pan-x': `${pan.x}px`, '--pan-y': `${pan.y}px`, '--zoom': zoom } as React.CSSProperties}
+          ref={transformRef}
         >
           {/* SVG overlay — bezier 4 path. node z-index 위쪽 영역 path 영역 노드 뒤. */}
           <svg
@@ -506,7 +538,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
                 key={id}
                 ref={(el) => { nodeRefs.current[id] = el; }}
                 className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id} ${isLearnActive ? 'is-learn-active' : ''} ${isInferActive ? 'is-infer-active' : ''}`}
-                style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
                 onPointerDown={onPointerDownNode(id)}
               >
                 {/* drag handle bar 폐기 (사용자 catch: 불필요) — node-wrap 자체 영역 drag trigger. */}

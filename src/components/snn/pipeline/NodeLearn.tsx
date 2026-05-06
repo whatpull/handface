@@ -403,18 +403,18 @@ export default function NodeLearn() {
         </div>
       )}
       {inputMode === 'grid' && gridProgress.lastResult && (
-        <div className="snn-pipeline-row">
+        <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">last</span>
-          <span className="snn-pipeline-row-value">
+          <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">
             {CLUSTER_LABELS[gridProgress.lastResult.cluster]} —
             정확도 {(gridProgress.lastResult.accuracy * 100).toFixed(0)}%
           </span>
         </div>
       )}
       {inputMode === 'grid' && gridProgress.lastError && (
-        <div className="snn-pipeline-row">
+        <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">error</span>
-          <span className="snn-pipeline-row-value snn-pipeline-row-error">
+          <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap snn-pipeline-row-error">
             {gridProgress.lastError}
           </span>
         </div>

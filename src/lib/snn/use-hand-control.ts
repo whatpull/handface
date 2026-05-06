@@ -174,6 +174,23 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
+  // ROOT CAUSE fix 2026-05-06: localStorage load 일부 phase='trained' 일부 진입점 0
+  // (`if (newPhase === 'trained') → 'inference'` 변환 사실 batch flush callback 한정).
+  // 새로고침 후 phase='trained' + 4 cluster 모두 target 도달 영역 mount 시점 1회
+  // auto-promote 'inference' 영역 — 그 외 시점 INFERENCE tick 진입 0 catch.
+  useEffect(() => {
+    if (phase === 'trained') {
+      const allTrained = [0, 1, 2, 3].every((i) => clusterFrames[i as 0|1|2|3] >= CLUSTER_TARGET_FRAMES);
+      if (allTrained) {
+        phaseRef.current = 'inference';
+        savePhase('inference');
+        setPhase('inference');
+      }
+    }
+    // 의도: mount 시점 1회 only — phase / clusterFrames 변경 영역 batch flush callback 영역 정합.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 사용자 catch 2026-05-05 (audit ac19aa47 catch [2][3]): Reset 후 stale ref clear.
   // training-cleared event (actions.ts Reset 영역 emit) 영역 listener — buffer/lock/state ref 일괄 wipe.
   useEffect(() => {
@@ -261,6 +278,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         lastGestureNameRef.current = null;
         gestureStableCountRef.current = 0;
         if (phaseRef.current !== 'inference') setLiveResult(null);
+        // 사용자 catch 2026-05-06: INFERENCE tick 영역 hand 미감지 시점 명시 — INFER 노드
+        // toast 영역 'no hand' 사실 표시 (직전 silent return → INFER 영역 stale '—' 잔존).
+        if (phaseRef.current === 'inference') {
+          setTrainStatus('INFER: 카메라 hand 미감지 — 손 영역 카메라 영역 보여주세요');
+        }
         if (!cancelled) setTimeout(tick, TICK_MS);
         return;
       }
@@ -300,7 +322,14 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         }
         const r = await getClient().injectPattern(pattern, { stdp: false });
         if (cancelled) return;
-        if (r.ok) {
+        if (!r.ok) {
+          // 사용자 catch 2026-05-06: INFERENCE inject 실패 ROOT CAUSE 영역 prominent 표시
+          // — 직전 silent fail (r.ok===false 영역 path 0) catch 사실.
+          setTrainStatus(`INFER 실패: ${r.reason || `HTTP ${r.status ?? '?'}`}`);
+          if (!cancelled) setTimeout(tick, TICK_MS);
+          return;
+        }
+        {
           // HIGH #3 정정: deriveWinner 영역 단일 source 영역 위임.
           // 직전 max-only winner 영역 — 본 함수 영역 margin 임계 영역 정합 사실
           // (margin < WINNER_MARGIN_DEFAULT 영역 winner null = WTA tie).

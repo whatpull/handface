@@ -10,7 +10,7 @@
 // .snn-feat-bars) 영역 보존 — camera mode 영역만 DOM 정합.
 
 import { useEffect, useState } from 'react';
-import { onBackendEvent, type HandFeatureDetail } from '@/lib/backend/events';
+import { emitBackendEvent, onBackendEvent, type HandFeatureDetail, type InputModeDetail } from '@/lib/backend/events';
 import { FEATURE_LABELS } from '@/lib/mediapipe/feature-encoder';
 import GridInput from './GridInput';
 import NodeShell from './NodeShell';
@@ -21,6 +21,11 @@ const DEFAULT_MODE: InputMode = 'grid';
 export default function NodeInput({ cameraConnected }: { cameraConnected: boolean }) {
   const [mode, setMode] = useState<InputMode>(DEFAULT_MODE);
   const [feat, setFeat] = useState<HandFeatureDetail | null>(null);
+
+  // mode 변경 시 다른 노드 (LEARN 등) 에 broadcast — TEACHER UI hide / grid 학습 표시.
+  useEffect(() => {
+    emitBackendEvent<InputModeDetail>('input-mode', { mode });
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== 'camera') return;
@@ -48,7 +53,7 @@ export default function NodeInput({ cameraConnected }: { cameraConnected: boolea
           <button
             type="button"
             role="tab"
-            aria-selected={mode === 'camera' ? 'true' : 'false'}
+            aria-selected={mode === 'camera'}
             className={`snn-input-mode-btn ${mode === 'camera' ? 'is-active' : ''}`}
             onClick={() => setMode('camera')}
           >
@@ -57,7 +62,7 @@ export default function NodeInput({ cameraConnected }: { cameraConnected: boolea
           <button
             type="button"
             role="tab"
-            aria-selected={mode === 'grid' ? 'true' : 'false'}
+            aria-selected={mode === 'grid'}
             className={`snn-input-mode-btn ${mode === 'grid' ? 'is-active' : ''}`}
             onClick={() => setMode('grid')}
           >

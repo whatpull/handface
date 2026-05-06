@@ -17,6 +17,8 @@ import {
   onBackendEvent,
   type HandFeatureDetail,
   type TrainingPhaseDetail,
+  type InputModeDetail,
+  type GridTrainingDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import {
@@ -27,6 +29,24 @@ import {
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
+
+// path Y (2026-05-07): grid 학습 진행 — GridInput 가 broadcast 하는
+// grid-training event 의 누적 state. cluster 별 학습 완료 여부 + 마지막
+// 결과. camera path 의 phase / clusterFrames 와 별도 trace.
+interface GridProgress {
+  trained: { 0: boolean; 1: boolean; 2: boolean; 3: boolean };
+  isTraining: boolean;
+  activeCluster: 0 | 1 | 2 | 3 | null;
+  lastResult: { cluster: 0 | 1 | 2 | 3; accuracy: number } | null;
+  lastError: string | null;
+}
+const INITIAL_GRID_PROGRESS: GridProgress = {
+  trained: { 0: false, 1: false, 2: false, 3: false },
+  isTraining: false,
+  activeCluster: null,
+  lastResult: null,
+  lastError: null,
+};
 
 // inferRegion — name prefix 영역 region catch (단일 source — 본 컴포넌트 영역
 // V1/V2 대부분 영역).
@@ -41,6 +61,31 @@ export default function NodeLearn() {
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
   const prevWeights = useRef<Map<string, number>>(new Map());
+
+  // path Y: 입력 모드 + grid 학습 진행. NodeInput / GridInput 가 broadcast.
+  const [inputMode, setInputMode] = useState<'camera' | 'grid'>('grid');
+  const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
+
+  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
+  useEffect(() => onBackendEvent<GridTrainingDetail>('grid-training', (d) => {
+    setGridProgress((prev) => {
+      if (d.kind === 'started') {
+        return { ...prev, isTraining: true, activeCluster: d.cluster, lastError: null };
+      }
+      if (d.kind === 'finished') {
+        return {
+          ...prev,
+          isTraining: false,
+          activeCluster: null,
+          trained: { ...prev.trained, [d.cluster]: true },
+          lastResult: { cluster: d.cluster, accuracy: d.accuracy ?? 0 },
+          lastError: null,
+        };
+      }
+      // error
+      return { ...prev, isTraining: false, activeCluster: null, lastError: d.message ?? '학습 실패' };
+    });
+  }), []);
 
   // 사용자 catch 2026-05-07: teacher stable 카운트 — use-hand-control 내부 ref 비공개,
   // 본 컴포넌트 자체로 동일 logic 재현 (gesture name 연속 + conf >= GESTURE_CONFIDENCE_MIN).
@@ -193,8 +238,29 @@ export default function NodeLearn() {
     };
   }, []);
 
-  // 진행 중 cluster — count 가 가장 적고 < TARGET 인 cluster (사용자 안내 영역).
+  // grid mode 영역 cluster 별 학습 완료 카운트 — gridProgress 영역 derived.
+  const gridClusterFrames = useMemo(() => ({
+    0: gridProgress.trained[0] ? CLUSTER_TARGET : 0,
+    1: gridProgress.trained[1] ? CLUSTER_TARGET : 0,
+    2: gridProgress.trained[2] ? CLUSTER_TARGET : 0,
+    3: gridProgress.trained[3] ? CLUSTER_TARGET : 0,
+  }) as { 0: number; 1: number; 2: number; 3: number },
+  [gridProgress.trained]);
+
+  // grid mode 영역 derived phase — trained 카운트 + isTraining flag 기반.
+  const gridPhase = useMemo<'untrained' | 'learning' | 'partial' | 'trained'>(() => {
+    if (gridProgress.isTraining) return 'learning';
+    const trainedCount = (Object.values(gridProgress.trained) as boolean[]).filter(Boolean).length;
+    if (trainedCount === 0) return 'untrained';
+    if (trainedCount === 4) return 'trained';
+    return 'partial';
+  }, [gridProgress.isTraining, gridProgress.trained]);
+
+  // 진행 중 cluster — mode 별 분기.
+  // grid: gridProgress.activeCluster (R-STDP 진행 중인 cluster).
+  // camera: count 가 가장 적고 < TARGET 인 cluster.
   const activeCluster = useMemo(() => {
+    if (inputMode === 'grid') return gridProgress.activeCluster ?? -1;
     if (!phase) return -1;
     const incomplete: Array<{ ci: number; n: number }> = [];
     for (let ci = 0; ci < 4; ci++) {
@@ -202,14 +268,18 @@ export default function NodeLearn() {
       if (n < CLUSTER_TARGET) incomplete.push({ ci, n });
     }
     if (incomplete.length === 0) return -1;
-    incomplete.sort((a, b) => b.n - a.n); // 가장 진행도 높은 미완 cluster 영역 우선 안내.
+    incomplete.sort((a, b) => b.n - a.n); // 가장 진행도 높은 미완 cluster 우선 안내.
     return incomplete[0].ci;
-  }, [phase]);
+  }, [inputMode, gridProgress.activeCluster, phase]);
+
+  // mode 별 effective phase / clusterFrames — render 흐름 단일화.
+  const effectivePhase = inputMode === 'grid' ? gridPhase : (phase?.phase ?? 'untrained');
+  const effectiveClusterFrames = inputMode === 'grid' ? gridClusterFrames : (phase?.clusterFrames ?? { 0: 0, 1: 0, 2: 0, 3: 0 });
 
   const phaseInfo = useMemo(() => {
-    const p = phase?.phase ?? 'untrained';
+    const p = effectivePhase;
     const activeLabel = activeCluster >= 0 ? CLUSTER_LABELS[activeCluster] : '';
-    const activeCount = activeCluster >= 0 && phase ? phase.clusterFrames[activeCluster as 0|1|2|3] : 0;
+    const activeCount = activeCluster >= 0 ? effectiveClusterFrames[activeCluster as 0|1|2|3] : 0;
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
         label: 'UNTRAINED',
@@ -247,7 +317,7 @@ export default function NodeLearn() {
       },
     };
     return config[p];
-  }, [phase, activeCluster]);
+  }, [effectivePhase, activeCluster, effectiveClusterFrames]);
 
   // teacher 라인 — 사용자 catch 2026-05-07: stable count visible.
   // mappable + conf 통과 시 [N/5 stable] suffix → 학습 trigger 임박 사실 catch.
@@ -309,7 +379,7 @@ export default function NodeLearn() {
       <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
       <div className="snn-pipeline-cluster-list">
         {[0, 1, 2, 3].map((i) => {
-          const count = phase ? phase.clusterFrames[i as 0|1|2|3] : 0;
+          const count = effectiveClusterFrames[i as 0|1|2|3];
           const done = count >= CLUSTER_TARGET;
           const active = i === activeCluster && isLearning;
           return (
@@ -324,12 +394,31 @@ export default function NodeLearn() {
           );
         })}
       </div>
-      <div className="snn-pipeline-row">
-        <span className="snn-pipeline-row-label">teacher</span>
-        <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
-          {teacherInfo.line}
-        </span>
-      </div>
+      {inputMode === 'camera' && (
+        <div className="snn-pipeline-row">
+          <span className="snn-pipeline-row-label">teacher</span>
+          <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
+            {teacherInfo.line}
+          </span>
+        </div>
+      )}
+      {inputMode === 'grid' && gridProgress.lastResult && (
+        <div className="snn-pipeline-row">
+          <span className="snn-pipeline-row-label">last</span>
+          <span className="snn-pipeline-row-value">
+            {CLUSTER_LABELS[gridProgress.lastResult.cluster]} —
+            정확도 {(gridProgress.lastResult.accuracy * 100).toFixed(0)}%
+          </span>
+        </div>
+      )}
+      {inputMode === 'grid' && gridProgress.lastError && (
+        <div className="snn-pipeline-row">
+          <span className="snn-pipeline-row-label">error</span>
+          <span className="snn-pipeline-row-value snn-pipeline-row-error">
+            {gridProgress.lastError}
+          </span>
+        </div>
+      )}
       {delta.changed > 0 && (
         <div className="snn-pipeline-row">
           <span className="snn-pipeline-row-label">Δw</span>

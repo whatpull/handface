@@ -946,6 +946,10 @@
   color: rgb(var(--pipe-tone-cyan-light, 165 243 252));
   font-weight: 600;
 }
+.snn-pipeline-row-error {
+  color: #fca5a5;
+  word-break: break-word;
+}
 
 /* 5) winner 변경 fade-in — key 변경 시 element 재생성 영역 animation 1회 재생. */
 .snn-pipeline-winner-fade {

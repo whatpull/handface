@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
+import { emitBackendEvent, type GridTrainingDetail } from '@/lib/backend/events';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -90,6 +91,8 @@ export default function GridInput() {
     // 30 frame 동일 pattern 반복 — R-STDP 학습.
     const patterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
     setStatus({ kind: 'training', cluster: clusterIdx });
+    // LEARN 노드에 학습 시작 broadcast.
+    emitBackendEvent<GridTrainingDetail>('grid-training', { kind: 'started', cluster: clusterIdx });
     const client = getClient();
     // 사용자 catch 2026-05-07: orientation 회로 빌드 안 된 상태에서 학습 시도 시
     // 적용된 회로가 기존 cluster slot 인 catch — 첫 학습 호출 시 자동 빌드 1회.
@@ -97,6 +100,9 @@ export default function GridInput() {
       const built = await client.presetOrientation({ overwrite: true });
       if (!built.ok) {
         setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'error', cluster: clusterIdx, message: built.reason,
+        });
         return;
       }
       substrateBuiltRef.current = true;
@@ -108,8 +114,18 @@ export default function GridInput() {
         kind: 'ok',
         message: `${ORIENTATION_GLYPHS[clusterIdx]} 학습 완료 — 정확도 ${acc}% (${r.data.correct}/${r.data.trained})`,
       });
+      emitBackendEvent<GridTrainingDetail>('grid-training', {
+        kind: 'finished',
+        cluster: clusterIdx,
+        accuracy: r.data.accuracy,
+        correct: r.data.correct,
+        trained: r.data.trained,
+      });
     } else {
       setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
+      emitBackendEvent<GridTrainingDetail>('grid-training', {
+        kind: 'error', cluster: clusterIdx, message: r.reason,
+      });
     }
   }, []);
 

@@ -4,7 +4,21 @@
 // 'training-cleared' — 명시 reset / explicit wipe path만 emit (Toolbar Reset, rebuildToBaseline).
 //   stored snapshot 폐기 신호. 'circuit-changed' 와 분리 — 자동 wipe 폐기 (P1 fix).
 // (직전 'evolve-trigger' 폐기 — Sidebar Evolve 버튼 + EVOLVING phase 모두 회수, 사용자 명시.)
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete';
+// path Y (2026-05-07): 입력 모드 + grid 학습 진행 broadcast 추가.
+//   - input-mode: NodeInput 가 mount/toggle 시 emit. 다른 노드가 mode 별 UI 분기.
+//   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit. NodeLearn 가
+//     phase / cluster 진행 표시.
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training';
+
+export interface InputModeDetail { mode: 'camera' | 'grid'; }
+export interface GridTrainingDetail {
+  kind: 'started' | 'finished' | 'error';
+  cluster: 0 | 1 | 2 | 3;
+  accuracy?: number;
+  correct?: number;
+  trained?: number;
+  message?: string;
+}
 
 // Training state machine phase event — use-hand-control 가 emit.
 // phase: untrained / learning / partial / trained / inference (사용자 명시 redesign).

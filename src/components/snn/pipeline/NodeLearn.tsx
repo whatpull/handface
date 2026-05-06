@@ -251,6 +251,7 @@ export default function NodeLearn() {
 
   // teacher 라인 — 사용자 catch 2026-05-07: stable count visible.
   // mappable + conf 통과 시 [N/5 stable] suffix → 학습 trigger 임박 사실 catch.
+  // 사용자 catch 2026-05-07: 매핑 안 된 자세 (예: Thumb_Up) 시 명시 hint 추가.
   const teacherInfo = useMemo(() => {
     if (!teacher) return { line: 'no signal', mappable: false, ready: false };
     if (!teacher.hasHand) return { line: 'no hand', mappable: false, ready: false };
@@ -258,6 +259,10 @@ export default function NodeLearn() {
     const conf = teacher.gestureScore ?? 0;
     const mappable = !!teacher.gestureName && GESTURE_LABEL_TO_CLUSTER[teacher.gestureName] !== undefined;
     const ready = mappable && conf >= GESTURE_CONFIDENCE_MIN && stableCount >= GESTURE_STABLE_FRAMES;
+    if (!mappable && teacher.gestureName) {
+      // 학습 매핑 없는 자세 — 4 자세 (Pointing/Open_Palm/Fist/Victory) 영역만 학습 가능 명시.
+      return { line: `${name} ⚠ 미매핑 — 4 자세만 학습`, mappable: false, ready: false };
+    }
     const stableSuffix = mappable && conf >= GESTURE_CONFIDENCE_MIN
       ? ` [${stableCount}/${GESTURE_STABLE_FRAMES} stable]`
       : '';

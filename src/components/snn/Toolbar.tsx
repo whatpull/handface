@@ -35,6 +35,14 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
         <button
           type="button"
           className={btnCls}
+          onClick={() => window.dispatchEvent(new CustomEvent('handface.start-inference'))}
+          title="학습 완료 후 추론 시작 (TRAINED → INFERENCE 명시 진입)"
+        >
+          <Icon kind="play" /> Start Inference
+        </button>
+        <button
+          type="button"
+          className={btnCls}
           onClick={() => window.dispatchEvent(new CustomEvent('handface.pipeline.reset-layout'))}
           title="Reset node layout to default"
         >
@@ -58,6 +66,12 @@ function Icon({ kind }: { kind: string }) {
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      );
+    case 'play':
+      return (
+        <svg className={c} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+          <polygon points="6 4 20 12 6 20 6 4" />
         </svg>
       );
     default:

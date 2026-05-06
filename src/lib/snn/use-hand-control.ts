@@ -174,18 +174,25 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // ROOT CAUSE fix 2026-05-06: localStorage load 일부 phase='trained' 일부 진입점 0
-  // (`if (newPhase === 'trained') → 'inference'` 변환 사실 batch flush callback 한정).
-  // 새로고침 후 phase='trained' + 4 cluster 모두 target 도달 영역 mount 시점 1회
-  // auto-promote 'inference' 영역 — 그 외 시점 INFERENCE tick 진입 0 catch.
+  // 사용자 catch 2026-05-07: TRAINED frozen 상태 영역 추론 자동 진입 폐기.
+  // TRAINED = 학습 완료 + weight permanent (Diehl & Cook 2015 train/test phase 분리 정합).
+  // INFERENCE 진입 영역 사용자 명시 trigger ('Start Inference' button) 영역만 가능 mandatory.
+  // 직전 mount auto-promote 폐기 사실. batch flush callback 영역 trained → inference
+  // 자동 전환 path 영역 동일 폐기 mandatory (별도 effect).
   useEffect(() => {
-    if (phase === 'trained') {
-      const allTrained = [0, 1, 2, 3].every((i) => clusterFrames[i as 0|1|2|3] >= CLUSTER_TARGET_FRAMES);
-      if (allTrained) {
-        phaseRef.current = 'inference';
-        savePhase('inference');
-        setPhase('inference');
-      }
+    // (auto-promote 폐기 사실 — 사용자 명시 button trigger 영역만 INFERENCE 진입.)
+    // 'handface.start-inference' custom event listener (Toolbar 'Start Inference' button).
+    if (typeof window !== 'undefined') {
+      const handler = () => {
+        if (phaseRef.current === 'trained') {
+          phaseRef.current = 'inference';
+          savePhase('inference');
+          setPhase('inference');
+          setTrainStatus('🎯 INFERENCE 시작 — 카메라에 자세를 보여주세요');
+        }
+      };
+      window.addEventListener('handface.start-inference', handler);
+      return () => window.removeEventListener('handface.start-inference', handler);
     }
     // 의도: mount 시점 1회 only — phase / clusterFrames 변경 영역 batch flush callback 영역 정합.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -478,10 +485,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
                 savePhase(newPhase);
                 setPhase(newPhase);
               }
+              // 사용자 catch 2026-05-07: TRAINED frozen → INFERENCE 자동 전환 폐기.
+              // 학습 완료 후 사용자 명시 'Start Inference' button click 영역만 진입.
               if (newPhase === 'trained') {
-                phaseRef.current = 'inference';
-                savePhase('inference');
-                setPhase('inference');
+                setTrainStatus('✓ TRAINED — 학습 완료. Start Inference 버튼을 눌러 추론 시작');
               }
             } else {
               const reason = r.ok ? (r.data.reason ?? 'unknown') : r.reason;

@@ -88,8 +88,23 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
       setDetail(d);
       setTs(Date.now());
     });
+    // 사용자 catch 2026-05-06: no hand 상태 → 추론 결과 초기화. hand-feature event 의
+    // hasHand=false 시점에 detail/ts 초기화하여 NodeInfer winner stale 잔존 catch 회피.
+    const offHand = onBackendEvent<{ hasHand?: boolean }>('hand-feature', (d) => {
+      if (d && d.hasHand === false) {
+        setDetail(null);
+        setTs(null);
+      }
+    });
+    // training-cleared (Reset) 시점에도 명시 초기화.
+    const offCleared = onBackendEvent('training-cleared', () => {
+      setDetail(null);
+      setTs(null);
+    });
     return () => {
       off();
+      offHand();
+      offCleared();
       mountedRef.current = false;
     };
   }, []);

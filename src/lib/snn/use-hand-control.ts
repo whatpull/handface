@@ -277,11 +277,12 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       if (!hasHandRef.current || !feat) {
         lastGestureNameRef.current = null;
         gestureStableCountRef.current = 0;
-        if (phaseRef.current !== 'inference') setLiveResult(null);
-        // 사용자 catch 2026-05-06: INFERENCE tick 영역 hand 미감지 시점 명시 — INFER 노드
-        // toast 영역 'no hand' 사실 표시 (직전 silent return → INFER 영역 stale '—' 잔존).
+        // 사용자 catch 2026-05-06: no hand 상태 → 추론 결과 초기화 mandatory.
+        // INFERENCE phase 에서도 stale winner 잔존 catch — liveResult null + winner ref reset.
+        setLiveResult(null);
         if (phaseRef.current === 'inference') {
-          setTrainStatus('INFER: 카메라 hand 미감지 — 손 영역 카메라 영역 보여주세요');
+          lastInferenceWinnerRef.current = null;
+          setTrainStatus('INFER: 카메라 hand 미감지 — 손을 카메라에 보여주세요');
         }
         if (!cancelled) setTimeout(tick, TICK_MS);
         return;

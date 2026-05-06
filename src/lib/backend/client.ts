@@ -145,7 +145,7 @@ export class NeuronFaceClient {
           const txt = await r.text().catch(() => '');
           // 사용자 catch 2026-05-05: 401/403 영역 prominent UX — Settings panel 영역 API key 입력 안내.
           if (r.status === 401 || r.status === 403) {
-            lastReason = `API key 영역 — Settings (좌측 ⚙) 영역 API key 영역 입력 mandatory (HTTP ${r.status})`;
+            lastReason = `API key 가 없거나 잘못됨 — 좌측 Settings (⚙) 에서 API key 를 입력해 주세요 (HTTP ${r.status})`;
             lastStatus = r.status;
             return { ok: false, reason: lastReason, status: r.status };
           }

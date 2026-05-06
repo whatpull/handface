@@ -52,6 +52,8 @@ export default function GridInput() {
   const [grid, setGrid] = useState<number[]>(() => emptyGrid());
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [infer, setInfer] = useState<InferResult | null>(null);
+  // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
+  const substrateBuiltRef = useRef<boolean>(false);
 
   const togglePixel = useCallback((i: number) => {
     setGrid((g) => {
@@ -76,6 +78,7 @@ export default function GridInput() {
     setStatus({ kind: 'building' });
     const r = await getClient().presetOrientation({ overwrite: true });
     if (r.ok) {
+      substrateBuiltRef.current = true;
       setStatus({ kind: 'ok', message: 'orientation 회로 빌드 완료' });
     } else {
       setStatus({ kind: 'error', message: `회로 빌드 실패: ${r.reason}` });
@@ -87,7 +90,18 @@ export default function GridInput() {
     // 30 frame 동일 pattern 반복 — R-STDP 학습.
     const patterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
     setStatus({ kind: 'training', cluster: clusterIdx });
-    const r = await getClient().clusterTrainRStdp(patterns, clusterIdx);
+    const client = getClient();
+    // 사용자 catch 2026-05-07: orientation 회로 빌드 안 된 상태에서 학습 시도 시
+    // 적용된 회로가 기존 cluster slot 인 catch — 첫 학습 호출 시 자동 빌드 1회.
+    if (!substrateBuiltRef.current) {
+      const built = await client.presetOrientation({ overwrite: true });
+      if (!built.ok) {
+        setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
+        return;
+      }
+      substrateBuiltRef.current = true;
+    }
+    const r = await client.clusterTrainRStdp(patterns, clusterIdx);
     if (r.ok) {
       const acc = (r.data.accuracy * 100).toFixed(0);
       setStatus({

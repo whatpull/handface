@@ -1742,17 +1742,30 @@
 
 .snn-grid-status {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  font-size: var(--pipe-font-xs);
+  font-size: var(--pipe-font-sm);
+  line-height: 1.3;
   color: var(--pipe-text-dim);
-  min-height: 16px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
+  background: var(--pipe-surface);
+  word-break: break-word;
 }
-.snn-grid-status--error { color: #f87171; }
+.snn-grid-status--error {
+  color: #fca5a5;
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
 .snn-grid-status--ok { color: var(--pipe-text); }
 .snn-grid-status--building,
 .snn-grid-status--training,
-.snn-grid-status--inferring { color: #fbbf24; }
+.snn-grid-status--inferring {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.5);
+}
 
 .snn-grid-rates {
   display: flex;

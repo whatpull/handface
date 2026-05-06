@@ -178,28 +178,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   useEffect(() => { framesRef.current = clusterFrames; }, [clusterFrames]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // 사용자 catch 2026-05-07: TRAINED frozen 상태 영역 추론 자동 진입 폐기.
-  // TRAINED = 학습 완료 + weight permanent (Diehl & Cook 2015 train/test phase 분리 정합).
-  // INFERENCE 진입 영역 사용자 명시 trigger ('Start Inference' button) 영역만 가능 mandatory.
-  // 직전 mount auto-promote 폐기 사실. batch flush callback 영역 trained → inference
-  // 자동 전환 path 영역 동일 폐기 mandatory (별도 effect).
-  useEffect(() => {
-    // (auto-promote 폐기 사실 — 사용자 명시 button trigger 영역만 INFERENCE 진입.)
-    // 'handface.start-inference' custom event listener (Toolbar 'Start Inference' button).
-    if (typeof window !== 'undefined') {
-      const handler = () => {
-        if (phaseRef.current === 'trained') {
-          phaseRef.current = 'inference';
-          savePhase('inference');
-          setPhase('inference');
-          setTrainStatus('🎯 INFERENCE 시작 — 카메라에 자세를 보여주세요');
-        }
-      };
-      window.addEventListener('handface.start-inference', handler);
-      return () => window.removeEventListener('handface.start-inference', handler);
-    }
-    // mount 시점 1회만 부착하고, cleanup 으로 detach.
-  }, []);
+  // path Y (2026-05-07): camera path 의 Start Inference 버튼 + listener 폐기.
+  // grid path 는 GridInput 의 '추론' 버튼이 inject_feature16 직접 호출.
 
   // 사용자 catch 2026-05-05 (audit ac19aa47 catch [2][3]): Reset 후 stale ref clear.
   // training-cleared event (actions.ts Reset 영역 emit) 영역 listener — buffer/lock/state ref 일괄 wipe.

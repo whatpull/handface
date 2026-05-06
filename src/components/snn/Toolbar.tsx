@@ -35,14 +35,6 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
         <button
           type="button"
           className={btnCls}
-          onClick={() => window.dispatchEvent(new CustomEvent('handface.start-inference'))}
-          title="학습 완료 후 추론 시작 (TRAINED → INFERENCE 명시 진입)"
-        >
-          <Icon kind="play" /> Start Inference
-        </button>
-        <button
-          type="button"
-          className={btnCls}
           onClick={() => window.dispatchEvent(new CustomEvent('handface.pipeline.reset-layout'))}
           title="Reset node layout to default"
         >

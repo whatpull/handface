@@ -114,6 +114,11 @@ export default function GridInput() {
         kind: 'ok',
         message: `${ORIENTATION_GLYPHS[clusterIdx]} 학습 완료 — 정확도 ${acc}% (${r.data.correct}/${r.data.trained})`,
       });
+      // 사용자 catch 2026-05-07: 학습 후 V1/V2 fire 카운트 갱신 — backend
+      // cluster_train_rstdp 응답에 firing data 가 없으므로 학습 직후
+      // injectPattern 1회 (stdp=false) 호출. client.injectPattern 자체가
+      // 'neuron-firing' event emit → NodeLearn 이 V1/V2 active count 갱신.
+      void client.injectPattern([...pattern], { stdp: false });
       emitBackendEvent<GridTrainingDetail>('grid-training', {
         kind: 'finished',
         cluster: clusterIdx,

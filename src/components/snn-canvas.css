@@ -474,10 +474,13 @@
   .snn-pipeline-edge.is-active {
     filter: none;
   }
-  /* tick-spinner glow 약화 — 점 자체는 보존 (학습 진행 신호) 하지만
-     box-shadow glow 가 모바일에서 흰빛 산란으로 catch 가능. */
-  .snn-pipeline-tick-spinner {
-    box-shadow: none;
+  /* tick-spinner — 사용자 catch 2026-05-07 (캡처): status panel 안과
+     cluster bar 옆에 inline 으로 떠 있는 흰점이 vertical-align 깨진
+     위치에 표시. 학습 진행 신호는 텍스트 ("학습 중 (30 frame)..." /
+     "LEARNING — capturing frames") 자체로 충분하므로 점 element 폐기. */
+  .snn-pipeline-tick-spinner,
+  .snn-pipeline-tick-spinner--inline {
+    display: none !important;
   }
   /* 무한 fill pulse 도 약화. */
   .snn-mode-progress-fill,

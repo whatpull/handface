@@ -110,15 +110,16 @@ export default function GridInput() {
     const r = await client.clusterTrainRStdp(patterns, clusterIdx);
     if (r.ok) {
       const acc = (r.data.accuracy * 100).toFixed(0);
+      // 사용자 catch 2026-05-07: 메시지 한 줄 정합 — 글자 수 단축.
       setStatus({
         kind: 'ok',
-        message: `${ORIENTATION_GLYPHS[clusterIdx]} 학습 완료 — 정확도 ${acc}% (${r.data.correct}/${r.data.trained})`,
+        message: `${ORIENTATION_GLYPHS[clusterIdx]} ${acc}% (${r.data.correct}/${r.data.trained})`,
       });
-      // 사용자 catch 2026-05-07: 학습 후 V1/V2 fire 카운트 갱신 — backend
-      // cluster_train_rstdp 응답에 firing data 가 없으므로 학습 직후
-      // injectPattern 1회 (stdp=false) 호출. client.injectPattern 자체가
-      // 'neuron-firing' event emit → NodeLearn 이 V1/V2 active count 갱신.
-      void client.injectPattern([...pattern], { stdp: false });
+      // 사용자 catch 2026-05-07: 학습 직후 inject 자동 호출 폐기 —
+      // injectPattern 의 응답이 cluster_rates / winner_cluster 동봉 +
+      // 'neuron-firing' event emit 으로 INFER 노드에 winner 가 표시되어
+      // 추론 의도 없는데 추론 결과가 보임. V1/V2 갱신은 사용자가 직접
+      // '추론' 버튼 누른 시점에 자연 갱신되도록 보류.
       emitBackendEvent<GridTrainingDetail>('grid-training', {
         kind: 'finished',
         cluster: clusterIdx,

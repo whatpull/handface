@@ -1804,7 +1804,7 @@
 
 .snn-grid-status {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   font-size: var(--pipe-font-sm);
   line-height: 1.3;
@@ -1814,6 +1814,23 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   background: var(--pipe-surface);
+}
+/* 사용자 catch 2026-05-07: ok / busy 시 한 줄 정합 (ellipsis). error 만
+   wrap (긴 에러 메시지는 두 줄 허용). */
+.snn-grid-status--ok > span,
+.snn-grid-status--building > span,
+.snn-grid-status--training > span,
+.snn-grid-status--inferring > span,
+.snn-grid-status--idle > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.snn-grid-status--error {
+  align-items: flex-start;
+}
+.snn-grid-status--error > span {
   word-break: break-word;
 }
 .snn-grid-status--error {

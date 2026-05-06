@@ -1,10 +1,16 @@
-// encodeLandmarks 영역 16-dim 영역 정합 영역 — Pointing_Up / Open_Palm / Closed_Fist
-// / Victory mock landmarks 영역 검증.
+// encodeLandmarks 의 16-dim 출력을 Pointing_Up / Open_Palm / Closed_Fist
+// / Victory mock landmarks 로 검증.
 //
-// 정직 한계 박음:
-//  - mock landmarks 영역 MediaPipe 영역 실제 출력 영역 정합 영역 — 영역 카메라 영역
-//    영역 차이 가능. test 영역 영역 schema 정합 영역 (length / range / 정합 dim 영역
-//    정성 영역) 영역 cover.
+// 정직한 한계:
+//  - mock landmarks 는 MediaPipe 의 실제 출력과 완전히 일치하지 않을 수 있다 —
+//    카메라 환경에 따른 차이 가능. 이 테스트는 schema 불변성 (길이 / 범위 /
+//    cluster 별 dim 우세) 만 검증한다.
+//
+// cluster-discriminative encoding 구조:
+//   dim 0-3   cluster 0 (Pointing_Up)  : indexCurl, indexAng, 1-meanOtherCurl, thumbIn
+//   dim 4-7   cluster 1 (Open_Palm)    : meanCurl, spread, palmOpen, anti-pinch
+//   dim 8-11  cluster 2 (Closed_Fist)  : 1-meanCurl, 1-spread, 1-palmOpen, pinch
+//   dim 12-15 cluster 3 (Victory)      : indexCurl, middleCurl, 1-meanRingPinky, V-product
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -134,33 +140,52 @@ describe('encodeLandmarks — schema invariants', () => {
   });
 });
 
-describe('encodeLandmarks — gesture-distinguishability invariants', () => {
-  it('Open_Palm vs Closed_Fist differ on finger curl dims (0..4)', () => {
+describe('encodeLandmarks — cluster-discriminative invariants', () => {
+  it('Open_Palm activates cluster-1 slots (dim 4..7) more than Closed_Fist', () => {
     const open = encodeLandmarks(openPalm());
     const fist = encodeLandmarks(closedFist());
-    // 펴진 손가락 (open) 영역 curl ratio 영역 닫힌 영역 (fist) 영역 영역 영역.
-    // index/middle/ring/pinky (1..4) 영역 검증 — thumb 영역 mock 영역 정합 영역.
+    // dim 4 = meanCurl: 펴짐일수록 큰 값.
+    expect(open[4]).toBeGreaterThan(fist[4]);
+    // 4..7 합: open 이 fist 보다 우세.
     let openSum = 0;
     let fistSum = 0;
-    for (let i = 1; i <= 4; i += 1) {
+    for (let i = 4; i <= 7; i += 1) {
       openSum += open[i];
       fistSum += fist[i];
     }
     expect(openSum).toBeGreaterThan(fistSum);
   });
 
-  it('Pointing_Up has high index_curl, low middle_curl', () => {
-    const out = encodeLandmarks(pointingUp());
-    // dim 1 = index_curl (펴짐 → 큰 값), dim 2 = middle_curl (굽힘 → 작은 값).
-    expect(out[1]).toBeGreaterThan(out[2]);
+  it('Closed_Fist activates cluster-2 slots (dim 8..11) more than Open_Palm', () => {
+    const open = encodeLandmarks(openPalm());
+    const fist = encodeLandmarks(closedFist());
+    // dim 8 = 1 - meanCurl: 굽힘일수록 큰 값.
+    expect(fist[8]).toBeGreaterThan(open[8]);
+    let openSum = 0;
+    let fistSum = 0;
+    for (let i = 8; i <= 11; i += 1) {
+      openSum += open[i];
+      fistSum += fist[i];
+    }
+    expect(fistSum).toBeGreaterThan(openSum);
   });
 
-  it('Victory has high index_curl AND high middle_curl', () => {
+  it('Pointing_Up activates cluster-0 slots (dim 0..3) — index strong, others weak', () => {
+    const out = encodeLandmarks(pointingUp());
+    // dim 0 = indexCurl (펴짐 → 큰), dim 2 = 1-meanOtherCurl (다른 손가락 굽힘 → 큰).
+    // 둘 다 크면 cluster 0 활성 신호.
+    expect(out[0]).toBeGreaterThan(0.3);
+    expect(out[2]).toBeGreaterThan(0.3);
+  });
+
+  it('Victory activates cluster-3 slots — index AND middle curl high', () => {
     const v = encodeLandmarks(victory());
     const f = encodeLandmarks(closedFist());
-    // Victory 영역 index/middle 영역 굽힘 영역 영역 펴짐 영역 — fist 영역 영역 영역 영역.
-    expect(v[1]).toBeGreaterThan(f[1]);
-    expect(v[2]).toBeGreaterThan(f[2]);
+    // dim 12 = indexCurl, dim 13 = middleCurl. Victory 는 둘 다 펴짐 → 큰 값.
+    expect(v[12]).toBeGreaterThan(f[12]);
+    expect(v[13]).toBeGreaterThan(f[13]);
+    // V-product (dim 15) 도 fist 보다 우세.
+    expect(v[15]).toBeGreaterThan(f[15]);
   });
 
   it('all four gestures produce distinct feature vectors', () => {
@@ -170,7 +195,7 @@ describe('encodeLandmarks — gesture-distinguishability invariants', () => {
       encodeLandmarks(closedFist()),
       encodeLandmarks(victory()),
     ];
-    // 정합 영역 — pairwise L2 distance 영역 0 영역 영역 (영역 영역 distinct).
+    // 4 자세 모두 서로 distinct — pairwise L2 distance 가 0보다 커야 한다.
     for (let i = 0; i < vecs.length; i += 1) {
       for (let j = i + 1; j < vecs.length; j += 1) {
         let d2 = 0;

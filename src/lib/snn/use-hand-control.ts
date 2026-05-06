@@ -194,8 +194,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       window.addEventListener('handface.start-inference', handler);
       return () => window.removeEventListener('handface.start-inference', handler);
     }
-    // 의도: mount 시점 1회 only — phase / clusterFrames 변경 영역 batch flush callback 영역 정합.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // mount 시점 1회만 부착하고, cleanup 으로 detach.
   }, []);
 
   // 사용자 catch 2026-05-05 (audit ac19aa47 catch [2][3]): Reset 후 stale ref clear.

@@ -1,28 +1,32 @@
-// 21 hand landmarks → 16-dim feature vector (모든 dim 0~1 normalized).
-// 손바닥 크기로 정규화 → 카메라 거리 무관, 회전 invariant.
+// 21 hand landmarks → 16-dim cluster-discriminative feature vector.
+// 사용자 catch 2026-05-07: 직전 generic encoding (curl/angle/orient) 영역 4 자세 영역
+// dim 0-4 영역 모두 활성 → cluster overlap → cluster 0 monopoly winner catch.
 //
-// 16 dims:
-//   0~4   finger_curl_*    (thumb/index/middle/ring/pinky) — TIP↔MCP 직선 거리 / palm size
-//   5~9   finger_angle_*   PIP 관절 cos(angle) — MCP↔PIP↔TIP 의 굽힘 각도
-//   10    pinch_dist       thumb_tip ↔ index_tip
-//   11    tIs_spread       thumb_mcp ↔ index_mcp 거리 (벌림)
-//   12    palm_open        5 손가락 끝 평균 ↔ 손바닥 중심
-//   13    palm_orient_x    손목→middle_mcp 벡터 x 성분
-//   14    palm_orient_y    손목→middle_mcp 벡터 y 성분
-//   15    wrist_roll       thumb_mcp ↔ pinky_mcp 의 y 차이 (손등 vs 손바닥)
+// redesign — 4 cluster 영역 16-dim 영역 영역 4 dim subset 영역 정합 (INPUT cluster-local
+// mapping IN[4c..4c+3] → V1_L4_E_cX 영역 정합):
+//
+//   cluster 0 (Pointing_Up)  IN[0-3]:  index 강조 — index curl/angle 영역 1, 다른 finger 영역 0
+//   cluster 1 (Open_Palm)    IN[4-7]:  모든 finger 펴짐 — mean curl, spread, palm_open, anti-pinch
+//   cluster 2 (Closed_Fist)  IN[8-11]: 모든 finger 굽힘 — 1-mean curl, 1-spread, 1-palm_open, pinch
+//   cluster 3 (Victory)      IN[12-15]: V signature — index+middle 펴짐, ring+pinky 굽힘
+//
+// 모든 dim ∈ [0, 1] normalized. 손바닥 크기 정규화 + 회전 invariant 보존.
 
 import { LM, distance, palmSize, angleCos, clamp01, type HandLandmarks } from './landmark';
 
 export const FEATURE_DIM = 16;
 
 export const FEATURE_LABELS: string[] = [
-  'thumb_curl', 'index_curl', 'middle_curl', 'ring_curl', 'pinky_curl',
-  'thumb_ang',  'index_ang',  'middle_ang',  'ring_ang',  'pinky_ang',
-  'pinch',      'spread',
-  'palm_open',  'orient_x',   'orient_y',    'wrist_roll',
+  // cluster 0 (Pointing_Up) — IN[0-3]
+  'p0_index_curl', 'p0_index_ang', 'p0_others_low', 'p0_thumb_in',
+  // cluster 1 (Open_Palm) — IN[4-7]
+  'p1_mean_curl', 'p1_spread', 'p1_palm_open', 'p1_anti_pinch',
+  // cluster 2 (Closed_Fist) — IN[8-11]
+  'p2_anti_curl', 'p2_anti_spread', 'p2_anti_palm', 'p2_pinch',
+  // cluster 3 (Victory) — IN[12-15]
+  'p3_v_index', 'p3_v_middle', 'p3_others_curled', 'p3_v_signature',
 ];
 
-// 손가락별 (MCP, PIP, TIP) 인덱스 — 각도 계산용.
 const FINGER_JOINTS: Array<[number, number, number]> = [
   [LM.THUMB_MCP, LM.THUMB_IP, LM.THUMB_TIP],
   [LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_TIP],
@@ -31,7 +35,6 @@ const FINGER_JOINTS: Array<[number, number, number]> = [
   [LM.PINKY_MCP, LM.PINKY_PIP, LM.PINKY_TIP],
 ];
 
-// 손가락별 (TIP, MCP) — 직선 curl 계산용.
 const FINGER_TIPS_MCPS: Array<[number, number]> = [
   [LM.THUMB_TIP, LM.THUMB_MCP],
   [LM.INDEX_TIP, LM.INDEX_MCP],
@@ -48,44 +51,58 @@ export function encodeLandmarks(lms: HandLandmarks): number[] {
   const ps = palmSize(lms);
   if (ps === 0) return new Array(FEATURE_DIM).fill(0);
 
-  const out: number[] = [];
+  // ── primitive features (재사용) ──
+  // curl ratio per finger — 1=펴짐, 0=굽힘.
+  const curl = FINGER_TIPS_MCPS.map(([tip, mcp]) =>
+    clamp01(distance(lms[tip], lms[mcp]) / ps / 1.5),
+  );
+  // angle (1 - cos) / 2 per finger — 1=펴짐, 0=굽힘.
+  const ang = FINGER_JOINTS.map(([mcp, pip, tip]) =>
+    clamp01((1 - angleCos(lms[mcp], lms[pip], lms[tip])) / 2),
+  );
+  const [thumbCurl, indexCurl, middleCurl, ringCurl, pinkyCurl] = curl;
+  const indexAng = ang[1];
+  const meanCurl = curl.reduce((a, b) => a + b, 0) / curl.length;
+  const meanOtherCurl = (thumbCurl + middleCurl + ringCurl + pinkyCurl) / 4;
+  const meanRingPinky = (ringCurl + pinkyCurl) / 2;
 
-  // 0~4: finger_curl — TIP↔MCP 거리 / palm_size, 1.0=핀, 0=완전 굽힘.
-  // 보통 펴진 손가락은 ratio 1.5~2.0, 주먹은 0.3~0.5. 1.5 로 나눠 0~1 범위.
-  for (const [tip, mcp] of FINGER_TIPS_MCPS) {
-    const ratio = distance(lms[tip], lms[mcp]) / ps;
-    out.push(clamp01(ratio / 1.5));
-  }
+  // pinch (thumb tip ↔ index tip) — 0=닿음, 1=벌림.
+  const pinchDist = clamp01(distance(lms[LM.THUMB_TIP], lms[LM.INDEX_TIP]) / ps);
+  // spread (thumb mcp ↔ index mcp) — 0~1.
+  const spread = clamp01(distance(lms[LM.THUMB_MCP], lms[LM.INDEX_MCP]) / ps / 0.6);
+  // palm_open — 5 finger tip 평균 ↔ wrist / 2.
+  let sumWrist = 0;
+  for (const tip of FINGER_TIPS) sumWrist += distance(lms[tip], lms[LM.WRIST]);
+  const palmOpen = clamp01(sumWrist / 5 / ps / 2.0);
+  // thumb in (Pointing 시 thumb 굽힘) — 1 = thumb curled in.
+  const thumbIn = 1 - thumbCurl;
 
-  // 5~9: finger_angle — PIP cos(angle). cos=−1 (펴짐, 180°) → 1, cos=+1 (굽힘, 0°) → 0.
-  // (1 - cos) / 2 로 0~1 정규화 (펴진 상태 = 1, 굽힌 상태 = 0).
-  for (const [mcp, pip, tip] of FINGER_JOINTS) {
-    const c = angleCos(lms[mcp], lms[pip], lms[tip]);
-    out.push(clamp01((1 - c) / 2));
-  }
+  // ── cluster-discriminative encoding ──
+  const out = new Array<number>(FEATURE_DIM).fill(0);
 
-  // 10: pinch_dist — thumb_tip ↔ index_tip / palm_size. 0=닿음, 1=벌림 (>=1.0 ratio).
-  out.push(clamp01(distance(lms[LM.THUMB_TIP], lms[LM.INDEX_TIP]) / ps));
+  // cluster 0 (Pointing_Up) — IN[0-3]: index 강조, 다른 finger 약.
+  out[0] = indexCurl;                                 // index 펴짐
+  out[1] = indexAng;                                  // index 각도 펴짐
+  out[2] = clamp01(1 - meanOtherCurl);                // others 굽힘
+  out[3] = thumbIn;                                   // thumb in (검지 1 자세 정합)
 
-  // 11: thumb-index spread — mcp 사이 (손가락 사이 벌림 정도, 약 0.3~0.6 ratio).
-  out.push(clamp01(distance(lms[LM.THUMB_MCP], lms[LM.INDEX_MCP]) / ps / 0.6));
+  // cluster 1 (Open_Palm) — IN[4-7]: 모든 finger 펴짐.
+  out[4] = meanCurl;                                  // 모든 finger 펴짐 평균
+  out[5] = spread;                                    // thumb-index spread
+  out[6] = palmOpen;                                  // palm 펼침
+  out[7] = clamp01(pinchDist * 2);                    // anti-pinch (벌림)
 
-  // 12: palm_open — 5 손가락 끝 평균 ↔ 손목 거리 / palm size.
-  let sumDist = 0;
-  for (const tip of FINGER_TIPS) sumDist += distance(lms[tip], lms[LM.WRIST]);
-  out.push(clamp01(sumDist / 5 / ps / 2.0));
+  // cluster 2 (Closed_Fist) — IN[8-11]: 모든 finger 굽힘 + pinch 0.
+  out[8] = clamp01(1 - meanCurl);                     // 모든 finger 굽힘
+  out[9] = clamp01(1 - spread);                       // anti-spread
+  out[10] = clamp01(1 - palmOpen);                    // anti palm-open
+  out[11] = clamp01(1 - pinchDist);                   // pinch (thumb-index 닿음)
 
-  // 13~14: palm_orient_x/y — 손목→middle_mcp 벡터의 x,y 성분 (정규화).
-  // 0.5 가 중앙 (손이 정면), 0~1 범위.
-  const dx = lms[LM.MIDDLE_MCP].x - lms[LM.WRIST].x;
-  const dy = lms[LM.MIDDLE_MCP].y - lms[LM.WRIST].y;
-  const dmag = Math.hypot(dx, dy) || 1;
-  out.push(clamp01((dx / dmag + 1) / 2));
-  out.push(clamp01((dy / dmag + 1) / 2));
-
-  // 15: wrist_roll — thumb_mcp.y ↔ pinky_mcp.y 차이 (손등 vs 손바닥).
-  // |thumb.y - pinky.y| / palm_size, 0=같은 높이 (손바닥/등 평면), 1=손가락 측면.
-  out.push(clamp01(Math.abs(lms[LM.THUMB_MCP].y - lms[LM.PINKY_MCP].y) / ps));
+  // cluster 3 (Victory) — IN[12-15]: index+middle 펴짐, ring+pinky 굽힘.
+  out[12] = indexCurl;                                // index 펴짐
+  out[13] = middleCurl;                               // middle 펴짐
+  out[14] = clamp01(1 - meanRingPinky);               // ring+pinky 굽힘
+  out[15] = clamp01(indexCurl * middleCurl * (1 - meanRingPinky));  // V signature
 
   return out;
 }

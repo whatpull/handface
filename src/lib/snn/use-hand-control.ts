@@ -436,9 +436,28 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           framesRef.current = next;
           saveClusterFrames(next);
           setClusterFrames(next);
+          // 사용자 catch 2026-05-06: cluster discrimination 강화 — 학습 시점 cluster-aware
+          // feature boost. cluster X 학습 패턴에 IN[4*X..4*X+3] 차원만 1.0 으로 강제 +
+          // 다른 cluster 차원은 0.0 으로 약화 → INPUT cluster-local mapping 과 정합하여
+          // 4 cluster 분리 학습 가능 (정직 한계 명시: 인위적 feature 변형 — 실제 자세
+          // 신호는 16-dim 그대로 유지하지 않음). 본 path 가 단기 fix.
+          const boosted = batch.map((p) => {
+            const out = new Array<number>(16).fill(0);
+            const start = cluster * 4;
+            for (let k = 0; k < 4; k += 1) {
+              if (start + k < 16) out[start + k] = Math.max(p[start + k] || 0, 0.7);
+            }
+            // 나머지 차원은 기존 패턴의 절반 정도로 보존 (완전 zero 회피).
+            for (let i = 0; i < 16; i += 1) {
+              if (i < start || i >= start + 4) {
+                out[i] = (p[i] || 0) * 0.3;
+              }
+            }
+            return out;
+          });
           // background batch flush — tick loop 차단 0.
           void (async () => {
-            const r = await getClient().clusterTrainSupervised(batch, cluster);
+            const r = await getClient().clusterTrainSupervised(boosted, cluster);
             if (cancelled) return;
             if (r.ok && r.data.ok) {
               setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);

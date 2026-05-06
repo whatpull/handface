@@ -963,23 +963,13 @@
   100% { opacity: 0; transform: scaleX(1); transform-origin: left center; }
 }
 
-/* 3) tick spinner — 추론 / 학습 중 활성 사실 subtle pulse dot.
-      inline 변형 — count 옆 / phase label 옆 8px circle. */
-.snn-pipeline-tick-spinner {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgb(var(--pipe-tone-cyan-light, 165 243 252));
-  margin-left: 6px;
-  vertical-align: middle;
-  box-shadow: 0 0 6px rgba(165, 243, 252, 0.6);
-  animation: snn-pipeline-tick-pulse 1.0s ease-in-out infinite;
-}
+/* tick spinner — 사용자 catch 2026-05-07: 모든 환경에서 폐기.
+   학습 / 추론 진행 신호는 텍스트 (LEARNING / 학습 중 (30 frame)) +
+   connector / node active glow (학습 중 phase 영역) 만으로 충분.
+   inline-block 점이 vertical-align 깨진 catch 다수. */
+.snn-pipeline-tick-spinner,
 .snn-pipeline-tick-spinner--inline {
-  width: 6px;
-  height: 6px;
-  margin-left: 4px;
+  display: none;
 }
 @keyframes snn-pipeline-tick-pulse {
   0%, 100% { opacity: 0.35; transform: scale(0.85); }
@@ -1673,10 +1663,9 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 3px;
+  /* 사용자 catch 2026-05-07: 노드 너비 꽉차게 정사각형. max-width 폐기. */
   width: 100%;
   aspect-ratio: 1 / 1;
-  max-width: 180px;
-  align-self: center;
 }
 .snn-grid-pixel {
   appearance: none;

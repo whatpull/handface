@@ -460,6 +460,19 @@
     height: 36px;
     margin: var(--pipe-gap-xs) 0;
   }
+  /* 사용자 catch 2026-05-07: 모바일 반짝이는 하얀점 catch.
+     Arrow active dot 의 animateMotion 이 모바일에서 산만 — 모바일 한정
+     hide. 데스크톱은 그대로 (connector dot 이 발화 시각화).
+     glow drop-shadow 도 함께 약화 (active arrow 자체 glow). */
+  .snn-pipeline-conn-dot { display: none; }
+  .snn-pipeline-arrow.is-active { filter: none; }
+  /* 무한 fill pulse 도 약화 — 학습 진행 spinner 는 보존. */
+  .snn-mode-progress-fill,
+  .snn-pipeline-current,
+  .snn-pipeline-out-winner-btn,
+  .snn-pipeline-cluster-bar-pulse {
+    animation: none !important;
+  }
 }
 
 .snn-pipeline-node {

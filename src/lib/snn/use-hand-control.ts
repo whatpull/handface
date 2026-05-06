@@ -49,11 +49,15 @@ export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
   Victory:     3,
 };
 
+// path Y (2026-05-07) — orientation 4종으로 통일 (─ │ ╲ ╱).
+// 회로 cluster 의미 자체가 orientation 으로 self-organize 되므로 자세 라벨 폐기.
+// camera 모드의 GESTURE_LABEL_TO_CLUSTER 는 supervisor 학습용 매핑 보존
+// (자세 → cluster id) — camera 사용 시 backward compat.
 export const CLUSTER_TO_LABEL: Record<number, string> = {
-  0: 'Pointing',
-  1: 'Open palm',
-  2: 'Fist',
-  3: 'Victory',
+  0: '─ horizontal',
+  1: '│ vertical',
+  2: '╲ diag-back',
+  3: '╱ diag-fore',
 };
 
 // supervised teacher 정합 임계 — 0.6 (사용자 명시 2026-05-05).

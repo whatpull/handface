@@ -1,8 +1,9 @@
 'use client';
 
-// NodeInput — INPUT 노드 (제스처 / grid 입력).
-// path Y (2026-05-07): 4×4 픽셀 grid orientation 분류 추가 — default mode.
-// camera mode: 기존 HandTrackerHost 영역 video / skel / 16-feat bars 보존.
+// NodeInput — INPUT 노드 (orientation grid / camera 입력).
+// path Y (2026-05-07): 4×4 픽셀 grid orientation 분류가 default. camera 는
+// backward compat 으로 보존.
+// camera mode: 기존 HandTrackerHost 의 video / skel / 16-feat bars 보존.
 // grid mode: GridInput 컴포넌트 — 16 pixel toggle + 4 preset + R-STDP 학습 + 추론.
 //
 // HandTrackerHost 영역 mount 영역 selector (#snn-cam-video / #snn-cam-skel /
@@ -41,7 +42,7 @@ export default function NodeInput({ cameraConnected }: { cameraConnected: boolea
     : (cameraConnected ? 'starting…' : 'camera off');
 
   return (
-    <NodeShell title="INPUT" subtitle={mode === 'grid' ? '4×4 orientation' : '제스처 입력'} tone="input">
+    <NodeShell title="INPUT" subtitle={mode === 'grid' ? '4×4 orientation' : 'camera input'} tone="input">
       <div className="snn-pipeline-input">
         <div className="snn-input-mode-toggle" role="tablist" aria-label="input mode">
           <button

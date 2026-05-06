@@ -85,7 +85,7 @@ export default function NodeInfer() {
       {trained && (
         <div className={`snn-pipeline-current ${winnerLabel ? 'is-active' : ''}`}>
           <div className="snn-pipeline-current-label">
-            현재 자세
+            현재 winner
             {trained && tickActive && (
               <span className="snn-pipeline-tick-spinner snn-pipeline-tick-spinner--inline" aria-label="추론 중" />
             )}
@@ -97,7 +97,7 @@ export default function NodeInfer() {
             {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
           </div>
           {!winnerLabel && winner.clusterRates.every((v) => v <= 0) && (
-            <div className="snn-pipeline-current-hint">카메라 자세 신호 대기 — cluster_rates 활성 미정</div>
+            <div className="snn-pipeline-current-hint">입력 신호 대기 — cluster_rates 활성 미정</div>
           )}
           {!winnerLabel && winner.clusterRates.some((v) => v > 0) && (
             <div className="snn-pipeline-current-hint">WTA tie — margin {(winner.margin * 100).toFixed(0)}% &lt; 10%</div>

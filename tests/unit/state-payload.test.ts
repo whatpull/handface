@@ -38,7 +38,7 @@ describe('buildStatePayload — schema invariants', () => {
       gestureName: 'Open_Palm',
       gestureScore: 0.9,
     });
-    expect(p.winnerLabel).toBe('Open palm');  // CLUSTER_TO_LABEL[1]
+    expect(p.winnerLabel).toBe('│ vertical');  // CLUSTER_TO_LABEL[1] — path Y orientation
     expect(p.timestamp).toBeGreaterThan(0);
     expect(p.timestamp).toBeLessThanOrEqual(Date.now() + 100);
   });
@@ -118,7 +118,7 @@ describe('buildStatePayload — winnerLabel resolution', () => {
 
   it('falls back to CLUSTER_TO_LABEL when no exemplar matches', () => {
     const p = buildStatePayload({ ...baseInputs, winnerCluster: 3 });
-    expect(p.winnerLabel).toBe('Victory');
+    expect(p.winnerLabel).toBe('╱ diag-fore');  // path Y orientation
   });
 
   it('null label in exemplar still falls back', () => {
@@ -126,6 +126,6 @@ describe('buildStatePayload — winnerLabel resolution', () => {
       out_0_0: { count: 1, lastFeature: [], lastAt: 0, label: null },
     }));
     const p = buildStatePayload({ ...baseInputs, winnerCluster: 0 });
-    expect(p.winnerLabel).toBe('Pointing');
+    expect(p.winnerLabel).toBe('─ horizontal');  // path Y orientation
   });
 });

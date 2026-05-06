@@ -5,7 +5,8 @@
 import { WINNER_MARGIN_DEFAULT } from '@/lib/snn/winner-derivation';
 
 export const CLUSTER_TARGET = 30;
-export const CLUSTER_LABELS = ['Pointing', 'Open palm', 'Fist', 'Victory'] as const;
+// path Y (2026-05-07) — orientation 4종 정합 (자세 라벨 폐기).
+export const CLUSTER_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const SATURATION_HZ = 400;
 export const WINNER_MARGIN = WINNER_MARGIN_DEFAULT;
 export const HISTORY_MAX = 32;

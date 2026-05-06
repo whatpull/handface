@@ -214,15 +214,15 @@ export default function NodeLearn() {
       untrained: {
         label: 'UNTRAINED',
         tone: 'idle',
-        sub: 'awaiting teacher (N=5 stable + conf ≥ 0.6)',
-        hint: '카메라에 4개 자세를 보여주세요 — Pointing / Open palm / Fist / Victory',
+        sub: 'awaiting input — grid preset 학습 또는 camera teacher',
+        hint: 'INPUT 노드에서 4 패턴 (─ │ ╲ ╱) 을 학습시키세요',
       },
       learning: {
         label: 'LEARNING',
         tone: 'amber',
-        sub: 'batch supervised — capturing frames',
+        sub: 'R-STDP — capturing frames',
         hint: activeLabel
-          ? `${activeLabel} 자세를 유지하세요 (${activeCount}/${CLUSTER_TARGET})`
+          ? `${activeLabel} 패턴 유지 (${activeCount}/${CLUSTER_TARGET})`
           : 'capturing frames…',
       },
       partial: {
@@ -243,7 +243,7 @@ export default function NodeLearn() {
         label: 'INFERENCE',
         tone: 'blue',
         sub: 'STDP off · cluster mean readout',
-        hint: '실시간 추론 — 자세를 보여주세요',
+        hint: '실시간 추론 — 입력을 주세요',
       },
     };
     return config[p];
@@ -260,7 +260,8 @@ export default function NodeLearn() {
     const mappable = !!teacher.gestureName && GESTURE_LABEL_TO_CLUSTER[teacher.gestureName] !== undefined;
     const ready = mappable && conf >= GESTURE_CONFIDENCE_MIN && stableCount >= GESTURE_STABLE_FRAMES;
     if (!mappable && teacher.gestureName) {
-      // 학습 매핑 없는 자세 — 4 자세 (Pointing/Open_Palm/Fist/Victory) 영역만 학습 가능 명시.
+      // camera teacher 매핑 안 된 자세 — Pointing_Up / Open_Palm / Closed_Fist
+      // / Victory 만 cluster id 로 mapping 가능. grid 입력은 매핑 무관.
       return { line: `${name} ⚠ 미매핑 — 4 자세만 학습`, mappable: false, ready: false };
     }
     const stableSuffix = mappable && conf >= GESTURE_CONFIDENCE_MIN

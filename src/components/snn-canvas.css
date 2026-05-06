@@ -173,31 +173,40 @@
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 6px;
-  padding: var(--pipe-gap-xs) var(--pipe-gap-sm);
+  gap: 4px;
+  padding: var(--pipe-gap-xs) 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 3px;
   background: rgba(20, 20, 24, 0.85);
   transition: box-shadow 200ms ease, border-color 200ms ease;
+  /* 사용자 catch 2026-05-07: V1/V2 숫자가 박스를 벗어나는 문제 — overflow 차단 + flex 1 균등. */
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 0;
+  white-space: nowrap;
 }
 .snn-pipeline-learn-region-box.is-fired {
   box-shadow: 0 0 14px rgba(var(--pipe-tone-infer), 0.55);
 }
 .snn-pipeline-learn-region-label {
-  font-size: var(--pipe-font-xs);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
 }
 .snn-pipeline-learn-region-counts {
   display: inline-flex;
   align-items: baseline;
   gap: 1px;
   font-family: ui-monospace, monospace;
-  font-size: var(--pipe-font-md);
+  font-size: var(--pipe-font-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .snn-pipeline-learn-region-active { color: rgb(var(--pipe-tone-infer)); font-weight: 600; }
 .snn-pipeline-learn-region-sep { color: rgba(255, 255, 255, 0.3); }
-.snn-pipeline-learn-region-total { color: rgba(255, 255, 255, 0.5); font-size: var(--pipe-font-xs); }
+.snn-pipeline-learn-region-total { color: rgba(255, 255, 255, 0.5); font-size: 10px; }
 .snn-pipeline-learn-region-box--v1 { border-color: rgba(var(--pipe-tone-llm), var(--pipe-tone-alpha-border)); }
 .snn-pipeline-learn-region-box--v1 .snn-pipeline-learn-region-label { color: rgba(var(--pipe-tone-cyan-light), 0.85); }
 .snn-pipeline-learn-region-box--v2 { border-color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-border)); }

@@ -460,17 +460,29 @@
     height: 36px;
     margin: var(--pipe-gap-xs) 0;
   }
-  /* 사용자 catch 2026-05-07: 모바일 반짝이는 하얀점 catch.
-     Arrow active dot 의 animateMotion 이 모바일에서 산만 — 모바일 한정
-     hide. 데스크톱은 그대로 (connector dot 이 발화 시각화).
-     glow drop-shadow 도 함께 약화 (active arrow 자체 glow). */
-  .snn-pipeline-conn-dot { display: none; }
-  .snn-pipeline-arrow.is-active { filter: none; }
-  /* 무한 fill pulse 도 약화 — 학습 진행 spinner 는 보존. */
+  /* 사용자 catch 2026-05-07: 모바일 반짝이는 하얀점 catch — 영역 벗어난
+     위치에 보임. 원인 후보 다수 (Arrow conn-dot / SVG edge-dot / cluster-
+     bar-pulse / tick-spinner glow). 모바일 한정 모두 hide — 데스크톱
+     흐름은 그대로 보존. */
+  .snn-pipeline-conn-dot,
+  .snn-pipeline-edge-dot,
+  .snn-pipeline-cluster-bar-pulse {
+    display: none !important;
+  }
+  /* active arrow / edge glow drop-shadow 도 폐기. */
+  .snn-pipeline-arrow.is-active,
+  .snn-pipeline-edge.is-active {
+    filter: none;
+  }
+  /* tick-spinner glow 약화 — 점 자체는 보존 (학습 진행 신호) 하지만
+     box-shadow glow 가 모바일에서 흰빛 산란으로 catch 가능. */
+  .snn-pipeline-tick-spinner {
+    box-shadow: none;
+  }
+  /* 무한 fill pulse 도 약화. */
   .snn-mode-progress-fill,
   .snn-pipeline-current,
-  .snn-pipeline-out-winner-btn,
-  .snn-pipeline-cluster-bar-pulse {
+  .snn-pipeline-out-winner-btn {
     animation: none !important;
   }
 }

@@ -466,9 +466,10 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   min-width: 0;
-  /* 사용자 catch 2026-05-07: 컨텐츠 표현에 따라 노드 크기 변경 — 정신 사나움.
-     fixed height 480px 영역 모든 노드 통일 + 자식 영역 overflow auto 영역 본격 lock. */
-  height: 480px;
+  /* 사용자 catch 2026-05-07 명확화: 노드 자체는 자연 height (content-fit) 보존.
+     content 자체가 fixed dimension (TEACHER nowrap / cluster bar fixed / V1V2 fixed)
+     → suffix / 글씨 / 텍스트 변동 시 박스 크기 영향 차단. */
+  height: max-content;
   display: flex;
   flex-direction: column;
   font-size: var(--pipe-font-md);
@@ -476,12 +477,6 @@
   box-shadow: none;
   overflow: hidden;
   transition: border-color 160ms ease, background 160ms ease;
-}
-.snn-pipeline-node-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
 }
 .snn-pipeline-node:hover {
   /* admin minimalist — hover 영역 background gray-900 + border 일부 변화 (사용자 명시).
@@ -610,18 +605,26 @@
   font-size: var(--pipe-font-sm);
   line-height: 1.3;
   padding: 1px 0;
+  /* 사용자 catch 2026-05-07: content 길이 변동 → 박스 크기 영향 차단. */
+  min-width: 0;
+  white-space: nowrap;
 }
 .snn-pipeline-row-label {
   color: var(--pipe-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 10px;
+  flex-shrink: 0;
 }
 .snn-pipeline-row-value {
   text-align: right;
   color: var(--pipe-text);
-  word-break: break-all;
   font-size: var(--pipe-font-sm);
+  /* 사용자 catch: TEACHER suffix [5/5 stable] 길이 변동 — nowrap + ellipsis. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .snn-pipeline-mono { font-family: ui-monospace, monospace; }
 

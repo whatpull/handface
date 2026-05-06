@@ -75,6 +75,12 @@ export default function NodeInfer() {
           <div className="snn-pipeline-current-value">
             {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
           </div>
+          {!winnerLabel && winner.clusterRates.every((v) => v <= 0) && (
+            <div className="snn-pipeline-current-hint">카메라 영역 자세 영역 → cluster_rates 활성</div>
+          )}
+          {!winnerLabel && winner.clusterRates.some((v) => v > 0) && (
+            <div className="snn-pipeline-current-hint">WTA tie — margin {(winner.margin * 100).toFixed(0)}% &lt; 10%</div>
+          )}
         </div>
       )}
       <div className="snn-pipeline-row">

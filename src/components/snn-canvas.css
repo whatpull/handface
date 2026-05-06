@@ -787,6 +787,12 @@
   text-transform: uppercase;
   color: var(--pipe-text-dim);
 }
+.snn-pipeline-current-hint {
+  font-size: 10px;
+  color: var(--pipe-text-muted);
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+}
 .snn-pipeline-current-value {
   /* readable v4 — value 18px (직전 14 대부분 일부, hierarchy 강). */
   font-size: 18px;
@@ -1021,6 +1027,10 @@
   color: rgba(255,255,255,0.8);
   pointer-events: none;
   z-index: 30;
+  max-width: calc(100% - 32px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   animation: snn-pipeline-toast-in 220ms ease-out;
 }
 .snn-pipeline-toast--ok {

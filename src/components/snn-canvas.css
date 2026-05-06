@@ -848,6 +848,142 @@
   color: #f3f4f6; font-size: var(--pipe-font-xs);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   사용자 catch 2026-05-07: 학습 진행 / 추론 활성 시각 피드백 강화.
+   - phase transition fade+slide-in
+   - 학습 중 active cluster bar pulse + capturing dot
+   - 추론 tick spinner
+   - winner 변경 fade-in
+   - LEARN/INFER 노드 자체 glow
+   - saturation rate bar 색감 변경
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* 1) phase transition — UNTRAINED → LEARNING → PARTIAL → TRAINED 변경 시점 fade+slide-in */
+.snn-pipeline-phase-transition {
+  animation: snn-pipeline-phase-fade 360ms ease-out;
+}
+@keyframes snn-pipeline-phase-fade {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 2) 학습 중 cluster bar 영역 capturing pulse — frame 1개 누적 시각 신호.
+      bumpKey 변경 영역 element 재생성 → animation 영역 1회 재생. */
+.snn-pipeline-cluster-bar {
+  position: relative;
+}
+.snn-pipeline-cluster-bar.is-capturing {
+  outline: 1px solid rgba(var(--pipe-tone-learn), 0.35);
+  outline-offset: 1px;
+}
+.snn-pipeline-cluster-bar-pulse {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.50);
+  mix-blend-mode: overlay;
+  animation: snn-pipeline-cluster-pulse 520ms ease-out;
+}
+@keyframes snn-pipeline-cluster-pulse {
+  0%   { opacity: 0; transform: scaleX(0.3); transform-origin: left center; }
+  40%  { opacity: 0.85; }
+  100% { opacity: 0; transform: scaleX(1); transform-origin: left center; }
+}
+
+/* 3) tick spinner — 추론 / 학습 중 활성 사실 subtle pulse dot.
+      inline 변형 — count 옆 / phase label 옆 8px circle. */
+.snn-pipeline-tick-spinner {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--pipe-tone-cyan-light, 165 243 252));
+  margin-left: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 6px rgba(165, 243, 252, 0.6);
+  animation: snn-pipeline-tick-pulse 1.0s ease-in-out infinite;
+}
+.snn-pipeline-tick-spinner--inline {
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+}
+@keyframes snn-pipeline-tick-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1.0;  transform: scale(1.15); }
+}
+
+/* 4) teacher row 영역 stable ready (5/5 stable + conf >= 0.6) — color emphasis. */
+.snn-pipeline-row-value.is-stable-ready {
+  color: rgb(var(--pipe-tone-cyan-light, 165 243 252));
+  font-weight: 600;
+}
+
+/* 5) winner 변경 fade-in — key 변경 시 element 재생성 영역 animation 1회 재생. */
+.snn-pipeline-winner-fade {
+  animation: snn-pipeline-winner-fade-in 360ms ease-out;
+}
+@keyframes snn-pipeline-winner-fade-in {
+  0%   { opacity: 0.2; transform: scale(0.95); }
+  60%  { opacity: 1.0; transform: scale(1.04); }
+  100% { opacity: 1.0; transform: scale(1.0); }
+}
+
+/* 6) LEARN 노드 자체 영역 학습 active glow — 노드 wrapper 영역 border / box-shadow 강.
+      INFER 노드 영역 trained 시점 영역 subtle glow (학습 후 추론 활성 사실 catch). */
+.snn-pipeline-node-wrap.is-learn-active .snn-pipeline-node {
+  border-color: rgba(var(--pipe-tone-learn, 251 191 36), 0.55);
+  box-shadow:
+    0 0 0 1px rgba(var(--pipe-tone-learn, 251 191 36), 0.30),
+    0 0 14px rgba(var(--pipe-tone-learn, 251 191 36), 0.22);
+  animation: snn-pipeline-learn-node-glow 1.6s ease-in-out infinite;
+}
+@keyframes snn-pipeline-learn-node-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(var(--pipe-tone-learn, 251 191 36), 0.22),
+      0 0 10px rgba(var(--pipe-tone-learn, 251 191 36), 0.16);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(var(--pipe-tone-learn, 251 191 36), 0.45),
+      0 0 22px rgba(var(--pipe-tone-learn, 251 191 36), 0.32);
+  }
+}
+.snn-pipeline-node-wrap.is-infer-active .snn-pipeline-node {
+  border-color: rgba(var(--pipe-tone-infer, 96 165 250), 0.40);
+  box-shadow: 0 0 12px rgba(var(--pipe-tone-infer, 96 165 250), 0.16);
+}
+
+/* 7) edge 영역 학습 fast — INPUT→LEARN, LEARN→INFER 영역 학습 중 강 glow. */
+.snn-pipeline-edge.is-learn-fast.is-active {
+  color: rgba(var(--pipe-tone-learn, 251 191 36), 0.95);
+  filter: drop-shadow(0 0 7px rgba(var(--pipe-tone-learn, 251 191 36), 0.7));
+}
+
+/* 8) saturation rate bar — 600Hz 도달 시점 색감 변경 catch (사용자 mandatory: 시각 피드백 한정). */
+.snn-pipeline-fill-saturated {
+  background: linear-gradient(90deg, #fbbf24, #fde68a);
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.35) inset;
+}
+.snn-pipeline-rate-row.is-saturated .snn-pipeline-rate-value {
+  color: rgb(251, 191, 36);
+  font-weight: 600;
+}
+
+/* prefers-reduced-motion — animation 영역 instant (accessibility). */
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-phase-transition,
+  .snn-pipeline-cluster-bar-pulse,
+  .snn-pipeline-tick-spinner,
+  .snn-pipeline-winner-fade,
+  .snn-pipeline-node-wrap.is-learn-active .snn-pipeline-node {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* OUT */
 .snn-pipeline-out-winner {
   display: flex; justify-content: center;

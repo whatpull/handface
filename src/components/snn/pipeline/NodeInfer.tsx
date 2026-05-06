@@ -38,17 +38,30 @@ export default function NodeInfer() {
   }, []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  const { winner } = usePipelineEvents();
+  const { winner, lastFiringTimestamp } = usePipelineEvents();
   const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
 
   // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
+  // winnerKey ↑ — 변경 시 fade-in animation 재생 (사용자 catch 2026-05-07).
   const lastClusterRef = useRef<number | null>(null);
+  const [winnerKey, setWinnerKey] = useState<number>(0);
   useEffect(() => {
     if (winner.cluster === null) return;
     if (winner.cluster === lastClusterRef.current) return;
     lastClusterRef.current = winner.cluster;
+    setWinnerKey((k) => k + 1);
     setHistory((h) => [...h.slice(-9), winner.cluster!]);
   }, [winner.cluster]);
+
+  // INFERENCE tick spinner — 350ms tick 영역 frame 영역 도달 시점 1.2s subtle pulse.
+  // 사용자 catch 2026-05-07: 추론 활성 사실 시각 catch.
+  const [tickActive, setTickActive] = useState<boolean>(false);
+  useEffect(() => {
+    if (lastFiringTimestamp === null) { setTickActive(false); return; }
+    setTickActive(true);
+    const t = setTimeout(() => setTickActive(false), 1200);
+    return () => clearTimeout(t);
+  }, [lastFiringTimestamp]);
 
   const pname = phase?.phase ?? 'untrained';
   const trained = pname === 'trained' || pname === 'inference';
@@ -71,12 +84,20 @@ export default function NodeInfer() {
       )}
       {trained && (
         <div className={`snn-pipeline-current ${winnerLabel ? 'is-active' : ''}`}>
-          <div className="snn-pipeline-current-label">현재 자세</div>
-          <div className="snn-pipeline-current-value">
+          <div className="snn-pipeline-current-label">
+            현재 자세
+            {trained && tickActive && (
+              <span className="snn-pipeline-tick-spinner snn-pipeline-tick-spinner--inline" aria-label="추론 중" />
+            )}
+          </div>
+          <div
+            key={`winner-${winnerKey}`}
+            className="snn-pipeline-current-value snn-pipeline-winner-fade"
+          >
             {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
           </div>
           {!winnerLabel && winner.clusterRates.every((v) => v <= 0) && (
-            <div className="snn-pipeline-current-hint">카메라 영역 자세 영역 → cluster_rates 활성</div>
+            <div className="snn-pipeline-current-hint">카메라 자세 신호 대기 — cluster_rates 활성 미정</div>
           )}
           {!winnerLabel && winner.clusterRates.some((v) => v > 0) && (
             <div className="snn-pipeline-current-hint">WTA tie — margin {(winner.margin * 100).toFixed(0)}% &lt; 10%</div>
@@ -94,7 +115,7 @@ export default function NodeInfer() {
       <div className="snn-pipeline-rate-grid">
         {winner.clusterRates.map((r, i) => (
           <RateBar key={i} label={CLUSTER_LABELS[i]} rate={r} max={max}
-            isWinner={winner.cluster === i} />
+            isWinner={winner.cluster === i} isSaturated={r >= SATURATION_HZ} />
         ))}
       </div>
       <div className="snn-pipeline-row">
@@ -110,8 +131,8 @@ export default function NodeInfer() {
   );
 }
 
-function RateBar({ label, rate, max, isWinner }:
-  { label: string; rate: number; max: number; isWinner: boolean }) {
+function RateBar({ label, rate, max, isWinner, isSaturated }:
+  { label: string; rate: number; max: number; isWinner: boolean; isSaturated: boolean }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (fillRef.current) {
@@ -120,10 +141,13 @@ function RateBar({ label, rate, max, isWinner }:
     }
   }, [rate, max]);
   return (
-    <div className={`snn-pipeline-rate-row ${isWinner ? 'is-winner' : ''}`}>
+    <div className={`snn-pipeline-rate-row ${isWinner ? 'is-winner' : ''} ${isSaturated ? 'is-saturated' : ''}`}>
       <span className="snn-pipeline-rate-label">{label}</span>
       <div className="snn-pipeline-rate-bar">
-        <div ref={fillRef} className="snn-mode-progress-fill snn-pipeline-fill-cyan" />
+        <div
+          ref={fillRef}
+          className={`snn-mode-progress-fill ${isSaturated ? 'snn-pipeline-fill-saturated' : 'snn-pipeline-fill-cyan'}`}
+        />
       </div>
       <span className="snn-pipeline-rate-value">{rate.toFixed(0)}</span>
     </div>

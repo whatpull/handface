@@ -479,12 +479,15 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
             {EDGES.map(([a, b], i) => {
               const d = buildPath(a, b);
               const active = segActive[i];
+              // 사용자 catch 2026-05-07: 학습 중 INPUT→LEARN, LEARN→INFER 영역 connector 강 발화.
+              // dur 1.5s → 0.8s (속도 ↑) + edge 영역 is-learn-fast 영역 stroke glow 강.
+              const learnFast = (i === 0 || i === 1) && learnActive;
               return (
-                <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'}`}>
-                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? 2.4 : 1.6} fill="none" strokeLinecap="round" />
+                <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'} ${learnFast ? 'is-learn-fast' : ''}`}>
+                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? (learnFast ? 3.0 : 2.4) : 1.6} fill="none" strokeLinecap="round" />
                   {active && (
-                    <circle r="4" className="snn-pipeline-edge-dot" fill="currentColor">
-                      <animateMotion dur="1.5s" repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
+                    <circle r={learnFast ? 5 : 4} className="snn-pipeline-edge-dot" fill="currentColor">
+                      <animateMotion dur={learnFast ? '0.8s' : '1.5s'} repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">
                         <mpath href={`#snn-edge-path-${i}`} />
                       </animateMotion>
                     </circle>
@@ -493,19 +496,24 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
               );
             })}
           </svg>
-          {/* 5 absolute draggable node. */}
-          {(Object.keys(positions) as NodeId[]).map((id) => (
-            <div
-              key={id}
-              ref={(el) => { nodeRefs.current[id] = el; }}
-              className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id}`}
-              style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
-              onPointerDown={onPointerDownNode(id)}
-            >
-              {/* drag handle bar 폐기 (사용자 catch: 불필요) — node-wrap 자체 영역 drag trigger. */}
-              {renderNode(id)}
-            </div>
-          ))}
+          {/* 5 absolute draggable node.
+              사용자 catch 2026-05-07: LEARN 노드 자체 영역 학습 active glow — phase=='learning'|'partial' 영역. */}
+          {(Object.keys(positions) as NodeId[]).map((id) => {
+            const isLearnActive = id === 'learn' && learnActive;
+            const isInferActive = id === 'infer' && (phase === 'trained' || phase === 'inference');
+            return (
+              <div
+                key={id}
+                ref={(el) => { nodeRefs.current[id] = el; }}
+                className={`snn-pipeline-node-wrap snn-pipeline-node-wrap--${id} ${isLearnActive ? 'is-learn-active' : ''} ${isInferActive ? 'is-infer-active' : ''}`}
+                style={{ '--node-x': `${positions[id].x}px`, '--node-y': `${positions[id].y}px` } as React.CSSProperties}
+                onPointerDown={onPointerDownNode(id)}
+              >
+                {/* drag handle bar 폐기 (사용자 catch: 불필요) — node-wrap 자체 영역 drag trigger. */}
+                {renderNode(id)}
+              </div>
+            );
+          })}
         </div>
       </div>
       {statusVisible && (

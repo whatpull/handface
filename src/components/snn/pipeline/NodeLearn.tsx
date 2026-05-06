@@ -19,6 +19,11 @@ import {
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
+import {
+  GESTURE_LABEL_TO_CLUSTER,
+  GESTURE_CONFIDENCE_MIN,
+  GESTURE_STABLE_FRAMES,
+} from '@/lib/snn/use-hand-control';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
@@ -37,6 +42,17 @@ export default function NodeLearn() {
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
   const prevWeights = useRef<Map<string, number>>(new Map());
 
+  // 사용자 catch 2026-05-07: teacher stable 카운트 — use-hand-control 내부 ref 비공개,
+  // 본 컴포넌트 자체로 동일 logic 재현 (gesture name 연속 + conf >= GESTURE_CONFIDENCE_MIN).
+  // "Open_Palm 72% [3/5 stable]" 형식 시각 피드백 — 학습 진행 사실 catch 강화.
+  const [stableCount, setStableCount] = useState<number>(0);
+  const lastNameRef = useRef<string | null>(null);
+
+  // 학습 batch supervised 진행 시점 표시 — clusterFrames 변경 영역 1500ms pulse trigger.
+  // 사용자 catch: 학습 진행 사실 영역 시각 catch 강화 — capturing 도중 활성 cluster bar 강 pulse.
+  const [capturingPulse, setCapturingPulse] = useState<number>(0); // increment counter (key change for re-trigger).
+  const prevClusterFramesRef = useRef<{ 0: number; 1: number; 2: number; 3: number } | null>(null);
+
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
   const [regionTotals, setRegionTotals] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
   const [regionActive, setRegionActive] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
@@ -44,7 +60,37 @@ export default function NodeLearn() {
   const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
-  useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', setTeacher), []);
+  useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
+    setTeacher(d);
+    // teacher stability tracking — use-hand-control 정합.
+    const gName = d.gestureName ?? null;
+    const gScore = d.gestureScore ?? 0;
+    const mappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
+    if (mappable && gScore >= GESTURE_CONFIDENCE_MIN) {
+      if (gName === lastNameRef.current) {
+        setStableCount((c) => Math.min(c + 1, GESTURE_STABLE_FRAMES));
+      } else {
+        lastNameRef.current = gName;
+        setStableCount(1);
+      }
+    } else {
+      lastNameRef.current = null;
+      setStableCount(0);
+    }
+  }), []);
+
+  // clusterFrames 증가 영역 — capturing pulse trigger (batch supervised 진행 시각화).
+  useEffect(() => {
+    if (!phase) return;
+    const prev = prevClusterFramesRef.current;
+    prevClusterFramesRef.current = phase.clusterFrames;
+    if (!prev) return;
+    let bumped = false;
+    for (const k of [0, 1, 2, 3] as const) {
+      if (phase.clusterFrames[k] > prev[k]) { bumped = true; break; }
+    }
+    if (bumped) setCapturingPulse((n) => n + 1);
+  }, [phase]);
 
   // 1회 snapshot — V1/V2 neuron 총개수.
   useEffect(() => {
@@ -203,15 +249,24 @@ export default function NodeLearn() {
     return config[p];
   }, [phase, activeCluster]);
 
-  const teacherLine = useMemo(() => {
-    if (!teacher) return 'no signal';
-    if (!teacher.hasHand) return 'no hand';
+  // teacher 라인 — 사용자 catch 2026-05-07: stable count visible.
+  // mappable + conf 통과 시 [N/5 stable] suffix → 학습 trigger 임박 사실 catch.
+  const teacherInfo = useMemo(() => {
+    if (!teacher) return { line: 'no signal', mappable: false, ready: false };
+    if (!teacher.hasHand) return { line: 'no hand', mappable: false, ready: false };
     const name = teacher.gestureName || 'none';
     const conf = teacher.gestureScore ?? 0;
-    return `${name} (${(conf * 100).toFixed(0)}%)`;
-  }, [teacher]);
+    const mappable = !!teacher.gestureName && GESTURE_LABEL_TO_CLUSTER[teacher.gestureName] !== undefined;
+    const ready = mappable && conf >= GESTURE_CONFIDENCE_MIN && stableCount >= GESTURE_STABLE_FRAMES;
+    const stableSuffix = mappable && conf >= GESTURE_CONFIDENCE_MIN
+      ? ` [${stableCount}/${GESTURE_STABLE_FRAMES} stable]`
+      : '';
+    return { line: `${name} (${(conf * 100).toFixed(0)}%)${stableSuffix}`, mappable, ready };
+  }, [teacher, stableCount]);
 
   const stripActive = regionFired.V1 || regionFired.V2;
+  const phaseTone = phaseInfo.tone;
+  const isLearning = phaseTone === 'amber' || phaseTone === 'orange';
 
   return (
     <NodeShell title="LEARN" subtitle="진행상황" tone="learn">
@@ -231,8 +286,18 @@ export default function NodeLearn() {
         </div>
         <RegionStripBox region="V2" total={regionTotals.V2} active={regionActive.V2} fired={regionFired.V2} />
       </div>
-      <div className={`snn-pipeline-phase snn-pipeline-phase--${phaseInfo.tone}`}>
-        <div className="snn-pipeline-phase-label">{phaseInfo.label}</div>
+      {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
+          사용자 catch 2026-05-07: phase transition 사실 시각 catch. */}
+      <div
+        key={`phase-${phaseTone}`}
+        className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
+      >
+        <div className="snn-pipeline-phase-label">
+          {phaseInfo.label}
+          {isLearning && (
+            <span className="snn-pipeline-tick-spinner" aria-label="학습 중" />
+          )}
+        </div>
         <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
       </div>
       <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
@@ -240,13 +305,24 @@ export default function NodeLearn() {
         {[0, 1, 2, 3].map((i) => {
           const count = phase ? phase.clusterFrames[i as 0|1|2|3] : 0;
           const done = count >= CLUSTER_TARGET;
-          const active = i === activeCluster && (phaseInfo.tone === 'amber' || phaseInfo.tone === 'orange');
-          return <ClusterRow key={i} label={CLUSTER_LABELS[i]} count={count} done={done} active={active} />;
+          const active = i === activeCluster && isLearning;
+          return (
+            <ClusterRow
+              key={i}
+              label={CLUSTER_LABELS[i]}
+              count={count}
+              done={done}
+              active={active}
+              capturingPulse={active ? capturingPulse : 0}
+            />
+          );
         })}
       </div>
       <div className="snn-pipeline-row">
         <span className="snn-pipeline-row-label">teacher</span>
-        <span className="snn-pipeline-row-value">{teacherLine}</span>
+        <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
+          {teacherInfo.line}
+        </span>
       </div>
       {delta.changed > 0 && (
         <div className="snn-pipeline-row">
@@ -278,9 +354,15 @@ function RegionStripBox({ region, total, active, fired }:
   );
 }
 
-function ClusterRow({ label, count, done, active = false }:
-  { label: string; count: number; done: boolean; active?: boolean }) {
+function ClusterRow({ label, count, done, active = false, capturingPulse = 0 }:
+  { label: string; count: number; done: boolean; active?: boolean; capturingPulse?: number }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
+  // capturingPulse 변경 시점 — bar 옆 pulse dot 재생 (frame 1개 capture 시각 신호).
+  // 사용자 catch 2026-05-07: 학습 중 batch supervised pulse 시각 catch 강화.
+  const [bumpKey, setBumpKey] = useState<number>(0);
+  useEffect(() => {
+    if (capturingPulse > 0) setBumpKey((k) => k + 1);
+  }, [capturingPulse]);
   useEffect(() => {
     if (fillRef.current) {
       const pct = Math.min(100, (count / CLUSTER_TARGET) * 100);
@@ -292,13 +374,25 @@ function ClusterRow({ label, count, done, active = false }:
       <span className={`snn-pipeline-cluster-label ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}>
         {done ? '✓ ' : (active ? '▸ ' : '')}{label}
       </span>
-      <div className="snn-pipeline-cluster-bar">
+      <div className={`snn-pipeline-cluster-bar ${active ? 'is-capturing' : ''}`}>
         <div
           ref={fillRef}
           className={`snn-mode-progress-fill ${done ? 'snn-pipeline-fill-green' : 'snn-pipeline-fill-amber'} ${active ? 'is-active' : ''}`}
         />
+        {active && (
+          <span
+            key={`pulse-${bumpKey}`}
+            className="snn-pipeline-cluster-bar-pulse"
+            aria-hidden
+          />
+        )}
       </div>
-      <span className="snn-pipeline-cluster-count">{count}/{CLUSTER_TARGET}</span>
+      <span className="snn-pipeline-cluster-count">
+        {count}/{CLUSTER_TARGET}
+        {active && !done && (
+          <span className="snn-pipeline-tick-spinner snn-pipeline-tick-spinner--inline" aria-hidden />
+        )}
+      </span>
     </div>
   );
 }

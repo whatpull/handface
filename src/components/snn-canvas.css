@@ -483,18 +483,20 @@
     /* mobile 영역 desktop uniform min-height 380 영역 폐기 — vertical stack 영역
        자식 본문 fit. */
     min-height: 0;
-    /* mobile vertical scroll 일부 너무 길지 않음 — 각 박스 max 320px (사용자
-       spec). 단 INPUT 카메라 박스 영역 cam aspect-ratio 영역 동적 — 본 max-height
-       영역 넘치 영역 body 영역 자체 vertical scroll 영역 보존 정합. */
-    max-height: 320px;
+    /* 사용자 catch 2026-05-06: 노드 내부 스크롤 폐기 + content-fit height. */
+    max-height: none;
+    height: auto;
   }
-  /* INPUT 박스 영역 카메라 대부분 영역 — max-height 폐기. */
   .snn-pipeline-node--input { max-height: none; }
   .snn-pipeline-node-body {
-    /* 본 max-height 320 정합 — 자식 대부분 vertical scroll 영역. */
-    overflow: auto;
+    /* 사용자 명시: 노드 내부 스크롤 폐기 — 자체 height fit. */
+    overflow: visible;
+    height: auto;
   }
   .snn-pipeline-node:hover { transform: none; }
+  /* 사용자 catch: 모바일 LLM 노드 하단 마진 (vertical scroll 영역 마지막 노드 잘림 catch). */
+  .snn-pipeline-node--llm { margin-bottom: 32px; }
+  .snn-pipeline { padding-bottom: 48px; }
 }
 /* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
    5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역
@@ -1144,8 +1146,8 @@
   .snn-pipeline-node-sub { display: none; }
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); }
   .snn-pipeline-current-value { font-size: var(--pipe-font-title); }
-  /* 375px viewport 영역 박스 max-height 280-320 일부 — INPUT 영역 cam 일부. */
-  .snn-pipeline-node { max-height: 300px; }
+  /* 사용자 catch 2026-05-06: 480px viewport 영역 max-height 폐기 — content-fit. */
+  .snn-pipeline-node { max-height: none; height: auto; }
   .snn-pipeline-node--input { max-height: none; }
 }
 

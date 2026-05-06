@@ -716,13 +716,21 @@
   color: rgba(229, 231, 235, 0.85);
 }
 
-.snn-pipeline-cluster-list { display: flex; flex-direction: column; gap: 2px; }
+.snn-pipeline-cluster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* 사용자 catch 2026-05-07: cluster row 갯수 고정 (4) → fixed height. */
+  min-height: calc(4 * 22px + 3 * 2px);
+}
 .snn-pipeline-cluster-row {
   display: flex; align-items: center; gap: 5px;
   font-size: var(--pipe-font-xs);
   padding: 2px 3px;
   border-radius: 3px;
   transition: background 180ms ease;
+  height: 22px;
+  flex-shrink: 0;
 }
 .snn-pipeline-cluster-row.is-active {
   background: rgba(var(--pipe-tone-learn), var(--pipe-tone-alpha-bg));
@@ -792,6 +800,11 @@
   border: 1px solid rgba(255, 255, 255, 0.10);
   text-align: center;
   transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  /* 사용자 catch 2026-05-07: 노드 내부 컨텐츠 변동 차단 — fixed height (winner / hint 높이 합산). */
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .snn-pipeline-current.is-active {
   background: rgba(var(--pipe-tone-infer), 0.14);

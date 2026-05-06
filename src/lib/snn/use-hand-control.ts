@@ -387,11 +387,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         && gScore >= GESTURE_CONFIDENCE_MIN
         && gestureStableCountRef.current >= GESTURE_STABLE_FRAMES;
 
-      // pattern 누적 trigger 영역: stable AND 해당 cluster 영역 < 30 frame.
+      // pattern 누적 trigger — stable + cluster < 30 frame + clusterLockedRef 통과.
+      // 사용자 catch 2026-05-07: 학습 완료 cluster 재학습 시도 ROOT CAUSE — clusterLockedRef
+      // 통과 검증 누락 catch. 학습 완료 (locked) cluster 영역 capture 차단 mandatory.
       let shouldCapture = false;
       if (stable && cluster !== null) {
-        const cur = framesRef.current[cluster as 0|1|2|3];
-        if (cur < CLUSTER_TARGET_FRAMES) shouldCapture = true;
+        const ci = cluster as 0|1|2|3;
+        const cur = framesRef.current[ci];
+        const locked = clusterLockedRef.current[ci];
+        if (!locked && cur < CLUSTER_TARGET_FRAMES) shouldCapture = true;
       }
 
       if (shouldCapture && cluster !== null) {

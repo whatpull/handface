@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
-import { emitBackendEvent, type GridTrainingDetail, type GridInferDetail } from '@/lib/backend/events';
+import { emitBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -44,6 +44,7 @@ interface InferResult {
 }
 
 const TRAIN_FRAMES = 30;
+const TRAIN_CHUNK = 5;  // 5 frame × 6 chunk = 30 frame — 진행 중 progress 갱신.
 
 function emptyGrid(): number[] {
   return new Array<number>(16).fill(0);
@@ -88,14 +89,13 @@ export default function GridInput() {
 
   const trainPreset = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     const pattern = ORIENTATION_PRESETS[clusterIdx];
-    // 30 frame 동일 pattern 반복 — R-STDP 학습.
-    const patterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
     setStatus({ kind: 'training', cluster: clusterIdx });
-    // LEARN 노드에 학습 시작 broadcast.
-    emitBackendEvent<GridTrainingDetail>('grid-training', { kind: 'started', cluster: clusterIdx });
+    emitBackendEvent<GridTrainingDetail>('grid-training', {
+      kind: 'started', cluster: clusterIdx,
+      framesDone: 0, framesTotal: TRAIN_FRAMES,
+    });
     const client = getClient();
-    // 사용자 catch 2026-05-07: orientation 회로 빌드 안 된 상태에서 학습 시도 시
-    // 적용된 회로가 기존 cluster slot 인 catch — 첫 학습 호출 시 자동 빌드 1회.
+    // orientation 회로 빌드 — 첫 학습 호출 시 자동 1회.
     if (!substrateBuiltRef.current) {
       const built = await client.presetOrientation({ overwrite: true });
       if (!built.ok) {
@@ -107,32 +107,54 @@ export default function GridInput() {
       }
       substrateBuiltRef.current = true;
     }
-    const r = await client.clusterTrainRStdp(patterns, clusterIdx);
-    if (r.ok) {
-      const acc = (r.data.accuracy * 100).toFixed(0);
-      // 사용자 catch 2026-05-07: 메시지 한 줄 정합 — 글자 수 단축.
-      setStatus({
-        kind: 'ok',
-        message: `${ORIENTATION_GLYPHS[clusterIdx]} ${acc}% (${r.data.correct}/${r.data.trained})`,
-      });
-      // 사용자 catch 2026-05-07: 학습 직후 inject 자동 호출 폐기 —
-      // injectPattern 의 응답이 cluster_rates / winner_cluster 동봉 +
-      // 'neuron-firing' event emit 으로 INFER 노드에 winner 가 표시되어
-      // 추론 의도 없는데 추론 결과가 보임. V1/V2 갱신은 사용자가 직접
-      // '추론' 버튼 누른 시점에 자연 갱신되도록 보류.
+    // 사용자 catch 2026-05-07: 30 frame batch 1회 호출 → 진행 중 progress 0.
+    // chunk 단위 (5 × 6 회) 호출 — chunk 끝마다 progress broadcast → NodeLearn
+    // 의 cluster bar 가 5 frame 단위로 갱신.
+    let totalCorrect = 0;
+    let totalTrained = 0;
+    for (let chunk = 0; chunk < TRAIN_FRAMES; chunk += TRAIN_CHUNK) {
+      const size = Math.min(TRAIN_CHUNK, TRAIN_FRAMES - chunk);
+      const patterns = Array.from({ length: size }, () => pattern.slice());
+      const r = await client.clusterTrainRStdp(patterns, clusterIdx);
+      if (!r.ok) {
+        setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'error', cluster: clusterIdx, message: r.reason,
+        });
+        return;
+      }
+      totalCorrect += r.data.correct;
+      totalTrained += r.data.trained;
+      const framesDone = chunk + size;
       emitBackendEvent<GridTrainingDetail>('grid-training', {
-        kind: 'finished',
-        cluster: clusterIdx,
-        accuracy: r.data.accuracy,
-        correct: r.data.correct,
-        trained: r.data.trained,
+        kind: 'progress', cluster: clusterIdx,
+        framesDone, framesTotal: TRAIN_FRAMES,
       });
-    } else {
-      setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
-      emitBackendEvent<GridTrainingDetail>('grid-training', {
-        kind: 'error', cluster: clusterIdx, message: r.reason,
-      });
+      // V1/V2 갱신 — 학습 chunk 의 firing data 를 cluster_rates / winner
+      // strip 후 emit. NodeLearn 의 region useEffect 가 active count 갱신.
+      if (r.data.rates_by_region || r.data.active_neurons_by_region) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          rates_by_region: r.data.rates_by_region,
+          active_neurons_by_region: r.data.active_neurons_by_region,
+          // cluster_rates / winner_cluster 는 의도적으로 omit — INFER 노드 영향 방지.
+        });
+      }
     }
+    const accuracy = totalTrained > 0 ? totalCorrect / totalTrained : 0;
+    const accPct = (accuracy * 100).toFixed(0);
+    setStatus({
+      kind: 'ok',
+      message: `${ORIENTATION_GLYPHS[clusterIdx]} ${accPct}% (${totalCorrect}/${totalTrained})`,
+    });
+    emitBackendEvent<GridTrainingDetail>('grid-training', {
+      kind: 'finished',
+      cluster: clusterIdx,
+      accuracy,
+      correct: totalCorrect,
+      trained: totalTrained,
+      framesDone: TRAIN_FRAMES,
+      framesTotal: TRAIN_FRAMES,
+    });
   }, []);
 
   const runInfer = useCallback(async () => {

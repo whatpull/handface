@@ -35,6 +35,8 @@ import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
 // 결과. camera path 의 phase / clusterFrames 와 별도 trace.
 interface GridProgress {
   trained: { 0: boolean; 1: boolean; 2: boolean; 3: boolean };
+  // 학습 진행 중 cluster 별 frame 수 (0..30). chunk 단위 갱신.
+  framesDone: { 0: number; 1: number; 2: number; 3: number };
   isTraining: boolean;
   activeCluster: 0 | 1 | 2 | 3 | null;
   lastResult: { cluster: 0 | 1 | 2 | 3; accuracy: number } | null;
@@ -42,6 +44,7 @@ interface GridProgress {
 }
 const INITIAL_GRID_PROGRESS: GridProgress = {
   trained: { 0: false, 1: false, 2: false, 3: false },
+  framesDone: { 0: 0, 1: 0, 2: 0, 3: 0 },
   isTraining: false,
   activeCluster: null,
   lastResult: null,
@@ -70,7 +73,21 @@ export default function NodeLearn() {
   useEffect(() => onBackendEvent<GridTrainingDetail>('grid-training', (d) => {
     setGridProgress((prev) => {
       if (d.kind === 'started') {
-        return { ...prev, isTraining: true, activeCluster: d.cluster, lastError: null };
+        return {
+          ...prev,
+          isTraining: true,
+          activeCluster: d.cluster,
+          framesDone: { ...prev.framesDone, [d.cluster]: 0 },
+          lastError: null,
+        };
+      }
+      if (d.kind === 'progress') {
+        return {
+          ...prev,
+          isTraining: true,
+          activeCluster: d.cluster,
+          framesDone: { ...prev.framesDone, [d.cluster]: d.framesDone ?? 0 },
+        };
       }
       if (d.kind === 'finished') {
         return {
@@ -78,11 +95,11 @@ export default function NodeLearn() {
           isTraining: false,
           activeCluster: null,
           trained: { ...prev.trained, [d.cluster]: true },
+          framesDone: { ...prev.framesDone, [d.cluster]: d.framesTotal ?? CLUSTER_TARGET },
           lastResult: { cluster: d.cluster, accuracy: d.accuracy ?? 0 },
           lastError: null,
         };
       }
-      // error
       return { ...prev, isTraining: false, activeCluster: null, lastError: d.message ?? '학습 실패' };
     });
   }), []);
@@ -238,14 +255,10 @@ export default function NodeLearn() {
     };
   }, []);
 
-  // grid mode 영역 cluster 별 학습 완료 카운트 — gridProgress 영역 derived.
-  const gridClusterFrames = useMemo(() => ({
-    0: gridProgress.trained[0] ? CLUSTER_TARGET : 0,
-    1: gridProgress.trained[1] ? CLUSTER_TARGET : 0,
-    2: gridProgress.trained[2] ? CLUSTER_TARGET : 0,
-    3: gridProgress.trained[3] ? CLUSTER_TARGET : 0,
-  }) as { 0: number; 1: number; 2: number; 3: number },
-  [gridProgress.trained]);
+  // grid mode cluster 별 frame 카운트 — framesDone (chunk 진행) 기반.
+  // trained 영역 finished 시점 framesTotal 까지 채워서 0..CLUSTER_TARGET.
+  const gridClusterFrames = useMemo(() => gridProgress.framesDone,
+    [gridProgress.framesDone]);
 
   // grid mode 영역 derived phase — trained 카운트 + isTraining flag 기반.
   const gridPhase = useMemo<'untrained' | 'learning' | 'partial' | 'trained'>(() => {

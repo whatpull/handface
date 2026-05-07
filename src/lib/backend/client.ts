@@ -503,6 +503,8 @@ export class NeuronFaceClient {
     stdp_mode: string;
     total_amplified_delta: number;
     cluster_rates_history: number[][];
+    rates_by_region?: Record<string, number>;
+    active_neurons_by_region?: Record<string, string[]>;
     weight_changes_count: number;
     weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
     synapses_total: number;
@@ -533,6 +535,8 @@ export class NeuronFaceClient {
       stdp_mode: string;
       total_amplified_delta: number;
       cluster_rates_history: number[][];
+      rates_by_region?: Record<string, number>;
+      active_neurons_by_region?: Record<string, string[]>;
       weight_changes_count: number;
       weight_changes: Array<{ pre: string; post: string; weight: number; delta: number }>;
       synapses_total: number;

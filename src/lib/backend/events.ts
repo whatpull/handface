@@ -13,8 +13,11 @@ export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-c
 
 export interface InputModeDetail { mode: 'camera' | 'grid'; }
 export interface GridTrainingDetail {
-  kind: 'started' | 'finished' | 'error';
+  kind: 'started' | 'progress' | 'finished' | 'error';
   cluster: 0 | 1 | 2 | 3;
+  // progress: 진행 중 frame 개수.
+  framesDone?: number;
+  framesTotal?: number;
   accuracy?: number;
   correct?: number;
   trained?: number;

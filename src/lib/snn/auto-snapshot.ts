@@ -38,27 +38,9 @@ async function saveNow(): Promise<void> {
   } catch (e) {
     console.warn('[auto-snapshot] save failed:', e);
   }
-  // 커뮤니티 자동 기여 — 사용자 학습이 누적될수록 baseline 향상.
-  // 실패해도 로컬 save 는 유효. 비차단.
-  try {
-    const cid = getOrCreateContributorId();
-    void getClient().contributeWeights(cid).catch(() => null);
-  } catch { /* noop */ }
-}
-
-const CID_KEY = 'handface.community.contributor.id';
-function getOrCreateContributorId(): string {
-  if (typeof window === 'undefined') return 'anon';
-  try {
-    let v = localStorage.getItem(CID_KEY);
-    if (!v) {
-      v = `c_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
-      localStorage.setItem(CID_KEY, v);
-    }
-    return v;
-  } catch {
-    return 'anon';
-  }
+  // 사용자 catch 2026-05-07: 매 chunk 영역 contributeWeights 자동 호출 영역
+  // 422 error 누적 + HTTP overhead 영역 학습 시간 ↑. community 자동 기여 폐기.
+  // 필요 시 별도 명시 trigger 영역 호출 가능.
 }
 
 function scheduleSave() {

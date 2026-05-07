@@ -159,24 +159,35 @@ export default function GridInput() {
       }
       substrateBuiltRef.current = true;
     }
-    // 사용자 catch 2026-05-07: 학습 시간 ↓ — chunk batch 5 frame × 4 cluster
-    // × 12 round = 240 frame total (호출 48회). 1-frame call × 120 (이전)
-    // 영역 HTTP overhead 영역 큰 시간 — chunk 5 영역 호출 절반 + frame 수 ↑.
-    const ROUNDS = 12;
-    const CHUNK = 5;
+    // 사용자 catch 2026-05-07: 학습 시간 매우 길음 (HF Spaces 무료 CPU).
+    // 빠른 path 정정:
+    //  - observe_ms 150 → 50ms (3× 빠른 simulation)
+    //  - chunk 10 frame (2× batch) + round 6 (절반) = 호출 24회
+    //  - 총 frame 240 → 240 동일 단 호출 절반 + simulation 1/3
+    //  - 모든 cluster (0/1/2/3) progress emit (cluster bar 모두 갱신)
+    const ROUNDS = 6;
+    const CHUNK = 10;
     const totals = [0, 0, 0, 0];
     const trained = [0, 0, 0, 0];
     for (let round = 0; round < ROUNDS; round += 1) {
       for (let cid = 0; cid < 4; cid += 1) {
         const pattern = ORIENTATION_PRESETS[cid];
         const patterns = Array.from({ length: CHUNK }, () => pattern.slice());
-        const r = await client.clusterTrainRStdp(patterns, cid as 0 | 1 | 2 | 3);
+        const r = await client.clusterTrainRStdp(patterns, cid as 0 | 1 | 2 | 3, {
+          observeMs: 50,
+          stimulusDurationMs: 10,
+        });
         if (!r.ok) {
           setStatus({ kind: 'error', message: `round ${round} cluster ${cid} 실패: ${r.reason}` });
           return;
         }
         totals[cid] += r.data.correct;
         trained[cid] += r.data.trained;
+        // 매 cluster 학습 후 progress emit (모든 cluster bar 갱신).
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'progress', cluster: cid as 0 | 1 | 2 | 3,
+          framesDone: (round + 1) * CHUNK, framesTotal: ROUNDS * CHUNK,
+        });
         if (r.data.rates_by_region || r.data.active_neurons_by_region) {
           emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
             rates_by_region: r.data.rates_by_region,
@@ -184,10 +195,6 @@ export default function GridInput() {
           });
         }
       }
-      emitBackendEvent<GridTrainingDetail>('grid-training', {
-        kind: 'progress', cluster: 0,
-        framesDone: round + 1, framesTotal: ROUNDS,
-      });
     }
     const accs = totals.map((c, i) => trained[i] > 0 ? Math.round(c / trained[i] * 100) : 0);
     setStatus({

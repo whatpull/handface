@@ -145,6 +145,58 @@ export default function GridInput() {
     });
   }, []);
 
+  // 사용자 catch 2026-05-07: round-robin 학습 — 4 cluster 균등 학습.
+  // cluster 별 sequential 30 frame 영역 마지막 cluster dominance catch.
+  // probe 정합 — cluster 0/1/2/3 차례 1 frame 씩 30 round = 120 frame.
+  const trainAllRoundRobin = useCallback(async () => {
+    setStatus({ kind: 'training', cluster: 0 });
+    const client = getClient();
+    if (!substrateBuiltRef.current) {
+      const built = await client.presetOrientation({ overwrite: true });
+      if (!built.ok) {
+        setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
+        return;
+      }
+      substrateBuiltRef.current = true;
+    }
+    const ROUNDS = 30;
+    const totals = [0, 0, 0, 0];
+    for (let round = 0; round < ROUNDS; round += 1) {
+      for (let cid = 0; cid < 4; cid += 1) {
+        const pattern = ORIENTATION_PRESETS[cid].slice();
+        const r = await client.clusterTrainRStdp([pattern], cid as 0 | 1 | 2 | 3);
+        if (!r.ok) {
+          setStatus({ kind: 'error', message: `round ${round} cluster ${cid} 실패: ${r.reason}` });
+          return;
+        }
+        totals[cid] += r.data.correct;
+        if (r.data.rates_by_region || r.data.active_neurons_by_region) {
+          emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+            rates_by_region: r.data.rates_by_region,
+            active_neurons_by_region: r.data.active_neurons_by_region,
+          });
+        }
+      }
+      // round 끝 progress broadcast — cluster 0 기준.
+      emitBackendEvent<GridTrainingDetail>('grid-training', {
+        kind: 'progress', cluster: 0,
+        framesDone: round + 1, framesTotal: ROUNDS,
+      });
+    }
+    const accs = totals.map((c) => Math.round(c / ROUNDS * 100));
+    setStatus({
+      kind: 'ok',
+      message: `round-robin 완료 — ─${accs[0]}% │${accs[1]}% ╲${accs[2]}% ╱${accs[3]}%`,
+    });
+    emitBackendEvent<GridTrainingDetail>('grid-training', {
+      kind: 'finished', cluster: 0,
+      accuracy: totals.reduce((a, b) => a + b, 0) / (4 * ROUNDS),
+      correct: totals.reduce((a, b) => a + b, 0),
+      trained: 4 * ROUNDS,
+      framesDone: ROUNDS, framesTotal: ROUNDS,
+    });
+  }, []);
+
   // 추론 trigger — 결과 표시는 INFER 노드만 (PipelineEventContext 가
   // 'neuron-firing' event 의 cluster_rates / winner_cluster 영역 listen).
   const runInfer = useCallback(async () => {
@@ -186,6 +238,15 @@ export default function GridInput() {
         disabled={isBusy}
       >
         회로 빌드 (orientation)
+      </button>
+      <button
+        type="button"
+        className="snn-grid-build-btn"
+        onClick={trainAllRoundRobin}
+        disabled={isBusy}
+        title="4 cluster 균등 round-robin 학습 — 정확 학습 path"
+      >
+        전체 학습 (round-robin)
       </button>
 
       <div className="snn-grid-pixels" aria-label="4x4 orientation grid">

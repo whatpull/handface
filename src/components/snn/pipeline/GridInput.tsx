@@ -159,17 +159,24 @@ export default function GridInput() {
       }
       substrateBuiltRef.current = true;
     }
-    const ROUNDS = 30;
+    // 사용자 catch 2026-05-07: 학습 시간 ↓ — chunk batch 5 frame × 4 cluster
+    // × 12 round = 240 frame total (호출 48회). 1-frame call × 120 (이전)
+    // 영역 HTTP overhead 영역 큰 시간 — chunk 5 영역 호출 절반 + frame 수 ↑.
+    const ROUNDS = 12;
+    const CHUNK = 5;
     const totals = [0, 0, 0, 0];
+    const trained = [0, 0, 0, 0];
     for (let round = 0; round < ROUNDS; round += 1) {
       for (let cid = 0; cid < 4; cid += 1) {
-        const pattern = ORIENTATION_PRESETS[cid].slice();
-        const r = await client.clusterTrainRStdp([pattern], cid as 0 | 1 | 2 | 3);
+        const pattern = ORIENTATION_PRESETS[cid];
+        const patterns = Array.from({ length: CHUNK }, () => pattern.slice());
+        const r = await client.clusterTrainRStdp(patterns, cid as 0 | 1 | 2 | 3);
         if (!r.ok) {
           setStatus({ kind: 'error', message: `round ${round} cluster ${cid} 실패: ${r.reason}` });
           return;
         }
         totals[cid] += r.data.correct;
+        trained[cid] += r.data.trained;
         if (r.data.rates_by_region || r.data.active_neurons_by_region) {
           emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
             rates_by_region: r.data.rates_by_region,
@@ -177,22 +184,23 @@ export default function GridInput() {
           });
         }
       }
-      // round 끝 progress broadcast — cluster 0 기준.
       emitBackendEvent<GridTrainingDetail>('grid-training', {
         kind: 'progress', cluster: 0,
         framesDone: round + 1, framesTotal: ROUNDS,
       });
     }
-    const accs = totals.map((c) => Math.round(c / ROUNDS * 100));
+    const accs = totals.map((c, i) => trained[i] > 0 ? Math.round(c / trained[i] * 100) : 0);
     setStatus({
       kind: 'ok',
       message: `round-robin 완료 — ─${accs[0]}% │${accs[1]}% ╲${accs[2]}% ╱${accs[3]}%`,
     });
+    const totalCorrect = totals.reduce((a, b) => a + b, 0);
+    const totalTrained = trained.reduce((a, b) => a + b, 0);
     emitBackendEvent<GridTrainingDetail>('grid-training', {
       kind: 'finished', cluster: 0,
-      accuracy: totals.reduce((a, b) => a + b, 0) / (4 * ROUNDS),
-      correct: totals.reduce((a, b) => a + b, 0),
-      trained: 4 * ROUNDS,
+      accuracy: totalTrained > 0 ? totalCorrect / totalTrained : 0,
+      correct: totalCorrect,
+      trained: totalTrained,
       framesDone: ROUNDS, framesTotal: ROUNDS,
     });
   }, []);

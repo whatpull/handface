@@ -1687,7 +1687,9 @@
 }
 .snn-grid-preset-row {
   display: flex;
-  align-items: center;
+  /* 사용자 catch 2026-05-07: 두 버튼 자식 content 차이로 height 미스매치
+     — stretch 로 row 높이까지 자동 동일. */
+  align-items: stretch;
   gap: 6px;
 }
 .snn-grid-preset-btn {

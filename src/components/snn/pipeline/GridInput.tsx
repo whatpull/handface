@@ -1,16 +1,18 @@
 'use client';
 
 // GridInput — 4×4 픽셀 grid orientation 입력 (path Y, 2026-05-07).
-// camera/MediaPipe 자세 분류 폐기 path — 16 픽셀 click toggle + 4 preset (─ │ ╱ ╲)
-// + R-STDP 학습 (cluster_train_rstdp) + inject_feature16 추론.
+// 16 픽셀 click toggle + 4 preset (─ │ ╱ ╲) + R-STDP 학습 + 추론 trigger.
+// 추론 결과 (winner / cluster_rates) 는 INFER 노드에서 표시 (사용자 catch
+// 2026-05-07 — INPUT 노드와 INFER 노드 중복 표시 폐기). 본 컴포넌트는 입력
+// 과 trigger 만 담당.
 //
-// 학습 cluster 매핑 (사용자 명시):
+// 학습 cluster 매핑:
 //   0 = horizontal (─)  row 1
 //   1 = vertical   (│)  col 1
 //   2 = diag-back  (╲)  top-left → bottom-right
 //   3 = diag-fore  (╱)  top-right → bottom-left
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
 
@@ -37,12 +39,6 @@ type Status =
   | { kind: 'ok'; message: string }
   | { kind: 'error'; message: string };
 
-interface InferResult {
-  cluster: number | null;
-  rates: number[];
-  margin: number;
-}
-
 const TRAIN_FRAMES = 30;
 const TRAIN_CHUNK = 5;  // 5 frame × 6 chunk = 30 frame — 진행 중 progress 갱신.
 
@@ -53,7 +49,6 @@ function emptyGrid(): number[] {
 export default function GridInput() {
   const [grid, setGrid] = useState<number[]>(() => emptyGrid());
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
-  const [infer, setInfer] = useState<InferResult | null>(null);
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
 
@@ -67,12 +62,10 @@ export default function GridInput() {
 
   const applyPreset = useCallback((idx: number) => {
     setGrid(ORIENTATION_PRESETS[idx].slice());
-    setInfer(null);
   }, []);
 
   const reset = useCallback(() => {
     setGrid(emptyGrid());
-    setInfer(null);
     setStatus({ kind: 'idle' });
   }, []);
 
@@ -95,7 +88,6 @@ export default function GridInput() {
       framesDone: 0, framesTotal: TRAIN_FRAMES,
     });
     const client = getClient();
-    // orientation 회로 빌드 — 첫 학습 호출 시 자동 1회.
     if (!substrateBuiltRef.current) {
       const built = await client.presetOrientation({ overwrite: true });
       if (!built.ok) {
@@ -107,9 +99,7 @@ export default function GridInput() {
       }
       substrateBuiltRef.current = true;
     }
-    // 사용자 catch 2026-05-07: 30 frame batch 1회 호출 → 진행 중 progress 0.
-    // chunk 단위 (5 × 6 회) 호출 — chunk 끝마다 progress broadcast → NodeLearn
-    // 의 cluster bar 가 5 frame 단위로 갱신.
+    // chunk 단위 (5 × 6 회) — chunk 끝마다 progress + V1/V2 firing broadcast.
     let totalCorrect = 0;
     let totalTrained = 0;
     for (let chunk = 0; chunk < TRAIN_FRAMES; chunk += TRAIN_CHUNK) {
@@ -130,13 +120,11 @@ export default function GridInput() {
         kind: 'progress', cluster: clusterIdx,
         framesDone, framesTotal: TRAIN_FRAMES,
       });
-      // V1/V2 갱신 — 학습 chunk 의 firing data 를 cluster_rates / winner
-      // strip 후 emit. NodeLearn 의 region useEffect 가 active count 갱신.
+      // V1/V2 갱신 — cluster_rates / winner_cluster strip 후 emit.
       if (r.data.rates_by_region || r.data.active_neurons_by_region) {
         emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
           rates_by_region: r.data.rates_by_region,
           active_neurons_by_region: r.data.active_neurons_by_region,
-          // cluster_rates / winner_cluster 는 의도적으로 omit — INFER 노드 영향 방지.
         });
       }
     }
@@ -157,27 +145,18 @@ export default function GridInput() {
     });
   }, []);
 
+  // 추론 trigger — 결과 표시는 INFER 노드만 (PipelineEventContext 가
+  // 'neuron-firing' event 의 cluster_rates / winner_cluster 영역 listen).
   const runInfer = useCallback(async () => {
     setStatus({ kind: 'inferring' });
-    setInfer(null);
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
     const r = await getClient().injectPattern(grid, { stdp: false });
     if (r.ok) {
-      const rates = r.data.cluster_rates ?? [];
       const cluster = r.data.winner_cluster ?? null;
-      const margin = r.data.winner_margin ?? 0;
-      setInfer({ cluster, rates, margin });
       const winnerCluster = cluster !== null && cluster >= 0 && cluster <= 3
         ? (cluster as 0 | 1 | 2 | 3)
         : null;
-      if (cluster !== null) {
-        setStatus({
-          kind: 'ok',
-          message: `winner: ${ORIENTATION_GLYPHS[cluster]} (margin ${(margin * 100).toFixed(0)}%)`,
-        });
-      } else {
-        setStatus({ kind: 'ok', message: '추론 완료 — winner 없음 (WTA tie)' });
-      }
+      setStatus({ kind: 'ok', message: '추론 완료' });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
     } else {
       setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
@@ -268,43 +247,8 @@ export default function GridInput() {
       </div>
 
       <div className={`snn-grid-status snn-grid-status--${status.kind}`}>
-        {isBusy && <span className="snn-pipeline-tick-spinner" aria-hidden />}
         <span>{statusLine}</span>
       </div>
-
-      {infer && (
-        <div className="snn-grid-rates" aria-label="cluster rates">
-          {infer.rates.map((rate, i) => (
-            <GridRateBar
-              key={i}
-              glyph={ORIENTATION_GLYPHS[i]}
-              rate={rate}
-              max={Math.max(...infer.rates, 1)}
-              isWinner={infer.cluster === i}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GridRateBar({ glyph, rate, max, isWinner }:
-  { glyph: string; rate: number; max: number; isWinner: boolean }) {
-  const fillRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (fillRef.current) {
-      const pct = max > 0 ? Math.min(100, (rate / max) * 100) : 0;
-      fillRef.current.style.setProperty('--w', `${pct}%`);
-    }
-  }, [rate, max]);
-  return (
-    <div className={`snn-grid-rate-row ${isWinner ? 'is-winner' : ''}`}>
-      <span className="snn-grid-rate-label">{glyph}</span>
-      <div className="snn-grid-rate-bar">
-        <div ref={fillRef} className="snn-mode-progress-fill snn-pipeline-fill-cyan" />
-      </div>
-      <span className="snn-grid-rate-value">{rate.toFixed(0)}</span>
     </div>
   );
 }

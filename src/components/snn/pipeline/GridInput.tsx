@@ -183,10 +183,12 @@ export default function GridInput() {
         }
         totals[cid] += r.data.correct;
         trained[cid] += r.data.trained;
-        // 매 cluster 학습 후 progress emit (모든 cluster bar 갱신).
+        // NodeLearn cluster bar 영역 framesTotal=CLUSTER_TARGET (30) 영역
+        // 정합. round-robin 영역 framesDone 영역 round 비례 (max=30).
+        const framesDoneNorm = Math.round(((round + 1) / ROUNDS) * 30);
         emitBackendEvent<GridTrainingDetail>('grid-training', {
           kind: 'progress', cluster: cid as 0 | 1 | 2 | 3,
-          framesDone: (round + 1) * CHUNK, framesTotal: ROUNDS * CHUNK,
+          framesDone: framesDoneNorm, framesTotal: 30,
         });
         if (r.data.rates_by_region || r.data.active_neurons_by_region) {
           emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
@@ -208,7 +210,7 @@ export default function GridInput() {
       accuracy: totalTrained > 0 ? totalCorrect / totalTrained : 0,
       correct: totalCorrect,
       trained: totalTrained,
-      framesDone: ROUNDS, framesTotal: ROUNDS,
+      framesDone: 30, framesTotal: 30,
     });
   }, []);
 

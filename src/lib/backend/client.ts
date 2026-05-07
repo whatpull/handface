@@ -216,37 +216,11 @@ export class NeuronFaceClient {
   // feature16 preset 적용 — INPUT 16개 (in_feat_0..15) + V1/V2 + OUT 4 회로 구축.
   // 16-dim hand feature 를 그대로 입력으로 받는 정공법. 8 카테고리 INPUT 압축 손실 회피.
   private async ensureCorticalPreset(): Promise<Result<unknown>> {
-    if (this.presetEnsured || !this.networkId) return { ok: true, data: null };
-    const snap = await this.request<NetworkSnapshot>(`/networks/${this.networkId}`);
-    if (snap.ok) {
-      const neurons = snap.data.neurons || [];
-      const hasFeat16 = neurons.some((n) => n.name?.startsWith('in_feat_'));
-      if (hasFeat16) {
-        this.presetEnsured = true;
-        return { ok: true, data: null };
-      }
-      // 구 cortical 회로 (in_pinch 등) 인 경우 → overwrite 로 feature16 으로 교체.
-      if (neurons.length > 0) {
-        const r = await this.request(`/networks/${this.networkId}/presets/feature16`, {
-          method: 'POST',
-          body: { overwrite: true, v_threshold: -55.0, v1_l4e_count: 50 },
-        });
-        if (r.ok || r.status === 409) {
-          this.presetEnsured = true;
-          return { ok: true, data: null };
-        }
-        return r;
-      }
-    }
-    const r = await this.request(`/networks/${this.networkId}/presets/feature16`, {
-      method: 'POST',
-      body: { overwrite: false, v_threshold: -55.0, v1_l4e_count: 50 },
-    });
-    if (r.ok || (!r.ok && r.status === 409)) {
-      this.presetEnsured = true;
-      return { ok: true, data: null };
-    }
-    return r;
+    // path Y (사용자 catch 2026-05-07): feature16 자동 호출 폐기.
+    // orientation 회로 영역 GridInput '회로 빌드' 버튼 영역 명시 호출.
+    // 자동 호출 영역 409 Conflict catch (이미 orientation 회로 build 됨).
+    this.presetEnsured = true;
+    return { ok: true, data: null };
   }
 
   // 전체 회로 초기화 — 누적된 뉴런/시냅스 모두 폐기 후 base cortical preset 만 유지.

@@ -210,6 +210,9 @@ export class NeuronFaceClient {
     // HF Spaces ephemeral 영역 weight 영역 자동 catch path. loadSnapshot 영역 재진입 시점
     // 영역 networkId 영역 set / presetEnsured=true 대부분 probe path 정합.
     void autoRestoreFromStorage();
+    // HF Spaces 컨테이너 재시작 → networkId stale → 신규 빈 네트워크 생성된 시점.
+    // listener 들이 substrate 재빌드 / 학습 진행 state 리셋 가능하도록 broadcast.
+    emitBackendEvent('circuit-changed', {});
     return { ok: true, data: this.networkId };
   }
 

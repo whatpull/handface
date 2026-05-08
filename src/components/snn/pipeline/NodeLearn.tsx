@@ -70,12 +70,29 @@ export default function NodeLearn() {
   const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
 
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
-  // circuit-changed event — backend network 이 새로 만들어진 시점. 학습 진행
-  // state (frame counts / trained flags) 가 backend 와 어긋나지 않도록 즉시
-  // 초기화. HF Spaces 컨테이너 재시작 시 frontend 가 학습된 듯 보이는 stale
-  // 표시 catch.
+  // circuit-changed event — backend network 이 새로 만들어진 시점.
+  //
+  // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역
+  // 학습 도중 cluster N 의 chunk RPC 가 새 네트워크 hit 시점 영역 다른
+  // cluster 의 30/30 완료 표시까지 모두 0/30 으로 wipe — 사용자 학습 진행이
+  // 마구 초기화 catch.
+  //
+  // 정정 — soft reset:
+  //   - trained flag 만 false (backend 영역 실제 학습 0).
+  //   - framesDone 영역 보존 (사용자 시각 history 유지) — currently active
+  //     cluster 만 0 (본 cluster 의 진행 chunk 가 빈 네트워크 hit 영역 무효).
+  //   - lastError 영역 사용자 알림.
+  //   - delta / prevWeights 영역 reset (backend 가중치 영역 0).
   useEffect(() => onBackendEvent('circuit-changed', () => {
-    setGridProgress(INITIAL_GRID_PROGRESS);
+    setGridProgress((prev) => ({
+      ...prev,
+      trained: { 0: false, 1: false, 2: false, 3: false },
+      framesDone:
+        prev.activeCluster !== null
+          ? { ...prev.framesDone, [prev.activeCluster]: 0 }
+          : prev.framesDone,
+      lastError: '백엔드 회로 재구성 — 다시 학습 필요',
+    }));
     setDelta({ ltp: 0, ltd: 0, changed: 0 });
     prevWeights.current.clear();
   }), []);

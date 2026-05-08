@@ -46,6 +46,12 @@ const DEFAULT_HF_SPACES_URL = 'https://whatpull-neuronface.hf.space';
 export default function SnnLabClient() {
   const [useWorker, setUseWorker] = useState(false);
   const [useHfSink, setUseHfSink] = useState(false);
+  const [hfHealth, setHfHealth] = useState<{
+    backend: 'hf' | 'memory';
+    repo_id: string | null;
+    persistent: boolean;
+  } | null>(null);
+  const [hfHealthError, setHfHealthError] = useState<string | null>(null);
   const lab = useLocalSnn({
     netId: 'snn-lab-default',
     seed: 57,
@@ -53,6 +59,42 @@ export default function SnnLabClient() {
     sinkKind: useHfSink ? 'hf-dataset' : 'local-storage',
     hfSpacesUrl: useHfSink ? DEFAULT_HF_SPACES_URL : undefined,
   });
+
+  // HF 토글 ON 시 backend 가 HFHubStore 인지 (HF_PERSIST_REPO 등록 여부)
+  // probe. memory fallback 이면 사용자에게 명확히 알림 — 데이터 휘발 catch.
+  useEffect(() => {
+    if (!useHfSink) {
+      setHfHealth(null);
+      setHfHealthError(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${DEFAULT_HF_SPACES_URL}/persist/health`);
+        if (!res.ok) {
+          if (!cancelled) {
+            setHfHealth(null);
+            setHfHealthError(`backend health ${res.status}`);
+          }
+          return;
+        }
+        const data = (await res.json()) as { backend: 'hf' | 'memory'; repo_id: string | null; persistent: boolean };
+        if (!cancelled) {
+          setHfHealth(data);
+          setHfHealthError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setHfHealth(null);
+          setHfHealthError(e instanceof Error ? e.message : String(e));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [useHfSink]);
 
   // 처음 4 base cluster 는 빌더 default. expansion 마다 user 추가.
   const [clusters, setClusters] = useState<ClusterEntry[]>(() =>
@@ -246,6 +288,23 @@ export default function SnnLabClient() {
               ({useHfSink ? 'hf-dataset' : 'local-storage'})
             </span>
           </label>
+          {useHfSink && hfHealth && !hfHealth.persistent && (
+            <div className="text-xs text-amber-300/90 bg-amber-900/30 border border-amber-700/40 rounded px-2 py-1">
+              ⚠ backend MemoryStore — HF_PERSIST_REPO 미설정. UI 동작은
+              정상이나 컨테이너 재시작 시 휘발. HF Spaces secrets 에서
+              HF_PERSIST_REPO + HF_TOKEN 등록 후 사용 권장.
+            </div>
+          )}
+          {useHfSink && hfHealth && hfHealth.persistent && (
+            <div className="text-xs text-emerald-300/90 bg-emerald-900/20 border border-emerald-700/30 rounded px-2 py-1">
+              ✓ HF Dataset 영속 ({hfHealth.repo_id})
+            </div>
+          )}
+          {useHfSink && hfHealthError && (
+            <div className="text-xs text-rose-300/90 bg-rose-900/30 border border-rose-700/40 rounded px-2 py-1">
+              ✗ health 확인 실패: {hfHealthError}
+            </div>
+          )}
         </div>
       </header>
 

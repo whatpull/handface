@@ -152,6 +152,18 @@ export class HFDatasetSink implements SnapshotSink {
       throw e;
     }
   }
+
+  // backend 의 영속화 backend 진단. UI 가 silent ephemeral fallback 을 catch.
+  // 응답: { backend: 'hf' | 'memory', repo_id: string | null, persistent: boolean }
+  async health(): Promise<HealthStatus> {
+    return this.req<HealthStatus>('GET', '/persist/health');
+  }
+}
+
+export interface HealthStatus {
+  backend: 'hf' | 'memory';
+  repo_id: string | null;
+  persistent: boolean;
 }
 
 export class HFNotFound extends Error {

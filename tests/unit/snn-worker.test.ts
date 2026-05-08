@@ -142,6 +142,63 @@ describe('snn-worker — 시뮬레이션 + 발화율', () => {
   });
 });
 
+describe('snn-worker — ART 동적 cluster expansion', () => {
+  it('expandCluster 는 새 cluster slot 추가 + total 증가', async () => {
+    const { client, core } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 57 });
+    const before = core.getRegistryForTest()!.slots.length;
+    const r = await client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 100 });
+    expect(r.totalClusters).toBe(before + 1);
+    expect(r.newClusterId).toBe(before);
+    expect(r.activeInputs).toEqual([2, 6, 11, 14]);
+    expect(r.neuronsAdded).toBeGreaterThan(0);
+    expect(r.synapsesAdded).toBeGreaterThan(0);
+    expect(core.getRegistryForTest()!.slots.length).toBe(before + 1);
+  });
+
+  it('expandCluster 후 clusterFiringRates 가 새 cluster 도 포함', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 1 });
+    const cfr = await client.clusterFiringRates({ windowMs: 50, layer: 'OUT' });
+    expect(cfr.rates).toHaveLength(5);
+    expect(cfr.layer).toBe('OUT');
+  });
+
+  it('build 전 expandCluster 호출 시 명시적 에러', async () => {
+    const { client } = makeClient();
+    await expect(client.expandCluster({ activeInputs: [0, 1, 2, 3] })).rejects.toThrow(/build/);
+  });
+
+  it('activeInputs 비어있으면 거부', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await expect(client.expandCluster({ activeInputs: [] })).rejects.toThrow(/activeInputs/);
+  });
+});
+
+describe('snn-worker — clusterFiringRates', () => {
+  it('layer 별 평균 발화율 + winner / share / margin 산출', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 57 });
+    const r = await client.clusterFiringRates({ windowMs: 50 });
+    expect(r.rates).toHaveLength(4);
+    expect(r.layer).toBe('OUT');
+    expect(r.share).toBeGreaterThanOrEqual(0);
+    expect(r.share).toBeLessThanOrEqual(1);
+    expect(r.margin).toBeGreaterThanOrEqual(0);
+    expect(r.margin).toBeLessThanOrEqual(1);
+  });
+
+  it('V1_L23 layer 도 동일 형식 반환', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 57 });
+    const r = await client.clusterFiringRates({ windowMs: 50, layer: 'V1_L23' });
+    expect(r.rates).toHaveLength(4);
+    expect(r.layer).toBe('V1_L23');
+  });
+});
+
 describe('snn-worker — 전송 라이프사이클', () => {
   it('dispose 는 pending 을 reject 하고 listener 정리', async () => {
     const { client } = makeClient();

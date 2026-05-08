@@ -67,6 +67,10 @@ export {
   type RunResult,
   type SnapshotResult,
   type FiringRatesResult,
+  type ExpandClusterPayload,
+  type ExpandClusterResult,
+  type ClusterFiringRatesPayload,
+  type ClusterFiringRatesResult,
 } from './worker-protocol';
 export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';

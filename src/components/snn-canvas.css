@@ -679,7 +679,13 @@
   width: 100%; height: 100%;
   pointer-events: none; display: block;
 }
-.snn-pipeline-cam .snn-cam-video { object-fit: cover; }
+/* 사용자 명시 (privacy / 시각 단순화): 카메라 영상은 숨기고 손 landmark
+   skeleton 만 표시. video element 는 DOM 에 살아있어 MediaPipe 가 frame
+   data 를 그대로 추출 — 추적 동작 영향 없음. */
+.snn-pipeline-cam .snn-cam-video {
+  object-fit: cover;
+  opacity: 0;
+}
 .snn-pipeline-cam-empty {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;

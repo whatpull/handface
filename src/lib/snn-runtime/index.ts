@@ -71,3 +71,4 @@ export {
 export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';
 export { LocalSNN, type LocalSNNOptions, type LocalSNNStatus } from './local-snn';
+export { MainThreadTransport } from './main-thread-transport';

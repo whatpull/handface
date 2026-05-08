@@ -83,4 +83,5 @@ export {
   HFDatasetSink,
   HFNotFound,
   type HFDatasetSinkOptions,
+  type HealthStatus,
 } from './sinks/hf-dataset-sink';

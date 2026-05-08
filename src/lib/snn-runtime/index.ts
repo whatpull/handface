@@ -43,3 +43,17 @@ export {
   type N13PresetOptions,
   type N13PresetResult,
 } from './builders/n13-orientation';
+export {
+  DEFAULT_ART_CONFIG,
+  type ARTConfig,
+  type ClusterRegistry,
+  type ClusterSlot,
+  type ExpandOptions,
+  type ExpandResult,
+  type MatchScore,
+  type VigilanceResult,
+  buildClusterRegistryFromN13,
+  computeMatchScore,
+  evaluateVigilance,
+  expandCluster,
+} from './art';

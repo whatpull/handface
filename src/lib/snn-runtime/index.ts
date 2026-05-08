@@ -70,3 +70,4 @@ export {
 } from './worker-protocol';
 export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';
+export { LocalSNN, type LocalSNNOptions, type LocalSNNStatus } from './local-snn';

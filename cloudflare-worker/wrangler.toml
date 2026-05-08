@@ -1,0 +1,32 @@
+# SNN D1 Worker — Cloudflare Workers + D1 배포 설정.
+#
+# 적용 절차 (사용자 직접):
+#   1. Cloudflare 계정 + wrangler CLI 설치
+#        npm install -g wrangler
+#   2. D1 database 생성
+#        wrangler d1 create snn-weights
+#   3. 본 파일의 [[d1_databases]] section 의 database_id 를 출력값으로 교체
+#   4. schema 적용
+#        wrangler d1 execute snn-weights --file=./schema.sql --local      # local
+#        wrangler d1 execute snn-weights --file=./schema.sql --remote     # production
+#   5. (선택) auth token 환경변수 설정
+#        wrangler secret put SNN_AUTH_TOKEN
+#   6. 배포
+#        wrangler deploy
+#
+# 무료 plan: Workers 100K req/day, D1 5M reads/day + 100K writes/day, 5GB.
+
+name = "snn-d1-worker"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "snn-weights"
+# database_id 는 wrangler d1 create 후 발급되는 UUID 로 교체.
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# 환경변수 (선택) — 인증 토큰. 미설정 시 open access (개발/테스트용).
+# 운영 배포 시 wrangler secret put SNN_AUTH_TOKEN 으로 등록 권장.
+# [vars]
+# SNN_AUTH_TOKEN = "..."     # secret 으로 별도 등록 권장

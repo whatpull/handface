@@ -79,3 +79,4 @@ export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';
 export { LocalSNN, type LocalSNNOptions, type LocalSNNStatus } from './local-snn';
 export { MainThreadTransport } from './main-thread-transport';
+export { D1Sink, D1NotFound, type D1SinkOptions } from './sinks/d1-sink';

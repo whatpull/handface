@@ -1,0 +1,17 @@
+{
+  "name": "snn-d1-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Workers + D1 backend for SNN weight persistence (free tier).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "schema:local": "wrangler d1 execute snn-weights --file=./schema.sql --local",
+    "schema:remote": "wrangler d1 execute snn-weights --file=./schema.sql --remote"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "wrangler": "^3"
+  }
+}

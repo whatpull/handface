@@ -41,3 +41,16 @@ export {
   evaluateVigilance,
   expandCluster,
 } from './art';
+export {
+  type WorkerRequest,
+  type WorkerResponse,
+  type BuildPayload,
+  type RunPayload,
+  type FiringRatesPayload,
+  type BuildResult,
+  type RunResult,
+  type SnapshotResult,
+  type FiringRatesResult,
+} from './worker-protocol';
+export { SNNWorkerCore } from './worker-core';
+export { SNNWorkerClient, type WorkerLike } from './worker-client';

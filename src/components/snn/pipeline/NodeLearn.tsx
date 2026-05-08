@@ -104,6 +104,9 @@ export default function NodeLearn() {
           isTraining: true,
           activeCluster: d.cluster,
           framesDone: { ...prev.framesDone, [d.cluster]: 0 },
+          // 재학습 시 본 cluster 의 trained 플래그 즉시 false — "TRAINED —
+          // frozen" 배지가 stale 한 채 유지되는 사용자 catch 2026-05-09 정정.
+          trained: { ...prev.trained, [d.cluster]: false },
           lastError: null,
         };
       }
@@ -180,10 +183,13 @@ export default function NodeLearn() {
     if (bumped) setCapturingPulse((n) => n + 1);
   }, [phase]);
 
-  // 1회 snapshot — V1/V2 neuron 총개수.
+  // V1/V2 neuron 총개수 — 마운트 시 1회 + circuit-changed 시 재fetch.
+  // 사용자 catch 2026-05-09: 직전 마운트 시점 영역 backend 영역 빈 네트워크
+  // 이면 totals=0 으로 고정 → 회로 빌드/재빌드 후에도 V1 164/0 표시 stale.
+  // circuit-changed listen 영역 정합 갱신.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const fetchTotals = async () => {
       const r = await getClient().getFullSnapshot();
       if (cancelled || !r.ok) return;
       const counts = { V1: 0, V2: 0 };
@@ -192,8 +198,15 @@ export default function NodeLearn() {
         if (region === 'V1' || region === 'V2') counts[region] += 1;
       }
       setRegionTotals(counts);
-    })();
-    return () => { cancelled = true; };
+    };
+    void fetchTotals();
+    const off = onBackendEvent('circuit-changed', () => {
+      void fetchTotals();
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
   }, []);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.

@@ -96,6 +96,115 @@ export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): Cl
   };
 }
 
+// 토폴로지로부터 cluster 슬롯 추론 — restoreSnapshot 이후 사용.
+// 본 함수는 net 의 neuron 이름을 스캔해 base/expanded cluster 를 모두 발견.
+//   base: v1_L4_E_{i} (i = 0 .. N13Pools.V1_L4E-1) → 4 cluster
+//   expanded: c{N}_v1_L4_E_{i} (N = 4, 5, ...) → user cluster
+// activeInputs 는 토폴로지에서 직접 알 수 없으므로 빈 배열로 둠 (UI metadata).
+export function inferClusterRegistry(neuronNames: Iterable<string>): ClusterRegistry {
+  // 본 base 슬롯 N13_PER_SUB 정합 (rev15 빌더와 동일).
+  // 확장 cluster 는 expandCluster 가 같은 per-sub 크기로 만든다.
+  const v1L4PerSub = N13Pools.V1_L4_PER_SUB;
+  const v1L23PerSub = N13Pools.V1_L23_PER_SUB;
+  const v2L4PerSub = N13Pools.V2_L4_PER_SUB;
+  const v2L23PerSub = N13Pools.V2_L23_PER_SUB;
+  const v2L5PerSub = N13Pools.V2_L5_PER_SUB;
+  const outPerCluster = N13Pools.OUT_PER_CLUSTER;
+
+  // discovery: cluster id 별 layer 별 이름을 모은다.
+  const buckets = new Map<number, ClusterSlot>();
+  const ensure = (id: number): ClusterSlot => {
+    let s = buckets.get(id);
+    if (!s) {
+      s = { id, v1L4E: [], v1L23E: [], v2L4E: [], v2L23E: [], v2L5E: [], out: [], activeInputs: [] };
+      buckets.set(id, s);
+    }
+    return s;
+  };
+
+  // base 슬롯 — N13Pools 의 per-sub 만큼 4 cluster 로 분할.
+  // expanded 슬롯 — c{N}_ prefix 로 식별.
+  for (const name of neuronNames) {
+    // expanded patterns first.
+    const me = /^c(\d+)_(v1_L4_E|v1_L23_E|v2_L4_E|v2_L23_E|v2_L5_E)_/.exec(name);
+    if (me) {
+      const id = Number(me[1]);
+      const layer = me[2];
+      const s = ensure(id);
+      if (layer === 'v1_L4_E') s.v1L4E.push(name);
+      else if (layer === 'v1_L23_E') s.v1L23E.push(name);
+      else if (layer === 'v2_L4_E') s.v2L4E.push(name);
+      else if (layer === 'v2_L23_E') s.v2L23E.push(name);
+      else if (layer === 'v2_L5_E') s.v2L5E.push(name);
+      continue;
+    }
+    // base patterns.
+    const v1L4 = /^v1_L4_E_(\d+)$/.exec(name);
+    if (v1L4) {
+      const idx = Number(v1L4[1]);
+      const id = Math.floor(idx / v1L4PerSub);
+      ensure(id).v1L4E.push(name);
+      continue;
+    }
+    const v1L23 = /^v1_L23_E_(\d+)$/.exec(name);
+    if (v1L23) {
+      const idx = Number(v1L23[1]);
+      const id = Math.floor(idx / v1L23PerSub);
+      ensure(id).v1L23E.push(name);
+      continue;
+    }
+    const v2L4 = /^v2_L4_E_(\d+)$/.exec(name);
+    if (v2L4) {
+      const idx = Number(v2L4[1]);
+      const id = Math.floor(idx / v2L4PerSub);
+      ensure(id).v2L4E.push(name);
+      continue;
+    }
+    const v2L23 = /^v2_L23_E_(\d+)$/.exec(name);
+    if (v2L23) {
+      const idx = Number(v2L23[1]);
+      const id = Math.floor(idx / v2L23PerSub);
+      ensure(id).v2L23E.push(name);
+      continue;
+    }
+    const v2L5 = /^v2_L5_E_(\d+)$/.exec(name);
+    if (v2L5) {
+      const idx = Number(v2L5[1]);
+      const id = Math.floor(idx / v2L5PerSub);
+      ensure(id).v2L5E.push(name);
+      continue;
+    }
+    const out = /^out_(\d+)_(\d+)$/.exec(name);
+    if (out) {
+      const id = Number(out[1]);
+      ensure(id).out.push(name);
+      continue;
+    }
+  }
+
+  // 정렬해서 결정론 보장 — id 오름차순 + 각 layer 안에서 이름 사전순.
+  const slots = Array.from(buckets.values()).sort((a, b) => a.id - b.id);
+  for (const s of slots) {
+    s.v1L4E.sort();
+    s.v1L23E.sort();
+    s.v2L4E.sort();
+    s.v2L23E.sort();
+    s.v2L5E.sort();
+    s.out.sort();
+  }
+
+  return {
+    slots,
+    v1L4PerSub,
+    v1L23PerSub,
+    v2L4PerSub,
+    v2L23PerSub,
+    v2L5PerSub,
+    outPerCluster,
+    inputDim: 16,
+  };
+}
+
 // ── Vigilance ──
 // observe window 내 V1_L23 (또는 OUT) firing rate per cluster 기반 match score.
 

@@ -17,6 +17,7 @@ import type { InjectEvent, NetworkSnapshot } from './network';
 
 export type WorkerRequest =
   | { id: number; type: 'build'; payload: BuildPayload }
+  | { id: number; type: 'restoreSnapshot'; payload: RestoreSnapshotPayload }
   | { id: number; type: 'inject'; payload: { events: InjectEvent[] } }
   | { id: number; type: 'run'; payload: RunPayload }
   | { id: number; type: 'snapshot' }
@@ -32,6 +33,13 @@ export interface BuildPayload {
   vThreshold?: number;
   clusterActiveInputs?: number[][];
   seed?: number;
+}
+
+export interface RestoreSnapshotPayload {
+  snapshot: NetworkSnapshot;
+  // 선택 — 알고있는 cluster 별 활성 input. UI 메타데이터, registry slot 에
+  // 채움. 미지정 시 빈 배열로 남고 cluster id 만 복원.
+  clusterActiveInputs?: number[][];
 }
 
 export interface RunPayload {
@@ -72,6 +80,13 @@ export interface BuildResult {
   outTotal: number;
   inputDim: number;
   preset: string;
+}
+
+export interface RestoreSnapshotResult {
+  neurons: number;
+  synapses: number;
+  totalClusters: number;
+  t: number;
 }
 
 export interface RunResult {

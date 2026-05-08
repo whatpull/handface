@@ -12,6 +12,8 @@ import type {
   ExpandClusterResult,
   FiringRatesPayload,
   FiringRatesResult,
+  RestoreSnapshotPayload,
+  RestoreSnapshotResult,
   RunPayload,
   RunResult,
   SnapshotResult,
@@ -73,6 +75,10 @@ export class SNNWorkerClient {
 
   build(payload: BuildPayload): Promise<BuildResult> {
     return this.send<BuildResult>({ type: 'build', payload });
+  }
+
+  restoreSnapshot(payload: RestoreSnapshotPayload): Promise<RestoreSnapshotResult> {
+    return this.send<RestoreSnapshotResult>({ type: 'restoreSnapshot', payload });
   }
 
   inject(events: InjectEvent[]): Promise<null> {

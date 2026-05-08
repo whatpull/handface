@@ -4,7 +4,12 @@
 // (snn-worker.ts) 는 본 클래스를 인스턴스화하고 self.onmessage / postMessage
 // 만 연결한다.
 
-import { buildClusterRegistryFromN13, expandCluster, type ClusterRegistry } from './art';
+import {
+  buildClusterRegistryFromN13,
+  expandCluster,
+  inferClusterRegistry,
+  type ClusterRegistry,
+} from './art';
 import { buildN13OrientationPreset } from './builders/n13-orientation';
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
@@ -17,6 +22,8 @@ import type {
   ExpandClusterResult,
   FiringRatesPayload,
   FiringRatesResult,
+  RestoreSnapshotPayload,
+  RestoreSnapshotResult,
   RunPayload,
   RunResult,
   SnapshotResult,
@@ -56,6 +63,8 @@ export class SNNWorkerCore {
       switch (req.type) {
         case 'build':
           return { id: req.id, ok: true, result: this.handleBuild(req.payload) };
+        case 'restoreSnapshot':
+          return { id: req.id, ok: true, result: this.handleRestoreSnapshot(req.payload) };
         case 'inject':
           this.requireNet().inject(req.payload.events);
           return { id: req.id, ok: true, result: null };
@@ -126,6 +135,29 @@ export class SNNWorkerCore {
       outTotal: result.outTotal,
       inputDim: result.inputDim,
       preset: result.preset,
+    };
+  }
+
+  private handleRestoreSnapshot(payload: RestoreSnapshotPayload): RestoreSnapshotResult {
+    const restored = NeuralNetwork.restore(payload.snapshot);
+    this.net = restored;
+    this.monitor = new SpikeMonitor();
+    this.monitor.attachAll(restored.neurons);
+    // 토폴로지 기반으로 cluster 슬롯 추론.
+    const registry = inferClusterRegistry(restored.neurons.map((n) => n.name));
+    if (payload.clusterActiveInputs) {
+      for (let i = 0; i < registry.slots.length; i += 1) {
+        const ai = payload.clusterActiveInputs[i];
+        if (ai) registry.slots[i].activeInputs = ai.slice();
+      }
+      this.buildClusterActiveInputs = payload.clusterActiveInputs.slice(0, 4);
+    }
+    this.registry = registry;
+    return {
+      neurons: restored.size(),
+      synapses: restored.synapses.length,
+      totalClusters: registry.slots.length,
+      t: restored.t,
     };
   }
 

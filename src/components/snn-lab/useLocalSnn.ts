@@ -156,8 +156,15 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
   const expandCluster = useCallback(
     async (p: ExpandClusterPayload): Promise<ExpandClusterResult | null> => {
       const c = clientRef.current;
+      const lab = labRef.current;
       if (!c) return null;
-      return c.expandCluster(p);
+      const result = await c.expandCluster(p);
+      // 위상 변경 — sink 의 토폴로지를 즉시 갱신해 새로고침 round-trip 보장.
+      if (lab) {
+        await lab.persistTopology();
+        setStatus(lab.status());
+      }
+      return result;
     },
     [],
   );

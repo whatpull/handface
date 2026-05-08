@@ -53,32 +53,30 @@ export class LocalSNN {
     this.opts = opts;
   }
 
-  // 첫 호출. sink 에 보존된 토폴로지 + 가중치가 있으면 그대로 적용 (상속 학습).
-  // 없으면 새 빌드 + 첫 저장.
+  // 첫 호출. sink 에 보존된 토폴로지 + 가중치가 있으면 그대로 restore
+  // (cluster expansion 까지 보존). 없으면 새 빌드 + 첫 저장.
   async init(): Promise<LocalSNNStatus> {
     const { client, sink, netId } = this.opts;
     const persistedTopology = await sink.loadTopology(netId);
     const persistedWeights = await sink.loadWeights(netId);
 
     if (persistedTopology && persistedWeights && this.topologyMatchesPreset(persistedTopology)) {
-      // 같은 preset/위상 → 새로 build 한 후 가중치 swap.
-      // (worker 는 stateless — 매 init 마다 build 필요.)
-      const built = await client.build({
-        preset: this.opts.preset ?? 'n13_orientation',
-        vThreshold: this.opts.vThreshold,
+      // 토폴로지 그대로 restore — expansion 까지 round-trip.
+      const restored = await client.restoreSnapshot({
+        snapshot: persistedTopology,
         clusterActiveInputs: this.opts.clusterActiveInputs,
-        seed: this.opts.seed,
       });
-      this.neuronsCount = built.neuronsAdded;
-      this.synapsesCount = built.synapsesAdded;
-      // 보존된 가중치가 현재 위상의 synapse 수와 정합한 경우만 적용.
+      this.neuronsCount = restored.neurons;
+      this.synapsesCount = restored.synapses;
+      // 가중치 길이 정합 — restore 한 토폴로지의 synapse 수가 같은 sink 에서
+      // 함께 저장됐다면 맞아야 함.
       if (persistedWeights.weights.length === this.synapsesCount) {
         await client.applyWeights(persistedWeights.weights);
         this.rev = persistedWeights.rev;
         this.prevWeights = persistedWeights;
         this.lastSavedAt = persistedWeights.savedAt;
       } else {
-        // 위상 mismatch → 새 빌드 그대로 유지 + topology 다시 저장.
+        // 가중치 길이 mismatch — 토폴로지/가중치 schema 불일치. fresh build.
         await this.persistFreshBuild();
       }
     } else {
@@ -93,6 +91,33 @@ export class LocalSNN {
       await this.persistFreshBuild();
     }
     return this.status();
+  }
+
+  // 토폴로지를 다시 저장 — expandCluster 등 위상 변경 후 호출자가 명시 트리거.
+  // 가중치 길이가 바뀌므로 prevWeights / 누적 delta 는 reset (다음 save 가 baseline).
+  async persistTopology(): Promise<void> {
+    const { client, sink, netId } = this.opts;
+    const { snapshot } = await client.snapshot();
+    await sink.saveTopology(netId, snapshot);
+    this.neuronsCount = snapshot.neurons.length;
+    this.synapsesCount = snapshot.synapses.length;
+    // 위상 변경 → 직전 가중치 vector 길이 mismatch — diff 무효, 누적 delta 도 폐기.
+    this.prevWeights = null;
+    // 새 baseline 가중치 즉시 저장 (rev 유지).
+    const weights = await client.extractWeights();
+    const baseline: WeightSnapshot = {
+      schema: 1,
+      netId,
+      rev: this.rev,
+      t: snapshot.t,
+      savedAt: Date.now(),
+      weights,
+    };
+    await sink.saveWeights(baseline);
+    this.prevWeights = baseline;
+    this.lastSavedAt = baseline.savedAt;
+    // 누적 delta 폐기 (이전 위상 기반 → 적용 불가).
+    await sink.compact(netId, 0);
   }
 
   private topologyMatchesPreset(topo: NetworkSnapshot): boolean {

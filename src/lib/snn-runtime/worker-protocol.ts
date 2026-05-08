@@ -23,6 +23,8 @@ export type WorkerRequest =
   | { id: number; type: 'extractWeights' }
   | { id: number; type: 'applyWeights'; payload: { weights: number[] } }
   | { id: number; type: 'firingRates'; payload: FiringRatesPayload }
+  | { id: number; type: 'expandCluster'; payload: ExpandClusterPayload }
+  | { id: number; type: 'clusterFiringRates'; payload: ClusterFiringRatesPayload }
   | { id: number; type: 'reset' };
 
 export interface BuildPayload {
@@ -44,6 +46,17 @@ export interface FiringRatesPayload {
   names?: string[];
   prefixes?: string[];
   windowMs: number;
+}
+
+export interface ExpandClusterPayload {
+  activeInputs: number[]; // 길이 4 권장 (n13 cluster slot 정합).
+  seed?: number;
+}
+
+export interface ClusterFiringRatesPayload {
+  // OUT 또는 V1_L23 / V2_L5 layer 영역 cluster 별 평균 firing rate.
+  windowMs: number;
+  layer?: 'OUT' | 'V1_L23' | 'V2_L5';
 }
 
 // ── 응답 ──
@@ -73,4 +86,21 @@ export interface SnapshotResult {
 export interface FiringRatesResult {
   // 뉴런 이름 → 발화율(Hz). 입력 순서를 보존.
   rates: Array<{ name: string; hz: number }>;
+}
+
+export interface ExpandClusterResult {
+  newClusterId: number;
+  totalClusters: number;
+  neuronsAdded: number;
+  synapsesAdded: number;
+  activeInputs: number[];
+}
+
+export interface ClusterFiringRatesResult {
+  // [clusterId] → 평균 firing rate (Hz).
+  rates: number[];
+  winner: number; // argmax. -1 이면 모두 0.
+  share: number; // rates[winner] / sum(rates). silent → 0.
+  margin: number; // (max - second) / max. silent → 0.
+  layer: 'OUT' | 'V1_L23' | 'V2_L5';
 }

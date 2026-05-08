@@ -12,6 +12,10 @@ import {
   LocalStorageSink,
   MainThreadTransport,
   SNNWorkerClient,
+  type ClusterFiringRatesPayload,
+  type ClusterFiringRatesResult,
+  type ExpandClusterPayload,
+  type ExpandClusterResult,
   type FiringRatesPayload,
   type FiringRatesResult,
   type LocalSNNStatus,
@@ -40,6 +44,8 @@ export interface UseLocalSnnApi {
   inject(events: InjectEvent[]): Promise<void>;
   run(payload: { durationMs: number; dtMs?: number; stdpEnabled?: boolean; stdpGain?: number }): Promise<void>;
   firingRates(payload: FiringRatesPayload): Promise<FiringRatesResult>;
+  clusterFiringRates(payload: ClusterFiringRatesPayload): Promise<ClusterFiringRatesResult>;
+  expandCluster(payload: ExpandClusterPayload): Promise<ExpandClusterResult | null>;
   save(): Promise<void>;
   reset(): Promise<void>;
   client: SNNWorkerClient | null;
@@ -131,6 +137,31 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     return c.firingRates(p);
   }, []);
 
+  const clusterFiringRates = useCallback(
+    async (p: ClusterFiringRatesPayload): Promise<ClusterFiringRatesResult> => {
+      const c = clientRef.current;
+      if (!c)
+        return {
+          rates: [],
+          winner: -1,
+          share: 0,
+          margin: 0,
+          layer: p.layer ?? 'OUT',
+        };
+      return c.clusterFiringRates(p);
+    },
+    [],
+  );
+
+  const expandCluster = useCallback(
+    async (p: ExpandClusterPayload): Promise<ExpandClusterResult | null> => {
+      const c = clientRef.current;
+      if (!c) return null;
+      return c.expandCluster(p);
+    },
+    [],
+  );
+
   const save = useCallback(async () => {
     const lab = labRef.current;
     if (!lab) return;
@@ -155,6 +186,8 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     inject,
     run,
     firingRates,
+    clusterFiringRates,
+    expandCluster,
     save,
     reset,
     client: clientRef.current,

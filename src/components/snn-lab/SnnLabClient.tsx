@@ -1,9 +1,11 @@
 'use client';
-// SnnLabClient — LocalSNN end-to-end 데모 페이지.
+// SnnLabClient — LocalSNN end-to-end 데모 + ART 동적 cluster expansion.
 //
-// 백엔드 round-trip 없이 브라우저 안에서 회로 빌드 → 4×4 grid 자극 →
-// STDP 학습 → cluster 별 발화율 표시 → localStorage 저장 / 복원 까지
-// 한 화면에서 시연. lib (~3,400 LOC) 가 실제로 동작함을 증명하는 entry point.
+// 백엔드 round-trip 없이 브라우저 안에서:
+//  - 회로 빌드 (4 base cluster: ─│╲╱)
+//  - 4×4 grid 자극 → STDP 학습 → cluster 발화율 표시
+//  - 사용자 정의 패턴으로 새 cluster 슬롯 동적 추가 (ART vigilance)
+//  - localStorage 영속화
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -11,27 +13,20 @@ import type { InjectEvent } from '@/lib/snn-runtime';
 
 import { useLocalSnn } from './useLocalSnn';
 
-type ClusterId = 0 | 1 | 2 | 3;
-
-// 4×4 orientation pattern — cluster 0..3 각각 ─│╲╱.
-const ORIENTATION_PATTERNS: Record<ClusterId, number[]> = {
-  0: [4, 5, 6, 7], // ─ horizontal
-  1: [1, 5, 9, 13], // │ vertical
-  2: [0, 5, 10, 15], // ╲ diag-back
-  3: [3, 6, 9, 12], // ╱ diag-fore
-};
-
-const ORIENTATION_LABEL: Record<ClusterId, string> = {
-  0: '─',
-  1: '│',
-  2: '╲',
-  3: '╱',
-};
+// 기본 4 cluster — n13_orientation 빌더의 default 와 정합.
+const BASE_PATTERNS: number[][] = [
+  [4, 5, 6, 7], // ─ horizontal
+  [1, 5, 9, 13], // │ vertical
+  [0, 5, 10, 15], // ╲ diag-back
+  [3, 6, 9, 12], // ╱ diag-fore
+];
+const BASE_LABELS: string[] = ['─', '│', '╲', '╱'];
 
 const RUN_MS = 50;
 const STIM_DURATION_MS = 30;
 const STIM_WEIGHT = 28;
 const TRAIN_FRAMES_PER_BUTTON = 6;
+const MAX_USER_CLUSTERS = 4; // 안전 한도 — 메모리 / UI 가독성.
 
 function formatTimestamp(ms: number | null): string {
   if (ms === null) return '저장 전';
@@ -39,15 +34,26 @@ function formatTimestamp(ms: number | null): string {
   return `${d.toLocaleTimeString()}`;
 }
 
+interface ClusterEntry {
+  id: number;
+  label: string;
+  pattern: number[];
+}
+
 export default function SnnLabClient() {
   const [useWorker, setUseWorker] = useState(false);
   const lab = useLocalSnn({ netId: 'snn-lab-default', seed: 57, useWorker });
-  const [activePattern, setActivePattern] = useState<number[]>(ORIENTATION_PATTERNS[0]);
+
+  // 처음 4 base cluster 는 빌더 default. expansion 마다 user 추가.
+  const [clusters, setClusters] = useState<ClusterEntry[]>(() =>
+    BASE_PATTERNS.map((pattern, id) => ({ id, label: BASE_LABELS[id], pattern })),
+  );
+  const [activePattern, setActivePattern] = useState<Set<number>>(() => new Set(BASE_PATTERNS[0]));
   const [busy, setBusy] = useState(false);
-  const [outRates, setOutRates] = useState<number[]>([0, 0, 0, 0]);
-  const [winner, setWinner] = useState<{ cluster: ClusterId | null; share: number; margin: number }>(
+  const [rates, setRates] = useState<number[]>([0, 0, 0, 0]);
+  const [winner, setWinner] = useState<{ cluster: number; share: number; margin: number }>(
     {
-      cluster: null,
+      cluster: -1,
       share: 0,
       margin: 0,
     },
@@ -63,7 +69,15 @@ export default function SnnLabClient() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [log.length]);
 
-  // 자극 만들기 — 활성 grid index 들에 sustained current.
+  // build/reset 시 cluster 목록을 base 4개로 되돌림.
+  useEffect(() => {
+    if (lab.status?.rev === 0 && clusters.length !== BASE_PATTERNS.length) {
+      setClusters(BASE_PATTERNS.map((pattern, id) => ({ id, label: BASE_LABELS[id], pattern })));
+    }
+    // status.rev / clusters.length 만 deps 로 — 무한 loop 회피.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lab.status?.rev]);
+
   const buildInjectEvents = (activeIdx: number[]): InjectEvent[] =>
     activeIdx.map((i) => ({
       neuron: `in_feat_${i}`,
@@ -73,75 +87,72 @@ export default function SnnLabClient() {
       stepMs: 0.1,
     }));
 
-  const measureOutRates = async (): Promise<{ rates: number[]; winner: ClusterId | null; share: number; margin: number }> => {
-    const names: string[] = [];
-    for (let ci = 0; ci < 4; ci += 1) {
-      for (let ni = 0; ni < 8; ni += 1) names.push(`out_${ci}_${ni}`);
-    }
-    const r = await lab.firingRates({ names, windowMs: RUN_MS });
-    const sums = [0, 0, 0, 0];
-    const counts = [0, 0, 0, 0];
-    for (const x of r.rates) {
-      const m = /^out_(\d)_/.exec(x.name);
-      if (!m) continue;
-      const ci = Number(m[1]);
-      sums[ci] += x.hz;
-      counts[ci] += 1;
-    }
-    const rates = sums.map((s, i) => (counts[i] > 0 ? s / counts[i] : 0));
-    let max = 0;
-    let second = 0;
-    let win: ClusterId | null = null;
-    let total = 0;
-    for (let i = 0; i < rates.length; i += 1) {
-      total += rates[i];
-      if (rates[i] > max) {
-        second = max;
-        max = rates[i];
-        win = i as ClusterId;
-      } else if (rates[i] > second) {
-        second = rates[i];
-      }
-    }
-    return {
-      rates,
-      winner: total > 0 ? win : null,
-      share: total > 0 ? max / total : 0,
-      margin: max > 0 ? (max - second) / max : 0,
-    };
+  const measure = async () => {
+    const r = await lab.clusterFiringRates({ windowMs: RUN_MS, layer: 'OUT' });
+    setRates(r.rates);
+    setWinner({ cluster: r.winner, share: r.share, margin: r.margin });
+    return r;
   };
 
   const onInfer = async () => {
     if (!lab.ready || busy) return;
     setBusy(true);
     try {
-      await lab.inject(buildInjectEvents(activePattern));
+      const pattern = Array.from(activePattern).sort((a, b) => a - b);
+      await lab.inject(buildInjectEvents(pattern));
       await lab.run({ durationMs: RUN_MS, dtMs: 0.1, stdpEnabled: false });
-      const m = await measureOutRates();
-      setOutRates(m.rates);
-      setWinner({ cluster: m.winner, share: m.share, margin: m.margin });
+      const r = await measure();
       appendLog(
-        `infer pattern=[${activePattern.join(',')}] winner=${m.winner ?? 'null'} share=${m.share.toFixed(2)} margin=${m.margin.toFixed(2)}`,
+        `infer pattern=[${pattern.join(',')}] winner=${r.winner === -1 ? 'silent' : r.winner} share=${r.share.toFixed(2)} margin=${r.margin.toFixed(2)}`,
       );
     } finally {
       setBusy(false);
     }
   };
 
-  const onTrain = async (cluster: ClusterId) => {
+  const onTrain = async (cluster: ClusterEntry) => {
     if (!lab.ready || busy) return;
     setBusy(true);
     try {
-      const pattern = ORIENTATION_PATTERNS[cluster];
       for (let i = 0; i < TRAIN_FRAMES_PER_BUTTON; i += 1) {
-        await lab.inject(buildInjectEvents(pattern));
+        await lab.inject(buildInjectEvents(cluster.pattern));
         await lab.run({ durationMs: RUN_MS, dtMs: 0.1, stdpEnabled: true, stdpGain: 1.0 });
       }
-      const m = await measureOutRates();
-      setOutRates(m.rates);
-      setWinner({ cluster: m.winner, share: m.share, margin: m.margin });
+      const r = await measure();
       appendLog(
-        `train cluster ${cluster} (${ORIENTATION_LABEL[cluster]}) ×${TRAIN_FRAMES_PER_BUTTON} → winner=${m.winner ?? 'null'} share=${m.share.toFixed(2)}`,
+        `train ${cluster.label} (id=${cluster.id}) ×${TRAIN_FRAMES_PER_BUTTON} → winner=${r.winner === -1 ? 'silent' : r.winner} share=${r.share.toFixed(2)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onExpand = async () => {
+    if (!lab.ready || busy) return;
+    if (clusters.length >= BASE_PATTERNS.length + MAX_USER_CLUSTERS) {
+      appendLog(`expand 거부 — 최대 ${BASE_PATTERNS.length + MAX_USER_CLUSTERS} cluster 한도`);
+      return;
+    }
+    const pattern = Array.from(activePattern).sort((a, b) => a - b);
+    if (pattern.length === 0) {
+      appendLog('expand 거부 — pattern 비어있음');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await lab.expandCluster({ activeInputs: pattern, seed: Date.now() });
+      if (!r) {
+        appendLog('expand 실패 — client 미준비');
+        return;
+      }
+      const userIdx = clusters.length - BASE_PATTERNS.length + 1; // U1, U2, …
+      setClusters((prev) => [
+        ...prev,
+        { id: r.newClusterId, label: `U${userIdx}`, pattern },
+      ]);
+      setRates(new Array(r.totalClusters).fill(0));
+      appendLog(
+        `expand → cluster ${r.newClusterId} (U${userIdx}) pattern=[${pattern.join(',')}] +${r.neuronsAdded} neurons +${r.synapsesAdded} synapses`,
       );
     } finally {
       setBusy(false);
@@ -164,9 +175,10 @@ export default function SnnLabClient() {
     setBusy(true);
     try {
       await lab.reset();
-      setOutRates([0, 0, 0, 0]);
-      setWinner({ cluster: null, share: 0, margin: 0 });
-      appendLog('reset → rev=0');
+      setClusters(BASE_PATTERNS.map((pattern, id) => ({ id, label: BASE_LABELS[id], pattern })));
+      setRates([0, 0, 0, 0]);
+      setWinner({ cluster: -1, share: 0, margin: 0 });
+      appendLog('reset → rev=0, clusters=4');
     } finally {
       setBusy(false);
     }
@@ -174,18 +186,29 @@ export default function SnnLabClient() {
 
   const grid = useMemo(() => {
     const cells: number[] = Array.from({ length: 16 }, (_, i) => i);
-    return cells.map((i) => ({ idx: i, on: activePattern.includes(i) }));
+    return cells.map((i) => ({ idx: i, on: activePattern.has(i) }));
   }, [activePattern]);
 
-  const setPattern = (cluster: ClusterId) => setActivePattern(ORIENTATION_PATTERNS[cluster]);
+  const toggleCell = (idx: number) => {
+    setActivePattern((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const setPatternFromCluster = (cluster: ClusterEntry) =>
+    setActivePattern(new Set(cluster.pattern));
 
   return (
     <div className="min-h-screen p-6 bg-[#0a0a0c] text-white">
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">SNN Lab — LocalSNN end-to-end</h1>
+          <h1 className="text-2xl font-bold">SNN Lab — LocalSNN + ART 동적 성장</h1>
           <p className="text-sm text-white/70 mt-1">
-            백엔드 round-trip 없이 브라우저 안에서 회로 빌드 → 자극 → STDP → 가중치 영속화.
+            백엔드 round-trip 없이 브라우저 안에서 회로 빌드 → 자극 → STDP → 가중치 영속화 +
+            <span className="ml-1 text-amber-200">ART vigilance 기반 cluster 동적 추가</span>.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
@@ -197,9 +220,7 @@ export default function SnnLabClient() {
             className="accent-blue-400"
           />
           <span>Web Worker 모드</span>
-          <span className="text-xs text-white/50">
-            ({lab.transportKind ?? '대기'})
-          </span>
+          <span className="text-xs text-white/50">({lab.transportKind ?? '대기'})</span>
         </label>
       </header>
 
@@ -215,10 +236,15 @@ export default function SnnLabClient() {
                 <dd>{lab.status.netId}</dd>
                 <dt className="text-white/50">rev</dt>
                 <dd>{lab.status.rev}</dd>
+                <dt className="text-white/50">clusters</dt>
+                <dd>
+                  {clusters.length}{' '}
+                  <span className="text-white/40 text-xs">
+                    (base {BASE_PATTERNS.length} + user {clusters.length - BASE_PATTERNS.length})
+                  </span>
+                </dd>
                 <dt className="text-white/50">neurons</dt>
                 <dd>{lab.status.neurons}</dd>
-                <dt className="text-white/50">synapses</dt>
-                <dd>{lab.status.synapses}</dd>
                 <dt className="text-white/50">last save</dt>
                 <dd>{formatTimestamp(lab.status.lastSavedAt)}</dd>
               </dl>
@@ -227,28 +253,33 @@ export default function SnnLabClient() {
 
           <div className="border border-white/10 rounded-lg p-4 bg-white/5">
             <div className="text-xs uppercase tracking-wider text-white/50 mb-3">
-              4×4 Pattern
+              4×4 Pattern <span className="text-white/40">(클릭으로 토글)</span>
             </div>
             <div className="grid grid-cols-4 gap-1 max-w-[10rem]">
               {grid.map((c) => (
-                <div
+                <button
                   key={c.idx}
+                  type="button"
+                  onClick={() => toggleCell(c.idx)}
+                  disabled={busy}
                   className={`aspect-square rounded ${
-                    c.on ? 'bg-amber-300' : 'bg-white/10'
+                    c.on ? 'bg-amber-300' : 'bg-white/10 hover:bg-white/20'
                   }`}
                   title={`in_feat_${c.idx}`}
+                  aria-label={`feature ${c.idx} ${c.on ? 'on' : 'off'}`}
                 />
               ))}
             </div>
-            <div className="mt-3 flex gap-2 text-sm">
-              {([0, 1, 2, 3] as ClusterId[]).map((c) => (
+            <div className="mt-3 flex flex-wrap gap-1.5 text-sm">
+              {clusters.map((c) => (
                 <button
-                  key={c}
+                  key={c.id}
                   type="button"
-                  onClick={() => setPattern(c)}
+                  onClick={() => setPatternFromCluster(c)}
+                  disabled={busy}
                   className="px-2 py-1 border border-white/20 rounded hover:bg-white/10"
                 >
-                  {ORIENTATION_LABEL[c]} ({c})
+                  {c.label} ({c.id})
                 </button>
               ))}
             </div>
@@ -265,17 +296,30 @@ export default function SnnLabClient() {
               >
                 Infer
               </button>
-              {([0, 1, 2, 3] as ClusterId[]).map((c) => (
+              {clusters.map((c) => (
                 <button
-                  key={c}
+                  key={c.id}
                   type="button"
                   onClick={() => onTrain(c)}
                   disabled={!lab.ready || busy}
                   className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 rounded"
                 >
-                  Train {ORIENTATION_LABEL[c]}
+                  Train {c.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={onExpand}
+                disabled={
+                  !lab.ready ||
+                  busy ||
+                  activePattern.size === 0 ||
+                  clusters.length >= BASE_PATTERNS.length + MAX_USER_CLUSTERS
+                }
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 rounded text-black font-medium"
+              >
+                + Cluster (ART)
+              </button>
               <button
                 type="button"
                 onClick={onSave}
@@ -293,34 +337,40 @@ export default function SnnLabClient() {
                 Reset
               </button>
             </div>
+            <div className="text-xs text-white/40">
+              + Cluster: 현재 4×4 pattern 으로 새 cluster slot 추가 (max{' '}
+              {BASE_PATTERNS.length + MAX_USER_CLUSTERS}).
+            </div>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="border border-white/10 rounded-lg p-4 bg-white/5">
             <div className="text-xs uppercase tracking-wider text-white/50 mb-3">
-              Cluster firing rate (Hz, last {RUN_MS} ms)
+              Cluster firing rate (Hz, last {RUN_MS} ms · OUT layer)
             </div>
             <div className="space-y-2">
-              {([0, 1, 2, 3] as ClusterId[]).map((c) => {
-                const isWinner = winner.cluster === c && winner.share > 0;
-                const max = Math.max(0.1, ...outRates);
-                const pct = Math.min(100, (outRates[c] / max) * 100);
+              {clusters.map((c, idx) => {
+                const rate = rates[idx] ?? 0;
+                const isWinner = winner.cluster === idx && winner.share > 0;
+                const max = Math.max(0.1, ...rates);
+                const pct = Math.min(100, (rate / max) * 100);
                 return (
-                  <div key={c} className="flex items-center gap-3">
-                    <div className="w-12 text-sm text-white/70">
-                      {ORIENTATION_LABEL[c]} ({c})
+                  <div key={c.id} className="flex items-center gap-3">
+                    <div className="w-16 text-sm text-white/70">
+                      {c.label}{' '}
+                      <span className="text-white/40 text-xs">({c.id})</span>
                     </div>
-                    <div className="flex-1 h-3 bg-white/10 rounded relative">
+                    <div className="flex-1 h-3 bg-white/10 rounded relative overflow-hidden">
                       <div
-                        className={`h-3 rounded ${
+                        className={`h-3 ${
                           isWinner ? 'bg-amber-300' : 'bg-blue-400/60'
-                        }`}
+                        } transition-all`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                     <div className="w-16 text-right text-sm tabular-nums">
-                      {outRates[c].toFixed(1)}
+                      {rate.toFixed(1)}
                     </div>
                   </div>
                 );
@@ -329,7 +379,9 @@ export default function SnnLabClient() {
             <div className="mt-3 text-sm text-white/60">
               winner ={' '}
               <span className="text-amber-300">
-                {winner.cluster === null ? 'silent' : ORIENTATION_LABEL[winner.cluster]}
+                {winner.cluster === -1
+                  ? 'silent'
+                  : `${clusters[winner.cluster]?.label ?? winner.cluster} (${winner.cluster})`}
               </span>
               {' · '}share = {winner.share.toFixed(2)} · margin = {winner.margin.toFixed(2)}
             </div>
@@ -337,10 +389,7 @@ export default function SnnLabClient() {
 
           <div className="border border-white/10 rounded-lg p-4 bg-white/5">
             <div className="text-xs uppercase tracking-wider text-white/50 mb-2">Log</div>
-            <div
-              ref={logRef}
-              className="h-48 overflow-auto font-mono text-xs leading-relaxed"
-            >
+            <div ref={logRef} className="h-48 overflow-auto font-mono text-xs leading-relaxed">
               {log.length === 0 ? (
                 <div className="text-white/40">동작 시작 시 로그가 표시됩니다.</div>
               ) : (

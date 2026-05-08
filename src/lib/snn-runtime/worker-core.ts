@@ -4,12 +4,17 @@
 // (snn-worker.ts) 는 본 클래스를 인스턴스화하고 self.onmessage / postMessage
 // 만 연결한다.
 
+import { buildClusterRegistryFromN13, expandCluster, type ClusterRegistry } from './art';
 import { buildN13OrientationPreset } from './builders/n13-orientation';
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import type {
   BuildPayload,
   BuildResult,
+  ClusterFiringRatesPayload,
+  ClusterFiringRatesResult,
+  ExpandClusterPayload,
+  ExpandClusterResult,
   FiringRatesPayload,
   FiringRatesResult,
   RunPayload,
@@ -33,9 +38,18 @@ function applyWeightsLocal(net: NeuralNetwork, weights: number[]): void {
   for (let i = 0; i < weights.length; i += 1) net.synapses[i].weight = weights[i];
 }
 
+const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 export class SNNWorkerCore {
   private net: NeuralNetwork | null = null;
   private monitor: SpikeMonitor | null = null;
+  private registry: ClusterRegistry | null = null;
+  private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
 
   handle(req: WorkerRequest): WorkerResponse {
     try {
@@ -62,9 +76,14 @@ export class SNNWorkerCore {
             ok: true,
             result: this.handleFiringRates(req.payload),
           };
+        case 'expandCluster':
+          return { id: req.id, ok: true, result: this.handleExpandCluster(req.payload) };
+        case 'clusterFiringRates':
+          return { id: req.id, ok: true, result: this.handleClusterFiringRates(req.payload) };
         case 'reset':
           this.net = null;
           this.monitor = null;
+          this.registry = null;
           return { id: req.id, ok: true, result: null };
       }
       const _exhaustive: never = req;
@@ -80,18 +99,26 @@ export class SNNWorkerCore {
     return this.net;
   }
 
+  private requireRegistry(): ClusterRegistry {
+    if (!this.registry) throw new Error('registry 부재 — build 후에 호출하세요');
+    return this.registry;
+  }
+
   private handleBuild(payload: BuildPayload): BuildResult {
     if (payload.preset !== 'n13_orientation') {
       throw new Error(`알 수 없는 preset: ${payload.preset}`);
     }
+    const activeInputs = payload.clusterActiveInputs ?? DEFAULT_CLUSTER_ACTIVE_INPUTS;
     const result = buildN13OrientationPreset({
       vThreshold: payload.vThreshold,
-      clusterActiveInputs: payload.clusterActiveInputs,
+      clusterActiveInputs: activeInputs,
       seed: payload.seed,
     });
     this.net = result.net;
     this.monitor = new SpikeMonitor();
     this.monitor.attachAll(this.net.neurons);
+    this.registry = buildClusterRegistryFromN13(activeInputs);
+    this.buildClusterActiveInputs = activeInputs;
     return {
       neuronsAdded: result.neuronsAdded,
       synapsesAdded: result.synapsesAdded,
@@ -136,8 +163,79 @@ export class SNNWorkerCore {
     return { rates: out };
   }
 
+  private handleExpandCluster(payload: ExpandClusterPayload): ExpandClusterResult {
+    const net = this.requireNet();
+    const registry = this.requireRegistry();
+    const monitor = this.monitor;
+    if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
+    if (payload.activeInputs.length === 0) {
+      throw new Error('activeInputs 비어있음');
+    }
+    const before = net.neurons.length;
+    const result = expandCluster(net, registry, {
+      activeInputs: payload.activeInputs,
+      seed: payload.seed,
+    });
+    // 새 뉴런들에도 monitor listener 부착 (없으면 firing rate 0 으로 보임).
+    for (let i = before; i < net.neurons.length; i += 1) {
+      monitor.attach(net.neurons[i]);
+    }
+    return {
+      newClusterId: result.newSlot.id,
+      totalClusters: registry.slots.length,
+      neuronsAdded: result.neuronsAdded,
+      synapsesAdded: result.synapsesAdded,
+      activeInputs: result.newSlot.activeInputs,
+    };
+  }
+
+  private handleClusterFiringRates(payload: ClusterFiringRatesPayload): ClusterFiringRatesResult {
+    const net = this.requireNet();
+    const monitor = this.monitor;
+    const registry = this.requireRegistry();
+    if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
+    const layer: 'OUT' | 'V1_L23' | 'V2_L5' = payload.layer ?? 'OUT';
+    const rates = registry.slots.map((slot) => {
+      const names =
+        layer === 'OUT' ? slot.out : layer === 'V1_L23' ? slot.v1L23E : slot.v2L5E;
+      let sum = 0;
+      for (const name of names) sum += monitor.firingRate(name, net.t, payload.windowMs);
+      return names.length > 0 ? sum / names.length : 0;
+    });
+    let max = 0;
+    let second = 0;
+    let winner = -1;
+    let total = 0;
+    for (let i = 0; i < rates.length; i += 1) {
+      total += rates[i];
+      if (rates[i] > max) {
+        second = max;
+        max = rates[i];
+        winner = i;
+      } else if (rates[i] > second) {
+        second = rates[i];
+      }
+    }
+    return {
+      rates,
+      winner: total > 0 ? winner : -1,
+      share: total > 0 ? max / total : 0,
+      margin: max > 0 ? (max - second) / max : 0,
+      layer,
+    };
+  }
+
   // 테스트용 — 직접 net 접근.
   getNetForTest(): NeuralNetwork | null {
     return this.net;
+  }
+
+  getRegistryForTest(): ClusterRegistry | null {
+    return this.registry;
+  }
+
+  // build 시 명시한 activeInputs (기록용 — Lab UI 가 cluster mapping 표시).
+  getBuildClusterActiveInputs(): number[][] {
+    return this.buildClusterActiveInputs;
   }
 }

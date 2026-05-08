@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  HFDatasetSink,
   LocalSNN,
   LocalStorageSink,
   MainThreadTransport,
@@ -19,10 +20,13 @@ import {
   type FiringRatesPayload,
   type FiringRatesResult,
   type LocalSNNStatus,
+  type SnapshotSink,
   type WorkerLike,
 } from '@/lib/snn-runtime';
 import type { InjectEvent } from '@/lib/snn-runtime';
 import { createSnnWebWorker } from '@/lib/snn-runtime/create-web-worker';
+
+export type SinkKind = 'local-storage' | 'hf-dataset';
 
 export interface UseLocalSnnOptions {
   netId: string;
@@ -33,6 +37,12 @@ export interface UseLocalSnnOptions {
   useWorker?: boolean;
   seed?: number;
   clusterActiveInputs?: number[][];
+  // sink 선택 — default 'local-storage'. 'hf-dataset' 선택 시 HFDatasetSink
+  // 사용 (backend /persist/* 경유 → 컨테이너 재시작에도 영속).
+  sinkKind?: SinkKind;
+  // sinkKind='hf-dataset' 시 사용할 HF Spaces base URL.
+  hfSpacesUrl?: string;
+  hfApiKey?: string;
 }
 
 export interface UseLocalSnnApi {
@@ -81,7 +91,15 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     }
     setTransportKind(kind);
     const client = new SNNWorkerClient(transport);
-    const sink = new LocalStorageSink();
+    let sink: SnapshotSink;
+    if (opts.sinkKind === 'hf-dataset' && opts.hfSpacesUrl) {
+      sink = new HFDatasetSink({
+        spacesUrl: opts.hfSpacesUrl,
+        apiKey: opts.hfApiKey,
+      });
+    } else {
+      sink = new LocalStorageSink();
+    }
     const lab = new LocalSNN({
       netId: opts.netId,
       client,
@@ -110,11 +128,12 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
       transportRef.current = null;
       setTransportKind(null);
     };
-    // netId / seed / useWorker / transport 변경 시 새 인스턴스 — react-hooks/exhaustive-deps 정합.
-    // (clusterActiveInputs 는 인자 객체 reference 변경마다 reset 되지 않게
-    //  의도적으로 deps 에 포함 X — 호출자가 stable reference 유지 책임.)
+    // netId / seed / useWorker / transport / sinkKind / hfSpacesUrl 변경 시 새
+    // 인스턴스 — react-hooks/exhaustive-deps 정합. clusterActiveInputs / hfApiKey
+    // 는 객체 reference 매 render 마다 변하지 않게 호출자가 stable reference 유지
+    // 책임.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.netId, opts.seed, opts.transport, opts.useWorker]);
+  }, [opts.netId, opts.seed, opts.transport, opts.useWorker, opts.sinkKind, opts.hfSpacesUrl]);
 
   const inject = useCallback(async (events: InjectEvent[]) => {
     const c = clientRef.current;

@@ -418,22 +418,27 @@ export class NeuronFaceClient {
   // 4×4 pixel grid (= 16 INPUT) 정합 + 강 WTA + OUT cluster slot 4개 + R-STDP 학습으로
   // 4 orientation (─ / │ / ╱ / ╲) selectivity 가 자연 emerge.
   async presetOrientation(
-    opts: { vThreshold?: number; overwrite?: boolean } = {},
+    opts: {
+      vThreshold?: number;
+      overwrite?: boolean;
+      clusterActiveInputs?: number[][];
+    } = {},
   ): Promise<Result<{
     ok: boolean;
     [key: string]: unknown;
   }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
+    const body: Record<string, unknown> = {
+      v_threshold: opts.vThreshold ?? -55.0,
+      overwrite: opts.overwrite ?? false,
+    };
+    if (opts.clusterActiveInputs) {
+      body.cluster_active_inputs = opts.clusterActiveInputs;
+    }
     const r = await this.request<{ ok: boolean; [key: string]: unknown }>(
       `/networks/${net.data}/presets/orientation`,
-      {
-        method: 'POST',
-        body: {
-          v_threshold: opts.vThreshold ?? -55.0,
-          overwrite: opts.overwrite ?? false,
-        },
-      },
+      { method: 'POST', body },
     );
     if (r.ok) {
       // substrate 재빌드 후에는 prefix cache 갱신 필요 — feature16 preset 재진입 회피.

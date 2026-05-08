@@ -107,6 +107,42 @@ export function encodeLandmarks(lms: HandLandmarks): number[] {
   return out;
 }
 
+// 사용자 catch 2026-05-08: 제스처 → SNN 학습 정합 sharpening.
+// 4×4 grid (binary 0/1) 영역 100% accuracy 영역 substrate 영역 binary input
+// 정합. 제스처 영역 continuous (0..1) 영역 substrate fire 영역 약화 → cluster
+// 변별 ↓. cluster-exclusive sharpening — winner cluster 영역 IN[4c..4c+3] 만
+// active (binary), 다른 IN 영역 0.
+export function sharpenForGesture(features: number[]): number[] {
+  if (features.length !== FEATURE_DIM) return features;
+  // cluster 별 IN[4c..4c+3] 영역 합 — winner cluster 결정.
+  const clusterScores = [0, 0, 0, 0];
+  for (let c = 0; c < 4; c += 1) {
+    let s = 0;
+    for (let k = 0; k < 4; k += 1) s += features[4 * c + k] || 0;
+    clusterScores[c] = s;
+  }
+  let winner = 0;
+  for (let c = 1; c < 4; c += 1) {
+    if (clusterScores[c] > clusterScores[winner]) winner = c;
+  }
+  // winner cluster IN slot 영역 binary (>0.3 → 1), 다른 IN slot 영역 0.
+  const out = new Array<number>(FEATURE_DIM).fill(0);
+  for (let k = 0; k < 4; k += 1) {
+    const idx = 4 * winner + k;
+    out[idx] = features[idx] > 0.3 ? 1 : 0;
+  }
+  return out;
+}
+
+// 제스처 학습 정합 cluster_active_inputs — backend preset body 영역 전송.
+// cluster 0/1/2/3 → IN[0-3]/4-7/8-11/12-15.
+export const GESTURE_CLUSTER_ACTIVE_INPUTS: number[][] = [
+  [0, 1, 2, 3],     // Pointing — IN[0-3]
+  [4, 5, 6, 7],     // Open Palm — IN[4-7]
+  [8, 9, 10, 11],   // Closed Fist — IN[8-11]
+  [12, 13, 14, 15], // Victory — IN[12-15]
+];
+
 // 3-frame moving average (jitter 감소).
 export class FeatureSmoother {
   private buf: number[][] = [];

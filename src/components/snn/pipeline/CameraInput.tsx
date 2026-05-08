@@ -34,7 +34,10 @@ const GESTURE_LABELS = [
   'Closed Fist',
   'Victory',
 ] as const;
-const GESTURE_GLYPHS = ['☝', '✋', '✊', '✌'] as const;
+// Unicode VS-15 (U+FE0E) — text presentation 강제. ☝ 가 platform 따라
+// 컬러 emoji 로 렌더되는 catch (사용자 catch 2026-05-09: cluster 0 만
+// 모양이 다른 catch). 4 글리프 모두 동일 텍스트 스타일 통일.
+const GESTURE_GLYPHS = ['☝︎', '✋︎', '✊︎', '✌︎'] as const;
 
 type Status =
   | { kind: 'idle' }
@@ -101,6 +104,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       });
       if (!built.ok) {
         setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
+        // 'started' 이미 emit 영역 NodeLearn 영역 isTraining=true stuck 회피.
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'error', cluster: clusterIdx, message: built.reason,
+        });
         return;
       }
       substrateBuiltRef.current = true;
@@ -119,6 +126,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       });
       if (!r.ok) {
         setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
+        // 'started' 이미 emit 영역 NodeLearn 영역 isTraining=true stuck 회피.
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'error', cluster: clusterIdx, message: r.reason,
+        });
         return;
       }
       totalCorrect += r.data.correct;

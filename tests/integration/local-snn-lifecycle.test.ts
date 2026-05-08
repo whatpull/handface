@@ -186,6 +186,58 @@ describe('LocalSNN — end-to-end lifecycle', () => {
     void evaluateVigilance;
   });
 
+  it('expansion → reload 시 토폴로지 + 가중치 round-trip (cluster 5개 보존)', async () => {
+    const s1 = makeStack();
+    const lab1 = new LocalSNN({ netId: 'expand_demo', client: s1.client, sink: s1.sink, seed: 57 });
+    await lab1.init();
+
+    // expansion → 새 cluster 추가 (totalClusters=5).
+    const exp = await s1.client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 100 });
+    expect(exp.totalClusters).toBe(5);
+    // useLocalSnn 의 expandCluster wrapper 가 persistTopology 호출하는데, lib
+    // 직접 사용 시 호출자가 트리거. 본 테스트는 명시 호출.
+    await lab1.persistTopology();
+
+    // 학습 + save.
+    await s1.client.inject(
+      [2, 6, 11, 14].map((i) => ({
+        neuron: `in_feat_${i}`,
+        weight: 28,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      })),
+    );
+    await s1.client.run({ durationMs: 50, dtMs: 0.1, stdpEnabled: true });
+    await lab1.save();
+    const w1 = await lab1.currentWeights();
+
+    // 새 stack 으로 새로고침 시뮬.
+    const newCore = new SNNWorkerCore();
+    const newClient = new SNNWorkerClient(new InProcessTransport(newCore));
+    const sharedSink = new LocalStorageSink({ storage: s1.storage, prefix: 'integ' });
+    const lab2 = new LocalSNN({
+      netId: 'expand_demo',
+      client: newClient,
+      sink: sharedSink,
+      seed: 57,
+    });
+    const restored = await lab2.init();
+
+    // 토폴로지가 5 cluster 로 복원되었는지 확인 — registry slot 수.
+    const registry = newCore.getRegistryForTest();
+    expect(registry).not.toBeNull();
+    expect(registry!.slots).toHaveLength(5);
+
+    // 가중치 round-trip — base (~27k) 보다 큰 expansion 후 길이 보존 확인.
+    expect(restored.synapses).toBeGreaterThan(28000);
+    const w2 = await lab2.currentWeights();
+    expect(w2.length).toBe(w1.length);
+    for (let i = 0; i < Math.min(50, w2.length); i += 1) {
+      expect(w2[i]).toBeCloseTo(w1[i], 6);
+    }
+  });
+
   it('delta 누적: 같은 net 에 두 번 save 시 sink 에 delta append', async () => {
     const { client, sink } = makeStack();
     const lab = new LocalSNN({

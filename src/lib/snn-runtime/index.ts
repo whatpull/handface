@@ -56,6 +56,7 @@ export {
   computeMatchScore,
   evaluateVigilance,
   expandCluster,
+  inferClusterRegistry,
 } from './art';
 export {
   type WorkerRequest,
@@ -71,6 +72,8 @@ export {
   type ExpandClusterResult,
   type ClusterFiringRatesPayload,
   type ClusterFiringRatesResult,
+  type RestoreSnapshotPayload,
+  type RestoreSnapshotResult,
 } from './worker-protocol';
 export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';

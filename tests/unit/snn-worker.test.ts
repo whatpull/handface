@@ -199,6 +199,48 @@ describe('snn-worker — clusterFiringRates', () => {
   });
 });
 
+describe('snn-worker — restoreSnapshot 토폴로지 복원', () => {
+  it('snapshot → restoreSnapshot 은 위상 + 가중치 + cluster 슬롯 보존', async () => {
+    const a = makeClient();
+    await a.client.build({ preset: 'n13_orientation', seed: 57 });
+    await a.client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 1 });
+    const beforeRegistry = a.core.getRegistryForTest()!;
+    expect(beforeRegistry.slots).toHaveLength(5);
+    const beforeWeights = await a.client.extractWeights();
+    const { snapshot } = await a.client.snapshot();
+
+    // 새 client 로 restoreSnapshot.
+    const b = makeClient();
+    const r = await b.client.restoreSnapshot({ snapshot });
+    expect(r.totalClusters).toBe(5);
+    expect(r.neurons).toBe(snapshot.neurons.length);
+    expect(r.synapses).toBe(snapshot.synapses.length);
+
+    const afterRegistry = b.core.getRegistryForTest()!;
+    expect(afterRegistry.slots).toHaveLength(5);
+
+    // 가중치도 동일해야 함 (snapshot 안에 weights 포함).
+    const afterWeights = await b.client.extractWeights();
+    expect(afterWeights).toHaveLength(beforeWeights.length);
+    for (let i = 0; i < Math.min(50, afterWeights.length); i += 1) {
+      expect(afterWeights[i]).toBeCloseTo(beforeWeights[i], 6);
+    }
+  });
+
+  it('restoreSnapshot 후 clusterFiringRates 가 추론된 슬롯 수를 반영', async () => {
+    const a = makeClient();
+    await a.client.build({ preset: 'n13_orientation', seed: 1 });
+    await a.client.expandCluster({ activeInputs: [0, 1, 2, 3], seed: 2 });
+    await a.client.expandCluster({ activeInputs: [12, 13, 14, 15], seed: 3 });
+    const { snapshot } = await a.client.snapshot();
+
+    const b = makeClient();
+    await b.client.restoreSnapshot({ snapshot });
+    const r = await b.client.clusterFiringRates({ windowMs: 50, layer: 'OUT' });
+    expect(r.rates).toHaveLength(6); // 4 base + 2 expanded.
+  });
+});
+
 describe('snn-worker — 전송 라이프사이클', () => {
   it('dispose 는 pending 을 reject 하고 listener 정리', async () => {
     const { client } = makeClient();

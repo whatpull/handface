@@ -40,9 +40,19 @@ interface ClusterEntry {
   pattern: number[];
 }
 
+// HF Spaces 기본 URL — 사용자 측 secret 등록되어 있으면 /persist/* 동작.
+const DEFAULT_HF_SPACES_URL = 'https://whatpull-neuronface.hf.space';
+
 export default function SnnLabClient() {
   const [useWorker, setUseWorker] = useState(false);
-  const lab = useLocalSnn({ netId: 'snn-lab-default', seed: 57, useWorker });
+  const [useHfSink, setUseHfSink] = useState(false);
+  const lab = useLocalSnn({
+    netId: 'snn-lab-default',
+    seed: 57,
+    useWorker,
+    sinkKind: useHfSink ? 'hf-dataset' : 'local-storage',
+    hfSpacesUrl: useHfSink ? DEFAULT_HF_SPACES_URL : undefined,
+  });
 
   // 처음 4 base cluster 는 빌더 default. expansion 마다 user 추가.
   const [clusters, setClusters] = useState<ClusterEntry[]>(() =>
@@ -211,17 +221,32 @@ export default function SnnLabClient() {
             <span className="ml-1 text-amber-200">ART vigilance 기반 cluster 동적 추가</span>.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={useWorker}
-            onChange={(e) => setUseWorker(e.target.checked)}
-            disabled={busy}
-            className="accent-blue-400"
-          />
-          <span>Web Worker 모드</span>
-          <span className="text-xs text-white/50">({lab.transportKind ?? '대기'})</span>
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm text-white/80">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={useWorker}
+              onChange={(e) => setUseWorker(e.target.checked)}
+              disabled={busy}
+              className="accent-blue-400"
+            />
+            <span>Web Worker 모드</span>
+            <span className="text-xs text-white/50">({lab.transportKind ?? '대기'})</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={useHfSink}
+              onChange={(e) => setUseHfSink(e.target.checked)}
+              disabled={busy}
+              className="accent-emerald-400"
+            />
+            <span>HF Dataset 영속화</span>
+            <span className="text-xs text-white/50">
+              ({useHfSink ? 'hf-dataset' : 'local-storage'})
+            </span>
+          </label>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6">

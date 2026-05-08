@@ -1,25 +1,57 @@
 'use client';
 
-// NodeInput — INPUT 노드. 4×4 orientation grid 단독 (path Y 확정).
-// 카메라 / MediaPipe / feature-encoder 모드는 사용자 catch 2026-05-07 로 폐기.
-// 기존 HandTrackerHost 코드는 backward compat 으로 lib 에 보존되지만 본 노드는
-// 사용 안 함.
+// NodeInput — INPUT 노드. mode toggle (grid / camera).
+// path Y' rev15 (research-v1.0) 영역 4×4 grid orientation 영역 default.
+// 사용자 catch 2026-05-08 (gesture validation): camera mode 부활 — MediaPipe
+// + sharpenForGesture + GESTURE_CLUSTER_ACTIVE_INPUTS substrate.
+//
+// HandTrackerHost 영역 mount selector (#snn-cam-video / #snn-cam-skel) 영역
+// camera mode 영역만 DOM 영역 정합.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { emitBackendEvent, type InputModeDetail } from '@/lib/backend/events';
 import GridInput from './GridInput';
+import CameraInput from './CameraInput';
 import NodeShell from './NodeShell';
 
-export default function NodeInput() {
-  // 다른 노드 (LEARN 등) 에 input-mode 영역 'grid' 한 번 broadcast — backward compat.
+type InputMode = 'grid' | 'camera';
+const DEFAULT_MODE: InputMode = 'grid';
+
+export default function NodeInput({ cameraConnected }: { cameraConnected: boolean }) {
+  const [mode, setMode] = useState<InputMode>(DEFAULT_MODE);
+
   useEffect(() => {
-    emitBackendEvent<InputModeDetail>('input-mode', { mode: 'grid' });
-  }, []);
+    emitBackendEvent<InputModeDetail>('input-mode', { mode });
+  }, [mode]);
 
   return (
-    <NodeShell title="INPUT" subtitle="4×4 orientation" tone="input">
+    <NodeShell
+      title="INPUT"
+      subtitle={mode === 'grid' ? '4×4 orientation' : 'camera gesture'}
+      tone="input"
+    >
       <div className="snn-pipeline-input">
-        <GridInput />
+        <div className="snn-input-mode-toggle" role="tablist" aria-label="input mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'grid' ? 'true' : 'false'}
+            className={`snn-input-mode-btn ${mode === 'grid' ? 'is-active' : ''}`}
+            onClick={() => setMode('grid')}
+          >
+            grid
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'camera' ? 'true' : 'false'}
+            className={`snn-input-mode-btn ${mode === 'camera' ? 'is-active' : ''}`}
+            onClick={() => setMode('camera')}
+          >
+            camera
+          </button>
+        </div>
+        {mode === 'grid' ? <GridInput /> : <CameraInput cameraConnected={cameraConnected} />}
       </div>
     </NodeShell>
   );

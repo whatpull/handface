@@ -508,7 +508,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   // node renderer — 5 노드 분기.
   const renderNode = (id: NodeId): React.ReactNode => {
     switch (id) {
-      case 'input': return <NodeInput />;
+      case 'input': return <NodeInput cameraConnected={cameraConnected} />;
       case 'learn': return <NodeLearn />;
       case 'infer': return <NodeInfer />;
       case 'out': return <NodeOut />;

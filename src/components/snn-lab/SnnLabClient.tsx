@@ -40,7 +40,8 @@ function formatTimestamp(ms: number | null): string {
 }
 
 export default function SnnLabClient() {
-  const lab = useLocalSnn({ netId: 'snn-lab-default', seed: 57 });
+  const [useWorker, setUseWorker] = useState(false);
+  const lab = useLocalSnn({ netId: 'snn-lab-default', seed: 57, useWorker });
   const [activePattern, setActivePattern] = useState<number[]>(ORIENTATION_PATTERNS[0]);
   const [busy, setBusy] = useState(false);
   const [outRates, setOutRates] = useState<number[]>([0, 0, 0, 0]);
@@ -180,11 +181,26 @@ export default function SnnLabClient() {
 
   return (
     <div className="min-h-screen p-6 bg-[#0a0a0c] text-white">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold">SNN Lab — LocalSNN end-to-end</h1>
-        <p className="text-sm text-white/70 mt-1">
-          백엔드 round-trip 없이 브라우저 안에서 회로 빌드 → 자극 → STDP → 가중치 영속화.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">SNN Lab — LocalSNN end-to-end</h1>
+          <p className="text-sm text-white/70 mt-1">
+            백엔드 round-trip 없이 브라우저 안에서 회로 빌드 → 자극 → STDP → 가중치 영속화.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={useWorker}
+            onChange={(e) => setUseWorker(e.target.checked)}
+            disabled={busy}
+            className="accent-blue-400"
+          />
+          <span>Web Worker 모드</span>
+          <span className="text-xs text-white/50">
+            ({lab.transportKind ?? '대기'})
+          </span>
+        </label>
       </header>
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6">

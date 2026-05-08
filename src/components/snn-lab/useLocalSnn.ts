@@ -18,11 +18,15 @@ import {
   type WorkerLike,
 } from '@/lib/snn-runtime';
 import type { InjectEvent } from '@/lib/snn-runtime';
+import { createSnnWebWorker } from '@/lib/snn-runtime/create-web-worker';
 
 export interface UseLocalSnnOptions {
   netId: string;
   // 외부 transport 주입 — 미지정 시 MainThreadTransport.
   transport?: WorkerLike;
+  // useWorker=true 면 실 Web Worker 시도, 실패 시 MainThreadTransport fallback.
+  // transport 가 명시되면 본 옵션 무시.
+  useWorker?: boolean;
   seed?: number;
   clusterActiveInputs?: number[][];
 }
@@ -31,6 +35,8 @@ export interface UseLocalSnnApi {
   status: LocalSNNStatus | null;
   ready: boolean;
   error: string | null;
+  // 실제 사용된 transport 종류 — UI 에서 표시 가능.
+  transportKind: 'main-thread' | 'web-worker' | null;
   inject(events: InjectEvent[]): Promise<void>;
   run(payload: { durationMs: number; dtMs?: number; stdpEnabled?: boolean; stdpGain?: number }): Promise<void>;
   firingRates(payload: FiringRatesPayload): Promise<FiringRatesResult>;
@@ -42,13 +48,32 @@ export interface UseLocalSnnApi {
 export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
   const [status, setStatus] = useState<LocalSNNStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transportKind, setTransportKind] = useState<'main-thread' | 'web-worker' | null>(null);
   const labRef = useRef<LocalSNN | null>(null);
   const clientRef = useRef<SNNWorkerClient | null>(null);
   const transportRef = useRef<WorkerLike | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const transport = opts.transport ?? new MainThreadTransport();
+    let transport: WorkerLike;
+    let kind: 'main-thread' | 'web-worker';
+    if (opts.transport) {
+      transport = opts.transport;
+      kind = 'main-thread';
+    } else if (opts.useWorker) {
+      try {
+        transport = createSnnWebWorker() as unknown as WorkerLike;
+        kind = 'web-worker';
+      } catch (e) {
+        console.warn('[useLocalSnn] Web Worker 생성 실패, MainThread 로 fallback:', e);
+        transport = new MainThreadTransport();
+        kind = 'main-thread';
+      }
+    } else {
+      transport = new MainThreadTransport();
+      kind = 'main-thread';
+    }
+    setTransportKind(kind);
     const client = new SNNWorkerClient(transport);
     const sink = new LocalStorageSink();
     const lab = new LocalSNN({
@@ -77,12 +102,13 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
       labRef.current = null;
       clientRef.current = null;
       transportRef.current = null;
+      setTransportKind(null);
     };
-    // netId / seed 변경 시 새 인스턴스 — react-hooks/exhaustive-deps 정합.
+    // netId / seed / useWorker / transport 변경 시 새 인스턴스 — react-hooks/exhaustive-deps 정합.
     // (clusterActiveInputs 는 인자 객체 reference 변경마다 reset 되지 않게
     //  의도적으로 deps 에 포함 X — 호출자가 stable reference 유지 책임.)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.netId, opts.seed, opts.transport]);
+  }, [opts.netId, opts.seed, opts.transport, opts.useWorker]);
 
   const inject = useCallback(async (events: InjectEvent[]) => {
     const c = clientRef.current;
@@ -125,6 +151,7 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     status,
     ready: status !== null,
     error,
+    transportKind,
     inject,
     run,
     firingRates,

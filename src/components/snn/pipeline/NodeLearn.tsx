@@ -70,6 +70,15 @@ export default function NodeLearn() {
   const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
 
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
+  // circuit-changed event — backend network 이 새로 만들어진 시점. 학습 진행
+  // state (frame counts / trained flags) 가 backend 와 어긋나지 않도록 즉시
+  // 초기화. HF Spaces 컨테이너 재시작 시 frontend 가 학습된 듯 보이는 stale
+  // 표시 catch.
+  useEffect(() => onBackendEvent('circuit-changed', () => {
+    setGridProgress(INITIAL_GRID_PROGRESS);
+    setDelta({ ltp: 0, ltd: 0, changed: 0 });
+    prevWeights.current.clear();
+  }), []);
   useEffect(() => onBackendEvent<GridTrainingDetail>('grid-training', (d) => {
     setGridProgress((prev) => {
       if (d.kind === 'started') {

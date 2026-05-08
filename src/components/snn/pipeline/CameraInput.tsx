@@ -61,6 +61,14 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }), []);
 
+  // circuit-changed event — HF Spaces 컨테이너 재시작 등으로 backend 가
+  // 새 빈 네트워크를 만든 시점. substrate 재빌드 gate 를 다시 열어 다음 학습
+  // 호출이 자동으로 gesture mapping 정합 substrate 를 빌드하도록 함.
+  useEffect(() => onBackendEvent('circuit-changed', () => {
+    substrateBuiltRef.current = false;
+    setStatus({ kind: 'idle' });
+  }), []);
+
   const buildSubstrate = useCallback(async () => {
     setStatus({ kind: 'building' });
     const r = await getClient().presetOrientation({

@@ -12,9 +12,9 @@
 //   2 = diag-back  (╲)  top-left → bottom-right
 //   3 = diag-fore  (╱)  top-right → bottom-left
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
-import { emitBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
+import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -68,6 +68,14 @@ export default function GridInput() {
     setGrid(emptyGrid());
     setStatus({ kind: 'idle' });
   }, []);
+
+  // circuit-changed event — backend network 이 새로 만들어진 시점 (HF Spaces
+  // 컨테이너 재시작 / 명시적 회로 빌드 등). substrate 재빌드 gate 다시 열어
+  // 다음 학습 호출이 자동으로 orientation substrate 빌드하도록.
+  useEffect(() => onBackendEvent('circuit-changed', () => {
+    substrateBuiltRef.current = false;
+    setStatus({ kind: 'idle' });
+  }), []);
 
   const buildSubstrate = useCallback(async () => {
     setStatus({ kind: 'building' });

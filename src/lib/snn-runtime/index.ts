@@ -17,3 +17,18 @@ export {
   type SnapshotSynapse,
 } from './network';
 export { SpikeMonitor } from './monitor';
+export {
+  PERSIST_SCHEMA_VERSION,
+  type WeightSnapshot,
+  type WeightDelta,
+  type PersistedRecord,
+  type SnapshotSink,
+  type PersistController,
+  extractWeights,
+  applyWeights,
+  buildWeightSnapshot,
+  diffWeightSnapshots,
+  applyWeightDelta,
+  LocalStorageSink,
+  createPersistController,
+} from './persistence';

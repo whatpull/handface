@@ -2,10 +2,13 @@
 // 백엔드 의존 없이 가중치 진화를 수행하여 D1 영속화 + 지속 학습의 토대.
 //
 // 구성:
-//  - constants.ts  생물학 / STDP 파라미터 (Python 정합)
-//  - neuron.ts     Neuron + Synapse (LIF + pair STDP)
-//  - network.ts    NeuralNetwork (run / inject / snapshot / restore)
-//  - monitor.ts    SpikeMonitor (ring buffer + firing rate)
+//  - constants.ts                       생물학 / STDP 파라미터 (Python 정합)
+//  - neuron.ts                          Neuron + Synapse (LIF + pair STDP + NMDA + homeostatic)
+//  - network.ts                         NeuralNetwork (run / inject / snapshot / restore)
+//  - monitor.ts                         SpikeMonitor (ring buffer + firing rate)
+//  - persistence.ts                     SnapshotSink / LocalStorageSink / delta 인코딩
+//  - prng.ts                            결정론 의사난수 (mulberry32)
+//  - builders/n13-orientation.ts        rev15 정합 4 cluster slot 회로 빌더
 
 export * from './constants';
 export { Neuron, Synapse, type SpikeListener } from './neuron';
@@ -32,3 +35,11 @@ export {
   LocalStorageSink,
   createPersistController,
 } from './persistence';
+export { SeededRandom } from './prng';
+export {
+  buildN13OrientationPreset,
+  N13Names,
+  N13Pools,
+  type N13PresetOptions,
+  type N13PresetResult,
+} from './builders/n13-orientation';

@@ -5,10 +5,12 @@
 //  - List[Tuple[float, float]] pending_inputs → 평탄 number[] 페어. GC 부담 절감.
 //  - float('-inf') → Number.NEGATIVE_INFINITY.
 //
-// 의도적 비포팅 (Phase C1 범위 제한):
-//  - Triplet STDP (r1/r2/o1/o2) — pair 만 활성, rev15 anchor 정합.
-//  - NMDA dendritic plateau — opt-in feature, 기본 off 그대로 유지하므로 생략.
-//  - homeostatic threshold — Phase E1 도입이지만 rev15 path Y' 에서 비활성. 향후 추가.
+// Phase C5a 추가 (n13 substrate 정합):
+//  - NMDA dendritic plateau (Session 37 Phase 1 D140) — opt-in, default off.
+//  - homeostatic threshold (Phase E1, Diehl & Cook 2015) — opt-in, default off.
+//
+// 여전히 비포팅:
+//  - Triplet STDP — pair 만 활성, rev15 anchor 정합.
 
 import {
   ELIGIBILITY_TAU_MS,
@@ -92,6 +94,17 @@ export class Neuron {
   v: number;
   lastSpikeTime: number = Number.NEGATIVE_INFINITY;
 
+  // NMDA dendritic plateau — opt-in. v > nmdaThreshold 시 excitatory current ×= nmdaGain.
+  nmdaEnabled = false;
+  nmdaThreshold = -60.0;
+  nmdaGain = 2.0;
+
+  // Homeostatic threshold — opt-in. fire 시 threshold 누적, 매 fire 호출 후 decay.
+  homeostaticEnabled = false;
+  thresholdOffset = 0.0;
+  homeostaticIncrement = 0.5;
+  homeostaticDecay = 0.999;
+
   // STDP 누적 trace
   preTrace = 0.0;
   postTrace = 0.0;
@@ -140,11 +153,13 @@ export class Neuron {
     let current = 0.0;
     const remainW: number[] = [];
     const remainT: number[] = [];
+    const nmdaActive = this.nmdaEnabled && this.v > this.nmdaThreshold;
     for (let i = 0; i < this.pendingArrivals.length; i += 1) {
       const arrival = this.pendingArrivals[i];
       const w = this.pendingWeights[i];
       if (arrival <= t) {
-        current += w;
+        if (nmdaActive && w > 0) current += w * this.nmdaGain;
+        else current += w;
       } else {
         remainW.push(w);
         remainT.push(arrival);
@@ -157,8 +172,17 @@ export class Neuron {
   }
 
   fire(t: number, dt: number, stdpEnabled: boolean = false, stdpGain: number = 1.0): boolean {
-    if (this.v < this.vThreshold) return false;
+    const effectiveThreshold = this.homeostaticEnabled
+      ? this.vThreshold + this.thresholdOffset
+      : this.vThreshold;
+    if (this.homeostaticEnabled) {
+      this.thresholdOffset *= this.homeostaticDecay;
+    }
+    if (this.v < effectiveThreshold) return false;
     this.lastSpikeTime = t;
+    if (this.homeostaticEnabled) {
+      this.thresholdOffset += this.homeostaticIncrement;
+    }
     this.v = this.vReset;
     this.propagate(t, dt);
     for (const l of this.listeners) l(this, t);

@@ -2,9 +2,15 @@
 
 import { useState } from 'react';
 import { createActions } from '@/lib/snn/actions';
+import { useEngineMode, type EngineMode } from '@/lib/snn/engine-mode';
 
 // 직전 ViewMode (pipeline / region) 영역 폐기됨 — 사용자 명시 영역 단일 통합 view.
 // (neuron drawflow 472 sampling 영역 직전 영역 폐기 — 데이터 정합 0.)
+//
+// 사용자 catch 2026-05-09 (no-new-UI 규칙): 새 페이지/라우트 금지 — root
+// /handface/ 의 업그레이드만. 본 Toolbar 에 Engine 토글 (backend / local)
+// 추가해 학습/추론 실행 엔진 swap. 1차 PR 영역 토글 + persist 만 — 노드들
+// 영역 mode listen 영역 후속 PR.
 
 interface ToolbarProps {
   onStatusChange?: (msg: string) => void;
@@ -17,6 +23,7 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 
 export default function Toolbar({ onStatusChange }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [engine, setEngine] = useEngineMode();
   const actions = createActions({
     busy,
     setBusy,
@@ -41,6 +48,37 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
           <Icon kind="layout" /> Reset layout
         </button>
       </div>
+      <div className="ml-auto flex items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-white/40">엔진</span>
+        <EngineSegmented value={engine} onChange={setEngine} />
+      </div>
+    </div>
+  );
+}
+
+const segBaseCls = 'px-2 py-1 text-[11px] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60';
+const segOnCls = 'bg-violet-500/30 text-white border border-violet-400/40';
+const segOffCls = 'text-white/55 hover:text-white hover:bg-white/10 border border-transparent';
+
+function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m: EngineMode) => void }) {
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-black/30 p-0.5">
+      <button
+        type="button"
+        className={`${segBaseCls} ${value === 'backend' ? segOnCls : segOffCls}`}
+        onClick={() => onChange('backend')}
+        title="HF Spaces 백엔드 사용 (rev15 검증된 path)"
+      >
+        Backend
+      </button>
+      <button
+        type="button"
+        className={`${segBaseCls} ${value === 'local' ? segOnCls : segOffCls}`}
+        onClick={() => onChange('local')}
+        title="브라우저 내 TS SNN runtime (Phase C1~C5c)"
+      >
+        Local
+      </button>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
 
 import type { ClusterFiringRatesResult } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind } from './root-local-snn';
+import { incrementCount } from './out-exemplars';
 
 export interface LiveTickDetail {
   rates: number[];
@@ -64,6 +65,10 @@ export class LiveSnn {
   private running = false;
   private tickInFlight = false;
   private tickCount = 0;
+  // 사용자 catch 2026-05-09 (Live 모드 broken state — fix/live-mode-substrate-init):
+  // OUT count 영역 직전 use-hand-control (camera path) 영역만 trigger → Live grid
+  // 영역 0 잔존 catch. winner 변경 시점 영역 idempotent incrementCount.
+  private lastWinnerCluster: number = -1;
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
   private substrateKind: SubstrateKind = 'orientation';
@@ -233,12 +238,13 @@ export class LiveSnn {
 
   private emitTick(cfr: ClusterFiringRatesResult): void {
     if (typeof window === 'undefined') return;
+    const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
       rates: cfr.rates,
       winner: cfr.winner,
       share: cfr.share,
       margin: cfr.margin,
-      patternActive: this.patternRef.some((v) => v > 0.5),
+      patternActive,
       rev: this.tickCount,
       tickAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
     };
@@ -247,11 +253,35 @@ export class LiveSnn {
     // neuron-firing 영역 listen — Live tick 시 동일 event 도 emit 영역 winner /
     // cluster_rates 영역 자동 반영. (cluster_rates / winner_cluster /
     // winner_margin 영역 backend B+3 combo 정합 필드 동봉.)
+    //
+    // 사용자 catch 2026-05-09 (Live 모드 broken state — fix/live-mode-substrate-init):
+    // V1/V2 region rates 영역 미동봉 → NodeLearn cascade strip 영역 0 + fired=false.
+    // 정합 정정: pattern active 시점 영역 V1/V2 영역 cascade 활성 사실 (substrate
+    // 영역 INPUT → V1 → V2 → OUT 영역 정합). cluster_rates 영역 max 영역 V1/V2 영역
+    // proxy rate 영역 동봉 — UI 영역 fired flag + active count 영역 작동.
+    // 정직 한계: 실제 V1/V2 영역 spike rate 영역 별도 RPC 영역 필요 영역 본 path 영역
+    // proxy 영역 표시. cluster firing rates 영역 OUT layer 영역 — V1/V2 영역 cascade
+    // 영역 winner cluster 영역 sub-cluster 영역 활성 영역 정합 (cluster-local
+    // hard-wire 영역).
+    const maxRate = cfr.rates.reduce((m, r) => Math.max(m, r), 0);
+    const cascadeRate = patternActive ? Math.max(maxRate, 1) : maxRate;
     emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
       cluster_rates: cfr.rates,
       winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
       winner_margin: cfr.margin,
+      rates_by_region: patternActive
+        ? { V1: cascadeRate, V2: cascadeRate }
+        : { V1: 0, V2: 0 },
     });
+    // OUT count — winner 변경 시점 1회 increment (idempotent: 동일 cluster 연속
+    // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid
+    // path 영역 OUT count 0 잔존 → 직접 incrementCount.
+    if (cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
+      this.lastWinnerCluster = cfr.winner;
+      incrementCount(`out_${cfr.winner}_0`, this.patternRef.slice());
+    } else if (cfr.winner < 0) {
+      this.lastWinnerCluster = -1;
+    }
   }
 }
 

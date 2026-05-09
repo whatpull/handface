@@ -28,6 +28,8 @@ import {
 } from '@/lib/snn/use-hand-control';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
+import { getRootLocalSnnFor, type SubstrateKind } from '@/lib/snn/root-local-snn';
+import { N13Pools } from '@/lib/snn-runtime';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_TARGET, getClusterLabel, getClusterLabels } from './shared';
@@ -208,12 +210,34 @@ export default function NodeLearn() {
   // 사용자 catch 2026-05-09 (401 fix): engineMode='live' default 영역 backend
   // 호출 0 — getFullSnapshot 영역 ensureNetwork → POST /networks 영역 trigger 영역
   // NEURONFACE_API_KEY 미설정 시점 영역 401 silent error catch. backend mode
-  // 영역만 fetch 진행 — Live 영역 V1/V2 totals 영역 LiveSnn 영역 별도 path 정합.
+  // 영역만 fetch 진행.
+  //
+  // 사용자 catch 2026-05-09 (Live 모드 broken state — fix/live-mode-substrate-init):
+  // 직전 Live 영역 setRegionTotals({V1:0, V2:0}) silent → "V1 0/0 + V2 0/0" 표시.
+  // 정정: Live 영역 N13Pools 영역 hardcoded substrate spec 영역 직접 산출 + LocalSNN
+  // mount-time prebuild trigger (getRootLocalSnnFor 영역 lazy build 영역 첫 호출 시점
+  // 영역 build). NodeLearn 영역 본 effect 영역 가장 먼저 substrate build 영역 trigger
+  // 영역 첫 tick 영역 200ms 대기 영역 wait 0.
   useEffect(() => {
-    if (engineMode !== 'backend') {
-      // Live 영역 backend totals 0 표시 — Live tick rates strip 영역 활성 정보 catch 정합.
-      setRegionTotals({ V1: 0, V2: 0 });
-      return;
+    if (engineMode === 'live') {
+      // V1 = V1_L4E + V1_L4I + V1_L23E (excitatory + inhibitory pool 모두 표시).
+      // V2 = V2_L4E + V2_L23E + V2_L5E.
+      const v1Total = N13Pools.V1_L4E + N13Pools.V1_L4I + N13Pools.V1_L23E;
+      const v2Total = N13Pools.V2_L4E + N13Pools.V2_L23E + N13Pools.V2_L5E;
+      setRegionTotals({ V1: v1Total, V2: v2Total });
+
+      // mount-time prebuild — input-mode default 'grid' = orientation substrate.
+      // input-mode 변경 시 별도 effect 영역 substrate kind 갱신 + 재 prebuild.
+      const kind: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+      let cancelled = false;
+      void getRootLocalSnnFor(kind).catch((e) => {
+        if (!cancelled) {
+          console.warn('[NodeLearn] Live substrate prebuild failed:', e);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     let cancelled = false;
     const fetchTotals = async () => {
@@ -234,7 +258,7 @@ export default function NodeLearn() {
       cancelled = true;
       off();
     };
-  }, [engineMode]);
+  }, [engineMode, inputMode]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
   const { lastDetail } = usePipelineEvents();

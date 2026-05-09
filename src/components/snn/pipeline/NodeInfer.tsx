@@ -14,7 +14,7 @@ import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { SATURATION_HZ, getClusterLabels } from './shared';
+import { SATURATION_HZ, WINNER_MARGIN, getClusterLabels } from './shared';
 
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
@@ -67,8 +67,10 @@ export default function NodeInfer() {
     setHistory((h) => [...h.slice(-9), winner.cluster!]);
   }, [winner.cluster]);
 
-  // INFERENCE tick spinner — 350ms tick 영역 frame 영역 도달 시점 1.2s subtle pulse.
+  // INFERENCE tick spinner — Live tick (50ms × 3 = 150ms simulated) 또는
+  // backend infer event 영역 도달 시점 1.2s subtle pulse.
   // 사용자 catch 2026-05-07: 추론 활성 사실 시각 catch.
+  // 정정 2026-05-09 [3]: 직전 '350ms tick' 주석 영역 stale — 실제 50ms × 3.
   const [tickActive, setTickActive] = useState<boolean>(false);
   useEffect(() => {
     if (lastFiringTimestamp === null) { setTickActive(false); return; }
@@ -150,6 +152,10 @@ export default function NodeInfer() {
             : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
         </span>
       </div>
+      {/* 사용자 catch 2026-05-09 [3]: margin meter — Diehl & Cook 2015 winner
+          stability indicator. (max - second) / max ≥ WINNER_MARGIN (default 0.10)
+          영역 winner 인정 영역 dotted line 영역 시각 catch. */}
+      <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null} />
       <div className="snn-pipeline-rate-grid">
         {winner.clusterRates.map((r, i) => (
           <RateBar key={i} label={clusterLabels[i]} rate={r} max={max}
@@ -195,4 +201,41 @@ function RateBar({ label, rate, max, isWinner, isSaturated }:
 function spark(ci: number): string {
   const chars = ['▁', '▃', '▅', '▇'];
   return chars[ci] || '?';
+}
+
+// MarginMeter — winner stability indicator (Diehl & Cook 2015 정합).
+// height ≤ 16px horizontal bar + dotted threshold line.
+// margin >= threshold 영역 active 색감 (winner 인정), 미만 영역 dim (WTA tie).
+function MarginMeter({ margin, threshold, hasWinner }:
+  { margin: number; threshold: number; hasWinner: boolean }) {
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const lineRef = useRef<HTMLDivElement | null>(null);
+  const pct = Math.max(0, Math.min(100, margin * 100));
+  const thrPct = Math.max(0, Math.min(100, threshold * 100));
+  useEffect(() => {
+    if (fillRef.current) fillRef.current.style.setProperty('--w', `${pct}%`);
+    if (lineRef.current) lineRef.current.style.setProperty('--w', `${thrPct}%`);
+  }, [pct, thrPct]);
+  return (
+    <div className="snn-pipeline-row">
+      <span className="snn-pipeline-row-label">margin</span>
+      <div
+        className={`snn-pipeline-margin-meter ${hasWinner ? 'is-winner' : 'is-tie'}`}
+        aria-label={`margin ${pct.toFixed(0)}% (threshold ${thrPct.toFixed(0)}%)`}
+      >
+        <div
+          ref={fillRef}
+          className="snn-mode-progress-fill snn-pipeline-margin-fill"
+        />
+        <div
+          ref={lineRef}
+          className="snn-pipeline-margin-threshold"
+          aria-hidden
+        />
+      </div>
+      <span className="snn-pipeline-row-value snn-pipeline-mono">
+        {pct.toFixed(0)}%
+      </span>
+    </div>
+  );
 }

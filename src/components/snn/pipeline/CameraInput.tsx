@@ -185,19 +185,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }, [cameraConnected, engineMode]);
 
-  const buildSubstrate = useCallback(async () => {
-    setStatus({ kind: 'building' });
-    const r = await getClient().presetOrientation({
-      overwrite: true,
-      clusterActiveInputs: GESTURE_CLUSTER_ACTIVE_INPUTS,
-    });
-    if (r.ok) {
-      substrateBuiltRef.current = true;
-      setStatus({ kind: 'ok', message: '회로 빌드 완료 (gesture mapping)' });
-    } else {
-      setStatus({ kind: 'error', message: `회로 빌드 실패: ${r.reason}` });
-    }
-  }, []);
+  // 사용자 catch 2026-05-09 [1]: buildSubstrate callback 영역 본격 제거 —
+  // trainGesture / runInfer 영역 자동 빌드 (substrateBuiltRef gate) 영역 정합.
 
   const trainGesture = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     if (lastFeatureRef.current === null) {
@@ -291,20 +280,22 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // 영역 user-visible warning 표시 — 직전 silent fail catch.
       const result = await live.reinforce(clusterIdx, 2.0);
       // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
+      // 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 cluster-specific gradient
+      // 0 영역 정직 라벨 swap — '패턴 보강' (winner cluster boosting only).
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
+          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1 (저장 실패 — 새로고침 전 다시 보강 권장)`,
         });
       } else {
         setStatus({
           kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 강화 +1`,
+          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1`,
         });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `강화 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
     } finally {
       setReinforcingCluster(null);
     }
@@ -358,16 +349,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   return (
     <div className="snn-grid-input">
-      {!isLiveMode && (
-        <button
-          type="button"
-          className="snn-grid-build-btn"
-          onClick={buildSubstrate}
-          disabled={isBusy || !cameraConnected}
-        >
-          회로 빌드 (gesture)
-        </button>
-      )}
+      {/* 사용자 catch 2026-05-09 [1]: '회로 빌드 (gesture)' button 제거 —
+          trainGesture / runInfer 영역 자동 빌드 (substrateBuiltRef gate). */}
       {isLiveMode && (
         <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
           {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
@@ -387,15 +370,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       <div className="snn-grid-presets">
         {GESTURE_LABELS.map((label, i) => (
           <div key={i} className="snn-grid-preset-row">
-            <button
-              type="button"
-              className="snn-grid-preset-btn"
-              disabled
-              title={label}
-            >
-              {/* 사용자 catch 2026-05-09 (2 신규 catch): cluster N 앞 glyph 본격 제거. */}
+            {/* 사용자 catch 2026-05-09 [1]: gesture cluster preset button 영역
+                disabled button 영역 noise (interactive disabled) → static span swap.
+                gesture preset 영역 클릭 의미 0 (cluster slot label 영역만). */}
+            <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
               <span className="snn-grid-preset-label">cluster {i}</span>
-            </button>
+            </span>
             <button
               type="button"
               className="snn-grid-train-btn"
@@ -417,17 +397,19 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                     ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
                     : isLiveMode
                       ? reinforcingCluster === i
-                        ? `${label} 강화 진행 중…`
+                        ? `${label} 패턴 보강 진행 중…`
                         : reinforcingCluster !== null
-                          ? '다른 cluster 강화 진행 중 — 잠시 대기'
-                          : `${label} 강화 (R-STDP 보상)`
+                          ? '다른 cluster 패턴 보강 진행 중 — 잠시 대기'
+                          : `${label} 현재 패턴 보강 (R-STDP gain ↑ — winner cluster boosting)`
                       : `${label} 학습 (R-STDP)`
               }
             >
+              {/* 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 R-STDP cluster-
+                  specific gradient 0 영역 정직 라벨 swap — '현재 패턴 보강'. */}
               {isLiveMode
                 ? reinforcingCluster === i
-                  ? '강화 중…'
-                  : '강화'
+                  ? '보강 중…'
+                  : '현재 패턴 보강'
                 : '학습'}
             </button>
           </div>

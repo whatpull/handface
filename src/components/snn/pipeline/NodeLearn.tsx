@@ -164,8 +164,12 @@ export default function NodeLearn() {
   const prevClusterFramesRef = useRef<{ 0: number; 1: number; 2: number; 3: number } | null>(null);
 
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
+  // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 추가 — Felleman & Van Essen 1991
+  // V1/V2 cortical hierarchy 정합 영역 mean Hz mini-bar 영역 시각 catch (직전
+  // active count only → spike rate 정직 표현 강화).
   const [regionTotals, setRegionTotals] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
   const [regionActive, setRegionActive] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
+  const [regionRateHz, setRegionRateHz] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
   const [regionFired, setRegionFired] = useState<{ V1: boolean; V2: boolean }>({ V1: false, V2: false });
   const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -323,6 +327,12 @@ export default function NodeLearn() {
       if (fromActive > counts[region]) counts[region] = fromActive;
     }
     setRegionActive(counts);
+    // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 sync — mean Hz mini-bar 영역
+    // 정합. Live tick 영역 V1/V2 Hz 영역 rates_by_region 영역 동봉 (live-snn.ts:391).
+    setRegionRateHz({
+      V1: byRegionRate.V1 || 0,
+      V2: byRegionRate.V2 || 0,
+    });
 
     for (const region of ['V1', 'V2'] as const) {
       const avgRate = byRegionRate[region] || 0;
@@ -480,9 +490,14 @@ export default function NodeLearn() {
     >
 
       {/* V1/V2 cortical region strip — 학습 substrate cascade.
-          INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}
+          INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수.
+          사용자 catch 2026-05-09 [3]: Hz mini-bar 영역 추가 (Felleman & Van Essen 1991
+          V1/V2 cortical hierarchy 정합 영역 spike rate 영역 정직 표현). */}
       <div className="snn-pipeline-learn-region-strip" aria-label="V1/V2 cortical cascade">
-        <RegionStripBox region="V1" total={regionTotals.V1} active={regionActive.V1} fired={regionFired.V1} />
+        <RegionStripBox
+          region="V1" total={regionTotals.V1} active={regionActive.V1}
+          rateHz={regionRateHz.V1} fired={regionFired.V1}
+        />
         <div
           className={`snn-pipeline-learn-region-arrow ${stripActive ? 'is-active' : ''}`}
           aria-hidden
@@ -492,7 +507,10 @@ export default function NodeLearn() {
             <polyline points="22,2 28,6 22,10" stroke="currentColor" strokeWidth="1.4" fill="none" />
           </svg>
         </div>
-        <RegionStripBox region="V2" total={regionTotals.V2} active={regionActive.V2} fired={regionFired.V2} />
+        <RegionStripBox
+          region="V2" total={regionTotals.V2} active={regionActive.V2}
+          rateHz={regionRateHz.V2} fired={regionFired.V2}
+        />
       </div>
 
       {isLiveMode ? (
@@ -676,19 +694,37 @@ function LiveRateRow({ label, rate, max, isWinner }:
   );
 }
 
-function RegionStripBox({ region, total, active, fired }:
-  { region: 'V1' | 'V2'; total: number; active: number; fired: boolean }) {
+// region Hz visualization scale — 0..40Hz 영역 0..100% 영역 mini-bar.
+// V1 typical Hz (Hubel & Wiesel 1962 cat V1 simple cell) ~10-40Hz peak.
+const REGION_HZ_MAX = 40;
+
+function RegionStripBox({ region, total, active, rateHz, fired }:
+  { region: 'V1' | 'V2'; total: number; active: number; rateHz: number; fired: boolean }) {
   const tone = region.toLowerCase();
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const pct = Math.max(0, Math.min(100, (rateHz / REGION_HZ_MAX) * 100));
+  useEffect(() => {
+    if (fillRef.current) fillRef.current.style.setProperty('--w', `${pct}%`);
+  }, [pct]);
   return (
     <div
       className={`snn-pipeline-learn-region-box snn-pipeline-learn-region-box--${tone} ${fired ? 'is-fired' : ''}`}
-      aria-label={`${region} region — ${active} of ${total} active`}
+      aria-label={`${region} region — ${active} of ${total} active, ${rateHz.toFixed(0)}Hz mean`}
     >
       <span className="snn-pipeline-learn-region-label">{region}</span>
       <span className="snn-pipeline-learn-region-counts">
         <span className="snn-pipeline-learn-region-active">{active}</span>
         <span className="snn-pipeline-learn-region-sep">/</span>
         <span className="snn-pipeline-learn-region-total">{total}</span>
+      </span>
+      <div className="snn-pipeline-learn-region-hz-bar" aria-hidden>
+        <div
+          ref={fillRef}
+          className="snn-mode-progress-fill snn-pipeline-learn-region-hz-fill"
+        />
+      </div>
+      <span className="snn-pipeline-learn-region-hz-value snn-pipeline-mono">
+        {rateHz.toFixed(0)}Hz
       </span>
     </div>
   );

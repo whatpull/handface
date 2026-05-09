@@ -26,6 +26,8 @@ import {
   GESTURE_CONFIDENCE_MIN,
   GESTURE_STABLE_FRAMES,
 } from '@/lib/snn/use-hand-control';
+import { useEngineMode } from '@/lib/snn/engine-mode';
+import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_TARGET, getClusterLabel, getClusterLabels } from './shared';
@@ -64,6 +66,21 @@ export default function NodeLearn() {
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
   const prevWeights = useRef<Map<string, number>>(new Map());
+
+  // PR3 (사용자 catch 2026-05-09): Live 모드 영역 engineMode hook + 최신 tick.
+  // batch (untrained/learning/partial/trained) phase 흐름 영역 Live 영역
+  // 부적합 — 항상 STDP on + winner emerge 영역 본질. Live 영역 cluster
+  // firing rates strip + winner badge + tick rev counter 영역 표시.
+  const [engineMode] = useEngineMode();
+  const [liveTick, setLiveTick] = useState<LiveTickDetail | null>(null);
+  useEffect(() => {
+    if (engineMode !== 'live') {
+      setLiveTick(null);
+      return;
+    }
+    return onLiveTick(setLiveTick);
+  }, [engineMode]);
+  const isLiveMode = engineMode === 'live';
 
   // path Y: 입력 모드 + grid 학습 진행. NodeInput / GridInput 가 broadcast.
   const [inputMode, setInputMode] = useState<'camera' | 'grid'>('grid');
@@ -401,7 +418,7 @@ export default function NodeLearn() {
   const isLearning = phaseTone === 'amber' || phaseTone === 'orange';
 
   return (
-    <NodeShell title="LEARN" subtitle="진행상황" tone="learn">
+    <NodeShell title="LEARN" subtitle={isLiveMode ? '🔴 LIVE — 항상 STDP on' : '진행상황'} tone="learn">
 
       {/* V1/V2 cortical region strip — 학습 substrate cascade.
           INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}
@@ -418,39 +435,46 @@ export default function NodeLearn() {
         </div>
         <RegionStripBox region="V2" total={regionTotals.V2} active={regionActive.V2} fired={regionFired.V2} />
       </div>
-      {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
-          사용자 catch 2026-05-07: phase transition 사실 시각 catch. */}
-      <div
-        key={`phase-${phaseTone}`}
-        className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
-      >
-        <div className="snn-pipeline-phase-label">
-          {phaseInfo.label}
-          {isLearning && (
-            <span className="snn-pipeline-tick-spinner" aria-label="학습 중" />
-          )}
-        </div>
-        <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
-      </div>
-      <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
-      <div className="snn-pipeline-cluster-list">
-        {[0, 1, 2, 3].map((i) => {
-          const count = effectiveClusterFrames[i as 0|1|2|3];
-          const done = count >= CLUSTER_TARGET;
-          const active = i === activeCluster && isLearning;
-          return (
-            <ClusterRow
-              key={i}
-              label={clusterLabels[i]}
-              count={count}
-              done={done}
-              active={active}
-              capturingPulse={active ? capturingPulse : 0}
-            />
-          );
-        })}
-      </div>
-      {inputMode === 'camera' && (
+
+      {isLiveMode ? (
+        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} />
+      ) : (
+        <>
+          {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
+              사용자 catch 2026-05-07: phase transition 사실 시각 catch. */}
+          <div
+            key={`phase-${phaseTone}`}
+            className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
+          >
+            <div className="snn-pipeline-phase-label">
+              {phaseInfo.label}
+              {isLearning && (
+                <span className="snn-pipeline-tick-spinner" aria-label="학습 중" />
+              )}
+            </div>
+            <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
+          </div>
+          <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
+          <div className="snn-pipeline-cluster-list">
+            {[0, 1, 2, 3].map((i) => {
+              const count = effectiveClusterFrames[i as 0|1|2|3];
+              const done = count >= CLUSTER_TARGET;
+              const active = i === activeCluster && isLearning;
+              return (
+                <ClusterRow
+                  key={i}
+                  label={clusterLabels[i]}
+                  count={count}
+                  done={done}
+                  active={active}
+                  capturingPulse={active ? capturingPulse : 0}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+      {!isLiveMode && inputMode === 'camera' && (
         <div className="snn-pipeline-row">
           <span className="snn-pipeline-row-label">teacher</span>
           <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
@@ -458,7 +482,7 @@ export default function NodeLearn() {
           </span>
         </div>
       )}
-      {gridProgress.lastResult && (
+      {!isLiveMode && gridProgress.lastResult && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">last</span>
           <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">
@@ -467,7 +491,7 @@ export default function NodeLearn() {
           </span>
         </div>
       )}
-      {inputMode === 'grid' && gridProgress.lastError && (
+      {!isLiveMode && inputMode === 'grid' && gridProgress.lastError && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">error</span>
           <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap snn-pipeline-row-error">
@@ -484,6 +508,92 @@ export default function NodeLearn() {
         </div>
       )}
     </NodeShell>
+  );
+}
+
+// LiveLearnPanel — Live 모드 전용 패널.
+// batch progress strip 영역 swap — cluster firing rates strip + winner +
+// margin + tick rev + 패턴 활성 사실 표시. tick 미수신 (=null) 시 hint.
+function LiveLearnPanel({
+  tick,
+  clusterLabels,
+}: {
+  tick: LiveTickDetail | null;
+  clusterLabels: readonly string[];
+}) {
+  if (!tick) {
+    return (
+      <>
+        <div className="snn-pipeline-phase snn-pipeline-phase--idle snn-pipeline-phase-transition">
+          <div className="snn-pipeline-phase-label">LIVE — awaiting</div>
+          <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
+        </div>
+        <div className="snn-pipeline-hint">SNN tick (200ms) — 패턴 활성 시 STDP 즉시 적용</div>
+      </>
+    );
+  }
+  const max = Math.max(...tick.rates, 1);
+  const winnerLabel = tick.winner >= 0 && tick.winner < clusterLabels.length
+    ? clusterLabels[tick.winner]
+    : null;
+  const phaseTone = tick.patternActive ? 'amber' : 'idle';
+  return (
+    <>
+      <div
+        key={`live-${tick.rev}`}
+        className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
+      >
+        <div className="snn-pipeline-phase-label">
+          {tick.patternActive ? 'LIVE — STDP active' : 'LIVE — silent'}
+          {tick.patternActive && (
+            <span className="snn-pipeline-tick-spinner" aria-label="STDP 진행 중" />
+          )}
+        </div>
+        <div className="snn-pipeline-phase-sub">
+          tick #{tick.rev} · {winnerLabel
+            ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
+            : 'no winner — WTA 대기'}
+        </div>
+      </div>
+      <div className="snn-pipeline-cluster-list">
+        {tick.rates.map((rate, i) => (
+          <LiveRateRow
+            key={i}
+            label={clusterLabels[i] ?? `cluster ${i}`}
+            rate={rate}
+            max={max}
+            isWinner={tick.winner === i}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function LiveRateRow({ label, rate, max, isWinner }:
+  { label: string; rate: number; max: number; isWinner: boolean }) {
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (fillRef.current) {
+      const pct = max > 0 ? Math.min(100, (rate / max) * 100) : 0;
+      fillRef.current.style.setProperty('--w', `${pct}%`);
+    }
+  }, [rate, max]);
+  return (
+    <div className={`snn-pipeline-cluster-row ${isWinner ? 'is-active' : ''}`}>
+      <span className={`snn-pipeline-cluster-label ${isWinner ? 'is-active' : ''}`}>
+        {isWinner ? '▸ ' : ''}{label}
+      </span>
+      <div className="snn-pipeline-cluster-bar">
+        <div
+          ref={fillRef}
+          className={`snn-mode-progress-fill ${isWinner ? 'snn-pipeline-fill-green' : 'snn-pipeline-fill-cyan'}`}
+        />
+      </div>
+      <span className="snn-pipeline-cluster-count snn-pipeline-mono">
+        {rate.toFixed(0)}Hz
+      </span>
+    </div>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
+import { useEngineMode } from '@/lib/snn/engine-mode';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { SATURATION_HZ, getClusterLabels } from './shared';
@@ -22,6 +23,12 @@ export default function NodeInfer() {
   // / CAMERA: gesture). NodeInput 의 input-mode event 영역 listen.
   const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
   const clusterLabels = useMemo(() => getClusterLabels(inputMode), [inputMode]);
+
+  // PR3 (사용자 catch 2026-05-09): Live 모드 badge — batch infer 영역 구분.
+  // Live tick 영역 PipelineEventContext 영역 자동 반영 (live-snn.ts emitTick
+  // 영역 neuron-firing 동봉 — 별도 subscribe 불필요).
+  const [engineMode] = useEngineMode();
+  const isLiveMode = engineMode === 'live';
 
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
   // Online/offline detection — MediaPipe-only badge 표시 catch path.
@@ -71,7 +78,9 @@ export default function NodeInfer() {
   }, [lastFiringTimestamp]);
 
   const pname = phase?.phase ?? 'untrained';
-  const trained = pname === 'trained' || pname === 'inference';
+  // Live 모드 영역 STDP 가 항상 가동 → batch phase gate 영역 우회 (사용자
+  // catch 2026-05-09: Live 영역 winner 표시 영역 phase 와 무관).
+  const trained = isLiveMode || pname === 'trained' || pname === 'inference';
   const max = Math.max(...winner.clusterRates, 1);
   // mode-aware winner label — GRID: orientation / CAMERA: gesture
   // (사용자 catch 2026-05-09). 사용자 rename 영역 OUT exemplar 영역 별도 path.
@@ -81,7 +90,11 @@ export default function NodeInfer() {
   const confPct = (winner.confidence * 100).toFixed(0);
 
   return (
-    <NodeShell title="INFER" subtitle="추론 상세" tone="infer">
+    <NodeShell
+      title="INFER"
+      subtitle={isLiveMode ? '🔴 LIVE — 실시간 winner' : '추론 상세'}
+      tone="infer"
+    >
 
       {!online && (
         <div className="snn-pipeline-warn">
@@ -91,6 +104,11 @@ export default function NodeInfer() {
       {!trained && (
         <div className="snn-pipeline-note">
           추론 영역 — TRAINED 후만 작동 사실 (현재: {pname})
+        </div>
+      )}
+      {isLiveMode && (
+        <div className="snn-pipeline-note">
+          LIVE 모드 — STDP 항상 on · winner 영역 패턴 변경 즉시 갱신
         </div>
       )}
       {trained && (

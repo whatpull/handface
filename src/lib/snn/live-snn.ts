@@ -1,5 +1,7 @@
 'use client';
 // LiveSnn — 항상 동작 SNN (사용자 catch 2026-05-09 A: Live 모드 본격 pivot).
+
+import { emitBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
 //
 // 본질: 사용자가 패턴을 보여주는 즉시 STDP 적용 + cluster firing 측정 +
 // winner emerge. 별도 Train/Infer 분리 X — SNN 본질 (Diehl & Cook 2015 +
@@ -185,6 +187,15 @@ export class LiveSnn {
       tickAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
     };
     window.dispatchEvent(new CustomEvent<LiveTickDetail>(TICK_EVENT, { detail }));
+    // PR3 (사용자 catch 2026-05-09): NodeInfer / PipelineEventContext 영역
+    // neuron-firing 영역 listen — Live tick 시 동일 event 도 emit 영역 winner /
+    // cluster_rates 영역 자동 반영. (cluster_rates / winner_cluster /
+    // winner_margin 영역 backend B+3 combo 정합 필드 동봉.)
+    emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+      cluster_rates: cfr.rates,
+      winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
+      winner_margin: cfr.margin,
+    });
   }
 }
 

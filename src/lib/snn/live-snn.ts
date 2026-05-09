@@ -40,6 +40,7 @@ import type {
   ClusterFiringRatesResult,
   ReinforceCompletePayload,
   TriggerCompletePayload,
+  TriggerErrorPayload,
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { incrementCount } from './out-exemplars';
@@ -310,9 +311,12 @@ export class LiveSnn {
       stdpEnabled: stdpGain > 0,
       stdpGain,
     });
+    // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 동봉 영역
+    // input cardinality normalize 영역 catch (Wiesel 1981 정합).
     return await root.client.clusterFiringRates({
       windowMs: this.opts.observeMs,
       layer: 'OUT',
+      pattern: this.patternRef.slice(),
     });
   }
 
@@ -402,13 +406,17 @@ export class LiveSnn {
       // R-STDP supervised — 1-pattern batch + targetCluster 영역 명시 wire.
       // rewardGain 영역 사용자 영역 명시 gain.
       // QA CAUSE D fix (2026-05-10): default 2.0 → 0.8 — saturation overshoot 회피.
-      // punishGain=0 — wrong-winner LTD escape 0 정직 한계 명시 (saturation 회피
-      // 정합 path — 사용자 명시 target 영역 multiple trial 수렴 정합).
+      // QA CAUSE D1 fix (2026-05-10): punishGain=0 → gain*0.25 — wrong-winner LTD
+      // escape 0 정직 한계 정정. Florian 2007 / Izhikevich 2007 R-STDP 영역
+      // wrong-action LTD 정합 — punishGain 0 영역 wrong winner cluster 영역
+      // weight 영역 unchanged → saturation lock-in escape 0 영역 root cause.
+      // gain*0.25 영역 보수적 LTD (reward LTP 영역 1/4) — saturation 회피
+      // 정합 path (양방향 escape mandatory).
       await root.client.clusterTrainRStdp({
         patterns: [this.patternRef.slice()],
         targetCluster,
         rewardGain: gain,
-        punishGain: 0,
+        punishGain: gain * 0.25,
         observeMs: this.opts.observeMs,
         stimulusDurationMs: this.opts.stimulusDurationMs,
         intensity: this.opts.intensity,
@@ -416,9 +424,12 @@ export class LiveSnn {
       this.trialCount += 1;
       // cluster firing rates — supervised batch 영역 끝난 직후 영역 winner
       // 영역 catch (UI 영역 NodeLearn cluster bar / NodeInfer winner 영역 sync).
+      // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 동봉 영역
+      // input cardinality normalize 영역 catch.
       const cfr = await root.client.clusterFiringRates({
         windowMs: this.opts.observeMs,
         layer: 'OUT',
+        pattern: this.patternRef.slice(),
       });
       // V1/V2 region rates 영역 catch (NodeLearn cascade strip 영역 정합).
       let v1Hz = 0;
@@ -528,11 +539,11 @@ export class LiveSnn {
     // multi-trial 수렴 정합 — 학술 정합 (Florian 2007 R-STDP 영역 gain 0.5-1.0
     // 권장 영역 trial 누적 영역 LTP 영역 점진 수렴).
     //
-    // punishGain=0 — winner != target 영역 weight 영역 unchanged. 직전 punishGain=
-    // gain×0.25 영역 wrong winner cluster 영역 LTD 영역 lock-in escape 영역 catch
-    // 단 punishGain=0 영역 wrong-winner escape 영역 0 — 정직 한계 명시 (사용자 명시
-    // 영역 정확 reinforce 영역 정합 path — wrong trial 영역 reward 0 영역 saturation
-    // 회피 + 사용자 영역 명시 target 영역 multiple trial 수렴 영역 정합).
+    // QA CAUSE D1 fix (2026-05-10): punishGain=0 → gain*0.25 — wrong-winner LTD
+    // escape 0 정직 한계 정정. Florian 2007 / Izhikevich 2007 R-STDP wrong-action
+    // LTD 정합 — punishGain=0 영역 wrong winner cluster 영역 weight 영역 unchanged
+    // → saturation lock-in escape 0 영역 root cause. gain*0.25 영역 보수적 LTD
+    // (reward LTP 영역 1/4) — 양방향 escape mandatory.
     const trialToken = ++this._trialTokenSeq;
     void (async () => {
       try {
@@ -542,7 +553,7 @@ export class LiveSnn {
           pattern: this.patternRef.slice(),
           targetCluster,
           rewardGain: gain,
-          punishGain: 0,
+          punishGain: gain * 0.25,
           intensity: this.opts.intensity,
           observeMs: this.opts.observeMs,
           stimulusDurationMs: this.opts.stimulusDurationMs,
@@ -578,7 +589,40 @@ export class LiveSnn {
     const offR = root.client.on('reinforceComplete', (payload: ReinforceCompletePayload) => {
       this.handleReinforceComplete(root, payload);
     });
-    this._unsubscribePush.push(offT, offR);
+    // QA FINDING-4 fix (2026-05-10): triggerError listener — handleTriggerBackground
+    // / handleReinforceBackground catch path 영역 emit 영역 main thread 영역 정합.
+    // emitBackendEvent('snn-error') 영역 toast + LiveTickDetail 영역 silent winner
+    // -1 영역 emit (caller 영역 pendingInferTokenRef / pendingReinforceTokenRef
+    // 영역 trialToken match 영역 reset 정합 — status copy 영역 'snn-error' toast
+    // 영역 caller 영역 별도 visible).
+    const offE = root.client.on('triggerError', (payload: TriggerErrorPayload) => {
+      this.handleTriggerError(payload);
+    });
+    this._unsubscribePush.push(offT, offR, offE);
+  }
+
+  private handleTriggerError(payload: TriggerErrorPayload): void {
+    // QA FINDING-4 fix (2026-05-10): worker simulation throw 영역 main thread
+    // 영역 visual catch — emitBackendEvent('snn-error') + LiveTickDetail 영역
+    // silent (winner=-1, rates=0) 영역 emit (caller 영역 token match 영역 reset).
+    emitBackendEvent('snn-error', {
+      source: 'rpc',
+      message: payload.error,
+      context: { event: 'triggerError', source: payload.source, trialToken: payload.trialToken },
+    });
+    // silent cfr 영역 emit — caller 영역 trialToken match 영역 status reset 정합.
+    const silentCfr: ClusterFiringRatesResult = {
+      rates: [0, 0, 0, 0],
+      winner: -1,
+      share: 0,
+      margin: 0,
+      layer: 'OUT',
+    };
+    this.emitTick(silentCfr, 0, 0, {
+      trialToken: payload.trialToken,
+      source: payload.source,
+      targetCluster: payload.targetCluster,
+    });
   }
 
   private handleTriggerComplete(root: RootLocalSnn, payload: TriggerCompletePayload): void {

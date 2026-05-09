@@ -40,12 +40,20 @@ export const ORIENTATION_PRESETS: ReadonlyArray<readonly number[]> = [
   [0, 0, 0, 1,  0, 0, 1, 0,  0, 1, 0, 0,  1, 0, 0, 0],
 ] as const;
 
+// PR #196 polish (UX LOW-1/2): Status 영역 hint 영역 secondary line + warning
+// kind 영역 amber visual cue 영역 추가. 직전 message 영역 long copy (timeout 영역
+// '회로 build 또는 worker bundle 점검' 영역 모바일 320px 영역 줄바꿈) + 'low
+// confidence' 영역 단순 text 영역 visual 0 catch.
+//   - hint: secondary <small> line (long detail, screen reader 영역 보존, mobile
+//           wrap-friendly).
+//   - 'warning' kind: amber pill 영역 visual escalation (low-conf 영역 정합).
 type Status =
   | { kind: 'idle' }
   | { kind: 'building' }
   | { kind: 'training'; cluster: number }
   | { kind: 'inferring' }
-  | { kind: 'ok'; message: string }
+  | { kind: 'ok'; message: string; hint?: string }
+  | { kind: 'warning'; message: string; hint?: string }
   | { kind: 'error'; message: string };
 
 const TRAIN_FRAMES = 30;
@@ -337,13 +345,25 @@ export default function GridInput() {
 
   const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
 
+  // PR #196 polish (UX LOW-1): hint 영역 secondary <small> line 영역 render —
+  // ok/warning kind 영역 long detail 영역 wrap-friendly catch (모바일 320px
+  // viewport 영역 줄바꿈 정합).
   const statusLine = useMemo(() => {
     switch (status.kind) {
       case 'idle': return '대기 중';
       case 'building': return '회로 빌드 중…';
       case 'training': return `${ORIENTATION_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
-      case 'ok': return status.message;
+      case 'ok':
+      case 'warning':
+        return status.hint
+          ? (
+            <>
+              <span className="snn-grid-status-msg">{status.message}</span>
+              <small className="snn-grid-status-hint">{status.hint}</small>
+            </>
+          )
+          : status.message;
       case 'error': return status.message;
     }
   }, [status]);
@@ -374,13 +394,23 @@ export default function GridInput() {
       const { trialToken } = live.inferAsync();
       pendingInferTokenRef.current = trialToken;
       setStatus({ kind: 'inferring' });
-      // safety-net — worker hang / push event lost 영역 2000ms 후 강제 reset.
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats
+      // = 1.272M neuron-steps) 영역 throttled CPU (mobile / tab inactive) 영역
+      // 2s 도달 가능 + worker bundle fail (gh-pages MIME) 영역 MainThreadTransport
+      // fallback 영역 main thread block 영역 catch. status copy 영역 worker
+      // bundle / 회로 build 영역 점검 영역 hint.
       setTimeout(() => {
         if (pendingInferTokenRef.current === trialToken) {
           pendingInferTokenRef.current = null;
-          setStatus((s) => s.kind === 'inferring' ? { kind: 'ok', message: '추론 완료 (timeout)' } : s);
+          // PR #196 polish (UX LOW-1): 긴 'timeout — 회로 build 또는 worker
+          // bundle 점검' 영역 hint 영역 secondary line 영역 split — 모바일
+          // 320px wrap 정합 + ellipsis 영역 main message 보존.
+          setStatus((s) => s.kind === 'inferring'
+            ? { kind: 'ok', message: '추론 완료 *', hint: '(timeout — 새로고침 권장)' }
+            : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
@@ -422,18 +452,20 @@ export default function GridInput() {
       // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
       const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
-      // safety-net — push event 영역 lost / worker hang 영역 2000ms 영역 elevate
-      // (직전 100ms 영역 worker simulation 50ms × 1 영역 정합 단 IndexedDB +
-      // postMessage 영역 latency 영역 race 영역 회피 catch 영역 보수적).
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
+      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
+      // MainThreadTransport fallback 영역 main thread block 영역 catch.
       setTimeout(() => {
         if (pendingReinforceTokenRef.current === trialToken) {
           pendingReinforceTokenRef.current = null;
           setReinforcingCluster(null);
+          // PR #196 polish (UX LOW-1): hint 영역 secondary line split.
           setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 *`, hint: '(timeout — 새로고침 권장)' }
             : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
@@ -452,7 +484,24 @@ export default function GridInput() {
       if (d.source === 'trigger' && d.trialToken !== undefined) {
         if (pendingInferTokenRef.current === d.trialToken) {
           pendingInferTokenRef.current = null;
-          setStatus({ kind: 'ok', message: '추론 완료' });
+          // QA FINDING-5 fix (2026-05-10): margin < 10% 영역 '낮은 confidence'
+          // 영역 status copy 영역 hint — Diehl & Cook 2015 winner margin 10%
+          // threshold 정합 (NodeInfer MarginMeter 영역 정합). winner -1 영역
+          // silent 영역 별도 catch.
+          // PR #196 polish (UX LOW-2): low-conf 영역 단순 text → 'warning' kind
+          // 영역 amber pill 영역 visual cue 정합 (snn-grid-status--warning CSS
+          // 영역 amber border + ⚠ glyph). hint 영역 short detail 영역 분리 —
+          // main message 영역 단축 catch.
+          const lowConf = d.winner < 0 || d.margin < 0.10;
+          if (lowConf) {
+            setStatus({
+              kind: 'warning',
+              message: '추론 완료',
+              hint: '낮은 confidence — 자세 안정화 권장',
+            });
+          } else {
+            setStatus({ kind: 'ok', message: '추론 완료' });
+          }
         }
       } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
         if (pendingReinforceTokenRef.current === d.trialToken) {

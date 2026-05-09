@@ -170,9 +170,10 @@ describe('LiveSnn — fire-and-forget API (PR-B 2026-05-10)', () => {
     };
     expect(payload.targetCluster).toBe(1);
     expect(payload.rewardGain).toBe(2.0);
-    // QA CAUSE D fix (2026-05-10): punishGain=0 — wrong-winner LTD escape 0
-    // 영역 정직 한계 catch (saturation 회피 정합 path).
-    expect(payload.punishGain).toBe(0);
+    // QA CAUSE D1 fix (2026-05-10): punishGain=gain*0.25 — wrong-winner LTD escape
+    // 정정 (Florian 2007 / Izhikevich 2007 wrong-action LTD 정합). 직전 punishGain=0
+    // 영역 saturation lock-in escape 0 영역 root cause.
+    expect(payload.punishGain).toBeCloseTo(2.0 * 0.25, 6);
     expect(payload.pattern[1]).toBe(1);
     live.dispose();
   });

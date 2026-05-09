@@ -122,7 +122,29 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     } catch (e) {
       // Worker 영역 module-type bundle 영역 fail (test env / legacy bundler) →
       // MainThreadTransport fallback (호환 보존).
+      // QA FINDING-2 fix (2026-05-10): silent console.warn 영역 사용자 catch 0
+      // → toast + emitBackendEvent('snn-error') — gh-pages MIME mismatch 영역
+      // bundle fail catch 시점 영역 main thread fallback 영역 사용자 visual
+      // catch 영역 정합 (timeout 영역 root cause hint 영역 사용자 정합).
+      const message = e instanceof Error ? e.message : String(e);
       console.warn('[root-local-snn] Web Worker bundle 영역 fail — MainThreadTransport fallback:', e);
+      try {
+        showToast({
+          kind: 'warning',
+          message: 'SNN Worker bundle 영역 fail — main thread fallback (성능 저하 catch — 새로고침 권장)',
+          duration: 8000,
+        });
+      } catch { /* SSR / window 0 catch */ }
+      try {
+        // 동적 import 영역 cyclic dep 영역 회피.
+        void import('@/lib/backend/events').then(({ emitBackendEvent }) => {
+          emitBackendEvent('snn-error', {
+            source: 'worker-bundle-fail',
+            message,
+            context: { kind, fallback: 'MainThreadTransport' },
+          });
+        }).catch(() => undefined);
+      } catch { /* silent — telemetry best-effort */ }
       transport = new MainThreadTransport();
     }
   } else {

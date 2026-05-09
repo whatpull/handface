@@ -110,11 +110,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: () => void }) {
   const palette = TOAST_PALETTE[item.kind];
-  return (
-    <div
-      role={item.kind === 'error' || item.kind === 'warning' ? 'alert' : 'status'}
-      className={`snn-toast pointer-events-auto flex items-start gap-2 rounded border px-3 py-2 font-mono text-[11px] shadow-lg backdrop-blur ${palette.classes}`}
-    >
+  // PR #196 polish (UX LOW-3, 2026-05-10): warning/error 영역 aria-live="assertive"
+  //   영역 명시 escalate — 직전 region wrapper 영역 'polite' 영역만 catch 사실 영역
+  //   warning bundle fail 영역 즉시 catch 0 (screen reader 영역 polite 영역 next
+  //   pause point 영역 대기). per-item assertive override 영역 region polite 영역
+  //   beat (a11y spec ARIA 1.2 영역 nearest aria-live ancestor 영역 overrideable).
+  //   role="alert" 영역 implicit assertive 영역 보존 단 일부 reader 영역 explicit
+  //   attr 영역 catch 정합 catch path. info / success 영역 polite 보존.
+  //   jsx-a11y/aria-props-valid-values rule 영역 literal attr 영역 강제 — wrapper
+  //   영역 분기 (assertive vs polite) 영역 split 정합.
+  const className = `snn-toast pointer-events-auto flex items-start gap-2 rounded border px-3 py-2 font-mono text-[11px] shadow-lg backdrop-blur ${palette.classes}`;
+  const inner = (
+    <>
       <span aria-hidden="true" className="mt-[1px] shrink-0">{palette.icon}</span>
       <span className="flex-1 break-words">{item.message}</span>
       <button
@@ -125,6 +132,18 @@ function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
       >
         <span aria-hidden>✕</span>
       </button>
+    </>
+  );
+  if (item.kind === 'warning' || item.kind === 'error') {
+    return (
+      <div role="alert" aria-live="assertive" aria-atomic="true" className={className}>
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true" className={className}>
+      {inner}
     </div>
   );
 }

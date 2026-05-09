@@ -53,12 +53,15 @@ const GESTURE_LABELS = [
 // 본격 제거 — cluster index 보다 의미 catch (GESTURE_LABELS) 영역 swap.
 // 직전 GESTURE_GLYPHS 영역 polyfill (─│╲╱) 영역 사용 0 영역 제거.
 
+// PR #196 polish (UX LOW-1/2 + QA LOW-1): hint 영역 secondary line + 'warning'
+// kind 영역 amber visual cue (낮은 confidence 영역 정합) + GridInput 영역 정합.
 type Status =
   | { kind: 'idle' }
   | { kind: 'building' }
   | { kind: 'training'; cluster: number }
   | { kind: 'inferring' }
-  | { kind: 'ok'; message: string }
+  | { kind: 'ok'; message: string; hint?: string }
+  | { kind: 'warning'; message: string; hint?: string }
   | { kind: 'error'; message: string };
 
 const TRAIN_FRAMES = 30;
@@ -294,17 +297,21 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
       const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
-      // safety-net — 100 → 2000ms elevate (worker simulation + IndexedDB +
-      // postMessage round-trip 영역 race 영역 회피 catch 영역 보수적).
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
+      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
+      // MainThreadTransport fallback 영역 main thread block 영역 catch.
       setTimeout(() => {
         if (pendingReinforceTokenRef.current === trialToken) {
           pendingReinforceTokenRef.current = null;
           setReinforcingCluster(null);
+          // PR #196 polish (UX LOW-1): hint 영역 secondary line split — 모바일
+          // 320px wrap 정합.
           setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 *`, hint: '(timeout — 새로고침 권장)' }
             : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
@@ -328,10 +335,23 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
             : '패턴';
           setStatus({ kind: 'ok', message: `${label} 보강 완료` });
         }
+      } else if (d.source === 'trigger') {
+        // PR #196 polish (QA LOW-1, 2026-05-10): GridInput 영역 정합 — stable-
+        // pose 자동 trigger 영역 push event 영역 winner < 0 || margin < 0.10
+        // 영역 'warning' kind 영역 amber visual cue (낮은 confidence). 직전
+        // silent 영역 사용자 catch 0 — Diehl & Cook 2015 winner margin 10%
+        // threshold 정합 (NodeInfer MarginMeter 영역 정합). 정직 한계: stable-
+        // pose 영역 background trigger 영역 status 영역 ok 영역 copy 0 — low-
+        // conf 영역만 escalate (사용자 catch 영역 정합 path).
+        const lowConf = d.winner < 0 || d.margin < 0.10;
+        if (lowConf) {
+          setStatus({
+            kind: 'warning',
+            message: '추론 (낮은 confidence)',
+            hint: '자세 안정화 권장',
+          });
+        }
       }
-      // 정직 한계: CameraInput 영역 trigger (stable-pose) push event 영역
-      // status copy 영역 별도 update 0 — stable-pose 영역 자동 trigger 영역
-      // 사용자 액션 0 (background 영역 정합).
     });
   }, [engineMode]);
 
@@ -376,7 +396,18 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       case 'building': return '회로 빌드 중…';
       case 'training': return `${GESTURE_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
-      case 'ok': return status.message;
+      // PR #196 polish (UX LOW-1/2): hint 영역 secondary <small> + warning kind
+      // 영역 amber pill 영역 visual cue (snn-grid-status--warning CSS 정합).
+      case 'ok':
+      case 'warning':
+        return status.hint
+          ? (
+            <>
+              <span className="snn-grid-status-msg">{status.message}</span>
+              <small className="snn-grid-status-hint">{status.hint}</small>
+            </>
+          )
+          : status.message;
       case 'error': return status.message;
     }
   }, [status, cameraConnected, isLiveMode]);

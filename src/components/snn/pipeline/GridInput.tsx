@@ -370,7 +370,7 @@ export default function GridInput() {
           {/* UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
-          <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+          <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
           LIVE — 패턴 클릭 시 즉시 학습 + 추론
         </div>
       )}

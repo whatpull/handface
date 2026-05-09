@@ -308,7 +308,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         if (isLiveMode) {
           return (
             <>
-              <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+              <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
               {cameraConnected ? 'LIVE — 자세를 취하세요' : 'LIVE — 카메라 미연결'}
             </>
           );
@@ -337,7 +337,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       {isLiveMode && (
         <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
           {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
-          <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+          <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
           LIVE — 자세를 보여주면 즉시 학습 + 추론
         </div>
       )}

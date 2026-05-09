@@ -96,7 +96,7 @@ export default function NodeInfer() {
         isLiveMode ? (
           <>
             {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
-            <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+            <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
             LIVE — 실시간 winner
           </>
         ) : '추론 상세'

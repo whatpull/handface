@@ -299,10 +299,15 @@ export class LiveSnn {
     }
     const events = this.buildInjectEvents(currentT);
     if (events.length > 0) await root.client.inject(events);
+    // QA FINDING-1 fix (2026-05-10): stdpEnabled 영역 gain>0 catch — inferOnce
+    // (stdpGain=0) path 영역 stdpEnabled=true hard-code 영역 applyPairStdp(t, 0)
+    // 영역 호출 → trace state mutation (preTrace/postTrace/lastSpikeTimeForTrace)
+    // 영역 다음 reinforce 영역 stale trace pollution. async path (triggerBackground)
+    // 영역 worker-core.ts 영역 동일 swap.
     await root.client.run({
       durationMs: this.opts.observeMs,
       dtMs: 0.1,
-      stdpEnabled: true,
+      stdpEnabled: stdpGain > 0,
       stdpGain,
     });
     return await root.client.clusterFiringRates({
@@ -384,7 +389,7 @@ export class LiveSnn {
    * - 사용자 영역 추가 보강 영역 cluster-specific gradient 영역 backend
    *   punishGain 영역 횟수 정합 영역 catch — 정직 한계 명시.
    */
-  async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
+  async reinforce(targetCluster: number, gain: number = 0.8): Promise<{ saveFailed: boolean }> {
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
     this.tickInFlight = true;
     let saveFailed = false;
@@ -395,13 +400,15 @@ export class LiveSnn {
       // 영역 회피 (Diehl & Cook 2015 §3.2 batch frame reset 정합).
       await root.client.resetHomeostatic();
       // R-STDP supervised — 1-pattern batch + targetCluster 영역 명시 wire.
-      // rewardGain 영역 사용자 영역 명시 gain (default 2.0).
-      // punishGain 영역 gain × 0.25 (학술 정합 — reward dominance).
+      // rewardGain 영역 사용자 영역 명시 gain.
+      // QA CAUSE D fix (2026-05-10): default 2.0 → 0.8 — saturation overshoot 회피.
+      // punishGain=0 — wrong-winner LTD escape 0 정직 한계 명시 (saturation 회피
+      // 정합 path — 사용자 명시 target 영역 multiple trial 수렴 정합).
       await root.client.clusterTrainRStdp({
         patterns: [this.patternRef.slice()],
         targetCluster,
         rewardGain: gain,
-        punishGain: gain * 0.25,
+        punishGain: 0,
         observeMs: this.opts.observeMs,
         stimulusDurationMs: this.opts.stimulusDurationMs,
         intensity: this.opts.intensity,
@@ -515,7 +522,17 @@ export class LiveSnn {
    * 즉시 return — R-STDP supervised reward 영역 worker 영역 inline 처리.
    * push event ('reinforceComplete') 영역 emitTick + lab.save force fire-and-forget.
    */
-  reinforceAsync(targetCluster: number, gain: number = 2.0): { trialToken: number } {
+  reinforceAsync(targetCluster: number, gain: number = 0.8): { trialToken: number } {
+    // QA CAUSE D fix (2026-05-10): rewardGain default 2.0 → 0.8 — saturation
+    // overshoot 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
+    // multi-trial 수렴 정합 — 학술 정합 (Florian 2007 R-STDP 영역 gain 0.5-1.0
+    // 권장 영역 trial 누적 영역 LTP 영역 점진 수렴).
+    //
+    // punishGain=0 — winner != target 영역 weight 영역 unchanged. 직전 punishGain=
+    // gain×0.25 영역 wrong winner cluster 영역 LTD 영역 lock-in escape 영역 catch
+    // 단 punishGain=0 영역 wrong-winner escape 영역 0 — 정직 한계 명시 (사용자 명시
+    // 영역 정확 reinforce 영역 정합 path — wrong trial 영역 reward 0 영역 saturation
+    // 회피 + 사용자 영역 명시 target 영역 multiple trial 수렴 영역 정합).
     const trialToken = ++this._trialTokenSeq;
     void (async () => {
       try {
@@ -525,7 +542,7 @@ export class LiveSnn {
           pattern: this.patternRef.slice(),
           targetCluster,
           rewardGain: gain,
-          punishGain: gain * 0.25,
+          punishGain: 0,
           intensity: this.opts.intensity,
           observeMs: this.opts.observeMs,
           stimulusDurationMs: this.opts.stimulusDurationMs,
@@ -673,9 +690,21 @@ export class LiveSnn {
     // OUT count — winner 변경 시점 1회 increment (idempotent: 동일 cluster 연속
     // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid
     // path 영역 OUT count 0 잔존 → 직접 incrementCount.
+    //
+    // QA FINDING-2 fix (2026-05-10): cluster broadcast supervisor 영역 정합 catch
+    // 영역 8 OUT 영역 모두 increment (out_${winner}_0 ~ out_${winner}_7). 직전
+    // sole `out_${winner}_0` 영역 7 OUT 영원 idle → NodeOut 영역 sumClusterCount
+    // 영역 비례 mismatch (helper 영역 8 OUT 합산 영역 catch — node-out-cluster-count.test
+    // 영역 정합). 사용자 catch ("엉망 추론") 영역 visual root 영역 정합. 학술
+    // 정합: cluster 영역 winner-take-all 영역 8 OUT 영역 sub-cluster 영역
+    // population code 영역 catch (n13 builder OUT cluster 내부 mutual excitation
+    // 정합 — 1 winner 영역 8 OUT 영역 모두 fire 정합 trend).
     if (cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
       this.lastWinnerCluster = cfr.winner;
-      incrementCount(`out_${cfr.winner}_0`, this.patternRef.slice());
+      const featSnap = this.patternRef.slice();
+      for (let ni = 0; ni < 8; ni += 1) {
+        incrementCount(`out_${cfr.winner}_${ni}`, featSnap);
+      }
     } else if (cfr.winner < 0) {
       this.lastWinnerCluster = -1;
     }

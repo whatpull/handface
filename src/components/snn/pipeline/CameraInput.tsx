@@ -290,7 +290,9 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // event 영역 별도 emit (NodeLearn / NodeInfer 영역 자동 sync).
       // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') swap.
       // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken capture + listener.
-      const { trialToken } = live.reinforceAsync(clusterIdx, 2.0);
+      // QA CAUSE D fix (2026-05-10): rewardGain 2.0 → 0.8 — saturation overshoot
+      // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
+      const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
       // safety-net — 100 → 2000ms elevate (worker simulation + IndexedDB +
       // postMessage round-trip 영역 race 영역 회피 catch 영역 보수적).

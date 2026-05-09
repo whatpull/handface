@@ -418,7 +418,9 @@ export default function GridInput() {
       // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken 영역 capture 영역
       // push event listener 영역 정확 reset path 영역 정합 (직전 setTimeout
       // 100ms race 영역 회피).
-      const { trialToken } = live.reinforceAsync(clusterIdx, 2.0);
+      // QA CAUSE D fix (2026-05-10): rewardGain 2.0 → 0.8 — saturation overshoot
+      // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
+      const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
       // safety-net — push event 영역 lost / worker hang 영역 2000ms 영역 elevate
       // (직전 100ms 영역 worker simulation 50ms × 1 영역 정합 단 IndexedDB +

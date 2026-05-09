@@ -538,7 +538,21 @@ export class SNNWorkerCore {
         net.inject(reEvents);
       }
       const gain = isCorrect ? rewardGain : punishGain;
-      net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });
+
+      // QA CAUSE A fix (2026-05-10): synapse cluster mask 영역 swap-restore.
+      // 직전 reward pass 영역 GLOBAL stdpGain 영역 모든 발화 neuron 영역 LTP 적용
+      // → cluster 별 selective 0 → cross-cluster strengthen → margin 약화 영역
+      // root cause. 학술 정합: Florian 2007 R-STDP / Izhikevich 2007 DA-STDP
+      // region-specific gating — reward 영역 target cluster 영역 incoming synapse
+      // 영역만 적용. swap-restore 영역 worker thread sequential FIFO 영역 정합
+      // — race 0.
+      const targetCi = payload.targetCluster;
+      const savedMultipliers = this.applyClusterRewardMask(targetCi);
+      try {
+        net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });
+      } finally {
+        this.restoreClusterRewardMask(savedMultipliers);
+      }
     }
 
     const trained = payload.patterns.length;
@@ -550,6 +564,93 @@ export class SNNWorkerCore {
       clusterRatesHistory: ratesHistory,
       winnerHistory,
     };
+  }
+
+  /**
+   * QA CAUSE A fix (2026-05-10): R-STDP region-specific gating.
+   *
+   * target cluster 영역 incoming synapse 영역만 stdpGainMultiplier 영역 보존 +
+   * 그 외 영역 0 영역 set. reward run 후 영역 restoreClusterRewardMask 영역
+   * 1.0 (원본) 영역 restore (in-place swap-restore, worker thread sequential
+   * FIFO 영역 정합 — race 0).
+   *
+   * cluster mask 영역 결정 — post neuron 영역 region/population 영역 catch:
+   *   - OUT (region='OUT', population=`cluster_${ci}`): ci === target 영역 1.0
+   *   - V1_L4_E (region='V1', population='L4_E', name=`v1_L4_E_${idx}`): ci =
+   *     floor(idx / V1_L4_PER_SUB) === target 영역 1.0
+   *   - V1_L23_E / V2_L4_E / V2_L23_E / V2_L5_E 동일 (each per-sub 정합).
+   *   - 그 외 (V1_L4_I / INPUT) 영역 0 (excitatory only — STDP gate 영역 본 path
+   *     영역 weight<=0 영역 skip 사실 단 명시 0 영역 정합).
+   *
+   * 학술 정합: Florian 2007 / Izhikevich 2007 R-STDP — reward 영역 target subspace
+   * 영역만 LTP. 본 path 영역 cluster sub-pool 영역 catch 영역 cross-cluster LTP
+   * 영역 0 → margin 강화.
+   *
+   * 정직 한계: expanded cluster (c{N}_v1_L4_E_*, N >= 4) 영역 미지원 — base 4
+   * cluster 영역만 catch (registry.slots[targetCi] 영역 정합 catch 영역 follow-up
+   * PR 영역 deferred). 본 PR 영역 base 4 cluster 영역 정합 catch.
+   */
+  private applyClusterRewardMask(targetCi: number): Float64Array {
+    const net = this.requireNet();
+    const saved = new Float64Array(net.synapses.length);
+    for (let i = 0; i < net.synapses.length; i += 1) {
+      const syn = net.synapses[i];
+      saved[i] = syn.stdpGainMultiplier;
+      const ci = this.inferPostCluster(syn.post.name, syn.post.region, syn.post.population);
+      // ci === targetCi 영역 1.0 (LTP 적용) / null or 다른 cluster 영역 0 (no LTP).
+      // saved value 영역 restore 영역 catch 영역 본 path 영역 1.0 hard-set 영역
+      // catch (n13 builder default 영역 1.0 정합 — multiplier 영역 expandCluster
+      // 영역 1.0 default 정합).
+      syn.stdpGainMultiplier = ci === targetCi ? 1.0 : 0.0;
+    }
+    return saved;
+  }
+
+  private restoreClusterRewardMask(saved: Float64Array): void {
+    const net = this.requireNet();
+    for (let i = 0; i < net.synapses.length && i < saved.length; i += 1) {
+      net.synapses[i].stdpGainMultiplier = saved[i];
+    }
+  }
+
+  /**
+   * post neuron name + region + population 영역 catch 영역 cluster id 추론.
+   * - n13 builder base 4 cluster (`v1_L4_E_${idx}` etc) 영역 ci = floor(idx/per-sub).
+   * - OUT (`out_${ci}_${ni}`) 영역 ci 직접 추출.
+   * - expanded cluster (`c${N}_v1_L4_E_*`) 영역 N === ci.
+   * - 그 외 (V1_L4_I, INPUT, in_feat_*) 영역 null (mask 영역 0 적용).
+   */
+  private inferPostCluster(name: string, region: string | null, population: string | null): number | null {
+    if (region === 'INPUT') return null;
+    if (region === 'OUT') {
+      // OUT — out_${ci}_${ni} 또는 expanded out_${ci}_${ni} (cluster_${ci} 정합).
+      const m = /^out_(\d+)_(\d+)$/.exec(name);
+      if (m) return Number(m[1]);
+      return null;
+    }
+    // V1/V2 — inhibitory 영역 population 영역 'L4_I' / 'L23_I' / 'L5_I' 영역 정합 — exclude.
+    if (population && population.endsWith('_I')) return null;
+    // expanded cluster — c{N}_*.
+    const me = /^c(\d+)_/.exec(name);
+    if (me) return Number(me[1]);
+    // base cluster — v1_L4_E_${idx} etc — per-sub 영역 ci 추론.
+    // n13 V1_L4_E=128, V1_L23_E=128, V2_L4_E=128, V2_L23_E=96, V2_L5_E=64 / 4 cluster.
+    const baseMatch = /^(v1_L4_E|v1_L23_E|v2_L4_E|v2_L23_E|v2_L5_E)_(\d+)$/.exec(name);
+    if (!baseMatch) return null;
+    const layer = baseMatch[1];
+    const idx = Number(baseMatch[2]);
+    const registry = this.registry;
+    if (!registry) return null;
+    let perSub: number;
+    switch (layer) {
+      case 'v1_L4_E': perSub = registry.v1L4PerSub; break;
+      case 'v1_L23_E': perSub = registry.v1L23PerSub; break;
+      case 'v2_L4_E': perSub = registry.v2L4PerSub; break;
+      case 'v2_L23_E': perSub = registry.v2L23PerSub; break;
+      case 'v2_L5_E': perSub = registry.v2L5PerSub; break;
+      default: return null;
+    }
+    return Math.floor(idx / perSub);
   }
 
   private measureClusterRates(windowMs: number): { rates: number[]; winner: number } {
@@ -595,13 +696,21 @@ export class SNNWorkerCore {
       }
       let cfr: ClusterFiringRatesResult | null = null;
       // repeats 회 inject + run — Risk 4 mitigation (PR #184 정합).
+      // QA FINDING-1 fix (2026-05-10): stdpEnabled 영역 gain>0 catch — stdpGain=0
+      // (inferAsync path) 영역 stdpEnabled=true hard-code 영역 applyPairStdp(t, 0)
+      // 영역 호출 → trace state mutation (preTrace/postTrace/lastSpikeTimeForTrace)
+      // 영역 다음 reinforce 영역 stale trace pollution. gain=0 영역 stdp gate 영역
+      // off 영역 trace mutation 0. 학술 정합: Bi & Poo 1998 STDP 영역 trace mutation
+      // 영역 gain 무관 사실 — gain=0 영역 weight 영역 unchanged 단 trace 영역 변경
+      // → next reward pass 영역 LTP 영역 stale trace 영역 base 영역 catch 사실.
+      const stdpEnabled = payload.stdpGain > 0;
       for (let i = 0; i < payload.repeats; i += 1) {
         const tNow = net.t;
         const events = this.buildInjectEventsLocal(payload, tNow);
         if (events.length > 0) net.inject(events);
         net.run(payload.observeMs, {
           dtMs: 0.1,
-          stdpEnabled: true,
+          stdpEnabled,
           stdpGain: payload.stdpGain,
         });
         cfr = this.handleClusterFiringRates({ windowMs: payload.observeMs, layer: 'OUT' });
@@ -649,8 +758,36 @@ export class SNNWorkerCore {
         stimulusDurationMs: payload.stimulusDurationMs,
         intensity: payload.intensity,
       });
-      // cluster firing rates + region rates — UI sync (NodeLearn / NodeInfer).
-      const cfr = this.handleClusterFiringRates({ windowMs: payload.observeMs, layer: 'OUT' });
+      // QA CAUSE B fix (2026-05-10): push payload cfr 영역 measure pass 영역 catch.
+      // 직전 reward pass 영역 STDP mutation 직후 영역 별도 clusterFiringRates 호출
+      // 영역 measure pass 50ms drop + post-mutation 영역 winner mismatch → push event
+      // 영역 trial winner 영역 측정 winner 영역 catch 0. 정정 영역 trainResult
+      // 영역 measure pass (clusterRatesHistory[0] + winnerHistory[0]) 영역 source —
+      // measure pass winner 영역 정확 reflection.
+      // 학술 정합: R-STDP measure pass 영역 trial-level decision (post-reward
+      // mutation 영역 next trial 영역 catch 사실 — 본 push 영역 trial 결과 영역
+      // catch 영역 measure pass 영역 source 영역 정합).
+      const measureRates = trainResult.clusterRatesHistory[0] ?? [0, 0, 0, 0];
+      const measureWinner = trainResult.winnerHistory[0] ?? -1;
+      let measureMax = 0;
+      let measureSecond = 0;
+      let measureTotal = 0;
+      for (let i = 0; i < measureRates.length; i += 1) {
+        measureTotal += measureRates[i];
+        if (measureRates[i] > measureMax) {
+          measureSecond = measureMax;
+          measureMax = measureRates[i];
+        } else if (measureRates[i] > measureSecond) {
+          measureSecond = measureRates[i];
+        }
+      }
+      const cfr: ClusterFiringRatesResult = {
+        rates: measureRates,
+        winner: measureWinner,
+        share: measureTotal > 0 ? measureMax / measureTotal : 0,
+        margin: measureMax > 0 ? (measureMax - measureSecond) / measureMax : 0,
+        layer: 'OUT',
+      };
       const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });
       const v2 = this.handleRegionFiringRates({ region: 'V2', windowMs: payload.observeMs });
       if (this.pushEmitter) {

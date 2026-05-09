@@ -299,13 +299,19 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
 
+  // UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen reader
+  //   노이즈 catch — semantic Tailwind red-dot + aria-hidden 영역 swap.
+  //   statusLine 영역 string → ReactNode (Live idle 케이스 dot 동봉).
   const statusLine = useMemo(() => {
     switch (status.kind) {
       case 'idle':
         if (isLiveMode) {
-          return cameraConnected
-            ? '🔴 LIVE — 자세를 취하세요'
-            : '🔴 LIVE — 카메라 미연결';
+          return (
+            <>
+              <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+              {cameraConnected ? 'LIVE — 자세를 취하세요' : 'LIVE — 카메라 미연결'}
+            </>
+          );
         }
         return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
       case 'building': return '회로 빌드 중…';
@@ -330,7 +336,9 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       )}
       {isLiveMode && (
         <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
-          🔴 LIVE — 자세를 보여주면 즉시 학습 + 추론
+          {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
+          <span aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+          LIVE — 자세를 보여주면 즉시 학습 + 추론
         </div>
       )}
 

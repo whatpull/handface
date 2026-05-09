@@ -37,15 +37,15 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
     >
       <div className={groupCls}>
         <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
-          <Icon kind="reset" /> Reset
+          <Icon kind="reset" /> 초기화
         </button>
         <button
           type="button"
           className={btnCls}
           onClick={() => window.dispatchEvent(new CustomEvent('handface.pipeline.reset-layout'))}
-          title="Reset node layout to default"
+          title="노드 레이아웃을 기본값으로 되돌립니다"
         >
-          <Icon kind="layout" /> Reset layout
+          <Icon kind="layout" /> 레이아웃 초기화
         </button>
       </div>
       <div className="ml-auto flex items-center gap-1.5">
@@ -60,7 +60,9 @@ const segBaseCls = 'px-2 py-1 text-[11px] rounded transition-colors focus-visibl
 const segOnCls = 'bg-violet-500/30 text-white border border-violet-400/40';
 const segOffCls = 'text-white/55 hover:text-white hover:bg-white/10 border border-transparent';
 
-function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m: EngineMode) => void }) {
+// Fix 1 (CRITICAL [C1]): MobileBottomBar 에서 동일 토글 재사용 위해 export.
+//   직전 inline component → 모바일에서 engine 토글 catch 0 (Toolbar `hidden md:flex`).
+export function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m: EngineMode) => void }) {
   const isLive = value === 'live';
   const isBackend = value === 'backend';
   return (

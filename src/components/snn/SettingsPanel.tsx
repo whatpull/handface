@@ -15,7 +15,8 @@ interface SettingsPanelProps {
 export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [status, setStatus] = useState('not tested');
+  // UX Polish PR1 Fix 2 (HIGH [H1], 2026-05-09): 한국어 status 일관 정합.
+  const [status, setStatus] = useState('미시험');
 
   useEffect(() => {
     const s = loadBackendSettings();
@@ -29,19 +30,19 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     saveBackendSettings({ endpoint: url, apiKey });
     getClient().setSettings(url, apiKey);
     // 연결 성공 검증 → 성공 시 캔버스에 회로 갱신 신호.
-    setStatus(`saved (${url}) — testing…`);
+    setStatus(`저장됨 (${url}) — 시험 중…`);
     const r = await getClient().health();
     if (r.ok) {
-      setStatus(`✓ saved + connected (${url})`);
+      setStatus(`✓ 저장 + 연결 성공 (${url})`);
       // Canvas remount → 새 endpoint 의 회로 로드.
       emitBackendEvent('circuit-changed', {});
     } else {
-      setStatus(`saved, but connection failed: ${r.reason}`);
+      setStatus(`저장됨. 연결 실패: ${r.reason}`);
     }
   };
 
   const test = async () => {
-    setStatus('testing…');
+    setStatus('시험 중…');
     const url = normalizeEndpoint(endpoint);
     if (url !== endpoint) setEndpoint(url);
     const client = getClient();
@@ -65,10 +66,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-semibold tracking-wider text-violet-300">SETTINGS</span>
+          <span className="text-xs font-semibold tracking-wider text-violet-300">설정</span>
           <button
             type="button"
-            aria-label="Close settings"
+            aria-label="설정 닫기"
             onClick={onClose}
             className="rounded px-1.5 text-white/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
           >
@@ -77,7 +78,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </div>
         <div className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">Endpoint</span>
+            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">엔드포인트</span>
             <input
               type="text"
               value={endpoint}
@@ -88,7 +89,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">API Key</span>
+            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">API 키</span>
             <input
               type="password"
               value={apiKey}
@@ -104,14 +105,14 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               onClick={save}
               className="flex-1 rounded bg-violet-500/20 px-3 py-1.5 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
-              Save
+              저장
             </button>
             <button
               type="button"
               onClick={test}
               className="flex-1 rounded bg-white/5 px-3 py-1.5 text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
-              Test
+              연결 시험
             </button>
           </div>
           <div className="break-all text-[11px] font-mono text-white/50">{status}</div>

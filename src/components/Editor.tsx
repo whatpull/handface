@@ -50,6 +50,25 @@ export default function Editor() {
     return off;
   }, []);
 
+  // UX Polish PR1 Fix 3 (HIGH [H2], 2026-05-09): 첫 방문자 Live 모드 onboarding.
+  //   default engineMode='live' → 카메라 자세 = 즉시 학습 의미 catch 0 (silent UX).
+  //   localStorage flag idempotent — 한 번 본 사용자에게 재표시 0.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SEEN_KEY = 'handface.onboarding-seen';
+    try {
+      if (window.localStorage.getItem(SEEN_KEY) === '1') return;
+      showToast({
+        kind: 'info',
+        message: 'Live 모드 — 자세를 잡으면 즉시 학습이 시작됩니다. 좌측 사이드바에서 카메라를 활성화하세요.',
+        duration: 7000,
+      });
+      window.localStorage.setItem(SEEN_KEY, '1');
+    } catch {
+      // localStorage 차단 — 무시.
+    }
+  }, []);
+
   // Network online/offline detection — silent fail 회피 catch path.
   // online: success toast + refresh 신호 (circuit-changed → canvasNonce++).
   // offline: warning toast — MediaPipe-only fallback path (NodeInfer 영역 표시).

@@ -4,27 +4,25 @@
 //   inline SVG 영역 정합: <img src="/icon.svg" /> 영역 basePath 영역 catch 영역 회피
 //   (Next.js basePath '/handface' 영역 prod / dev 분기 영역 catch 0 — inline 영역 무관).
 //
-// 디자인 (자연 palm shape 재구성 — 2026-05-10):
+// 디자인 (UX 3-catch 정정 — PR #195, 2026-05-10):
 //   - viewBox 32×32, GitHub favicon 영역 정합 원형 배경 (`<circle r="16">`).
 //   - HF brand yellow (#FFD21E) + brown (#3a2a1a) right palm-forward baby hand silhouette.
-//   - **palm-forward open hand** — 4 finger 영역 위 spread (round tip) + thumb 영역 좌측
-//     명확 protrude (rotated chubby stub) + palm 영역 wide round bottom (ellipse).
-//     사용자 catch (PR #193 robotic 영역 fist + finger stub 영역 손모양 X) 정합 — 본격
-//     palm-forward open hand 영역 자연 silhouette 영역 raster preview 영역 ground 정합.
-//   - **anatomy 정확** — middle (h=13 longest) > ring (h=12) > index (h=11) > pinky (h=10
-//     shortest) 영역 right hand palm-forward 정합. y-offset 영역 finger tip 영역 다른 height.
-//   - **thumb** — palm 좌측 영역 chubby horizontal-ish stub (rotate -20deg, w=6.8 h=4)
-//     + palm ellipse 영역 본격 overlap → 단일 silhouette mass.
-//   - **palm** — wide round ellipse (rx=9 ry=6.4) 영역 chubby baby palm bottom + finger
-//     영역 base 영역 자연 융합.
+//   - **본격 finger length** — middle h=16 / ring h=14 / index h=13 / pinky h=12 영역
+//     palm top (y=14.6) 위 영역 8-12px protrude — stub-look 영역 회피, open hand 영역
+//     본격 인지. base y=18 영역 palm 안 깊이 영역 융합 (mass disconnect 0).
+//   - **anatomy 정확** — index < middle (tallest) > ring > pinky 영역 right hand
+//     palm-forward 정합.
+//   - **thumb vertical 좌측 protrude** — rect rotate -50deg, palm 좌측 영역 명확
+//     extension visible (silhouette thumb 인지 ground).
+//   - **finger gap 1.0px @32** — sub-pixel 영역 16px 영역 0.5px gap 영역 anti-alias
+//     영역 finger 분리 visible.
 //   - **face features 0** — 손모양만.
-//   - **chubby baby hand** — finger rect rx=1.2 (round tip) + thumb rx=2 (round bulb)
-//     + palm ellipse (wide round).
+//   - **chubby baby hand** — finger rect rx=1.3 + thumb rect rx=1.8 + palm wide oval.
 //
-// 16×16 / 24×24 / 32×32 readability: 4 finger 영역 width 1.2px @16 + finger 사이 영역
-//   gap 0.4px @16 (rect 영역 0.8px gap @ 32 → 0.4px @16) — sub-pixel 영역 anti-alias
-//   영역 finger 분리 영역 visible. raster preview 영역 16/24/32/64/128 영역 5 finger
-//   silhouette + thumb stub + palm round 영역 본격 인지 ground.
+// 16×16 / 24×24 / 32×32 readability: 4 finger 영역 1.3px @16 + 0.5px gap @16 (1.0px
+//   @32) 영역 sub-pixel anti-alias 영역 finger 분리 visible. thumb 좌측 영역 본격
+//   protrude. raster preview 영역 16/24/32/64/128 영역 open hand silhouette 본격
+//   인지 ground.
 
 import type { CSSProperties } from 'react';
 
@@ -53,17 +51,27 @@ export function HandFaceLogo({
       style={style}
     >
       <circle cx="16" cy="16" r="16" fill="#FFD21E" />
-      <g fill="#3a2a1a">
-        {/* palm — wide round ellipse, chubby baby palm bottom */}
-        <ellipse cx="16.4" cy="20.6" rx="9" ry="6.4" />
-        {/* thumb — palm 좌측 chubby horizontal stub, rotate -20deg */}
-        <rect x="5.6" y="13" width="6.8" height="4" rx="2" transform="rotate(-20 9 15)" />
-        {/* 4 fingers — index / middle (tallest) / ring / pinky (shortest), round tips */}
-        <rect x="10.4" y="8.4" width="2.4" height="11" rx="1.2" />
-        <rect x="13.6" y="6.4" width="2.4" height="13" rx="1.2" />
-        <rect x="16.8" y="7.4" width="2.4" height="12" rx="1.2" />
-        <rect x="20" y="9.4" width="2.4" height="10" rx="1.2" />
-      </g>
+      {/* 4 fingers — index / middle (tallest) / ring / pinky (shortest), round tips,
+          base y=18 영역 palm 안 깊이 영역 융합, gap 1.0px @32 (0.5px @16 sub-pixel) */}
+      <rect x="9.0" y="5.0" width="2.6" height="13.0" rx="1.3" fill="#3a2a1a" />
+      <rect x="12.6" y="2.0" width="2.6" height="16.0" rx="1.3" fill="#3a2a1a" />
+      <rect x="16.2" y="4.0" width="2.6" height="14.0" rx="1.3" fill="#3a2a1a" />
+      <rect x="19.8" y="6.0" width="2.6" height="12.0" rx="1.3" fill="#3a2a1a" />
+      {/* thumb — palm 좌측 vertical-ish (-50deg) 영역 본격 protrude, palm 영역 융합 */}
+      <rect
+        x="2.6"
+        y="13.6"
+        width="3.6"
+        height="8.4"
+        rx="1.8"
+        transform="rotate(-50 4.4 17.8)"
+        fill="#3a2a1a"
+      />
+      {/* palm — wide round chubby baby palm, finger 영역 base + thumb 영역 융합 */}
+      <path
+        fill="#3a2a1a"
+        d="M 6.5 16.4 Q 6.5 14.6 8.5 14.6 L 23.5 14.6 Q 25.5 14.6 25.5 16.6 L 25.5 19 Q 25.5 26.4 16.0 26.4 Q 6.5 26.4 6.5 19 Z"
+      />
     </svg>
   );
 }

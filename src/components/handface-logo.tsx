@@ -42,12 +42,17 @@ export function HandFaceLogo({
       <circle cx="16" cy="16" r="16" fill="#FFD21E" />
       <g fill="#3a2a1a">
         <path d="M 11 14 Q 11 11.6 13 11.6 Q 15 11.6 15 14 L 15 8.5 Q 15 6.5 16.6 6.5 Q 18.2 6.5 18.2 8.5 L 18.2 14 L 18.2 9 Q 18.2 7.2 19.7 7.2 Q 21.2 7.2 21.2 9 L 21.2 14.4 L 21.2 10.6 Q 21.2 9 22.5 9 Q 23.8 9 23.8 10.6 L 23.8 17 Q 23.8 22.6 19.6 24.6 Q 17.4 25.6 15 25.4 Q 11.4 25 9.6 22 L 7.4 17.8 Q 6.6 16.2 7.8 15.4 Q 9 14.6 9.9 16 L 11 17.6 Z" />
-        <circle cx="14.6" cy="19.4" r="0.85" fill="#FFD21E" />
-        <circle cx="18.4" cy="19.4" r="0.85" fill="#FFD21E" />
+        {/* finger V notch — yellow cut-out 영역 손가락 사이 경계 강조 (UX-3-finger 정정) */}
+        <path d="M 15 10 L 15.5 13.6 L 14.5 13.6 Z" fill="#FFD21E" />
+        <path d="M 18.2 10 L 18.7 13.6 L 17.7 13.6 Z" fill="#FFD21E" />
+        <path d="M 21.2 11.4 L 21.7 14 L 20.7 14 Z" fill="#FFD21E" />
+        {/* face features — 16×16 readable 영역 size up (UX-3-cute 정정) */}
+        <circle cx="14.6" cy="19.4" r="1.1" fill="#FFD21E" />
+        <circle cx="18.4" cy="19.4" r="1.1" fill="#FFD21E" />
         <path
           d="M 14.8 22 Q 16.5 23.1 18.2 22"
           stroke="#FFD21E"
-          strokeWidth="0.9"
+          strokeWidth="1.3"
           fill="none"
           strokeLinecap="round"
         />

@@ -11,7 +11,12 @@
 
 import { useEffect, useState } from 'react';
 
-export type EngineMode = 'backend' | 'local';
+// 사용자 catch 2026-05-09 (A: Live 모드 본격 pivot): 'live' 추가.
+//   'backend' → HF Spaces FastAPI (rev15 batch path).
+//   'local'   → 브라우저 TS runtime (batch, /snn-lab 정합).
+//   'live'    → 항상 동작 SNN, STDP on, 즉시 학습+추론 (SNN 본질 정합).
+//              자동 local 엔진 사용 (backend round-trip 영역 continuous loop 부적합).
+export type EngineMode = 'backend' | 'local' | 'live';
 
 const STORAGE_KEY = 'handface.engine-mode';
 
@@ -19,7 +24,7 @@ function readMode(): EngineMode {
   if (typeof window === 'undefined') return 'backend';
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    if (v === 'backend' || v === 'local') return v;
+    if (v === 'backend' || v === 'local' || v === 'live') return v;
   } catch {
     // localStorage 차단 (SSR / private mode) — 무시.
   }
@@ -57,7 +62,7 @@ export function useEngineMode(): [EngineMode, (m: EngineMode) => void] {
   useEffect(() => {
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent<EngineMode>).detail;
-      if (detail === 'backend' || detail === 'local') setMode(detail);
+      if (detail === 'backend' || detail === 'local' || detail === 'live') setMode(detail);
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setMode(readMode());

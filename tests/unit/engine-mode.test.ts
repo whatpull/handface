@@ -28,6 +28,11 @@ describe('engine-mode', () => {
     expect(getEngineMode()).toBe('backend');
   });
 
+  it("'live' 모드 영역 valid", () => {
+    setEngineMode('live');
+    expect(getEngineMode()).toBe('live');
+  });
+
   it('setEngineMode 영역 CustomEvent emit', () => {
     const handler = vi.fn();
     window.addEventListener('handface.engine-mode-changed', handler);

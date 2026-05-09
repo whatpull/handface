@@ -55,7 +55,9 @@ export interface LiveTickDetail {
 }
 
 export interface LiveSnnOptions {
-  // 한 trigger 영역 simulation 영역 ms. default 30ms.
+  // 한 trigger 영역 simulation 영역 ms.
+  // PR fix/live-mode-time-and-restore — Fix 4: 30 → 50ms (n13 batch path 영역
+  // default 정합 + winner margin 안정 + V1/V2 cascade 영역 충분 propagation).
   observeMs?: number;
   // 한 trigger 영역 자극 weight 강도. default 25.
   intensity?: number;
@@ -69,10 +71,19 @@ export interface TriggerOnceOptions {
   repeats?: number;
   /** lab.save throttle bypass — reinforce path 영역 즉시 영속. */
   force?: boolean;
+  /**
+   * PR fix/live-mode-time-and-restore — Fix 3: 매 trigger 영역 진입 시점
+   * 모든 neuron 영역 thresholdOffset 영역 0 영역 reset. default true (학술
+   * 정합 — Diehl & Cook 2015 §3.2 batch frame reset). false 시 누적 — 단
+   * repeats 3 × 8 OUT × increment 2.0 = 48 → V_th saturation 영역 fire 0
+   * 영역 catch 영역 회피 catch 영역 default true 권장.
+   */
+  resetThreshold?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<LiveSnnOptions> = {
-  observeMs: 30,
+  // PR fix/live-mode-time-and-restore — Fix 4: 30 → 50ms (winner margin 안정).
+  observeMs: 50,
   intensity: 25,
   stimulusDurationMs: 20,
 };
@@ -181,19 +192,45 @@ export class LiveSnn {
     const stdpGain = opts.stdpGain ?? 1.0;
     const repeats = Math.max(1, opts.repeats ?? 3);
     const force = opts.force ?? false;
+    // PR fix/live-mode-time-and-restore — Fix 3: default true (학술 정합).
+    const resetThreshold = opts.resetThreshold ?? true;
 
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
     this.tickInFlight = true;
     let saveFailed = false;
     let cfr: ClusterFiringRatesResult | null = null;
     let root: RootLocalSnn | null = null;
+    // PR fix/live-mode-time-and-restore — Fix 5: V1/V2 region rate 실 측정.
+    let v1Hz = 0;
+    let v2Hz = 0;
     try {
       root = await getRootLocalSnnFor(this.substrateKind);
+      // PR fix/live-mode-time-and-restore — Fix 3: 매 trigger 진입 시점
+      // homeostatic thresholdOffset 영역 reset (V_th saturation 영역 회피).
+      if (resetThreshold) {
+        await root.client.resetHomeostatic();
+      }
       for (let i = 0; i < repeats; i += 1) {
         cfr = await this.runStep(root, stdpGain);
       }
       this.trialCount += 1;
-      if (cfr) this.emitTick(cfr);
+      // PR fix/live-mode-time-and-restore — Fix 5: 마지막 repeat 후 V1/V2
+      // 실 spike rate 영역 catch (cluster_rates max proxy 영역 swap).
+      if (cfr) {
+        try {
+          const [v1, v2] = await Promise.all([
+            root.client.regionFiringRates({ region: 'V1', windowMs: this.opts.observeMs }),
+            root.client.regionFiringRates({ region: 'V2', windowMs: this.opts.observeMs }),
+          ]);
+          v1Hz = v1.hz;
+          v2Hz = v2.hz;
+        } catch (e) {
+          // regionFiringRates 영역 fail 영역 silent (legacy worker / mock 영역
+          // 정합 catch 영역 — 0 fallback).
+          void e;
+        }
+        this.emitTick(cfr, v1Hz, v2Hz);
+      }
     } catch (e) {
       console.warn('[LiveSnn] triggerOnce failed:', e);
     } finally {
@@ -207,7 +244,19 @@ export class LiveSnn {
 
   /** internal helper — 1 inject+run+clusterFiringRates 반복 단위. */
   private async runStep(root: RootLocalSnn, stdpGain: number): Promise<ClusterFiringRatesResult> {
-    const events = this.buildInjectEvents();
+    // PR fix/live-mode-time-and-restore — Fix 1: net.t 절대 시각 catch 영역
+    // inject events 영역 time 정합. 직전 buggy time:0 영역 net.t 누적 영역
+    // 모든 stale impulse 영역 1-step burst collapse → V1 attenuated → OUT
+    // silent → 두 번째 trigger 영역 winner -1 catch.
+    let currentT = 0;
+    try {
+      currentT = await root.client.getNetworkTime();
+    } catch (e) {
+      // legacy worker / mock 영역 getNetworkTime 미구현 영역 fallback time=0
+      // (기존 buggy behavior 유지 — 단 mock 영역 currentT 영역 0 catch 정합).
+      void e;
+    }
+    const events = this.buildInjectEvents(currentT);
     if (events.length > 0) await root.client.inject(events);
     await root.client.run({
       durationMs: this.opts.observeMs,
@@ -274,7 +323,7 @@ export class LiveSnn {
     return await this.triggerOnce({ stdpGain: gain, repeats: 3, force: true });
   }
 
-  private buildInjectEvents(): Array<{
+  private buildInjectEvents(currentT: number): Array<{
     neuron: string;
     weight: number;
     time: number;
@@ -288,7 +337,8 @@ export class LiveSnn {
       out.push({
         neuron: `in_feat_${i}`,
         weight: this.opts.intensity * v,
-        time: 0,
+        // PR fix/live-mode-time-and-restore — Fix 1: time 영역 net.t 정합.
+        time: currentT,
         durationMs: this.opts.stimulusDurationMs,
         stepMs: 0.1,
       });
@@ -296,7 +346,7 @@ export class LiveSnn {
     return out;
   }
 
-  private emitTick(cfr: ClusterFiringRatesResult): void {
+  private emitTick(cfr: ClusterFiringRatesResult, v1Hz = 0, v2Hz = 0): void {
     if (typeof window === 'undefined') return;
     const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
@@ -323,15 +373,18 @@ export class LiveSnn {
     // proxy 영역 표시. cluster firing rates 영역 OUT layer 영역 — V1/V2 영역 cascade
     // 영역 winner cluster 영역 sub-cluster 영역 활성 영역 정합 (cluster-local
     // hard-wire 영역).
+    // PR fix/live-mode-time-and-restore — Fix 5: V1/V2 영역 실 spike rate
+    // 영역 우선 (regionFiringRates RPC). regionFiringRates 영역 fail / 0
+    // 영역 cluster_rates max proxy 영역 fallback (legacy behavior 유지).
     const maxRate = cfr.rates.reduce((m, r) => Math.max(m, r), 0);
-    const cascadeRate = patternActive ? Math.max(maxRate, 1) : maxRate;
+    const proxyRate = patternActive ? Math.max(maxRate, 1) : maxRate;
+    const v1Final = v1Hz > 0 ? v1Hz : proxyRate;
+    const v2Final = v2Hz > 0 ? v2Hz : proxyRate;
     emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
       cluster_rates: cfr.rates,
       winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
       winner_margin: cfr.margin,
-      rates_by_region: patternActive
-        ? { V1: cascadeRate, V2: cascadeRate }
-        : { V1: 0, V2: 0 },
+      rates_by_region: patternActive ? { V1: v1Final, V2: v2Final } : { V1: 0, V2: 0 },
     });
     // OUT count — winner 변경 시점 1회 increment (idempotent: 동일 cluster 연속
     // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid

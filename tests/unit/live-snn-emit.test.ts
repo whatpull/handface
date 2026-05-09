@@ -48,6 +48,14 @@ const mocks = vi.hoisted(() => {
   }));
   const mockSave = vi.fn(async () => 1);
   const mockIncrementCount = vi.fn();
+  // PR fix/live-mode-time-and-restore — Fix 1/3/5 신규 RPC mock.
+  const mockGetNetworkTime = vi.fn(async () => 0);
+  const mockResetHomeostatic = vi.fn(async () => null);
+  const mockRegionFiringRates = vi.fn(async () => ({
+    region: 'V1' as const,
+    hz: 0,
+    neuronCount: 0,
+  }));
   const eventListeners = new Map<string, Array<(d: unknown) => void>>();
   const onBackendEvent = vi.fn((name: string, handler: (d: unknown) => void) => {
     const arr = eventListeners.get(name) ?? [];
@@ -68,6 +76,9 @@ const mocks = vi.hoisted(() => {
     mockClusterFiringRates,
     mockSave,
     mockIncrementCount,
+    mockGetNetworkTime,
+    mockResetHomeostatic,
+    mockRegionFiringRates,
     eventListeners,
     onBackendEvent,
     emittedEvents,
@@ -81,6 +92,10 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
       inject: mocks.mockInject,
       run: mocks.mockRun,
       clusterFiringRates: mocks.mockClusterFiringRates,
+      // PR fix/live-mode-time-and-restore — Fix 1/3/5 신규 RPC.
+      getNetworkTime: mocks.mockGetNetworkTime,
+      resetHomeostatic: mocks.mockResetHomeostatic,
+      regionFiringRates: mocks.mockRegionFiringRates,
     },
     lab: { save: mocks.mockSave },
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
@@ -131,6 +146,16 @@ beforeEach(() => {
   mocks.mockClusterFiringRates.mockResolvedValue(DEFAULT_CFR);
   mocks.mockSave.mockClear();
   mocks.mockIncrementCount.mockClear();
+  // PR fix/live-mode-time-and-restore — Fix 1/3/5 신규 mock reset.
+  mocks.mockGetNetworkTime.mockReset();
+  mocks.mockGetNetworkTime.mockResolvedValue(0);
+  mocks.mockResetHomeostatic.mockClear();
+  mocks.mockRegionFiringRates.mockReset();
+  mocks.mockRegionFiringRates.mockResolvedValue({
+    region: 'V1' as const,
+    hz: 0,
+    neuronCount: 0,
+  });
   mocks.emittedEvents.length = 0;
   mocks.eventListeners.clear();
   disposeLiveSnn();

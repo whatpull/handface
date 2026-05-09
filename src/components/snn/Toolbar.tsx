@@ -65,27 +65,19 @@ function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m:
     <div className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-black/30 p-0.5">
       <button
         type="button"
-        className={`${segBaseCls} ${value === 'backend' ? segOnCls : segOffCls}`}
-        onClick={() => onChange('backend')}
-        title="HF Spaces 백엔드 batch (rev15 검증된 path)"
-      >
-        Backend
-      </button>
-      <button
-        type="button"
-        className={`${segBaseCls} ${value === 'local' ? segOnCls : segOffCls}`}
-        onClick={() => onChange('local')}
-        title="브라우저 TS runtime batch (Phase C1~C5c)"
-      >
-        Local
-      </button>
-      <button
-        type="button"
         className={`${segBaseCls} ${value === 'live' ? segOnCls : segOffCls}`}
         onClick={() => onChange('live')}
-        title="항상 동작 SNN — 즉시 학습 + 추론 (Hebbian, ART). SNN 본질 정합."
+        title="항상 동작 SNN — 즉시 학습 + 추론 (Hebbian, R-STDP). SNN 본질 정합 (default)."
       >
         Live
+      </button>
+      <button
+        type="button"
+        className={`${segBaseCls} ${value === 'backend' ? segOnCls : segOffCls}`}
+        onClick={() => onChange('backend')}
+        title="HF Spaces 백엔드 batch (rev15 검증된 path — 학술 검증)"
+      >
+        Backend
       </button>
     </div>
   );

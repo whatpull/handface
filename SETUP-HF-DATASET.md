@@ -1,6 +1,8 @@
 # HF Dataset 영속화 셋업 가이드
 
-`/snn-lab` 의 **HF Dataset 영속화** 토글을 실제로 동작시키기 위한 1회 셋업 절차.
+> **2026-05-09 갱신 (Live 5차):** `/snn-lab` 라우트는 폐기되었습니다. 본 가이드의 **HF Dataset 영속화** 절차는 `whatpull-neuronface` HF Spaces backend (`/persist/*` 라우트) 자체의 영속 설정만 다룹니다. 프론트엔드 토글 UI는 현재 root `/handface/` 에 노출되지 않으며, backend 직접 호출 / 자체 호스팅 시점에만 의미가 있습니다.
+
+HF Spaces backend 의 **HF Dataset 영속화** 를 실제로 동작시키기 위한 1회 셋업 절차.
 
 ## 전제
 
@@ -67,35 +69,21 @@ curl https://whatpull-neuronface.hf.space/persist/health \
 
 `backend: "memory"` 가 나오면 secret 등록 / restart 가 반영 안 됨.
 
-### 4-B. frontend `/snn-lab` UI
-
-1. https://whatpull.github.io/handface/snn-lab/ 접속
-2. 헤더 우측 **HF Dataset 영속화** 체크박스 ON
-3. 즉시 emerald 표시 확인:
-   ```
-   ✓ HF Dataset 영속 (whatpull/snn-weights)
-   ```
-4. amber 경고 표시 시 → 3단계 secret 재확인 + Spaces restart
-
-### 4-C. 영속 round-trip 검증
-
-1. `/snn-lab` 에서 4×4 grid 패턴 그리기 (예: ─ horizontal)
-2. **Train ─** 6 회 → cluster 0 가중치 진화
-3. **Save** → 콘솔 로그 `save → rev=1` 확인
-4. **다른 브라우저** (또는 시크릿 모드) 로 같은 URL 접속, 같은 토글 ON
-5. **Infer** ─ → cluster 0 winner (share > 0.5) 확인 — 가중치가 dataset 에서 복원됨
-
-### 4-D. HF Dataset 직접 확인
+### 4-B. HF Dataset 직접 확인
 
 https://huggingface.co/datasets/whatpull/snn-weights/tree/main/snapshots
 
+backend `/persist/*` 라우트 사용 시 dataset 에 다음 구조로 적재됩니다 (netId 별 디렉토리):
+
 ```
 snapshots/
-  snn-lab-default/
+  <netId>/
     topology.json    NetworkSnapshot
     weights.json     WeightSnapshot (latest)
     deltas.jsonl     WeightDelta append-only
 ```
+
+> **메모:** 직전 `/snn-lab` UI 가 사용하던 `snn-lab-default` netId 는 폐기되었습니다 (Live 5차, 2026-05-09). root `/handface/` Live 모드는 브라우저 `localStorage` 영역 영속 (`netId='root-pipeline-orientation'` / `'root-pipeline-gesture'`) — backend HF Dataset round-trip 영역 사용하지 않습니다.
 
 ## 트러블슈팅
 

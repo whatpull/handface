@@ -14,9 +14,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
-import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
+import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail, type InputModeDetail } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
-import { getRootLocalSnn } from '@/lib/snn/root-local-snn';
+import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
 import { getLiveSnn } from '@/lib/snn/live-snn';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
@@ -85,14 +85,37 @@ export default function GridInput() {
   // engineMode='live' 시점 LiveSnn 영역 시작. grid 변경 영역 즉시 setPattern
   // → 200ms tick loop 영역 inject + run + cluster firing 측정.
   // engineMode 변경 (live → backend/local) 시 stop.
+  //
+  // PR #171 audit fix (Fix 1 — QA HIGH): grid pixel toggle 매 시점 cleanup +
+  // re-start 영역 thrash 회피 영역 effect 영역 split.
+  //   - Effect A (deps: [engineMode]): mount/unmount + start/stop 영역 1 회.
+  //   - Effect B (deps: [engineMode, grid]): pattern sync 영역 setPattern 만.
+  // PR #171 audit fix (Fix 2 — QA HIGH): substrate kind 영역 LiveSnn 자체
+  // input-mode listener 영역 derive — 명시 setSubstrate 호출 영역 제거 영역
+  // GridInput / CameraInput 동시 mount race 영역 회피.
   useEffect(() => {
     if (engineMode !== 'live') return;
+    // NodeInput input-mode emit 영역 LiveSnn 미초기화 시점 영역 missed catch —
+    // GridInput Live mount 시 idempotent re-emit 영역 substrate sync 보장.
+    emitBackendEvent<InputModeDetail>('input-mode', { mode: 'grid' });
     const live = getLiveSnn();
-    live.setPattern(grid);
     live.start();
     return () => {
-      live.stop();
+      try {
+        live.stop();
+      } catch {
+        // ignore
+      }
     };
+  }, [engineMode]);
+
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    try {
+      getLiveSnn().setPattern(grid);
+    } catch {
+      // ignore — SSR / 미초기화.
+    }
   }, [engineMode, grid]);
 
   const buildSubstrate = useCallback(async () => {
@@ -117,7 +140,7 @@ export default function GridInput() {
     // ── Local mode: 브라우저 내 LocalSNN 으로 학습 (no backend round-trip)
     if (engineMode === 'local') {
       try {
-        const root = await getRootLocalSnn();
+        const root = await getRootLocalSnnFor('orientation');
         const allPatterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
         const r = await root.client.clusterTrainRStdp({
           patterns: allPatterns,
@@ -295,7 +318,7 @@ export default function GridInput() {
     // ── Local mode ────────────────────────────────────────────────
     if (engineMode === 'local') {
       try {
-        const root = await getRootLocalSnn();
+        const root = await getRootLocalSnnFor('orientation');
         // grid (16-dim binary) → InjectEvent[] (>0.5 dim 만 active).
         const events = grid
           .map((v, i) => {
@@ -353,6 +376,8 @@ export default function GridInput() {
   }, [status]);
 
   // Live 모드 전용 — R-STDP positive reward 즉시 (사용자 명시 라벨 신호).
+  // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode event
+  // 영역 LiveSnn 자체 substrate kind 영역 derive 영역 race 회피.
   const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     setStatus({ kind: 'training', cluster: clusterIdx });
     try {
@@ -440,15 +465,21 @@ export default function GridInput() {
         ))}
       </div>
 
+      {/* PR #171 audit fix (Fix 3 — UX HIGH): Live 영역 추론 button hide —
+          winner 영역 NodeInfer 영역 자동 표시 (PR #170 wiring 정합). Reset
+          button 영역 visible 유지 영역 사용자 명시 catch (가중치 reset 영역
+          명시 신호). */}
       <div className="snn-grid-actions">
-        <button
-          type="button"
-          className="snn-grid-infer-btn"
-          onClick={runInfer}
-          disabled={isBusy}
-        >
-          추론
-        </button>
+        {!isLiveMode && (
+          <button
+            type="button"
+            className="snn-grid-infer-btn"
+            onClick={runInfer}
+            disabled={isBusy}
+          >
+            추론
+          </button>
+        )}
         <button
           type="button"
           className="snn-grid-reset-btn"

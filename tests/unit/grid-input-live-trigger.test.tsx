@@ -1,9 +1,17 @@
-// GridInput — Live mode 영역 1-shot trigger 검증 (사용자 catch 2026-05-09 B).
+// GridInput — Live mode 영역 명시 trigger 검증 (PR-A architecture pivot 2026-05-09).
 //
-// G1: pixel toggle 영역 Live mode → live.setPattern + triggerOnce 1회.
+// 직전 (PR #184): pixel/preset click → triggerOnce 1-shot (auto-on-click).
+// 본 정정 (PR-A 사용자 catch A1): pixel/preset click → setPattern only.
+//   학습/추론 trigger 영역 명시 button 영역 한정 (사용자 명시):
+//     - "추론" button 영역 click → inferOnce (stdpGain=0, 가중치 변경 0)
+//     - "현재 패턴 보강" button 영역 click → reinforce (R-STDP supervised)
+//
+// G1: pixel toggle 영역 Live mode → setPattern only — triggerOnce 호출 0.
 // G2: pixel toggle Backend mode → live API 0 호출 (engineMode='backend').
-// G3: applyPreset 영역 Live mode → live.setPattern + triggerOnce 1회.
-// G4: 다 클릭 × 3 — triggerOnce 3회 (사용자 명시 1-shot 정합).
+// G3: applyPreset 영역 Live mode → setPattern only — triggerOnce 호출 0.
+// G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix).
+// G5: '추론' button click 영역 Live mode → inferOnce 1회 (명시 trigger).
+// G6: '현재 패턴 보강' button click 영역 Live mode → reinforce(targetCluster) 1회.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
@@ -12,12 +20,22 @@ import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 const mockSetPattern = vi.fn();
 const mockTriggerOnce = vi.fn(async () => ({ saveFailed: false }));
 const mockReinforce = vi.fn(async () => ({ saveFailed: false }));
+const mockInferOnce = vi.fn(async () => ({ saveFailed: false }));
 
 vi.mock('@/lib/snn/live-snn', () => ({
   getLiveSnn: vi.fn(() => ({
     setPattern: mockSetPattern,
     triggerOnce: mockTriggerOnce,
     reinforce: mockReinforce,
+    inferOnce: mockInferOnce,
+  })),
+}));
+
+// ── root-local-snn mock — Step 4 학습 reset path 영역 stub. ──
+vi.mock('@/lib/snn/root-local-snn', () => ({
+  getRootLocalSnnFor: vi.fn(async () => ({
+    client: { resetClusterWeights: vi.fn(async () => ({ neurons: 0, synapses: 0, preset: 'n13' })) },
+    lab: { save: vi.fn(async () => 1) },
   })),
 }));
 
@@ -44,11 +62,12 @@ vi.mock('@/lib/backend/client', () => ({
 
 import GridInput from '@/components/snn/pipeline/GridInput';
 
-describe('GridInput — event-driven 1-shot trigger (Live mode)', () => {
+describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)', () => {
   beforeEach(() => {
     mockSetPattern.mockClear();
     mockTriggerOnce.mockClear();
     mockReinforce.mockClear();
+    mockInferOnce.mockClear();
     mockUseEngineMode.mockReturnValue(['live', vi.fn()]);
   });
 
@@ -56,14 +75,16 @@ describe('GridInput — event-driven 1-shot trigger (Live mode)', () => {
     cleanup();
   });
 
-  it('G1: pixel toggle 영역 Live mode → setPattern + triggerOnce 1회', async () => {
+  it('G1: pixel toggle 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
     render(<GridInput />);
     const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
     expect(pixels).toHaveLength(16);
     fireEvent.click(pixels[0]);
-    // setPattern 영역 즉시 호출 + useEffect [grid] sync 영역 1회 영역 — 합 2회 catch 정합.
+    // 사용자 catch A1: pixel click 영역 학습 trigger 영역 본격 폐기 — setPattern only.
     expect(mockSetPattern).toHaveBeenCalled();
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    expect(mockTriggerOnce).not.toHaveBeenCalled();
+    expect(mockInferOnce).not.toHaveBeenCalled();
+    expect(mockReinforce).not.toHaveBeenCalled();
   });
 
   it('G2: pixel toggle Backend mode → live API 0 호출', async () => {
@@ -72,27 +93,55 @@ describe('GridInput — event-driven 1-shot trigger (Live mode)', () => {
     const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
     fireEvent.click(pixels[0]);
     expect(mockTriggerOnce).not.toHaveBeenCalled();
-    // setPattern 영역 useEffect [engineMode, grid] 영역 backend mode 영역 early
-    // return 영역 0 호출.
+    expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockSetPattern).not.toHaveBeenCalled();
   });
 
-  it('G3: applyPreset 영역 Live mode → setPattern + triggerOnce 1회', async () => {
+  it('G3: applyPreset 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
     render(<GridInput />);
-    // preset button 영역 'cluster 0' label catch (title='horizontal').
     const presetBtns = screen.getAllByRole('button', { name: /cluster 0/i });
-    // 첫 번째 영역 preset apply button (snn-grid-preset-btn).
     fireEvent.click(presetBtns[0]);
     expect(mockSetPattern).toHaveBeenCalled();
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    expect(mockTriggerOnce).not.toHaveBeenCalled();
+    expect(mockInferOnce).not.toHaveBeenCalled();
   });
 
-  it('G4: pixel click × 3 → triggerOnce 3회 (1-shot 누적)', async () => {
+  it('G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix)', async () => {
     render(<GridInput />);
     const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
     fireEvent.click(pixels[0]);
     fireEvent.click(pixels[1]);
     fireEvent.click(pixels[2]);
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(3);
+    expect(mockTriggerOnce).not.toHaveBeenCalled();
+    expect(mockInferOnce).not.toHaveBeenCalled();
+    // setPattern 영역 매 click 영역 호출 — Live runtime 영역 다음 추론 영역 stale 방지.
+    expect(mockSetPattern.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('G5: 추론 button click 영역 Live mode → inferOnce 1회 (명시 trigger)', async () => {
+    render(<GridInput />);
+    // PR #191 polish (UX-6, 2026-05-10): 추론 button 영역 aria-label 'STDP off,
+    // 가중치 변경 0' 영역 명시 — accessible name override.
+    const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
+    fireEvent.click(inferBtn);
+    // 비동기 inferOnce 영역 microtask 영역 wait.
+    await Promise.resolve();
+    expect(mockInferOnce).toHaveBeenCalledTimes(1);
+    // setPattern 영역 추론 직전 영역 1회 — runInferLive 영역 명시 setPattern.
+    expect(mockSetPattern).toHaveBeenCalled();
+  });
+
+  it('G6: 현재 패턴 보강 button click → reinforce(targetCluster, 2.0) 1회', async () => {
+    render(<GridInput />);
+    // PR #191 polish (UX-6, 2026-05-10): cluster N 보강 button 영역 aria-label
+    // 'cluster N 현재 패턴 보강 — supervised R-STDP' 영역 명시 정합 query.
+    const reinforceBtns = screen.getAllByRole('button', {
+      name: /현재 패턴 보강 — supervised R-STDP$/,
+    });
+    expect(reinforceBtns).toHaveLength(4);
+    fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
+    await Promise.resolve();
+    expect(mockReinforce).toHaveBeenCalledTimes(1);
+    expect(mockReinforce).toHaveBeenCalledWith(1, 2.0);
   });
 });

@@ -1653,6 +1653,31 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* UX-9 (PR #191 polish, 2026-05-10): 추론 button primary tone — INFERENCE
+   phase 정합 cyan border-glow 영역 본격 path 시각 강조. base .snn-grid-infer-btn
+   영역 위 영역 modifier 영역 stack — 기존 hover bg 정합. */
+.snn-grid-infer-btn--primary {
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15);
+}
+.snn-grid-infer-btn--primary:hover:not(:disabled) {
+  border-color: rgba(34, 211, 238, 0.85);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 12px rgba(34, 211, 238, 0.3);
+}
+
+/* UX-8 (PR #191 polish, 2026-05-10): 학습 reset visual danger separation —
+   weight-destructive action 영역 red border-glow + hover red bg 영역 시각
+   경고. base .snn-grid-reset-btn 영역 위 영역 modifier 영역 stack. */
+.snn-grid-reset-btn--danger {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: rgba(252, 165, 165, 0.95);
+}
+.snn-grid-reset-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.8);
+  color: rgba(254, 202, 202, 1);
+}
+
 /* coarse pointer (touch device) — WCAG 권장 touch target 정합. button
    min-height 32px, preset row min-height 36px. 데스크톱 mouse 는 영향 0. */
 @media (pointer: coarse) {

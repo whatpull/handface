@@ -30,6 +30,7 @@ export type WorkerRequest =
   | { id: number; type: 'clusterTrainRStdp'; payload: ClusterTrainRStdpPayload }
   | { id: number; type: 'getNetworkTime' }
   | { id: number; type: 'resetHomeostatic' }
+  | { id: number; type: 'resetClusterWeights' }
   | { id: number; type: 'reset' };
 
 export interface BuildPayload {
@@ -178,6 +179,19 @@ export interface ClusterTrainRStdpResult {
 // 영역 main thread 영역 currentT 영역 catch 영역 inject(time=currentT) 영역 정합.
 export interface GetNetworkTimeResult {
   t: number; // 현재 net.t (ms).
+}
+
+// PR-A architecture pivot (사용자 catch 2026-05-09 — Step 4 saturation escape):
+// 학습 가중치 영역 fresh build default 영역 restore. n13 builder 영역 default
+// weight (cluster_active_inputs 영역 hard-wired sub-cluster) 영역 swap. 직전
+// horizontal lock-in 영역 IndexedDB 영속 영역 새로고침 영역 escape 0 영역 catch
+// — 본 RPC 영역 mandatory escape path.
+// 정직 한계: snapshot.t / homeostatic state / spike history 영역 동시 0 reset
+// (fresh build 정합 영역 batch 정합).
+export interface ResetClusterWeightsResult {
+  neurons: number;
+  synapses: number;
+  preset: string;
 }
 
 // PR fix/live-mode-time-and-restore — homeostatic thresholdOffset 영역 reset.

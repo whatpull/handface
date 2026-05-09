@@ -5,8 +5,46 @@
 import { WINNER_MARGIN_DEFAULT } from '@/lib/snn/winner-derivation';
 
 export const CLUSTER_TARGET = 30;
+
 // path Y (2026-05-07) — orientation 4종 정합 (자세 라벨 폐기).
-export const CLUSTER_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
+// 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster 의미가 다름.
+// 직전 hardcoded 'orientation' 라벨 → mode-aware 함수로 정정.
+export const CLUSTER_LABELS_GRID = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
+
+// CAMERA mode (제스처) — feature-encoder.ts 의 cluster slot 정합.
+//   0 = Pointing, 1 = Open Palm, 2 = Closed Fist, 3 = Victory.
+// VS-15 (U+FE0E) 로 text presentation 강제 (cluster 0 만 컬러 emoji catch 정정).
+export const CLUSTER_LABELS_CAMERA = ['☝︎ Pointing', '✋︎ Open Palm', '✊︎ Closed Fist', '✌︎ Victory'] as const;
+
+export type InputModeKind = 'grid' | 'camera';
+
+/**
+ * mode 별 cluster label.
+ *  - 'grid'   → orientation (─ │ ╲ ╱)
+ *  - 'camera' → gesture (Pointing / Open Palm / Closed Fist / Victory)
+ *
+ * cluster id 0..3 외 (예: ART expansion 으로 생성된 5+) → `cluster N` fallback.
+ */
+export function getClusterLabel(cluster: number, mode: InputModeKind = 'grid'): string {
+  const table = mode === 'camera' ? CLUSTER_LABELS_CAMERA : CLUSTER_LABELS_GRID;
+  if (cluster >= 0 && cluster < table.length) return table[cluster];
+  return `cluster ${cluster}`;
+}
+
+/**
+ * mode 별 4-cluster label 배열 — 기존 CLUSTER_LABELS 호환 path.
+ * NodeLearn / NodeInfer / NodeOut 가 inputMode 받아 사용.
+ */
+export function getClusterLabels(mode: InputModeKind = 'grid'): readonly string[] {
+  return mode === 'camera' ? CLUSTER_LABELS_CAMERA : CLUSTER_LABELS_GRID;
+}
+
+/**
+ * @deprecated 호환용 — mode-aware getClusterLabel(idx, mode) 사용 권장.
+ * 기존 path Y orientation default 유지. 새 코드는 mode 인자 명시.
+ */
+export const CLUSTER_LABELS = CLUSTER_LABELS_GRID;
+
 export const SATURATION_HZ = 400;
 export const WINNER_MARGIN = WINNER_MARGIN_DEFAULT;
 export const HISTORY_MAX = 32;

@@ -28,7 +28,7 @@ import {
 } from '@/lib/snn/use-hand-control';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { CLUSTER_LABELS, CLUSTER_TARGET } from './shared';
+import { CLUSTER_TARGET, getClusterLabel, getClusterLabels } from './shared';
 
 // path Y (2026-05-07): grid 학습 진행 — GridInput 가 broadcast 하는
 // grid-training event 의 누적 state. cluster 별 학습 완료 여부 + 마지막
@@ -328,9 +328,13 @@ export default function NodeLearn() {
   const effectivePhase = inputMode === 'grid' ? gridPhase : (phase?.phase ?? 'untrained');
   const effectiveClusterFrames = inputMode === 'grid' ? gridClusterFrames : (phase?.clusterFrames ?? { 0: 0, 1: 0, 2: 0, 3: 0 });
 
+  // mode 별 cluster label — GRID: orientation / CAMERA: gesture (사용자 catch
+  // 2026-05-09). hardcoded 'CLUSTER_LABELS' (orientation only) → mode-aware.
+  const clusterLabels = useMemo(() => getClusterLabels(inputMode), [inputMode]);
+
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
-    const activeLabel = activeCluster >= 0 ? CLUSTER_LABELS[activeCluster] : '';
+    const activeLabel = activeCluster >= 0 ? getClusterLabel(activeCluster, inputMode) : '';
     const activeCount = activeCluster >= 0 ? effectiveClusterFrames[activeCluster as 0|1|2|3] : 0;
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
@@ -369,7 +373,7 @@ export default function NodeLearn() {
       },
     };
     return config[p];
-  }, [effectivePhase, activeCluster, effectiveClusterFrames]);
+  }, [effectivePhase, activeCluster, effectiveClusterFrames, inputMode]);
 
   // teacher 라인 — 사용자 catch 2026-05-07: stable count visible.
   // mappable + conf 통과 시 [N/5 stable] suffix → 학습 trigger 임박 사실 catch.
@@ -437,7 +441,7 @@ export default function NodeLearn() {
           return (
             <ClusterRow
               key={i}
-              label={CLUSTER_LABELS[i]}
+              label={clusterLabels[i]}
               count={count}
               done={done}
               active={active}
@@ -454,11 +458,11 @@ export default function NodeLearn() {
           </span>
         </div>
       )}
-      {inputMode === 'grid' && gridProgress.lastResult && (
+      {gridProgress.lastResult && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">last</span>
           <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">
-            {CLUSTER_LABELS[gridProgress.lastResult.cluster]} —
+            {clusterLabels[gridProgress.lastResult.cluster]} —
             정확도 {(gridProgress.lastResult.accuracy * 100).toFixed(0)}%
           </span>
         </div>

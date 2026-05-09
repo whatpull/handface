@@ -5,7 +5,7 @@
 // UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 일부.
 
 import { useEffect, useRef, useState } from 'react';
-import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
+import { onBackendEvent, type InputModeDetail } from '@/lib/backend/events';
 import {
   loadExemplars,
   subscribeExemplars,
@@ -14,11 +14,15 @@ import {
 } from '@/lib/snn/out-exemplars';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
+import { getClusterLabel } from './shared';
 
 export default function NodeOut() {
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
+  // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
+  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
 
   useEffect(() => subscribeExemplars(setExemplars), []);
+  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
   const { winner } = usePipelineEvents();
@@ -26,7 +30,7 @@ export default function NodeOut() {
   const winnerKey = winner.cluster !== null ? `out_${winner.cluster}_0` : null;
   const winnerEx = winnerKey ? exemplars[winnerKey] : undefined;
   const winnerLabel = winner.cluster !== null
-    ? (winnerEx?.label || CLUSTER_TO_LABEL[winner.cluster] || `cluster ${winner.cluster}`)
+    ? (winnerEx?.label || getClusterLabel(winner.cluster, inputMode))
     : null;
 
   const onExport = () => {
@@ -77,7 +81,7 @@ export default function NodeOut() {
           return (
             <div key={ci} className="snn-pipeline-out-count-row">
               <span className="snn-pipeline-out-count-label">
-                {ex?.label || CLUSTER_TO_LABEL[ci] || `c${ci}`}
+                {ex?.label || getClusterLabel(ci, inputMode)}
               </span>
               <span className="snn-pipeline-out-count-value">{ex?.count ?? 0}</span>
             </div>

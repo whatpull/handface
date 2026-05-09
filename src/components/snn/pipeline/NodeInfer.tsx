@@ -4,19 +4,26 @@
 // HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
 // UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 일부.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   onBackendEvent,
+  type InputModeDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { CLUSTER_LABELS, SATURATION_HZ } from './shared';
+import { SATURATION_HZ, getClusterLabels } from './shared';
 
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
+  // 사용자 catch 2026-05-09: input mode 별 cluster label (GRID: orientation
+  // / CAMERA: gesture). NodeInput 의 input-mode event 영역 listen.
+  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
+  const clusterLabels = useMemo(() => getClusterLabels(inputMode), [inputMode]);
+
+  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
   // Online/offline detection — MediaPipe-only badge 표시 catch path.
   // SSR 영역 typeof navigator undefined → default true (online assume).
   const [online, setOnline] = useState<boolean>(
@@ -66,7 +73,11 @@ export default function NodeInfer() {
   const pname = phase?.phase ?? 'untrained';
   const trained = pname === 'trained' || pname === 'inference';
   const max = Math.max(...winner.clusterRates, 1);
-  const winnerLabel = winner.cluster !== null ? CLUSTER_TO_LABEL[winner.cluster] : null;
+  // mode-aware winner label — GRID: orientation / CAMERA: gesture
+  // (사용자 catch 2026-05-09). 사용자 rename 영역 OUT exemplar 영역 별도 path.
+  const winnerLabel = winner.cluster !== null
+    ? (clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`)
+    : null;
   const confPct = (winner.confidence * 100).toFixed(0);
 
   return (
@@ -108,13 +119,13 @@ export default function NodeInfer() {
         <span className="snn-pipeline-row-label">winner</span>
         <span className="snn-pipeline-row-value">
           {winner.cluster !== null
-            ? `${CLUSTER_TO_LABEL[winner.cluster]} (margin ${(winner.margin * 100).toFixed(0)}%)`
+            ? `${clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`} (margin ${(winner.margin * 100).toFixed(0)}%)`
             : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
         </span>
       </div>
       <div className="snn-pipeline-rate-grid">
         {winner.clusterRates.map((r, i) => (
-          <RateBar key={i} label={CLUSTER_LABELS[i]} rate={r} max={max}
+          <RateBar key={i} label={clusterLabels[i]} rate={r} max={max}
             isWinner={winner.cluster === i} isSaturated={r >= SATURATION_HZ} />
         ))}
       </div>

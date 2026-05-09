@@ -338,7 +338,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         <video id="snn-cam-video" className="snn-camera-mirror snn-cam-video" playsInline muted />
         <canvas id="snn-cam-skel" className="snn-camera-mirror snn-cam-skel" width={640} height={480} />
         <div id="snn-cam-empty" className="snn-pipeline-cam-empty">
-          <span>Camera off — enable from sidebar</span>
+          <span>카메라 꺼짐 — 좌측 사이드바에서 활성화</span>
         </div>
       </div>
 

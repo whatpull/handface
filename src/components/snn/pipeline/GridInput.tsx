@@ -359,7 +359,7 @@ export default function GridInput() {
             className="snn-grid-build-btn"
             onClick={trainAllRoundRobin}
             disabled={isBusy}
-            title="4 cluster 균등 round-robin 학습 — 정확 학습 path"
+            title="4 cluster 균등하게 학습 — 정확도 향상"
           >
             전체 학습 (round-robin)
           </button>

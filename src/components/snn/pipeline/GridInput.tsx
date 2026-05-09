@@ -18,7 +18,13 @@ import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInf
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn } from '@/lib/snn/live-snn';
 
-export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
+// 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
+// only 영역 일관 정합. 직전 '─ horizontal' / '│ vertical' / '╲ diag-back' /
+// '╱ diag-fore' → 'horizontal' / 'vertical' / 'diag-back' / 'diag-fore'.
+// status message / round-robin summary 영역 ORIENTATION_LABELS 영역 swap.
+// ORIENTATION_GLYPHS 영역 src 사용 0 단 unit test 영역 length 검증 catch — 제거
+// 0 영역 export 유지.
+export const ORIENTATION_LABELS = ['horizontal', 'vertical', 'diag-back', 'diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
 
 // 16-dim preset pattern — row-major 4×4 grid.
@@ -190,7 +196,7 @@ export default function GridInput() {
     const accPct = (accuracy * 100).toFixed(0);
     setStatus({
       kind: 'ok',
-      message: `${ORIENTATION_GLYPHS[clusterIdx]} ${accPct}% (${totalCorrect}/${totalTrained})`,
+      message: `${ORIENTATION_LABELS[clusterIdx]} ${accPct}% (${totalCorrect}/${totalTrained})`,
     });
     emitBackendEvent<GridTrainingDetail>('grid-training', {
       kind: 'finished',
@@ -259,7 +265,7 @@ export default function GridInput() {
     const accs = totals.map((c, i) => trained[i] > 0 ? Math.round(c / trained[i] * 100) : 0);
     setStatus({
       kind: 'ok',
-      message: `round-robin 완료 — ─${accs[0]}% │${accs[1]}% ╲${accs[2]}% ╱${accs[3]}%`,
+      message: `round-robin 완료 — ${ORIENTATION_LABELS[0]} ${accs[0]}% / ${ORIENTATION_LABELS[1]} ${accs[1]}% / ${ORIENTATION_LABELS[2]} ${accs[2]}% / ${ORIENTATION_LABELS[3]} ${accs[3]}%`,
     });
     const totalCorrect = totals.reduce((a, b) => a + b, 0);
     const totalTrained = trained.reduce((a, b) => a + b, 0);
@@ -300,7 +306,7 @@ export default function GridInput() {
     switch (status.kind) {
       case 'idle': return '대기 중';
       case 'building': return '회로 빌드 중…';
-      case 'training': return `${ORIENTATION_GLYPHS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
+      case 'training': return `${ORIENTATION_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
       case 'ok': return status.message;
       case 'error': return status.message;
@@ -324,12 +330,12 @@ export default function GridInput() {
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
+          message: `${ORIENTATION_LABELS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
         });
       } else {
         setStatus({
           kind: 'ok',
-          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1`,
+          message: `${ORIENTATION_LABELS[clusterIdx]} 강화 +1`,
         });
       }
     } catch (e) {
@@ -398,7 +404,7 @@ export default function GridInput() {
               disabled={isBusy && !isLiveMode}
               title={label}
             >
-              <span className="snn-grid-preset-glyph">{ORIENTATION_GLYPHS[i]}</span>
+              {/* 사용자 catch 2026-05-09 (2 신규 catch): cluster N 앞 glyph 본격 제거. */}
               <span className="snn-grid-preset-label">cluster {i}</span>
             </button>
             <button

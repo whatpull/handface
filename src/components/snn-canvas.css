@@ -1764,14 +1764,9 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.snn-grid-preset-glyph {
-  font-size: 16px;
-  font-family: ui-monospace, monospace;
-  width: 18px;
-  text-align: center;
-  color: #fff;
-  flex-shrink: 0;
-}
+/* 사용자 catch 2026-05-09 (3 신규 catch): .snn-grid-preset-glyph 영역 사용 0
+   영역 dead CSS catch — PR #179 영역 GridInput / CameraInput 영역 button glyph
+   span 영역 제거 path 영역 본 class 영역 reference 0. 본 rule 영역 제거. */
 .snn-grid-preset-label {
   font-size: var(--pipe-font-xs);
   color: var(--pipe-text-dim);

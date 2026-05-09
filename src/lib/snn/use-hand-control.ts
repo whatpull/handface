@@ -54,10 +54,10 @@ export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {
 // camera 모드의 GESTURE_LABEL_TO_CLUSTER 는 supervisor 학습용 매핑 보존
 // (자세 → cluster id) — camera 사용 시 backward compat.
 export const CLUSTER_TO_LABEL: Record<number, string> = {
-  0: '─ horizontal',
-  1: '│ vertical',
-  2: '╲ diag-back',
-  3: '╱ diag-fore',
+  0: 'horizontal',
+  1: 'vertical',
+  2: 'diag-back',
+  3: 'diag-fore',
 };
 
 // supervised teacher 정합 임계 — 0.6 (사용자 명시 2026-05-05).

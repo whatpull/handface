@@ -56,6 +56,16 @@ export interface LiveTickDetail {
    */
   trial: number;
   tickAtMs: number; // performance.now()
+  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): push event 영역
+  // 도달 시점 영역 caller (GridInput / CameraInput) 영역 reinforcingCluster
+  // 영역 정확 reset 영역 mandatory hint. trialToken 영역 fire-and-forget RPC
+  // 영역 monotonic seq 영역 catch + source 영역 'trigger' / 'infer' / 'reinforce'
+  // 영역 caller 영역 status copy 영역 정합 catch.
+  trialToken?: number;
+  source?: 'trigger' | 'reinforce';
+  // reinforce 영역 targetCluster — caller 영역 in-flight gate 영역 cluster-specific
+  // reset 영역 정합 (직전 setTimeout 100ms 영역 race 회피).
+  targetCluster?: number;
 }
 
 export interface LiveSnnOptions {
@@ -559,7 +569,12 @@ export class LiveSnn {
     // 본 path 영역 미적용 — worker 영역 sequential serial 영역 자연 정합 +
     // main thread 영역 stale token 영역 dispatch 0 (push order = trial order).
     this.trialCount += 1;
-    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz);
+    // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken + source 영역 LiveTickDetail
+    // 영역 동봉 → caller 영역 reinforcingCluster 영역 token match 영역 reset.
+    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
+      trialToken: payload.trialToken,
+      source: 'trigger',
+    });
     // saveDebounced fire-and-forget — 사용자 결과 표시 영역 IndexedDB write
     // 영역 wait 0. force=false (throttle 정합 — supervised path 영역 reinforce
     // 별도 force=true).
@@ -568,7 +583,11 @@ export class LiveSnn {
 
   private handleReinforceComplete(root: RootLocalSnn, payload: ReinforceCompletePayload): void {
     this.trialCount += 1;
-    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz);
+    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
+      trialToken: payload.trialToken,
+      source: 'reinforce',
+      targetCluster: payload.targetCluster,
+    });
     // force=true — supervised reward 영역 즉시 영속 (saveDebounced throttle bypass).
     void this.saveDebounced(root, true);
   }
@@ -596,7 +615,12 @@ export class LiveSnn {
     return out;
   }
 
-  private emitTick(cfr: ClusterFiringRatesResult, v1Hz = 0, v2Hz = 0): void {
+  private emitTick(
+    cfr: ClusterFiringRatesResult,
+    v1Hz = 0,
+    v2Hz = 0,
+    meta?: { trialToken?: number; source?: 'trigger' | 'reinforce'; targetCluster?: number },
+  ): void {
     if (typeof window === 'undefined') return;
     const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
@@ -607,6 +631,10 @@ export class LiveSnn {
       patternActive,
       trial: this.trialCount,
       tickAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+      // PR #192 polish (UX-3 + QA FINDING-1/2): token-aware reset hint.
+      trialToken: meta?.trialToken,
+      source: meta?.source,
+      targetCluster: meta?.targetCluster,
     };
     window.dispatchEvent(new CustomEvent<LiveTickDetail>(TICK_EVENT, { detail }));
     // PR3 (사용자 catch 2026-05-09): NodeInfer / PipelineEventContext 영역

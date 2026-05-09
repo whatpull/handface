@@ -36,7 +36,7 @@ import {
   GESTURE_CLUSTER_ACTIVE_INPUTS,
   sharpenForGesture,
 } from '@/lib/mediapipe/feature-encoder';
-import { getLiveSnn } from '@/lib/snn/live-snn';
+import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import {
   GESTURE_LABEL_TO_CLUSTER,
   GESTURE_CONFIDENCE_MIN,
@@ -268,6 +268,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // 현재 lastFeature 영역 setPattern + reinforce(gain=2.0) — 즉시 1 회 inject
   // + run + lab.save (가중치 영속). 학술 정합: Hebbian + reward modulation
   // (Florian 2007, Izhikevich 2007 R-STDP 정합).
+  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): pending reinforce
+  // trialToken 영역 ref 영역 push event listener 영역 match catch — 직전
+  // setTimeout 100ms race 영역 회피.
+  const pendingReinforceTokenRef = useRef<number | null>(null);
+
   const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
     if (lastFeatureRef.current === null) {
       setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
@@ -283,21 +288,50 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
       // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
       // event 영역 별도 emit (NodeLearn / NodeInfer 영역 자동 sync).
-      live.reinforceAsync(clusterIdx, 2.0);
-      setStatus({
-        kind: 'ok',
-        message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 요청 완료 (백그라운드 처리)`,
-      });
+      // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') swap.
+      // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken capture + listener.
+      const { trialToken } = live.reinforceAsync(clusterIdx, 2.0);
+      pendingReinforceTokenRef.current = trialToken;
+      // safety-net — 100 → 2000ms elevate (worker simulation + IndexedDB +
+      // postMessage round-trip 영역 race 영역 회피 catch 영역 보수적).
+      setTimeout(() => {
+        if (pendingReinforceTokenRef.current === trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          setStatus((s) => s.kind === 'training'
+            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            : s);
+        }
+      }, 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
-    } finally {
-      // visual gate 영역 짧은 지연 후 reset — push event 영역 reset path 영역
-      // 별도 미구현 catch 영역 자연 정합 (worker sequential serial 영역 다음
-      // click 영역 latest token 영역 superseding catch).
-      setTimeout(() => setReinforcingCluster(null), 100);
+      setReinforcingCluster(null);
+      pendingReinforceTokenRef.current = null;
     }
   }, []);
+
+  // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
+  // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    return onLiveTick((d) => {
+      if (d.source === 'reinforce' && d.trialToken !== undefined) {
+        if (pendingReinforceTokenRef.current === d.trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          const tc = d.targetCluster;
+          const label = (tc !== undefined && tc >= 0 && tc < GESTURE_LABELS.length)
+            ? GESTURE_LABELS[tc]
+            : '패턴';
+          setStatus({ kind: 'ok', message: `${label} 보강 완료` });
+        }
+      }
+      // 정직 한계: CameraInput 영역 trigger (stable-pose) push event 영역
+      // status copy 영역 별도 update 0 — stable-pose 영역 자동 trigger 영역
+      // 사용자 액션 0 (background 영역 정합).
+    });
+  }, [engineMode]);
 
   const runInfer = useCallback(async () => {
     if (lastFeatureRef.current === null) {
@@ -434,7 +468,14 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         </div>
       )}
 
-      <div className={`snn-grid-status snn-grid-status--${status.kind}`}>
+      {/* PR #192 polish (UX-1): aria-live polite + role=status — 백그라운드
+          push event 영역 status swap 영역 screen reader 영역 정합. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={`snn-grid-status snn-grid-status--${status.kind}`}
+      >
         <span>{statusLine}</span>
       </div>
     </div>

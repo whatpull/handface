@@ -26,6 +26,8 @@ vi.mock('@/lib/snn/live-snn', () => ({
     triggerAsync: mockTriggerAsync,
     reinforceAsync: mockReinforceAsync,
   })),
+  // PR #192 polish (UX-3 token-aware reset): onLiveTick noop unsubscribe.
+  onLiveTick: vi.fn(() => () => undefined),
 }));
 
 // ── engine-mode mock — 'live' 영역 default. ──

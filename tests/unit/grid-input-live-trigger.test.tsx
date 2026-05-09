@@ -39,6 +39,11 @@ vi.mock('@/lib/snn/live-snn', () => ({
     inferAsync: mockInferAsync,
     reinforceAsync: mockReinforceAsync,
   })),
+  // PR #192 polish (UX-3 token-aware reset): onLiveTick 영역 LiveTickDetail
+  // listener export. test 영역 noop unsubscribe — push event emit 0 영역 본
+  // test 영역 listener wire path 영역 무관 (button click 영역 callback 호출
+  // 검증 only).
+  onLiveTick: vi.fn(() => () => undefined),
 }));
 
 // ── root-local-snn mock — Step 4 학습 reset path 영역 stub. ──

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail, type InputModeDetail } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
-import { getLiveSnn } from '@/lib/snn/live-snn';
+import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
 
 // 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
@@ -348,6 +348,12 @@ export default function GridInput() {
     }
   }, [status]);
 
+  // PR #192 polish (UX-2 + UX-3): in-flight token tracking — push event 영역
+  // trialToken match 영역 status 영역 '추론 완료' 영역 swap. setTimeout 2000ms
+  // 영역 safety-net (worker hang 영역 catch). pendingInferTokenRef 영역 mutable
+  // ref 영역 callback closure 영역 stale 회피.
+  const pendingInferTokenRef = useRef<number | null>(null);
+
   // PR-A architecture pivot (사용자 catch 2026-05-09 A1): Live 모드 영역
   // 명시 추론 trigger — pixel/preset click 영역 STDP off (togglePixel/applyPreset
   // 영역 setPattern only) 영역 정합. 본 button 영역 click 영역 inferOnce
@@ -361,10 +367,20 @@ export default function GridInput() {
       // 사용자 catch 2026-05-09 [2]: "버벅이고 유저 액션 지연발생" 영역 정정 —
       // 즉시 return + 결과 영역 worker push event 영역 별도 emit (NodeInfer 영역
       // neuron-firing event listen 영역 자동 sync).
-      // 정직 한계: status 영역 'inferring' 영역 표시 catch 단 결과 표시 영역
-      // 비동기 (cluster_rates 영역 NodeInfer 영역 별도 update path).
-      live.inferAsync();
-      setStatus({ kind: 'ok', message: '추론 요청 완료 (백그라운드 처리)' });
+      // PR #192 polish (UX-2): status 영역 진행형 ('추론 중…') 영역 swap —
+      // 직전 '추론 요청 완료 (백그라운드 처리)' 영역 misleading catch (사용자
+      // 영역 완료 인지 단 worker 영역 inline 영역 진행 中). 완료 영역 push
+      // event listener 영역 swap '추론 완료'.
+      const { trialToken } = live.inferAsync();
+      pendingInferTokenRef.current = trialToken;
+      setStatus({ kind: 'inferring' });
+      // safety-net — worker hang / push event lost 영역 2000ms 후 강제 reset.
+      setTimeout(() => {
+        if (pendingInferTokenRef.current === trialToken) {
+          pendingInferTokenRef.current = null;
+          setStatus((s) => s.kind === 'inferring' ? { kind: 'ok', message: '추론 완료 (timeout)' } : s);
+        }
+      }, 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
@@ -383,6 +399,10 @@ export default function GridInput() {
   // 1-pattern batch 영역 호출 (worker-core.ts:343-416 R-STDP 본격 구현 정합).
   // 직전 reinforce 영역 void targetCluster + STDP unsupervised self-reinforcing
   // loop 영역 horizontal 우연 winner 영역 lock-in 사실 영역 root cause 정정.
+  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): pending reinforce
+  // trialToken 영역 ref 영역 push event listener 영역 match catch.
+  const pendingReinforceTokenRef = useRef<number | null>(null);
+
   const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
     setStatus({ kind: 'training', cluster: clusterIdx });
     setReinforcingCluster(clusterIdx);
@@ -393,23 +413,58 @@ export default function GridInput() {
       // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
       // event 영역 별도 emit. UI 영역 click 영역 latency 영역 main thread block
       // 0 (R-STDP supervised batch 영역 worker thread 영역 처리).
-      // 정직 한계: in-flight gate (reinforcingCluster) 영역 동기 catch — push
-      // event 영역 도달 영역 별도 reset path 영역 catch 0 (timeout fallback 영역
-      // 100ms 영역 reset — worker 영역 sequential serialize 영역 자연 정합 catch
-      // 영역 다음 click 영역 latest token 영역 superseding catch).
-      live.reinforceAsync(clusterIdx, 2.0);
-      setStatus({
-        kind: 'ok',
-        message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 요청 완료 (백그라운드 처리)`,
-      });
+      // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') 영역 swap —
+      // 직전 '보강 요청 완료 (백그라운드 처리)' 영역 misleading catch.
+      // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken 영역 capture 영역
+      // push event listener 영역 정확 reset path 영역 정합 (직전 setTimeout
+      // 100ms race 영역 회피).
+      const { trialToken } = live.reinforceAsync(clusterIdx, 2.0);
+      pendingReinforceTokenRef.current = trialToken;
+      // safety-net — push event 영역 lost / worker hang 영역 2000ms 영역 elevate
+      // (직전 100ms 영역 worker simulation 50ms × 1 영역 정합 단 IndexedDB +
+      // postMessage 영역 latency 영역 race 영역 회피 catch 영역 보수적).
+      setTimeout(() => {
+        if (pendingReinforceTokenRef.current === trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          setStatus((s) => s.kind === 'training'
+            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            : s);
+        }
+      }, 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
-    } finally {
-      // 짧은 지연 후 in-flight gate 해제 — visual feedback 영역 한계 catch.
-      setTimeout(() => setReinforcingCluster(null), 100);
+      setReinforcingCluster(null);
+      pendingReinforceTokenRef.current = null;
     }
   }, [grid]);
+
+  // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
+  // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
+  // 직전 setTimeout 100ms 영역 race 영역 회피 — worker 영역 actual completion
+  // 시점 영역 sync.
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    return onLiveTick((d) => {
+      if (d.source === 'trigger' && d.trialToken !== undefined) {
+        if (pendingInferTokenRef.current === d.trialToken) {
+          pendingInferTokenRef.current = null;
+          setStatus({ kind: 'ok', message: '추론 완료' });
+        }
+      } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
+        if (pendingReinforceTokenRef.current === d.trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          const tc = d.targetCluster;
+          const label = (tc !== undefined && tc >= 0 && tc < ORIENTATION_LABELS.length)
+            ? ORIENTATION_LABELS[tc]
+            : '패턴';
+          setStatus({ kind: 'ok', message: `${label} 보강 완료` });
+        }
+      }
+    });
+  }, [engineMode]);
 
   const isLiveMode = engineMode === 'live';
 
@@ -570,7 +625,15 @@ export default function GridInput() {
         )}
       </div>
 
-      <div className={`snn-grid-status snn-grid-status--${status.kind}`}>
+      {/* PR #192 polish (UX-1): aria-live polite + role=status — 백그라운드
+          push event 영역 status swap 영역 screen reader 영역 정합 (직전 silent
+          DOM mutation 영역 a11y 영역 catch 0). */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={`snn-grid-status snn-grid-status--${status.kind}`}
+      >
         <span>{statusLine}</span>
       </div>
     </div>

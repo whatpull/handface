@@ -61,6 +61,73 @@ const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [
   [3, 6, 9, 12],
 ];
 
+// PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
+// 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
+// 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
+// 영역 catch 영역 silent 처리 0.
+const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
+  'build',
+  'restoreSnapshot',
+  'inject',
+  'run',
+  'snapshot',
+  'extractWeights',
+  'applyWeights',
+  'firingRates',
+  'regionFiringRates',
+  'expandCluster',
+  'clusterFiringRates',
+  'clusterTrainRStdp',
+  'getNetworkTime',
+  'resetHomeostatic',
+  'resetClusterWeights',
+  'reset',
+  'triggerBackground',
+  'reinforceBackground',
+]);
+
+// PR #192 polish (SEC-1): triggerBackground / reinforceBackground 영역 진입
+// payload validation guard. main thread 영역 LiveSnn 영역 보장 catch 단
+// 외부 worker 영역 hostile message 영역 catch 영역 defense-in-depth.
+// 정직 한계: pattern 영역 16-dim ∈ [0,1] 영역 binary catch (sharpenForGesture
+// 영역 정합) — 본 path 영역 length only 영역 catch (값 영역 worker-core 영역
+// inject events 영역 v <= 0.5 filter 영역 정합).
+function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
+  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
+    throw new Error('invalid pattern (expected length 16 array)');
+  }
+  if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
+    throw new Error('invalid repeats (expected 1..10)');
+  }
+  if (typeof p.observeMs !== 'number' || p.observeMs < 1 || p.observeMs > 1000) {
+    throw new Error('invalid observeMs (expected 1..1000)');
+  }
+  if (typeof p.intensity !== 'number' || p.intensity < 0 || p.intensity > 1000) {
+    throw new Error('invalid intensity (expected 0..1000)');
+  }
+  if (typeof p.stimulusDurationMs !== 'number' || p.stimulusDurationMs < 0 || p.stimulusDurationMs > 1000) {
+    throw new Error('invalid stimulusDurationMs (expected 0..1000)');
+  }
+}
+
+function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void {
+  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
+    throw new Error('invalid pattern (expected length 16 array)');
+  }
+  if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 31) {
+    throw new Error('invalid targetCluster (expected 0..31)');
+  }
+  if (typeof p.observeMs !== 'number' || p.observeMs < 1 || p.observeMs > 1000) {
+    throw new Error('invalid observeMs (expected 1..1000)');
+  }
+  if (typeof p.intensity !== 'number' || p.intensity < 0 || p.intensity > 1000) {
+    throw new Error('invalid intensity (expected 0..1000)');
+  }
+  if (typeof p.stimulusDurationMs !== 'number' || p.stimulusDurationMs < 0 || p.stimulusDurationMs > 1000) {
+    throw new Error('invalid stimulusDurationMs (expected 0..1000)');
+  }
+}
+
 export class SNNWorkerCore {
   private net: NeuralNetwork | null = null;
   private monitor: SpikeMonitor | null = null;
@@ -87,6 +154,12 @@ export class SNNWorkerCore {
 
   handle(req: WorkerRequest): WorkerResponse {
     try {
+      // PR #192 polish (SEC-2): type whitelist 영역 explicit reject — defense-
+      // in-depth (직전 silent default 영역 _exhaustive: never 영역 정합 catch
+      // 영역 hostile / typo'd type 영역 catch 영역 catch 0).
+      if (!ALLOWED_REQUEST_TYPES.has((req as { type: string }).type)) {
+        return { id: req.id, ok: false, error: `disallowed request type: ${(req as { type: string }).type}` };
+      }
       switch (req.type) {
         case 'build':
           return { id: req.id, ok: true, result: this.handleBuild(req.payload) };
@@ -511,6 +584,8 @@ export class SNNWorkerCore {
 
   private handleTriggerBackground(payload: TriggerBackgroundPayload): void {
     try {
+      // PR #192 polish (SEC-1): payload validation guard — defense-in-depth.
+      validateTriggerBackgroundPayload(payload);
       const net = this.requireNet();
       // resetThreshold — Diehl & Cook 2015 §3.2 batch frame reset 정합.
       if (payload.resetThreshold) {
@@ -557,6 +632,8 @@ export class SNNWorkerCore {
 
   private handleReinforceBackground(payload: ReinforceBackgroundPayload): void {
     try {
+      // PR #192 polish (SEC-1): payload validation guard — defense-in-depth.
+      validateReinforceBackgroundPayload(payload);
       const net = this.requireNet();
       // resetHomeostatic — supervised batch 영역 frame reset 정합.
       for (const n of net.neurons) {

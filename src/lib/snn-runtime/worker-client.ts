@@ -93,7 +93,27 @@ export class SNNWorkerClient {
         handler(event.payload);
       } catch (e) {
         // 정직 한계: handler 영역 throw 영역 silent — 다른 listener 영역 fairness 보존.
+        // PR #192 polish (SEC-3): console.warn 영역 fall-back 영역 보존 +
+        // backend-events 영역 'snn-error' telemetry 영역 emit (UI 영역 catch 가능
+        // 영역 future hook — 본 PR 영역 listener 0 영역 silent fan-out 정합).
         console.warn('[SNNWorkerClient] push handler threw:', e);
+        try {
+          // 동적 import 영역 cyclic dep 영역 회피 + worker-context (browser/node)
+          // 영역 events.ts 영역 lazy fetch — 정직 한계 catch 영역 catch 0 silent.
+          // worker thread 영역 events.ts 영역 access path 영역 main thread bus
+          // 영역 정합 — worker 자체 영역 listener 0 단 client 영역 main thread
+          // 영역 dispatchPush 영역 호출 영역 정합 catch 영역 emitBackendEvent 영역
+          // 호출 가능. circular import 회피 catch 영역 동적 import.
+          void import('@/lib/backend/events').then(({ emitBackendEvent }) => {
+            emitBackendEvent('snn-error', {
+              source: 'push-handler',
+              message: e instanceof Error ? e.message : String(e),
+              context: { event: event.event },
+            });
+          }).catch(() => undefined);
+        } catch {
+          // SSR / events.ts 영역 import fail 영역 silent — telemetry 영역 best-effort.
+        }
       }
     }
   }

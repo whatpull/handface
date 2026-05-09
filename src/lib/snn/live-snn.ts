@@ -170,9 +170,12 @@ export class LiveSnn {
 
   // 사용자 명시 R-STDP reward — "이 패턴은 cluster X 가 맞다".
   // 즉시 1 회 inject + run with positive gain (직전 tick 이 완료될 때까지 대기).
-  async reinforce(targetCluster: number, gain: number = 2.0): Promise<void> {
+  // 반환: { saveFailed } — lab.save 영역 실패 시 호출자 영역 user-visible warning
+  // 표시 가능 (in-memory weight 영역 update 영역 OK 단 영속 영역 실패 사실).
+  async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
     this.tickInFlight = true;
+    let saveFailed = false;
     try {
       const root = await getRootLocalSnnFor(this.substrateKind);
       const events = this.buildInjectEvents();
@@ -184,7 +187,15 @@ export class LiveSnn {
         stdpGain: gain,
       });
       // 학습 가중치 즉시 영속화 — 매번 reinforce 시점 lab.save.
-      await root.lab.save().catch(() => {});
+      // PR audit fix (Fix 1 — MEDIUM): 직전 silent catch (`.catch(() => {})`) 영역
+      // user-visible warning 영역 swap. console.warn 영역 진단 신호 + 호출자
+      // 영역 saveFailed flag 영역 status message 영역 차별화 가능.
+      try {
+        await root.lab.save();
+      } catch (e) {
+        saveFailed = true;
+        console.warn('[LiveSnn] reinforce save failed (in-memory weight 영역 update OK):', e);
+      }
       const cfr = await root.client.clusterFiringRates({
         windowMs: this.opts.observeMs,
         layer: 'OUT',
@@ -195,6 +206,7 @@ export class LiveSnn {
     } finally {
       this.tickInFlight = false;
     }
+    return { saveFailed };
   }
 
   private buildInjectEvents(): Array<{

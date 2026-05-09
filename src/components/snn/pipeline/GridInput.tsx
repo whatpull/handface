@@ -54,6 +54,9 @@ export default function GridInput() {
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
+  // PR audit fix (Fix 4 — LOW): Live reinforce in-flight 영역 visual gate —
+  // 동일 cluster 영역 즉시 multi-click 영역 race 회피 + spinner-like feedback.
+  const [reinforcingCluster, setReinforcingCluster] = useState<number | null>(null);
 
   const togglePixel = useCallback((i: number) => {
     setGrid((g) => {
@@ -307,16 +310,33 @@ export default function GridInput() {
   // Live 모드 전용 — R-STDP positive reward 즉시 (사용자 명시 라벨 신호).
   // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode event
   // 영역 LiveSnn 자체 substrate kind 영역 derive 영역 race 회피.
+  // PR audit fix (Fix 1 — MEDIUM): saveFailed flag 영역 read 영역 user-visible
+  // warning 표시 — 직전 silent fail catch.
+  // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
+  // PR audit fix (Fix 4 — LOW): reinforcingCluster 영역 in-flight gate.
   const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     setStatus({ kind: 'training', cluster: clusterIdx });
+    setReinforcingCluster(clusterIdx);
     try {
       const live = getLiveSnn();
       live.setPattern(grid);
-      await live.reinforce(clusterIdx, 2.0);
-      setStatus({ kind: 'ok', message: `${ORIENTATION_GLYPHS[clusterIdx]} reinforced` });
+      const result = await live.reinforce(clusterIdx, 2.0);
+      if (result.saveFailed) {
+        setStatus({
+          kind: 'ok',
+          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1 (영속 실패 — 새로고침 시 손실)`,
+        });
+      } else {
+        setStatus({
+          kind: 'ok',
+          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1`,
+        });
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `reinforce 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `강화 실패: ${msg}` });
+    } finally {
+      setReinforcingCluster(null);
     }
   }, [grid]);
 
@@ -385,10 +405,25 @@ export default function GridInput() {
                   ? () => reinforceLive(i as 0 | 1 | 2 | 3)
                   : () => trainPreset(i as 0 | 1 | 2 | 3)
               }
-              disabled={isBusy && !isLiveMode}
-              title={isLiveMode ? `R-STDP 보상 — ${label}` : `R-STDP 학습 (batch) — ${label}`}
+              disabled={
+                (isBusy && !isLiveMode) ||
+                (isLiveMode && reinforcingCluster !== null)
+              }
+              title={
+                isLiveMode
+                  ? reinforcingCluster === i
+                    ? `${label} 강화 진행 중…`
+                    : reinforcingCluster !== null
+                      ? '다른 cluster 강화 진행 중 — 잠시 대기'
+                      : `R-STDP 보상 — ${label}`
+                  : `R-STDP 학습 (batch) — ${label}`
+              }
             >
-              {isLiveMode ? '강화' : '학습'}
+              {isLiveMode
+                ? reinforcingCluster === i
+                  ? '강화 중…'
+                  : '강화'
+                : '학습'}
             </button>
           </div>
         ))}

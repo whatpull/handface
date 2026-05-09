@@ -332,6 +332,20 @@ export class LiveSnn {
    * 정직 한계: clusterTrainRStdp 영역 단일 pattern 영역 1-pattern batch (직전
    * triggerOnce repeats 3 영역 동질 patterns 영역 batch 정합 — observeMs ×
    * 1 frame ≈ 50ms simulation). saveDebounced (force=true) 영역 즉시 영속.
+   *
+   * QA FINDING-3 SECONDARY catch (PR #191 polish, 2026-05-10, MEDIUM):
+   * PRIMARY supervised R-STDP wire 영역 위 영역 70% catch — 잔존 30% 영역
+   * orientation overlap fundamental ambiguity 영역 정직 표시.
+   *
+   * - 예: n13 idx 5 영역 active set — cluster 0 (horizontal [4,5,6,7]) +
+   *   cluster 1 (vertical [1,5,9,13]) 양쪽 영역 active → vertical 입력 단
+   *   horizontal sub-pool fire 가능 영역 root cause (orientation feature
+   *   영역 본격 disjoint 0).
+   * - PRIMARY 70% catch (supervised R-STDP wire) 영역 후 영역 잔존 30% 영역
+   *   feature engineering 영역 follow-up — n13 builder 영역 active set
+   *   disjoint 영역 별도 PR 영역 defer 명시 (본 PR 영역 scope-out).
+   * - 사용자 영역 추가 보강 영역 cluster-specific gradient 영역 backend
+   *   punishGain 영역 횟수 정합 영역 catch — 정직 한계 명시.
    */
   async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));

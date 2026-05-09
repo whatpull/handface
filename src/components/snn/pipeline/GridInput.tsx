@@ -441,7 +441,9 @@ export default function GridInput() {
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          LIVE — 패턴 그리고 추론 button 클릭 · cluster 학습 button = 명시 supervision
+          {/* UX-7 (PR #191 polish, 2026-05-10): 영문 hint copy + 어색 한국어
+              catch — 자연 한국어 + 사용자 액션 명확화. */}
+          LIVE — 패턴을 그리고 추론 버튼을 누르세요. 학습 버튼 = 사용자 지정 정답 학습.
         </div>
       )}
 
@@ -484,6 +486,14 @@ export default function GridInput() {
                 (isLiveMode && reinforcingCluster !== null)
               }
               aria-busy={isLiveMode && reinforcingCluster === i}
+              /* UX-6 (PR #191 polish, 2026-05-10): aria-label 0 catch —
+                 screen reader 영역 cluster-specific intent 명시 (live: 보강
+                 supervised R-STDP / batch: 학습). */
+              aria-label={
+                isLiveMode
+                  ? `${label} 현재 패턴 보강 — supervised R-STDP`
+                  : `${label} 학습 — R-STDP batch`
+              }
               title={
                 isLiveMode
                   ? reinforcingCluster === i
@@ -513,11 +523,15 @@ export default function GridInput() {
           only) 영역 정합 영역 명시 추론 trigger button 영역 mandatory. 직전
           PR #171 fix 영역 'auto-infer on click' 영역 폐기 — 사용자 명시 path. */}
       <div className="snn-grid-actions">
+        {/* UX-6/UX-9 (PR #191 polish, 2026-05-10): aria-label 0 catch +
+            primary tone visual 강조 — 추론 = 본격 INFERENCE phase trigger
+            (cyan border-glow CSS modifier 정합). */}
         <button
           type="button"
-          className="snn-grid-infer-btn"
+          className="snn-grid-infer-btn snn-grid-infer-btn--primary"
           onClick={isLiveMode ? runInferLive : runInfer}
           disabled={isBusy}
+          aria-label={isLiveMode ? '추론 — STDP off, 가중치 변경 0' : '추론'}
           title={
             isLiveMode
               ? '4×4 패턴 영역 추론 (STDP off — 가중치 변경 0)'
@@ -526,21 +540,27 @@ export default function GridInput() {
         >
           추론
         </button>
+        {/* UX-7 (PR #191 polish, 2026-05-10): 자연 한국어 hint copy 정정 —
+            "가중치 영역 영향 0" 영역 어색 → "학습은 유지" 영역 사용자 의도 명확. */}
         <button
           type="button"
           className="snn-grid-reset-btn"
           onClick={reset}
           disabled={isBusy}
-          title="현재 4×4 패턴 지우기 (가중치 영역 영향 0)"
+          title="현재 패턴만 지우기 (학습은 유지)"
         >
           패턴 지우기
         </button>
         {isLiveMode && (
+          /* UX-6/UX-8 (PR #191 polish, 2026-05-10): aria-label 0 catch +
+             danger modifier 영역 visual separation — 학습 reset 영역 destructive
+             action 영역 red border-glow + hover red bg 영역 시각 경고. */
           <button
             type="button"
-            className="snn-grid-reset-btn"
+            className="snn-grid-reset-btn snn-grid-reset-btn--danger"
             onClick={resetLearningLive}
             disabled={isBusy}
+            aria-label="학습 가중치 reset — fresh build restore"
             title="학습 가중치 영역 fresh build default 영역 restore — saturation escape mandatory"
           >
             학습 reset

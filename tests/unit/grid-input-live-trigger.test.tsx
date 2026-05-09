@@ -120,7 +120,9 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
 
   it('G5: 추론 button click 영역 Live mode → inferOnce 1회 (명시 trigger)', async () => {
     render(<GridInput />);
-    const inferBtn = screen.getByRole('button', { name: /^추론$/ });
+    // PR #191 polish (UX-6, 2026-05-10): 추론 button 영역 aria-label 'STDP off,
+    // 가중치 변경 0' 영역 명시 — accessible name override.
+    const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);
     // 비동기 inferOnce 영역 microtask 영역 wait.
     await Promise.resolve();
@@ -131,8 +133,11 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
 
   it('G6: 현재 패턴 보강 button click → reinforce(targetCluster, 2.0) 1회', async () => {
     render(<GridInput />);
-    // '현재 패턴 보강' button — cluster row 영역 Live mode 영역 라벨.
-    const reinforceBtns = screen.getAllByRole('button', { name: /^현재 패턴 보강$/ });
+    // PR #191 polish (UX-6, 2026-05-10): cluster N 보강 button 영역 aria-label
+    // 'cluster N 현재 패턴 보강 — supervised R-STDP' 영역 명시 정합 query.
+    const reinforceBtns = screen.getAllByRole('button', {
+      name: /현재 패턴 보강 — supervised R-STDP$/,
+    });
     expect(reinforceBtns).toHaveLength(4);
     fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
     await Promise.resolve();

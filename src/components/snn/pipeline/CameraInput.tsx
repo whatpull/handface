@@ -23,6 +23,7 @@ import {
   type NeuronFiringDetail,
   type HandFeatureDetail,
 } from '@/lib/backend/events';
+import { useEngineMode } from '@/lib/snn/engine-mode';
 import {
   GESTURE_CLUSTER_ACTIVE_INPUTS,
   sharpenForGesture,
@@ -34,10 +35,12 @@ const GESTURE_LABELS = [
   'Closed Fist',
   'Victory',
 ] as const;
-// Unicode VS-15 (U+FE0E) — text presentation 강제. ☝ 가 platform 따라
-// 컬러 emoji 로 렌더되는 catch (사용자 catch 2026-05-09: cluster 0 만
-// 모양이 다른 catch). 4 글리프 모두 동일 텍스트 스타일 통일.
-const GESTURE_GLYPHS = ['☝︎', '✋︎', '✊︎', '✌︎'] as const;
+// 사용자 catch 2026-05-09: 직전 emoji glyph (☝︎ ✋︎ ✊︎ ✌︎) 영역 VS-15
+// 적용해도 platform 별 컬러 emoji 로 렌더 — cluster 0 만 다른 모양 catch.
+// orientation glyph (─│╲╱) 영역 GRID 모드 영역 정합 + 모든 platform 영역
+// 동일 monochrome 렌더 보장. cluster slot 개념 영역 추상 — 의미 영역
+// GESTURE_LABELS 영역 전달.
+const GESTURE_GLYPHS = ['─', '│', '╲', '╱'] as const;
 
 type Status =
   | { kind: 'idle' }
@@ -54,6 +57,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const lastFeatureRef = useRef<number[] | null>(null);
   const substrateBuiltRef = useRef<boolean>(false);
+  const [engineMode] = useEngineMode();
+  const isLiveMode = engineMode === 'live';
 
   // hand-feature event listen → sharpened feature 보존.
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
@@ -194,14 +199,21 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   return (
     <div className="snn-grid-input">
-      <button
-        type="button"
-        className="snn-grid-build-btn"
-        onClick={buildSubstrate}
-        disabled={isBusy || !cameraConnected}
-      >
-        회로 빌드 (gesture)
-      </button>
+      {!isLiveMode && (
+        <button
+          type="button"
+          className="snn-grid-build-btn"
+          onClick={buildSubstrate}
+          disabled={isBusy || !cameraConnected}
+        >
+          회로 빌드 (gesture)
+        </button>
+      )}
+      {isLiveMode && (
+        <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
+          🔴 LIVE — 카메라 미지원 (Backend / Local 토글 필요)
+        </div>
+      )}
 
       <div className={`snn-pipeline-cam ${cameraConnected ? 'is-active' : 'is-empty'}`}>
         <video id="snn-cam-video" className="snn-camera-mirror snn-cam-video" playsInline muted />
@@ -227,8 +239,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
               type="button"
               className="snn-grid-train-btn"
               onClick={() => trainGesture(i as 0 | 1 | 2 | 3)}
-              disabled={isBusy || !cameraConnected}
-              title={`R-STDP 학습 — ${label}`}
+              disabled={isBusy || !cameraConnected || isLiveMode}
+              title={
+                isLiveMode
+                  ? 'Live 모드는 카메라 미지원 — 4차 PR 예정'
+                  : `R-STDP 학습 — ${label}`
+              }
             >
               학습
             </button>
@@ -241,7 +257,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
           type="button"
           className="snn-grid-infer-btn"
           onClick={runInfer}
-          disabled={isBusy || !cameraConnected}
+          disabled={isBusy || !cameraConnected || isLiveMode}
         >
           추론
         </button>

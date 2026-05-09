@@ -21,7 +21,7 @@ import { emitBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events'
 // LocalSNN 인스턴스 영역 root-local-snn singleton 영역 공유.
 
 import type { ClusterFiringRatesResult } from '@/lib/snn-runtime';
-import { getRootLocalSnn } from './root-local-snn';
+import { getRootLocalSnnFor, type SubstrateKind } from './root-local-snn';
 
 export interface LiveTickDetail {
   rates: number[];
@@ -59,9 +59,30 @@ export class LiveSnn {
   private running = false;
   private tickInFlight = false;
   private tickCount = 0;
+  // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
+  // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
+  private substrateKind: SubstrateKind = 'orientation';
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
+  }
+
+  // 학술 정합: substrate 변경 시점 영역 기존 회로 영역 보존 + 새 회로 영역
+  // lazy init. running tick 진행 중 시 stop / await tickInFlight / 재시작.
+  // 같은 kind 영역 멱등 — early return.
+  async setSubstrate(kind: SubstrateKind): Promise<void> {
+    if (this.substrateKind === kind) return;
+    const wasRunning = this.running;
+    if (wasRunning) this.stop();
+    while (this.tickInFlight) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    this.substrateKind = kind;
+    if (wasRunning) this.start();
+  }
+
+  getSubstrate(): SubstrateKind {
+    return this.substrateKind;
   }
 
   setPattern(pattern: number[]): void {
@@ -102,7 +123,7 @@ export class LiveSnn {
     if (this.tickInFlight) return; // 직전 tick 미완료 — skip.
     this.tickInFlight = true;
     try {
-      const root = await getRootLocalSnn();
+      const root = await getRootLocalSnnFor(this.substrateKind);
       const events = this.buildInjectEvents();
       if (events.length > 0) await root.client.inject(events);
       await root.client.run({
@@ -130,7 +151,7 @@ export class LiveSnn {
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
     this.tickInFlight = true;
     try {
-      const root = await getRootLocalSnn();
+      const root = await getRootLocalSnnFor(this.substrateKind);
       const events = this.buildInjectEvents();
       if (events.length > 0) await root.client.inject(events);
       await root.client.run({

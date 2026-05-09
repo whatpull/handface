@@ -7,6 +7,13 @@
 //   - 학습/추론 path 영역 GridInput 영역 동일 (cluster_train_rstdp /
 //     inject_feature16) 단 input source 영역 카메라.
 //
+// PR4 (사용자 catch 2026-05-09 — Live 4차):
+//   - engineMode='live' 시 LiveSnn (substrate='gesture') start.
+//   - hand-feature event → live.setPattern (sharpened 16-dim).
+//   - 학습 button 영역 'reinforce' 영역 swap (R-STDP positive reward).
+//   - 추론 button 영역 hide — winner 영역 NodeInfer 영역 자동 표시.
+//   - cameraConnected toggle false → live.setPattern 영역 zero reset.
+//
 // cluster 매핑 (feature-encoder.ts 영역 정합):
 //   0 = Pointing (─ index 강조)
 //   1 = Open Palm (모든 finger 펴짐)
@@ -28,6 +35,7 @@ import {
   GESTURE_CLUSTER_ACTIVE_INPUTS,
   sharpenForGesture,
 } from '@/lib/mediapipe/feature-encoder';
+import { getLiveSnn } from '@/lib/snn/live-snn';
 
 const GESTURE_LABELS = [
   'Pointing',
@@ -59,13 +67,35 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
   const isLiveMode = engineMode === 'live';
+  // engineMode 영역 useEffect listener closure 영역 stale catch — ref 영역
+  // 동기화 후 listener 영역 ref.current 영역 read 사실.
+  const engineModeRef = useRef(engineMode);
+  useEffect(() => {
+    engineModeRef.current = engineMode;
+  }, [engineMode]);
 
   // hand-feature event listen → sharpened feature 보존.
+  // PR4: Live 모드 시 즉시 LiveSnn.setPattern 영역 push (200ms tick 영역 inject).
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
     if (d.hasHand && d.feature && d.feature.length >= 16) {
-      lastFeatureRef.current = sharpenForGesture(d.feature);
+      const sharpened = sharpenForGesture(d.feature);
+      lastFeatureRef.current = sharpened;
+      if (engineModeRef.current === 'live') {
+        try {
+          getLiveSnn().setPattern(sharpened);
+        } catch {
+          // SSR / live-snn 미초기화 — 무시.
+        }
+      }
     } else {
       lastFeatureRef.current = null;
+      if (engineModeRef.current === 'live') {
+        try {
+          getLiveSnn().setPattern(new Array<number>(16).fill(0));
+        } catch {
+          // ignore
+        }
+      }
     }
   }), []);
 
@@ -76,6 +106,46 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     substrateBuiltRef.current = false;
     setStatus({ kind: 'idle' });
   }), []);
+
+  // PR4 — Live 모드 mount/unmount: LiveSnn substrate='gesture' set + start.
+  // engineMode 변경 시 cleanup 영역 stop. cancelled flag 영역 await race 영역
+  // 안전 unmount 정합.
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const live = getLiveSnn();
+        await live.setSubstrate('gesture');
+        if (cancelled) return;
+        live.start();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setStatus({ kind: 'error', message: `Live 시작 실패: ${msg}` });
+      }
+    })();
+    return () => {
+      cancelled = true;
+      try {
+        getLiveSnn().stop();
+      } catch {
+        // ignore
+      }
+    };
+  }, [engineMode]);
+
+  // PR4 — cameraConnected toggle false 시 Live setPattern 영역 zero reset
+  // (hand-feature event 영역 stop 사실 — 잔여 pattern 영역 stale tick 회피).
+  useEffect(() => {
+    if (!cameraConnected && engineMode === 'live') {
+      try {
+        getLiveSnn().setPattern(new Array<number>(16).fill(0));
+      } catch {
+        // ignore
+      }
+      lastFeatureRef.current = null;
+    }
+  }, [cameraConnected, engineMode]);
 
   const buildSubstrate = useCallback(async () => {
     setStatus({ kind: 'building' });
@@ -163,6 +233,31 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     });
   }, []);
 
+  // PR4 — Live 전용 R-STDP positive reward (사용자 명시 라벨 신호).
+  // 현재 lastFeature 영역 setPattern + reinforce(gain=2.0) — 즉시 1 회 inject
+  // + run + lab.save (가중치 영속). 학술 정합: Hebbian + reward modulation
+  // (Florian 2007, Izhikevich 2007 R-STDP 정합).
+  const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
+    if (lastFeatureRef.current === null) {
+      setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
+      return;
+    }
+    setStatus({ kind: 'training', cluster: clusterIdx });
+    try {
+      const live = getLiveSnn();
+      await live.setSubstrate('gesture');
+      live.setPattern(lastFeatureRef.current);
+      await live.reinforce(clusterIdx, 2.0);
+      setStatus({
+        kind: 'ok',
+        message: `${GESTURE_GLYPHS[clusterIdx]} reinforced`,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `reinforce 실패: ${msg}` });
+    }
+  }, []);
+
   const runInfer = useCallback(async () => {
     if (lastFeatureRef.current === null) {
       setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
@@ -188,14 +283,20 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   const statusLine = useMemo(() => {
     switch (status.kind) {
-      case 'idle': return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
+      case 'idle':
+        if (isLiveMode) {
+          return cameraConnected
+            ? '🔴 LIVE — 자세를 취하세요'
+            : '🔴 LIVE — 카메라 미연결';
+        }
+        return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
       case 'building': return '회로 빌드 중…';
       case 'training': return `${GESTURE_GLYPHS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
       case 'ok': return status.message;
       case 'error': return status.message;
     }
-  }, [status, cameraConnected]);
+  }, [status, cameraConnected, isLiveMode]);
 
   return (
     <div className="snn-grid-input">
@@ -211,7 +312,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       )}
       {isLiveMode && (
         <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
-          🔴 LIVE — 카메라 미지원 (Backend / Local 토글 필요)
+          🔴 LIVE — 자세를 보여주면 즉시 학습 + 추론
         </div>
       )}
 
@@ -238,30 +339,36 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
             <button
               type="button"
               className="snn-grid-train-btn"
-              onClick={() => trainGesture(i as 0 | 1 | 2 | 3)}
-              disabled={isBusy || !cameraConnected || isLiveMode}
+              onClick={
+                isLiveMode
+                  ? () => reinforceLive(i as 0 | 1 | 2 | 3)
+                  : () => trainGesture(i as 0 | 1 | 2 | 3)
+              }
+              disabled={(isBusy && !isLiveMode) || !cameraConnected}
               title={
                 isLiveMode
-                  ? 'Live 모드는 카메라 미지원 — 4차 PR 예정'
+                  ? `R-STDP 보상 — ${label}`
                   : `R-STDP 학습 — ${label}`
               }
             >
-              학습
+              {isLiveMode ? '강화' : '학습'}
             </button>
           </div>
         ))}
       </div>
 
-      <div className="snn-grid-actions">
-        <button
-          type="button"
-          className="snn-grid-infer-btn"
-          onClick={runInfer}
-          disabled={isBusy || !cameraConnected || isLiveMode}
-        >
-          추론
-        </button>
-      </div>
+      {!isLiveMode && (
+        <div className="snn-grid-actions">
+          <button
+            type="button"
+            className="snn-grid-infer-btn"
+            onClick={runInfer}
+            disabled={isBusy || !cameraConnected}
+          >
+            추론
+          </button>
+        </div>
+      )}
 
       <div className={`snn-grid-status snn-grid-status--${status.kind}`}>
         <span>{statusLine}</span>

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
-import { getRootLocalSnn } from '@/lib/snn/root-local-snn';
+import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
 import { getLiveSnn } from '@/lib/snn/live-snn';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
@@ -85,13 +85,29 @@ export default function GridInput() {
   // engineMode='live' 시점 LiveSnn 영역 시작. grid 변경 영역 즉시 setPattern
   // → 200ms tick loop 영역 inject + run + cluster firing 측정.
   // engineMode 변경 (live → backend/local) 시 stop.
+  // PR4 (Live 4차): substrate='orientation' 명시 — CameraInput 영역 'gesture'
+  // 영역 swap 후 다시 GridInput mount 시 회로 정합 catch.
   useEffect(() => {
     if (engineMode !== 'live') return;
-    const live = getLiveSnn();
-    live.setPattern(grid);
-    live.start();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const live = getLiveSnn();
+        await live.setSubstrate('orientation');
+        if (cancelled) return;
+        live.setPattern(grid);
+        live.start();
+      } catch {
+        // ignore — engineMode 영역 다시 토글 시 재시도.
+      }
+    })();
     return () => {
-      live.stop();
+      cancelled = true;
+      try {
+        getLiveSnn().stop();
+      } catch {
+        // ignore
+      }
     };
   }, [engineMode, grid]);
 
@@ -117,7 +133,7 @@ export default function GridInput() {
     // ── Local mode: 브라우저 내 LocalSNN 으로 학습 (no backend round-trip)
     if (engineMode === 'local') {
       try {
-        const root = await getRootLocalSnn();
+        const root = await getRootLocalSnnFor('orientation');
         const allPatterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
         const r = await root.client.clusterTrainRStdp({
           patterns: allPatterns,
@@ -295,7 +311,7 @@ export default function GridInput() {
     // ── Local mode ────────────────────────────────────────────────
     if (engineMode === 'local') {
       try {
-        const root = await getRootLocalSnn();
+        const root = await getRootLocalSnnFor('orientation');
         // grid (16-dim binary) → InjectEvent[] (>0.5 dim 만 active).
         const events = grid
           .map((v, i) => {
@@ -353,10 +369,13 @@ export default function GridInput() {
   }, [status]);
 
   // Live 모드 전용 — R-STDP positive reward 즉시 (사용자 명시 라벨 신호).
+  // PR4: substrate='orientation' 명시 — CameraInput 영역 'gesture' 영역 swap
+  // 후 다시 GridInput 영역 reinforce 시점 회로 정합 catch.
   const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     setStatus({ kind: 'training', cluster: clusterIdx });
     try {
       const live = getLiveSnn();
+      await live.setSubstrate('orientation');
       live.setPattern(grid);
       await live.reinforce(clusterIdx, 2.0);
       setStatus({ kind: 'ok', message: `${ORIENTATION_GLYPHS[clusterIdx]} reinforced` });

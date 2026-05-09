@@ -58,6 +58,11 @@ export interface NeuronFiringDetail {
   rates_by_region?: Record<string, number>;
   active_neurons_by_region?: Record<string, string[]>;
   out_rates?: Record<string, number>;
+  // PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): rates_by_region 영역 V1/V2
+  // 영역 실 spike rate (regionFiringRates RPC) vs cluster_rates max proxy
+  // fallback 영역 catch. true = proxy (정직 한계 catch — UI 영역 ~ prefix /
+  // reduced opacity 영역 hint). 미동봉 영역 false 정합 (legacy / backend path).
+  rates_by_region_is_proxy?: boolean;
   // Backend B+3 combo (a8e8165) 영역 inject_feature16 응답 영역 cluster mean 사실 동봉.
   // length 4 — index = cluster id (0..3). frontend 자체 cluster mean 산출 일부 우선 활용.
   // backward compat: 미동봉 (legacy backend) 영역 frontend 영역 out_rates 기반 fallback 산출.

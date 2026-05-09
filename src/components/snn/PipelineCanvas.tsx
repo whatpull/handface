@@ -83,7 +83,7 @@ function loadPositions(): PositionMap {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...INITIAL_POS };
     const parsed = JSON.parse(raw) as Partial<PositionMap>;
-    // shape 검증 — 5 키 모두 존재 + numeric.
+    // shape 검증 — 4 키 (input/learn/infer/out) 모두 존재 + numeric.
     const out: PositionMap = { ...INITIAL_POS };
     (Object.keys(INITIAL_POS) as NodeId[]).forEach((k) => {
       const p = parsed[k];

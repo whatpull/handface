@@ -190,6 +190,13 @@
 .snn-pipeline-learn-region-box.is-fired {
   box-shadow: 0 0 14px rgba(var(--pipe-tone-infer), 0.55);
 }
+/* PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): proxy fallback 영역
+   reduced opacity 영역 정직 한계 시각 catch (regionFiringRates RPC 미동봉
+   영역 cluster_rates max fallback). */
+.snn-pipeline-learn-region-box.is-proxy .snn-pipeline-learn-region-hz-value,
+.snn-pipeline-learn-region-box.is-proxy .snn-pipeline-learn-region-hz-bar {
+  opacity: 0.6;
+}
 .snn-pipeline-learn-region-label {
   font-size: 9px;
   font-weight: 700;
@@ -990,14 +997,16 @@
 .snn-pipeline-margin-meter.is-tie .snn-pipeline-margin-fill {
   background: rgba(255,255,255,0.18);
 }
-/* dotted threshold line — width var (--w) 영역 left position. */
+/* dotted threshold line — width var (--w) 영역 left position.
+   PR #187 polish — UX LOW-4 (audit 2026-05-10): contrast 영역 0.55 → 0.85 +
+   width 1px → 1.5px 영역 visual saliency 강화. */
 .snn-pipeline-margin-threshold {
   position: absolute;
   top: 0;
   bottom: 0;
   left: var(--w, 10%);
   width: 0;
-  border-left: 1px dashed rgba(255,255,255,0.55);
+  border-left: 1.5px dashed rgba(255,255,255,0.85);
   pointer-events: none;
 }
 
@@ -1471,7 +1480,7 @@
   flex-direction: column;
   gap: var(--pipe-gap-sm);
 }
-.snn-grid-build-btn {
+.snn-grid-train-all-btn {
   appearance: none;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--pipe-border-strong);
@@ -1483,12 +1492,22 @@
   cursor: pointer;
   transition: background 120ms ease;
 }
-.snn-grid-build-btn:hover:not(:disabled) {
+.snn-grid-train-all-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.12);
 }
-.snn-grid-build-btn:disabled {
+.snn-grid-train-all-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+/* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): LIVE 안내 span 영역 static
+   variant — button 영역 일치 layout 영역 cursor / hover 영역 회피. */
+.snn-grid-train-all-btn--static {
+  cursor: default;
+  border-style: dashed;
+  opacity: 0.7;
+}
+.snn-grid-train-all-btn--static:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .snn-grid-pixels {
@@ -1552,6 +1571,18 @@
 }
 .snn-grid-preset-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
+}
+/* PR #187 polish — UX HIGH-1 (audit 2026-05-10): CameraInput 비활성 LIVE 안내
+   span 영역 className reuse — pointer cursor 영역 hover 영역 catch 회피.
+   .snn-grid-preset-btn--static = 비-button (display-only) 영역 정합. */
+.snn-grid-preset-btn--static {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.7;
+}
+.snn-grid-preset-btn--static:hover {
+  background: transparent;
 }
 .snn-grid-preset-btn:disabled,
 .snn-grid-train-btn:disabled,
@@ -1629,7 +1660,7 @@
   .snn-grid-train-btn,
   .snn-grid-infer-btn,
   .snn-grid-reset-btn,
-  .snn-grid-build-btn {
+  .snn-grid-train-all-btn {
     min-height: 36px;
     padding-top: 8px;
     padding-bottom: 8px;

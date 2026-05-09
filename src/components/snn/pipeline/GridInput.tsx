@@ -362,9 +362,14 @@ export default function GridInput() {
               trainPreset / runInfer 영역 자동 빌드 (substrateBuiltRef gate).
               명시 빌드 button 영역 noise. round-robin 영역 보존 — single cluster
               dominance mitigation 학술 정합 (Diehl & Cook 2015 / homeostatic scaling). */}
+          {/* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): semantic-correct
+              class rename. 직전 .snn-grid-build-btn 영역 회로 빌드 button 영역 폐기 후
+              round-robin reuse — semantic mismatch. .snn-grid-train-all-btn 영역
+              정합 (전체 학습 round-robin path). LIVE 안내 span 영역 별도 static
+              variant 영역 분리 (HIGH-1 동시 정정). */}
           <button
             type="button"
-            className="snn-grid-build-btn"
+            className="snn-grid-train-all-btn"
             onClick={trainAllRoundRobin}
             disabled={isBusy}
             title="4 cluster 균등하게 학습 — 정확도 향상"
@@ -374,7 +379,7 @@ export default function GridInput() {
         </>
       )}
       {isLiveMode && (
-        <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
+        <div className="snn-grid-train-all-btn snn-grid-train-all-btn--static pointer-events-none text-center">
           {/* UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}

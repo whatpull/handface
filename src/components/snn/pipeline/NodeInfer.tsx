@@ -144,11 +144,13 @@ export default function NodeInfer() {
           )}
         </div>
       )}
+      {/* PR #187 polish — UX LOW-5 (audit 2026-05-10): margin 영역 MarginMeter
+          영역 단일 source — winner row 영역 cluster name 영역만 (중복 제거). */}
       <div className="snn-pipeline-row">
         <span className="snn-pipeline-row-label">winner</span>
         <span className="snn-pipeline-row-value">
           {winner.cluster !== null
-            ? `${clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`} (margin ${(winner.margin * 100).toFixed(0)}%)`
+            ? (clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`)
             : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
         </span>
       </div>

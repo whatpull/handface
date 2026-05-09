@@ -192,8 +192,20 @@ export default function SnnLabClient() {
         trainResult !== null
           ? `acc ${(trainResult.accuracy * 100).toFixed(0)}% (${trainResult.correct}/${trainResult.trained})`
           : 'acc N/A';
+      // 학습 후 자동 save — 지속 성장 패러다임 정합 (사용자 vision):
+      // 학습이 누적될 때마다 가중치 영속. local-storage 또는 hf-dataset
+      // (toggle 에 따라). 실패 시 로그만, 학습 자체 결과 표시 영역 보존.
+      let savedRev: number | null = null;
+      try {
+        await lab.save();
+        savedRev = lab.status?.rev ?? null;
+      } catch (e) {
+        appendLog(`save 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      const sinkLabel = useHfSink ? 'HF' : 'local';
+      const saveMsg = savedRev !== null ? ` · ${sinkLabel} save rev=${savedRev}` : '';
       appendLog(
-        `R-STDP ${cluster.label} (id=${cluster.id}) ×${TRAIN_FRAMES_PER_BUTTON} → ${acc} · winner=${m.winner === -1 ? 'silent' : m.winner} share=${m.share.toFixed(2)}`,
+        `R-STDP ${cluster.label} (id=${cluster.id}) ×${TRAIN_FRAMES_PER_BUTTON} → ${acc} · winner=${m.winner === -1 ? 'silent' : m.winner} share=${m.share.toFixed(2)}${saveMsg}`,
       );
     } finally {
       setBusy(false);

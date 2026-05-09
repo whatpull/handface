@@ -44,12 +44,9 @@ const GESTURE_LABELS = [
   'Closed Fist',
   'Victory',
 ] as const;
-// 사용자 catch 2026-05-09: 직전 emoji glyph (☝︎ ✋︎ ✊︎ ✌︎) 영역 VS-15
-// 적용해도 platform 별 컬러 emoji 로 렌더 — cluster 0 만 다른 모양 catch.
-// orientation glyph (─│╲╱) 영역 GRID 모드 영역 정합 + 모든 platform 영역
-// 동일 monochrome 렌더 보장. cluster slot 개념 영역 추상 — 의미 영역
-// GESTURE_LABELS 영역 전달.
-const GESTURE_GLYPHS = ['─', '│', '╲', '╱'] as const;
+// 사용자 catch 2026-05-09 (3 신규 catch): status message glyph prefix 영역
+// 본격 제거 — cluster index 보다 의미 catch (GESTURE_LABELS) 영역 swap.
+// 직전 GESTURE_GLYPHS 영역 polyfill (─│╲╱) 영역 사용 0 영역 제거.
 
 type Status =
   | { kind: 'idle' }
@@ -227,7 +224,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     const acc = totalTrained > 0 ? Math.round(totalCorrect / totalTrained * 100) : 0;
     setStatus({
       kind: 'ok',
-      message: `${GESTURE_GLYPHS[clusterIdx]} ${acc}% (${totalCorrect}/${totalTrained})`,
+      message: `${GESTURE_LABELS[clusterIdx]} ${acc}% (${totalCorrect}/${totalTrained})`,
     });
     emitBackendEvent<GridTrainingDetail>('grid-training', {
       kind: 'finished', cluster: clusterIdx,
@@ -260,12 +257,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
+          message: `${GESTURE_LABELS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
         });
       } else {
         setStatus({
           kind: 'ok',
-          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1`,
+          message: `${GESTURE_LABELS[clusterIdx]} 강화 +1`,
         });
       }
     } catch (e) {
@@ -315,7 +312,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         }
         return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
       case 'building': return '회로 빌드 중…';
-      case 'training': return `${GESTURE_GLYPHS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
+      case 'training': return `${GESTURE_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
       case 'ok': return status.message;
       case 'error': return status.message;

@@ -365,7 +365,10 @@ export default function NodeLearn() {
         label: 'UNTRAINED',
         tone: 'idle',
         sub: 'awaiting input — grid preset 학습 또는 camera teacher',
-        hint: 'INPUT 노드에서 4 패턴 (─ │ ╲ ╱) 을 학습시키세요',
+        // 사용자 catch 2026-05-09 (3 신규 catch): hint glyph (─│╲╱) 영역 본격
+        // 제거 — visual minimalism 정합. cluster N pattern label 영역 INPUT 노드
+        // 영역 표시 catch — hint 영역 short instruction only.
+        hint: 'INPUT 노드에서 4 패턴을 학습시키세요',
       },
       learning: {
         label: 'LEARNING',

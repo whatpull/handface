@@ -225,9 +225,13 @@ export class LiveSnn {
           v1Hz = v1.hz;
           v2Hz = v2.hz;
         } catch (e) {
-          // regionFiringRates 영역 fail 영역 silent (legacy worker / mock 영역
-          // 정합 catch 영역 — 0 fallback).
-          void e;
+          // regionFiringRates 영역 fail 영역 0 fallback (legacy worker / mock 영역
+          // 정합 catch). UX-1: dev mode 영역 console.warn 1회 emit 영역 cause-effect
+          // catch 정합 — production 영역 silent 보존 (process.env.NODE_ENV 영역
+          // Next.js build-time inline replace).
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[LiveSnn] regionFiringRates fallback to 0Hz:', e);
+          }
         }
         this.emitTick(cfr, v1Hz, v2Hz);
       }

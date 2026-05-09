@@ -260,7 +260,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1 (영속 실패 — 새로고침 시 손실)`,
+          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
         });
       } else {
         setStatus({
@@ -367,9 +367,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                 !cameraConnected ||
                 (isLiveMode && reinforcingCluster !== null)
               }
+              aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
               title={
                 !cameraConnected
-                  ? '카메라 미연결 — 좌측 사이드바 영역 카메라 영역 enable'
+                  ? '카메라 미연결 — 좌측 사이드바에서 카메라를 활성화하세요'
                   : lastFeatureRef.current === null
                     ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
                     : isLiveMode
@@ -377,8 +378,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                         ? `${label} 강화 진행 중…`
                         : reinforcingCluster !== null
                           ? '다른 cluster 강화 진행 중 — 잠시 대기'
-                          : `R-STDP 보상 — ${label}`
-                      : `R-STDP 학습 — ${label}`
+                          : `${label} 강화 (R-STDP 보상)`
+                      : `${label} 학습 (R-STDP)`
               }
             >
               {isLiveMode
@@ -400,10 +401,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
             disabled={isBusy || !cameraConnected}
             title={
               !cameraConnected
-                ? '카메라 미연결 — 좌측 사이드바 영역 카메라 영역 enable'
+                ? '카메라 미연결 — 좌측 사이드바에서 카메라를 활성화하세요'
                 : lastFeatureRef.current === null
                   ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
-                  : '현재 자세 영역 추론 (STDP off)'
+                  : '현재 자세로 추론 (STDP off)'
             }
           >
             추론

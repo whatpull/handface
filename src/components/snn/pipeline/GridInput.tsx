@@ -324,7 +324,7 @@ export default function GridInput() {
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1 (영속 실패 — 새로고침 시 손실)`,
+          message: `${ORIENTATION_GLYPHS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
         });
       } else {
         setStatus({
@@ -409,14 +409,15 @@ export default function GridInput() {
                 (isBusy && !isLiveMode) ||
                 (isLiveMode && reinforcingCluster !== null)
               }
+              aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
               title={
                 isLiveMode
                   ? reinforcingCluster === i
                     ? `${label} 강화 진행 중…`
                     : reinforcingCluster !== null
                       ? '다른 cluster 강화 진행 중 — 잠시 대기'
-                      : `R-STDP 보상 — ${label}`
-                  : `R-STDP 학습 (batch) — ${label}`
+                      : `${label} 강화 (R-STDP 보상)`
+                  : `${label} 학습 (R-STDP, batch)`
               }
             >
               {isLiveMode

@@ -294,17 +294,19 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
       const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
-      // safety-net — 100 → 2000ms elevate (worker simulation + IndexedDB +
-      // postMessage round-trip 영역 race 영역 회피 catch 영역 보수적).
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
+      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
+      // MainThreadTransport fallback 영역 main thread block 영역 catch.
       setTimeout(() => {
         if (pendingReinforceTokenRef.current === trialToken) {
           pendingReinforceTokenRef.current = null;
           setReinforcingCluster(null);
           setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 (timeout — 회로 build 또는 worker bundle 점검)` }
             : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });

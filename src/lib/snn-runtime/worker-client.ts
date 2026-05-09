@@ -27,6 +27,7 @@ import type {
   SnapshotResult,
   TriggerBackgroundPayload,
   TriggerCompletePayload,
+  TriggerErrorPayload,
   WorkerPushEvent,
   WorkerRequest,
   WorkerResponse,
@@ -35,11 +36,14 @@ import type { InjectEvent } from './network';
 
 // PR-B (Web Worker background offload, 2026-05-10): push event listener types.
 // triggerComplete / reinforceComplete event 영역 별도 handler 영역 등록 사실.
-export type PushEventName = 'triggerComplete' | 'reinforceComplete';
+// QA FINDING-4 fix (2026-05-10): triggerError 영역 추가 — handleTriggerBackground
+// / handleReinforceBackground catch path 영역 emit 영역 main thread 영역 정합.
+export type PushEventName = 'triggerComplete' | 'reinforceComplete' | 'triggerError';
 
 export interface PushHandlers {
   triggerComplete: (payload: TriggerCompletePayload) => void;
   reinforceComplete: (payload: ReinforceCompletePayload) => void;
+  triggerError: (payload: TriggerErrorPayload) => void;
 }
 
 // 표준 Worker / 등가물의 최소 인터페이스.

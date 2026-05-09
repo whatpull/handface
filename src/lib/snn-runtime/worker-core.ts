@@ -447,12 +447,31 @@ export class SNNWorkerCore {
     const registry = this.requireRegistry();
     if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
     const layer: 'OUT' | 'V1_L23' | 'V2_L5' = payload.layer ?? 'OUT';
-    const rates = registry.slots.map((slot) => {
+    // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 동봉 시점 영역
+    // input cardinality normalize 영역 catch (Wiesel 1981 receptive field cardinality
+    // fairness 영역 정합). 미동봉 영역 raw rate 영역 fallback (legacy path 호환).
+    // OUT layer 영역 only normalize 적용 — V1_L23 / V2_L5 영역 cluster sub-pool
+    // 영역 정합 catch 영역 동일 적용 가능 단 본 path 영역 OUT winner mismatch
+    // 영역 root cause 영역 catch 영역 OUT only.
+    const activeIdx: Set<number> | null = payload.pattern
+      ? new Set(payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+      : null;
+    const rawRates = registry.slots.map((slot) => {
       const names =
         layer === 'OUT' ? slot.out : layer === 'V1_L23' ? slot.v1L23E : slot.v2L5E;
       let sum = 0;
       for (const name of names) sum += monitor.firingRate(name, net.t, payload.windowMs);
       return names.length > 0 ? sum / names.length : 0;
+    });
+    const rates = rawRates.map((raw, ci) => {
+      if (!activeIdx || layer !== 'OUT') return raw;
+      const slot = registry.slots[ci];
+      let overlap = 0;
+      for (const ai of slot.activeInputs) {
+        if (activeIdx.has(ai)) overlap += 1;
+      }
+      // overlap=0 영역 raw 영역 fallback (silent cluster — divisor 영역 1 floor 회피).
+      return overlap > 0 ? raw / overlap : raw;
     });
     let max = 0;
     let second = 0;
@@ -523,7 +542,10 @@ export class SNNWorkerCore {
 
       // 2. measure pass — STDP off.
       net.run(observeMs, { dtMs, stdpEnabled: false });
-      const measure = this.measureClusterRates(observeMs);
+      // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 measureClusterRates
+      // 영역 전달 — input cardinality normalize 영역 catch (Wiesel 1981 receptive
+      // field cardinality fairness 영역 정합).
+      const measure = this.measureClusterRates(observeMs, pattern);
       ratesHistory.push(measure.rates);
       winnerHistory.push(measure.winner);
       const isCorrect = measure.winner === payload.targetCluster;
@@ -653,14 +675,52 @@ export class SNNWorkerCore {
     return Math.floor(idx / perSub);
   }
 
-  private measureClusterRates(windowMs: number): { rates: number[]; winner: number } {
+  /**
+   * QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): input cardinality normalize.
+   *
+   * 사용자 catch 2026-05-09 (스크린샷): horizontal pattern (idx 4,5,6,7) 영역
+   * winner=cluster 3 (diag-fore) 영역 mismatch — cluster 3 hard-wired sub-pool
+   * (idx 3,6,9,12) 영역 idx 6 overlap → 32 V1_L4_E sub-cluster 영역 weight 11.0
+   * 영역 fire → diag-fore winner 영역 root cause.
+   *
+   * 학술 정합 (Wiesel 1981 receptive field cardinality fairness): raw firing rate
+   * argmax 영역 input cardinality 영역 unequal (overlap) 영역 fairness 영역 mandatory.
+   * normalized = rate / overlap_count — overlap_count 영역 pattern active idx ∩
+   * cluster.activeInputs (hard-wired sub-pool). cluster 0 (horizontal) overlap=4
+   * vs cluster 3 (diag-fore) overlap=1 → 정규화 후 cluster 0 dominance 정합.
+   *
+   * 정직 한계:
+   * - pattern 미지정 (legacy path) 영역 raw rate 영역 fallback (호환 보존).
+   * - overlap=0 cluster 영역 raw rate 그대로 (minimum 1 floor 회피 — silent
+   *   cluster 영역 정합).
+   * - margin / share 영역 본 정정 path 영역 별도 (handleClusterFiringRates
+   *   영역 정합 정정 path 영역 함께).
+   */
+  private measureClusterRates(
+    windowMs: number,
+    pattern?: number[],
+  ): { rates: number[]; winner: number; rawRates: number[] } {
     const net = this.requireNet();
     const monitor = this.monitor!;
     const registry = this.registry!;
-    const rates = registry.slots.map((slot) => {
+    // 활성 idx 영역 catch (v > 0.5 binary 정합 — buildInjectEventsLocal 정합).
+    const activeIdx: Set<number> | null = pattern
+      ? new Set(pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+      : null;
+    const rawRates = registry.slots.map((slot) => {
       let sum = 0;
       for (const name of slot.out) sum += monitor.firingRate(name, net.t, windowMs);
       return slot.out.length > 0 ? sum / slot.out.length : 0;
+    });
+    const rates = rawRates.map((raw, ci) => {
+      if (!activeIdx) return raw;
+      const slot = registry.slots[ci];
+      let overlap = 0;
+      for (const ai of slot.activeInputs) {
+        if (activeIdx.has(ai)) overlap += 1;
+      }
+      // overlap=0 영역 raw 영역 fallback (silent cluster — divisor 영역 1 floor 회피).
+      return overlap > 0 ? raw / overlap : raw;
     });
     let max = 0;
     let winner = -1;
@@ -670,7 +730,7 @@ export class SNNWorkerCore {
         winner = i;
       }
     }
-    return { rates, winner: max > 0 ? winner : -1 };
+    return { rates, winner: max > 0 ? winner : -1, rawRates };
   }
 
   // ── PR-B (Web Worker background offload, 2026-05-10): background RPC ──
@@ -713,7 +773,13 @@ export class SNNWorkerCore {
           stdpEnabled,
           stdpGain: payload.stdpGain,
         });
-        cfr = this.handleClusterFiringRates({ windowMs: payload.observeMs, layer: 'OUT' });
+        // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 전달 영역
+        // input cardinality normalize 영역 catch (Wiesel 1981 정합).
+        cfr = this.handleClusterFiringRates({
+          windowMs: payload.observeMs,
+          layer: 'OUT',
+          pattern: payload.pattern,
+        });
       }
       // V1/V2 region rates — 마지막 repeat 후 영역 catch (PR fix Fix 5).
       const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });
@@ -732,10 +798,23 @@ export class SNNWorkerCore {
         });
       }
     } catch (e) {
-      // 정직 한계: simulation fail 영역 push 0 — main thread 영역 push event
-      // 미수신 영역 timeout 영역 catch 사실. 본 path 영역 dev mode 영역만
-      // console.warn (worker globalThis 영역 console 영역 정합).
+      // QA FINDING-4 fix (2026-05-10): silent console.warn 영역 catch path 영역
+      // push event 'triggerError' 영역 emit — main thread 영역 timeout fall-through
+      // 회피 + 사용자 visual catch (snn-error toast). 정직 한계 정정 — 직전
+      // silent path 영역 사용자 catch 0 영역 root cause 영역 정합.
+      const errMsg = e instanceof Error ? e.message : String(e);
       console.warn('[SNNWorkerCore] triggerBackground failed:', e);
+      if (this.pushEmitter) {
+        this.pushEmitter({
+          type: 'push',
+          event: 'triggerError',
+          payload: {
+            trialToken: payload.trialToken,
+            source: 'trigger',
+            error: errMsg,
+          },
+        });
+      }
     }
   }
 
@@ -807,7 +886,23 @@ export class SNNWorkerCore {
         });
       }
     } catch (e) {
+      // QA FINDING-4 fix (2026-05-10): silent console.warn 영역 push event
+      // 'triggerError' 영역 emit (source='reinforce') — main thread 영역 timeout
+      // fall-through 회피 + 사용자 visual catch.
+      const errMsg = e instanceof Error ? e.message : String(e);
       console.warn('[SNNWorkerCore] reinforceBackground failed:', e);
+      if (this.pushEmitter) {
+        this.pushEmitter({
+          type: 'push',
+          event: 'triggerError',
+          payload: {
+            trialToken: payload.trialToken,
+            source: 'reinforce',
+            error: errMsg,
+            targetCluster: payload.targetCluster,
+          },
+        });
+      }
     }
   }
 

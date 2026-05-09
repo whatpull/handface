@@ -82,6 +82,7 @@ export {
   type GetNetworkTimeResult,
   type TriggerBackgroundPayload,
   type TriggerCompletePayload,
+  type TriggerErrorPayload,
   type ReinforceBackgroundPayload,
   type ReinforceCompletePayload,
 } from './worker-protocol';

@@ -77,6 +77,12 @@ export interface ClusterFiringRatesPayload {
   // OUT 또는 V1_L23 / V2_L5 layer 영역 cluster 별 평균 firing rate.
   windowMs: number;
   layer?: 'OUT' | 'V1_L23' | 'V2_L5';
+  // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): input cardinality normalize.
+  // 영역 동봉 시점 영역 pattern active idx ∩ cluster.activeInputs (overlap)
+  // 영역 catch 영역 rate 영역 normalize. 미동봉 영역 raw rate 영역 fallback
+  // (legacy path 호환). 학술 정합 (Wiesel 1981 receptive field cardinality
+  // fairness — overlap 영역 unequal cluster 영역 fairness mandatory).
+  pattern?: number[]; // 16-dim 0..1 (binary 영역 v > 0.5 catch).
 }
 
 // R-STDP 감독 학습 — 각 frame 별 measure→reward 2-pass.
@@ -129,7 +135,12 @@ export type WorkerResponse =
 // 영역 LiveTickDetail emit + lab.save fire-and-forget.
 export type WorkerPushEvent =
   | { type: 'push'; event: 'triggerComplete'; payload: TriggerCompletePayload }
-  | { type: 'push'; event: 'reinforceComplete'; payload: ReinforceCompletePayload };
+  | { type: 'push'; event: 'reinforceComplete'; payload: ReinforceCompletePayload }
+  // QA FINDING-4 fix (2026-05-10): handleTriggerBackground / handleReinforceBackground
+  // catch path 영역 silent console.warn 영역 사용자 catch 0 → push event 영역
+  // emit. main thread 영역 listener 영역 status reset + emitBackendEvent('snn-error')
+  // 영역 toast 정합 (timeout 영역 root cause 영역 사용자 visual catch).
+  | { type: 'push'; event: 'triggerError'; payload: TriggerErrorPayload };
 
 // triggerBackground RPC payload — triggerOnce 영역 동일 semantics + trialToken.
 // pattern 영역 main thread 영역 16-dim binary catch (LiveSnn.patternRef snapshot).
@@ -168,6 +179,19 @@ export interface ReinforceBackgroundPayload {
   observeMs: number;
   stimulusDurationMs: number;
   trialToken: number;
+}
+
+// QA FINDING-4 fix (2026-05-10): triggerError push payload — handleTriggerBackground
+// / handleReinforceBackground catch path 영역 emit. main thread 영역 listener
+// 영역 pendingInferTokenRef / pendingReinforceTokenRef 영역 reset + emitBackendEvent
+// ('snn-error') 영역 toast 정합. source 영역 'trigger' / 'reinforce' 영역 caller
+// 영역 정합 catch.
+export interface TriggerErrorPayload {
+  trialToken: number;
+  source: 'trigger' | 'reinforce';
+  error: string;
+  // reinforce path 영역 targetCluster 영역 catch (caller 영역 cluster-specific reset).
+  targetCluster?: number;
 }
 
 // reinforceComplete push payload — main thread 영역 emitTick + lab.save force.

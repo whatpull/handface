@@ -374,13 +374,18 @@ export default function GridInput() {
       const { trialToken } = live.inferAsync();
       pendingInferTokenRef.current = trialToken;
       setStatus({ kind: 'inferring' });
-      // safety-net — worker hang / push event lost 영역 2000ms 후 강제 reset.
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats
+      // = 1.272M neuron-steps) 영역 throttled CPU (mobile / tab inactive) 영역
+      // 2s 도달 가능 + worker bundle fail (gh-pages MIME) 영역 MainThreadTransport
+      // fallback 영역 main thread block 영역 catch. status copy 영역 worker
+      // bundle / 회로 build 영역 점검 영역 hint.
       setTimeout(() => {
         if (pendingInferTokenRef.current === trialToken) {
           pendingInferTokenRef.current = null;
-          setStatus((s) => s.kind === 'inferring' ? { kind: 'ok', message: '추론 완료 (timeout)' } : s);
+          setStatus((s) => s.kind === 'inferring' ? { kind: 'ok', message: '추론 완료 (timeout — 회로 build 또는 worker bundle 점검)' } : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
@@ -422,18 +427,19 @@ export default function GridInput() {
       // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
       const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
       pendingReinforceTokenRef.current = trialToken;
-      // safety-net — push event 영역 lost / worker hang 영역 2000ms 영역 elevate
-      // (직전 100ms 영역 worker simulation 50ms × 1 영역 정합 단 IndexedDB +
-      // postMessage 영역 latency 영역 race 영역 회피 catch 영역 보수적).
+      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
+      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
+      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
+      // MainThreadTransport fallback 영역 main thread block 영역 catch.
       setTimeout(() => {
         if (pendingReinforceTokenRef.current === trialToken) {
           pendingReinforceTokenRef.current = null;
           setReinforcingCluster(null);
           setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 (timeout — 회로 build 또는 worker bundle 점검)` }
             : s);
         }
-      }, 2000);
+      }, 8000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
@@ -452,7 +458,15 @@ export default function GridInput() {
       if (d.source === 'trigger' && d.trialToken !== undefined) {
         if (pendingInferTokenRef.current === d.trialToken) {
           pendingInferTokenRef.current = null;
-          setStatus({ kind: 'ok', message: '추론 완료' });
+          // QA FINDING-5 fix (2026-05-10): margin < 10% 영역 '낮은 confidence'
+          // 영역 status copy 영역 hint — Diehl & Cook 2015 winner margin 10%
+          // threshold 정합 (NodeInfer MarginMeter 영역 정합). winner -1 영역
+          // silent 영역 별도 catch.
+          const lowConf = d.winner < 0 || d.margin < 0.10;
+          setStatus({
+            kind: 'ok',
+            message: lowConf ? '추론 완료 (낮은 confidence)' : '추론 완료',
+          });
         }
       } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
         if (pendingReinforceTokenRef.current === d.trialToken) {

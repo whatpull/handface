@@ -168,13 +168,14 @@ describe('SNNWorkerCore — handleTriggerBackground (PR-B 2026-05-10)', () => {
     expect(payload.cfr.rates).toHaveLength(4);
   });
 
-  it('B6: build 전 triggerBackground 영역 silent (push 0) — net 미초기화 정직 한계', () => {
+  it('B6: build 전 triggerBackground 영역 triggerError push event emit — QA FINDING-4 정정', () => {
     const core = new SNNWorkerCore();
     const events: WorkerPushEvent[] = [];
     core.setPushEmitter((event) => {
       events.push(event);
     });
-    // build 0 — handleTriggerBackground 영역 try/catch 영역 catch 영역 silent log.
+    // build 0 — handleTriggerBackground 영역 try/catch 영역 catch 영역 'triggerError'
+    // push event 영역 emit (QA FINDING-4 fix 2026-05-10 — 직전 silent path 정정).
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const res = core.handle({
       id: 100,
@@ -191,7 +192,16 @@ describe('SNNWorkerCore — handleTriggerBackground (PR-B 2026-05-10)', () => {
       },
     });
     expect(res.ok).toBe(true); // sync ack 영역 catch path 영역 정합 — error 영역 try 내부.
-    expect(events).toHaveLength(0); // push 0 — net 미빌드 영역 simulation fail.
+    // QA FINDING-4 정정: catch path 영역 'triggerError' 영역 emit — main thread
+    // 영역 timeout fall-through 회피 + 사용자 visual catch.
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('push');
+    expect(events[0].event).toBe('triggerError');
+    if (events[0].event === 'triggerError') {
+      expect(events[0].payload.trialToken).toBe(42);
+      expect(events[0].payload.source).toBe('trigger');
+      expect(typeof events[0].payload.error).toBe('string');
+    }
     warnSpy.mockRestore();
   });
 });

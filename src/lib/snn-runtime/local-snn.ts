@@ -165,7 +165,11 @@ export class LocalSNN {
       );
       if (delta.indices.length > 0) {
         await sink.appendDelta(delta);
-        await sink.compact(netId, this.opts.maxDeltaHistory ?? 32);
+        // 사용자 catch 2026-05-09: localStorage quota exceeded 정정 — n13
+        // substrate 영역 ~28k synapse 영역 delta 영역 ~50-100KB/건. 32건 * 2
+        // substrate ≈ 6MB → quota 5-10MB 초과. 4건 영역 default — latest snapshot
+        // 영역 full state 영역 보존 시점 영역 delta 영역 단순 journal 역할.
+        await sink.compact(netId, this.opts.maxDeltaHistory ?? 4);
       }
     }
     await sink.saveWeights(next);

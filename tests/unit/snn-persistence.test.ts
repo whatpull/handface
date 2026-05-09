@@ -99,6 +99,42 @@ describe('snn-persistence — delta 인코딩', () => {
   });
 });
 
+// 사용자 catch 2026-05-09: localStorage quota exceeded 정합 — QuotaExceededError
+// throw mock storage. setItem 영역 size 영역 limit 초과 시 DOMException 영역 throw.
+class QuotaLimitedStorage {
+  private store = new Map<string, string>();
+  private currentBytes = 0;
+  constructor(private maxBytes: number) {}
+  getItem(k: string): string | null {
+    return this.store.get(k) ?? null;
+  }
+  setItem(k: string, v: string): void {
+    const prev = this.store.get(k);
+    const delta = (v.length * 2) - (prev ? prev.length * 2 : 0); // UTF-16 ≈ 2 bytes
+    if (this.currentBytes + delta > this.maxBytes) {
+      const err = new Error(
+        `Failed to execute 'setItem' on 'Storage': Setting the value of '${k}' exceeded the quota.`,
+      ) as Error & { name: string; code: number };
+      err.name = 'QuotaExceededError';
+      err.code = 22;
+      throw err;
+    }
+    this.store.set(k, v);
+    this.currentBytes += delta;
+  }
+  removeItem(k: string): void {
+    const prev = this.store.get(k);
+    if (prev) this.currentBytes -= prev.length * 2;
+    this.store.delete(k);
+  }
+  size(): number {
+    return this.currentBytes;
+  }
+  keys(): string[] {
+    return Array.from(this.store.keys());
+  }
+}
+
 describe('snn-persistence — LocalStorageSink', () => {
   let storage: MemoryStorage;
   let sink: LocalStorageSink;
@@ -137,6 +173,86 @@ describe('snn-persistence — LocalStorageSink', () => {
     const after = await sink.loadDeltas('u1');
     expect(after).toHaveLength(3);
     expect(after[2].rev).toBe(10);
+  });
+
+  // 사용자 catch 2026-05-09: localStorage quota exceeded 정합.
+  it('quota exceeded 시 자체 netId delta wipe + retry — write 성공', async () => {
+    // 600 bytes 영역 작은 quota (UTF-16 영역 300 chars).
+    const limited = new QuotaLimitedStorage(600);
+    const s = new LocalStorageSink({ storage: limited, prefix: 't' });
+    // 100건 영역 delta 누적 — quota 영역 가득 채움.
+    for (let r = 1; r <= 30; r += 1) {
+      try {
+        await s.appendDelta({
+          schema: 1, netId: 'u1', baseRev: r - 1, rev: r, savedAt: 0,
+          indices: [0, 1, 2], values: [1.1, 2.2, 3.3],
+        });
+      } catch { /* quota 영역 break — 영역 의도. */ break; }
+    }
+    // 작은 weights snapshot 영역 retry path 영역 동작 시 write 성공 정합.
+    await s.saveWeights({
+      schema: 1, netId: 'u1', rev: 1, t: 0, savedAt: 0, weights: [1, 2, 3],
+    });
+    expect(await s.loadWeights('u1')).not.toBeNull();
+    // delta 영역 quota recovery 영역 wipe — 빈 array 정합.
+    expect(await s.loadDeltas('u1')).toEqual([]);
+  });
+
+  it('quota exceeded 시 cross-netId delta wipe — fallback path', async () => {
+    const limited = new QuotaLimitedStorage(800);
+    const s = new LocalStorageSink({ storage: limited, prefix: 't' });
+    // u1 영역 delta 영역 가득 채움.
+    for (let r = 1; r <= 20; r += 1) {
+      try {
+        await s.appendDelta({
+          schema: 1, netId: 'u1', baseRev: r - 1, rev: r, savedAt: 0,
+          indices: [0, 1, 2, 3, 4], values: [1, 2, 3, 4, 5],
+        });
+      } catch { break; }
+    }
+    // u2 영역 weights write — u1 영역 delta wipe path 영역 catch 시점 영역 retry.
+    await s.saveWeights({
+      schema: 1, netId: 'u2', rev: 1, t: 0, savedAt: 0, weights: [9, 8, 7],
+    });
+    expect(await s.loadWeights('u2')).not.toBeNull();
+  });
+
+  it('saveTopology 는 동일 byte 영역 stored 시 redundant write 영역 skip', async () => {
+    const net = buildToyNet();
+    const topo = net.snapshot();
+    let writeCount = 0;
+    const tracking: MemoryStorage & { setItem: (k: string, v: string) => void } = (() => {
+      const m = new MemoryStorage();
+      const orig = m.setItem.bind(m);
+      return Object.assign(m, {
+        setItem(k: string, v: string) {
+          if (k.endsWith(':topology')) writeCount += 1;
+          orig(k, v);
+        },
+      });
+    })();
+    const s = new LocalStorageSink({ storage: tracking, prefix: 'idem' });
+    await s.saveTopology('u1', topo);
+    expect(writeCount).toBe(1);
+    // 같은 topology 영역 다시 save → write skip (idempotent).
+    await s.saveTopology('u1', topo);
+    expect(writeCount).toBe(1);
+    // 다른 topology 영역 새 write 발생.
+    const net2 = buildToyNet();
+    net2.connect('A', 'C', 99); // 추가 synapse → 다른 topology.
+    await s.saveTopology('u1', net2.snapshot());
+    expect(writeCount).toBe(2);
+  });
+
+  it('compact(0) 영역 deltas key 영역 명시 wipe', async () => {
+    const net = buildToyNet();
+    const w0 = buildWeightSnapshot('u1', net, 0);
+    applyWeights(net, [5.0, 7.0, 99]);
+    const w1 = buildWeightSnapshot('u1', net, 1);
+    await sink.appendDelta(diffWeightSnapshots(w0, w1));
+    expect(await sink.loadDeltas('u1')).toHaveLength(1);
+    await sink.compact('u1', 0);
+    expect(await sink.loadDeltas('u1')).toEqual([]);
   });
 
   it('remove 는 모든 키 + list 에서 제거', async () => {

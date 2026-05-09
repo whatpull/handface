@@ -141,6 +141,16 @@ export function applyWeightDelta(snap: WeightSnapshot, delta: WeightDelta): Weig
 //   snn:<prefix>:<netId>:latest     → WeightSnapshot JSON
 //   snn:<prefix>:<netId>:deltas     → WeightDelta[] JSON
 //   snn:<prefix>:list               → string[] (netId 목록 캐시)
+//
+// 사용자 catch 2026-05-09 (CRITICAL — quota exceeded):
+//   n13 substrate 토폴로지 (~28k synapses) JSON 영역 ~3MB. 두 substrate
+//   (orientation + gesture) 영역 동시 영속 + delta 32건 누적 → 13MB+
+//   browser localStorage quota (5-10MB) 초과 → reinforce 영역 strict fail.
+//   fix path:
+//     1. writeJSON 영역 quota-resilient — QuotaExceededError 영역 catch +
+//        retry path (delta wipe, 다른 netId 영역 stale wipe).
+//     2. saveTopology 영역 idempotent — 이미 같은 byte 영역 stored 시 skip.
+//     3. delta history default 영역 32 → 4 (local-snn.ts 영역 정합).
 
 const DEFAULT_PREFIX = 'handface';
 
@@ -154,6 +164,18 @@ function getStorage(): StorageLike | null {
   if (typeof globalThis === 'undefined') return null;
   const g = globalThis as { localStorage?: StorageLike };
   return g.localStorage ?? null;
+}
+
+// 브라우저 / 환경별 QuotaExceededError code 영역 catch — DOMException code 22
+// (legacy) 또는 1014 (Firefox) 또는 name === 'QuotaExceededError'.
+export function isQuotaError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const err = e as { name?: string; code?: number; message?: string };
+  if (err.name === 'QuotaExceededError') return true;
+  if (err.name === 'NS_ERROR_DOM_QUOTA_REACHED') return true; // Firefox legacy
+  if (err.code === 22 || err.code === 1014) return true;
+  if (typeof err.message === 'string' && /quota/i.test(err.message)) return true;
+  return false;
 }
 
 export class LocalStorageSink implements SnapshotSink {
@@ -182,6 +204,10 @@ export class LocalStorageSink implements SnapshotSink {
     return `snn:${this.prefix}:list`;
   }
 
+  private keyHead(): string {
+    return `snn:${this.prefix}:`;
+  }
+
   private readJSON<T>(key: string): T | null {
     const raw = this.storage.getItem(key);
     if (raw === null) return null;
@@ -192,8 +218,48 @@ export class LocalStorageSink implements SnapshotSink {
     }
   }
 
+  // key format: 'snn:<prefix>:<netId>:<kind>' 영역 netId 추출. list key 등 미정합 시 null.
+  private extractNetId(key: string): string | null {
+    const head = this.keyHead();
+    if (!key.startsWith(head)) return null;
+    const rest = key.slice(head.length); // '<netId>:<kind>'
+    const colon = rest.lastIndexOf(':');
+    if (colon < 0) return null;
+    return rest.slice(0, colon);
+  }
+
+  // quota-resilient setItem — QuotaExceededError 영역 fallback path.
+  //   1. 자체 netId 영역 delta wipe (가장 큰 ballast).
+  //   2. 모든 등록 netId 영역 delta wipe (cross-substrate spillover).
+  //   3. 그래도 fail 시 throw (호출자 영역 user-visible warning surface).
+  private trySetItem(key: string, raw: string): void {
+    try {
+      this.storage.setItem(key, raw);
+      return;
+    } catch (e) {
+      if (!isQuotaError(e)) throw e;
+      // 1차: 자체 netId 영역 delta wipe.
+      const ownNetId = this.extractNetId(key);
+      if (ownNetId !== null) {
+        try { this.storage.removeItem(this.kDeltas(ownNetId)); } catch { /* noop */ }
+      }
+      try {
+        this.storage.setItem(key, raw);
+        return;
+      } catch (e2) {
+        if (!isQuotaError(e2)) throw e2;
+      }
+      // 2차: 모든 등록 netId 영역 delta wipe.
+      const list = this.readJSON<string[]>(this.kList()) ?? [];
+      for (const id of list) {
+        try { this.storage.removeItem(this.kDeltas(id)); } catch { /* noop */ }
+      }
+      this.storage.setItem(key, raw); // 3차 — 그래도 fail 시 throw.
+    }
+  }
+
   private writeJSON(key: string, value: unknown): void {
-    this.storage.setItem(key, JSON.stringify(value));
+    this.trySetItem(key, JSON.stringify(value));
   }
 
   private touchList(netId: string): void {
@@ -205,7 +271,15 @@ export class LocalStorageSink implements SnapshotSink {
   }
 
   async saveTopology(netId: string, snap: NetworkSnapshot): Promise<void> {
-    this.writeJSON(this.kTopology(netId), snap);
+    // Idempotent: 이미 같은 byte 영역 stored 시 skip — 토폴로지 영역 결정론
+    // (seed + preset 정합) 영역 redundant write 영역 catch.
+    const raw = JSON.stringify(snap);
+    const existing = this.storage.getItem(this.kTopology(netId));
+    if (existing === raw) {
+      this.touchList(netId);
+      return;
+    }
+    this.trySetItem(this.kTopology(netId), raw);
     this.touchList(netId);
   }
 
@@ -233,6 +307,11 @@ export class LocalStorageSink implements SnapshotSink {
   }
 
   async compact(netId: string, keepLastN: number): Promise<void> {
+    if (keepLastN <= 0) {
+      // 0 영역 명시 wipe path — persistTopology 영역 직전 위상 deltas 폐기 정합.
+      this.storage.removeItem(this.kDeltas(netId));
+      return;
+    }
     const deltas = await this.loadDeltas(netId);
     if (deltas.length <= keepLastN) return;
     const trimmed = deltas.slice(deltas.length - keepLastN);
@@ -274,7 +353,8 @@ export function createPersistController(opts: {
   deltaEps?: number;
 }): PersistController {
   const { netId, net, sink } = opts;
-  const maxHistory = opts.maxDeltaHistory ?? 32;
+  // 사용자 catch 2026-05-09: localStorage quota 정정 정합 — 32 → 4.
+  const maxHistory = opts.maxDeltaHistory ?? 4;
   const eps = opts.deltaEps ?? 1e-9;
   let rev = 0;
   let prev: WeightSnapshot | null = null;

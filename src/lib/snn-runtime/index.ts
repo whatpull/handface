@@ -61,6 +61,7 @@ export {
 export {
   type WorkerRequest,
   type WorkerResponse,
+  type WorkerPushEvent,
   type BuildPayload,
   type RunPayload,
   type FiringRatesPayload,
@@ -79,11 +80,25 @@ export {
   type RegionFiringRatesPayload,
   type RegionFiringRatesResult,
   type GetNetworkTimeResult,
+  type TriggerBackgroundPayload,
+  type TriggerCompletePayload,
+  type ReinforceBackgroundPayload,
+  type ReinforceCompletePayload,
 } from './worker-protocol';
 export { SNNWorkerCore } from './worker-core';
-export { SNNWorkerClient, type WorkerLike } from './worker-client';
+export {
+  SNNWorkerClient,
+  type WorkerLike,
+  type PushEventName,
+  type PushHandlers,
+} from './worker-client';
 export { LocalSNN, type LocalSNNOptions, type LocalSNNStatus } from './local-snn';
 export { MainThreadTransport } from './main-thread-transport';
+// PR-B (Web Worker background offload, 2026-05-10): web worker factory export.
+// 직전 (PR #189 이전) 영역 export 0 — root-local-snn.ts 영역 MainThreadTransport
+// hard-wire 영역 root cause. 본 export 영역 root-local-snn.ts 영역 Worker
+// 가용성 catch 영역 swap path 영역 진입.
+export { createSnnWebWorker } from './create-web-worker';
 export {
   HFDatasetSink,
   HFNotFound,

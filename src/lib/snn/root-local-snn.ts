@@ -20,8 +20,10 @@ import {
   LocalSNN,
   MainThreadTransport,
   SNNWorkerClient,
+  createSnnWebWorker,
   migrateLocalStorageToIndexedDB,
   type LocalSNNStatus,
+  type WorkerLike,
 } from '@/lib/snn-runtime';
 import { GESTURE_CLUSTER_ACTIVE_INPUTS } from '@/lib/mediapipe/feature-encoder';
 import { showToast } from '@/components/ui/Toast';
@@ -94,7 +96,38 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
   //   delta 영역 초과. IndexedDB 영역 50MB+ quota 영역 swap.
   //   1회 legacy localStorage cleanup — idempotent (MIGRATION_KEY mark).
   migrateLocalStorageToIndexedDB();
-  const transport = new MainThreadTransport();
+  // PR-B (Web Worker background offload, 2026-05-10): Web Worker swap.
+  //
+  // 사용자 catch 2026-05-09 [2]: "학습이나 추론시에 백그라운드에서 동작하면
+  // 좋을 것 같습니다. 너무 버벅이고 유저 액션(이벤트)에 지연발생(불편함)"
+  //
+  // HIGH FINDING-1 정정: 직전 영역 MainThreadTransport hard-wire 영역 모든 SNN
+  // RPC 영역 main thread 영역 sync block 영역 root cause. 본 정정 영역 Worker
+  // global 가용성 catch 영역 createSnnWebWorker (별도 thread 영역 simulation)
+  // 영역 swap. SSR / Node test / Worker 미지원 환경 (legacy browser) 영역
+  // MainThreadTransport fallback 영역 호환 보존.
+  //
+  // 정직 한계:
+  //  - Web Worker dev HMR 영역 worker bundle 영역 cache 영역 schema 변경 시점
+  //    영역 reload mandatory.
+  //  - snapshot 영역 main thread ↔ worker 영역 structured clone 영역 cost 영역
+  //    매 save 영역 100KB+ — 단 LocalSNN.save() 영역 throttle 영역 catch.
+  //  - visual flicker race — push event 영역 microtask 영역 dispatch 영역
+  //    setState 영역 batch frame 영역 정합 catch (React 19 영역 useTransition
+  //    영역 별도 hook 영역 mitigation 권장 — 본 PR scope-out).
+  let transport: WorkerLike;
+  if (typeof Worker !== 'undefined') {
+    try {
+      transport = createSnnWebWorker();
+    } catch (e) {
+      // Worker 영역 module-type bundle 영역 fail (test env / legacy bundler) →
+      // MainThreadTransport fallback (호환 보존).
+      console.warn('[root-local-snn] Web Worker bundle 영역 fail — MainThreadTransport fallback:', e);
+      transport = new MainThreadTransport();
+    }
+  } else {
+    transport = new MainThreadTransport();
+  }
   const client = new SNNWorkerClient(transport);
   const sink = new IndexedDBSink();
   const lab = new LocalSNN({

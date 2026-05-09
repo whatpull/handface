@@ -36,7 +36,11 @@ import {
   type InputModeDetail,
 } from '@/lib/backend/events';
 
-import type { ClusterFiringRatesResult } from '@/lib/snn-runtime';
+import type {
+  ClusterFiringRatesResult,
+  ReinforceCompletePayload,
+  TriggerCompletePayload,
+} from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { incrementCount } from './out-exemplars';
 
@@ -52,6 +56,16 @@ export interface LiveTickDetail {
    */
   trial: number;
   tickAtMs: number; // performance.now()
+  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): push event 영역
+  // 도달 시점 영역 caller (GridInput / CameraInput) 영역 reinforcingCluster
+  // 영역 정확 reset 영역 mandatory hint. trialToken 영역 fire-and-forget RPC
+  // 영역 monotonic seq 영역 catch + source 영역 'trigger' / 'infer' / 'reinforce'
+  // 영역 caller 영역 status copy 영역 정합 catch.
+  trialToken?: number;
+  source?: 'trigger' | 'reinforce';
+  // reinforce 영역 targetCluster — caller 영역 in-flight gate 영역 cluster-specific
+  // reset 영역 정합 (직전 setTimeout 100ms 영역 race 회피).
+  targetCluster?: number;
 }
 
 export interface LiveSnnOptions {
@@ -111,6 +125,15 @@ export class LiveSnn {
   // (Number.NEGATIVE_INFINITY 영역 sinceLast >> SAVE_THROTTLE_MS 보장).
   private _lastSaveAtMs = Number.NEGATIVE_INFINITY;
   private _saveTrailingTimer: ReturnType<typeof setTimeout> | null = null;
+  // PR-B (Web Worker background offload, 2026-05-10): trial token + push handler.
+  // trialToken 영역 monotonic seq — out-of-order push event 영역 latest-token-wins
+  // discrimination. _unsubscribePush 영역 ensurePushHandler 영역 lazy bind 영역
+  // 한 번만 등록 (multi-bind 영역 stale 회피).
+  private _trialTokenSeq = 0;
+  private _unsubscribePush: (() => void)[] = [];
+  // 사용자 catch 2026-05-09 [2] (SEC-1 mitigation): push handler 영역 매 emit
+  // 영역 fresh root fetch 영역 substrate switch stale 회피 — root 영역 reuse 0.
+  private _pushBoundForKind: SubstrateKind | null = null;
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
@@ -137,6 +160,12 @@ export class LiveSnn {
       clearTimeout(this._saveTrailingTimer);
       this._saveTrailingTimer = null;
     }
+    // PR-B (Web Worker background offload, 2026-05-10): push listener cleanup.
+    for (const off of this._unsubscribePush) {
+      try { off(); } catch { /* noop */ }
+    }
+    this._unsubscribePush = [];
+    this._pushBoundForKind = null;
   }
 
   // 학술 정합: substrate 변경 시점 영역 기존 회로 영역 보존 + 새 회로 영역
@@ -156,6 +185,14 @@ export class LiveSnn {
       clearTimeout(this._saveTrailingTimer);
       this._saveTrailingTimer = null;
     }
+    // PR-B (Web Worker background offload, 2026-05-10): substrate switch 영역
+    // push handler 영역 unsubscribe + lazy re-bind 영역 다음 triggerAsync 영역
+    // 정합 (PR #186 SEC-1 substrate switch stale closure 호환 보존).
+    for (const off of this._unsubscribePush) {
+      try { off(); } catch { /* noop */ }
+    }
+    this._unsubscribePush = [];
+    this._pushBoundForKind = null;
     this.substrateKind = kind;
   }
 
@@ -418,6 +455,143 @@ export class LiveSnn {
     return await this.triggerOnce({ stdpGain: 0 });
   }
 
+  // ── PR-B (Web Worker background offload, 2026-05-10): fire-and-forget API ──
+  //
+  // 사용자 catch 2026-05-09 [2]: "학습이나 추론시에 백그라운드에서 동작하면
+  // 좋을 것 같습니다. 너무 버벅이고 유저 액션(이벤트)에 지연발생(불편함)"
+  //
+  // 직전 triggerOnce / inferOnce / reinforce 영역 await semantics 보존 (호환
+  // mandatory) + 신규 *Async 영역 즉시 return (사용자 input event loop unblock).
+  // 결과 영역 worker push event 영역 emit → ensurePushHandler 영역 emitTick
+  // 영역 정합 (LiveTickDetail event + neuron-firing event + OUT incrementCount).
+  //
+  // tickInFlight gate 영역 본 path 영역 미사용 — worker 영역 sequential serialize
+  // 영역 자연 정합 (worker thread 영역 message handler 영역 sync 영역 정합).
+  // main thread 영역 head-of-line block 영역 0.
+
+  /**
+   * 즉시 return — `{ trialToken }` 반환. 결과 영역 worker push event 영역 별도
+   * emitTick. 사용자 click → status 표시 영역 sync 영역 정합 catch — 결과
+   * 영역 push event listener 영역 emit (tickAtMs 영역 push 도달 시점 정합).
+   */
+  triggerAsync(opts: TriggerOnceOptions = {}): { trialToken: number } {
+    const stdpGain = opts.stdpGain ?? 1.0;
+    const repeats = Math.max(1, opts.repeats ?? 3);
+    const resetThreshold = opts.resetThreshold ?? true;
+    const trialToken = ++this._trialTokenSeq;
+    // fire-and-forget — root fetch 영역 async 단 await 0 (caller 영역 unblock).
+    void (async () => {
+      try {
+        const root = await getRootLocalSnnFor(this.substrateKind);
+        await this.ensurePushHandler(root);
+        // PR-B: triggerBackground RPC 영역 sync ack `null` 영역 즉시 return —
+        // worker 영역 inline simulation 영역 끝난 시점 영역 push event 영역
+        // emit (ensurePushHandler 영역 emitTick + saveDebounced fire-and-forget).
+        await root.client.triggerBackground({
+          pattern: this.patternRef.slice(),
+          intensity: this.opts.intensity,
+          observeMs: this.opts.observeMs,
+          stimulusDurationMs: this.opts.stimulusDurationMs,
+          stdpGain,
+          repeats,
+          resetThreshold,
+          trialToken,
+        });
+      } catch (e) {
+        console.warn('[LiveSnn] triggerAsync dispatch failed:', e);
+      }
+    })();
+    return { trialToken };
+  }
+
+  /**
+   * 즉시 return — STDP off (학습 0). triggerAsync({ stdpGain: 0 }) thin wrapper.
+   */
+  inferAsync(): { trialToken: number } {
+    return this.triggerAsync({ stdpGain: 0 });
+  }
+
+  /**
+   * 즉시 return — R-STDP supervised reward 영역 worker 영역 inline 처리.
+   * push event ('reinforceComplete') 영역 emitTick + lab.save force fire-and-forget.
+   */
+  reinforceAsync(targetCluster: number, gain: number = 2.0): { trialToken: number } {
+    const trialToken = ++this._trialTokenSeq;
+    void (async () => {
+      try {
+        const root = await getRootLocalSnnFor(this.substrateKind);
+        await this.ensurePushHandler(root);
+        await root.client.reinforceBackground({
+          pattern: this.patternRef.slice(),
+          targetCluster,
+          rewardGain: gain,
+          punishGain: gain * 0.25,
+          intensity: this.opts.intensity,
+          observeMs: this.opts.observeMs,
+          stimulusDurationMs: this.opts.stimulusDurationMs,
+          trialToken,
+        });
+      } catch (e) {
+        console.warn('[LiveSnn] reinforceAsync dispatch failed:', e);
+      }
+    })();
+    return { trialToken };
+  }
+
+  /**
+   * lazy bind push handler — root.client.on(...) 영역 매 emit 영역 fresh root
+   * 영역 reuse 0 + setSubstrate 영역 unsubscribe + re-bind 영역 정합 (PR #186
+   * SEC-1 substrate switch stale closure 호환 보존).
+   *
+   * 정직 한계: 한 번 bind 후 root reference 영역 capture — substrate 영역 동일
+   * 영역 reuse 영역 정합. setSubstrate 영역 _pushBoundForKind=null + unsubscribe
+   * 영역 catch 영역 다음 triggerAsync 영역 fresh root 영역 re-bind.
+   */
+  private async ensurePushHandler(root: RootLocalSnn): Promise<void> {
+    if (this._pushBoundForKind === this.substrateKind) return;
+    // 직전 binding 영역 stale 회피 — 별도 cleanup (setSubstrate 영역 정합).
+    for (const off of this._unsubscribePush) {
+      try { off(); } catch { /* noop */ }
+    }
+    this._unsubscribePush = [];
+    this._pushBoundForKind = this.substrateKind;
+    const offT = root.client.on('triggerComplete', (payload: TriggerCompletePayload) => {
+      this.handleTriggerComplete(root, payload);
+    });
+    const offR = root.client.on('reinforceComplete', (payload: ReinforceCompletePayload) => {
+      this.handleReinforceComplete(root, payload);
+    });
+    this._unsubscribePush.push(offT, offR);
+  }
+
+  private handleTriggerComplete(root: RootLocalSnn, payload: TriggerCompletePayload): void {
+    // 정직 한계: out-of-order push 영역 latest-token-wins discrimination 영역
+    // 본 path 영역 미적용 — worker 영역 sequential serial 영역 자연 정합 +
+    // main thread 영역 stale token 영역 dispatch 0 (push order = trial order).
+    this.trialCount += 1;
+    // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken + source 영역 LiveTickDetail
+    // 영역 동봉 → caller 영역 reinforcingCluster 영역 token match 영역 reset.
+    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
+      trialToken: payload.trialToken,
+      source: 'trigger',
+    });
+    // saveDebounced fire-and-forget — 사용자 결과 표시 영역 IndexedDB write
+    // 영역 wait 0. force=false (throttle 정합 — supervised path 영역 reinforce
+    // 별도 force=true).
+    void this.saveDebounced(root, false);
+  }
+
+  private handleReinforceComplete(root: RootLocalSnn, payload: ReinforceCompletePayload): void {
+    this.trialCount += 1;
+    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
+      trialToken: payload.trialToken,
+      source: 'reinforce',
+      targetCluster: payload.targetCluster,
+    });
+    // force=true — supervised reward 영역 즉시 영속 (saveDebounced throttle bypass).
+    void this.saveDebounced(root, true);
+  }
+
   private buildInjectEvents(currentT: number): Array<{
     neuron: string;
     weight: number;
@@ -441,7 +615,12 @@ export class LiveSnn {
     return out;
   }
 
-  private emitTick(cfr: ClusterFiringRatesResult, v1Hz = 0, v2Hz = 0): void {
+  private emitTick(
+    cfr: ClusterFiringRatesResult,
+    v1Hz = 0,
+    v2Hz = 0,
+    meta?: { trialToken?: number; source?: 'trigger' | 'reinforce'; targetCluster?: number },
+  ): void {
     if (typeof window === 'undefined') return;
     const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
@@ -452,6 +631,10 @@ export class LiveSnn {
       patternActive,
       trial: this.trialCount,
       tickAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+      // PR #192 polish (UX-3 + QA FINDING-1/2): token-aware reset hint.
+      trialToken: meta?.trialToken,
+      source: meta?.source,
+      targetCluster: meta?.targetCluster,
     };
     window.dispatchEvent(new CustomEvent<LiveTickDetail>(TICK_EVENT, { detail }));
     // PR3 (사용자 catch 2026-05-09): NodeInfer / PipelineEventContext 영역

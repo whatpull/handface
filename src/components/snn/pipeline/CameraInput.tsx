@@ -36,7 +36,7 @@ import {
   GESTURE_CLUSTER_ACTIVE_INPUTS,
   sharpenForGesture,
 } from '@/lib/mediapipe/feature-encoder';
-import { getLiveSnn } from '@/lib/snn/live-snn';
+import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import {
   GESTURE_LABEL_TO_CLUSTER,
   GESTURE_CONFIDENCE_MIN,
@@ -132,7 +132,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         ) {
           lastStableClusterRef.current = mappedCluster;
           try {
-            void getLiveSnn().triggerOnce();
+            // PR-B (Web Worker background offload, 2026-05-10): triggerAsync swap.
+            // 사용자 catch 2026-05-09 [2]: stable-pose 영역 추론 trigger 영역 main
+            // thread block 0 — hand-feature event loop 영역 즉시 unblock 영역
+            // 다음 frame 영역 lag 0. 결과 영역 worker push event 영역 별도 emit.
+            getLiveSnn().triggerAsync();
           } catch {
             // SSR / 미초기화 — 무시.
           }
@@ -264,7 +268,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // 현재 lastFeature 영역 setPattern + reinforce(gain=2.0) — 즉시 1 회 inject
   // + run + lab.save (가중치 영속). 학술 정합: Hebbian + reward modulation
   // (Florian 2007, Izhikevich 2007 R-STDP 정합).
-  const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
+  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): pending reinforce
+  // trialToken 영역 ref 영역 push event listener 영역 match catch — 직전
+  // setTimeout 100ms race 영역 회피.
+  const pendingReinforceTokenRef = useRef<number | null>(null);
+
+  const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
     if (lastFeatureRef.current === null) {
       setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
       return;
@@ -276,30 +285,53 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode
       // event 영역 LiveSnn 자체 substrate kind 영역 derive.
       live.setPattern(lastFeatureRef.current);
-      // PR audit fix (Fix 1 — MEDIUM): reinforce 영역 saveFailed flag 영역 read
-      // 영역 user-visible warning 표시 — 직전 silent fail catch.
-      const result = await live.reinforce(clusterIdx, 2.0);
-      // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
-      // 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 cluster-specific gradient
-      // 0 영역 정직 라벨 swap — '패턴 보강' (winner cluster boosting only).
-      if (result.saveFailed) {
-        setStatus({
-          kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1 (저장 실패 — 새로고침 전 다시 보강 권장)`,
-        });
-      } else {
-        setStatus({
-          kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1`,
-        });
-      }
+      // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
+      // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
+      // event 영역 별도 emit (NodeLearn / NodeInfer 영역 자동 sync).
+      // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') swap.
+      // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken capture + listener.
+      const { trialToken } = live.reinforceAsync(clusterIdx, 2.0);
+      pendingReinforceTokenRef.current = trialToken;
+      // safety-net — 100 → 2000ms elevate (worker simulation + IndexedDB +
+      // postMessage round-trip 영역 race 영역 회피 catch 영역 보수적).
+      setTimeout(() => {
+        if (pendingReinforceTokenRef.current === trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          setStatus((s) => s.kind === 'training'
+            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 (timeout)` }
+            : s);
+        }
+      }, 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
-    } finally {
       setReinforcingCluster(null);
+      pendingReinforceTokenRef.current = null;
     }
   }, []);
+
+  // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
+  // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    return onLiveTick((d) => {
+      if (d.source === 'reinforce' && d.trialToken !== undefined) {
+        if (pendingReinforceTokenRef.current === d.trialToken) {
+          pendingReinforceTokenRef.current = null;
+          setReinforcingCluster(null);
+          const tc = d.targetCluster;
+          const label = (tc !== undefined && tc >= 0 && tc < GESTURE_LABELS.length)
+            ? GESTURE_LABELS[tc]
+            : '패턴';
+          setStatus({ kind: 'ok', message: `${label} 보강 완료` });
+        }
+      }
+      // 정직 한계: CameraInput 영역 trigger (stable-pose) push event 영역
+      // status copy 영역 별도 update 0 — stable-pose 영역 자동 trigger 영역
+      // 사용자 액션 0 (background 영역 정합).
+    });
+  }, [engineMode]);
 
   const runInfer = useCallback(async () => {
     if (lastFeatureRef.current === null) {
@@ -436,7 +468,14 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         </div>
       )}
 
-      <div className={`snn-grid-status snn-grid-status--${status.kind}`}>
+      {/* PR #192 polish (UX-1): aria-live polite + role=status — 백그라운드
+          push event 영역 status swap 영역 screen reader 영역 정합. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={`snn-grid-status snn-grid-status--${status.kind}`}
+      >
         <span>{statusLine}</span>
       </div>
     </div>

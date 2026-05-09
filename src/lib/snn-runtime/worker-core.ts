@@ -27,12 +27,15 @@ import type {
   GetNetworkTimeResult,
   RegionFiringRatesPayload,
   RegionFiringRatesResult,
+  ReinforceBackgroundPayload,
   ResetClusterWeightsResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
   RunResult,
   SnapshotResult,
+  TriggerBackgroundPayload,
+  WorkerPushEvent,
   WorkerRequest,
   WorkerResponse,
 } from './worker-protocol';
@@ -58,14 +61,105 @@ const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [
   [3, 6, 9, 12],
 ];
 
+// PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
+// 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
+// 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
+// 영역 catch 영역 silent 처리 0.
+const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
+  'build',
+  'restoreSnapshot',
+  'inject',
+  'run',
+  'snapshot',
+  'extractWeights',
+  'applyWeights',
+  'firingRates',
+  'regionFiringRates',
+  'expandCluster',
+  'clusterFiringRates',
+  'clusterTrainRStdp',
+  'getNetworkTime',
+  'resetHomeostatic',
+  'resetClusterWeights',
+  'reset',
+  'triggerBackground',
+  'reinforceBackground',
+]);
+
+// PR #192 polish (SEC-1): triggerBackground / reinforceBackground 영역 진입
+// payload validation guard. main thread 영역 LiveSnn 영역 보장 catch 단
+// 외부 worker 영역 hostile message 영역 catch 영역 defense-in-depth.
+// 정직 한계: pattern 영역 16-dim ∈ [0,1] 영역 binary catch (sharpenForGesture
+// 영역 정합) — 본 path 영역 length only 영역 catch (값 영역 worker-core 영역
+// inject events 영역 v <= 0.5 filter 영역 정합).
+function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
+  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
+    throw new Error('invalid pattern (expected length 16 array)');
+  }
+  if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
+    throw new Error('invalid repeats (expected 1..10)');
+  }
+  if (typeof p.observeMs !== 'number' || p.observeMs < 1 || p.observeMs > 1000) {
+    throw new Error('invalid observeMs (expected 1..1000)');
+  }
+  if (typeof p.intensity !== 'number' || p.intensity < 0 || p.intensity > 1000) {
+    throw new Error('invalid intensity (expected 0..1000)');
+  }
+  if (typeof p.stimulusDurationMs !== 'number' || p.stimulusDurationMs < 0 || p.stimulusDurationMs > 1000) {
+    throw new Error('invalid stimulusDurationMs (expected 0..1000)');
+  }
+}
+
+function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void {
+  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
+    throw new Error('invalid pattern (expected length 16 array)');
+  }
+  if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 31) {
+    throw new Error('invalid targetCluster (expected 0..31)');
+  }
+  if (typeof p.observeMs !== 'number' || p.observeMs < 1 || p.observeMs > 1000) {
+    throw new Error('invalid observeMs (expected 1..1000)');
+  }
+  if (typeof p.intensity !== 'number' || p.intensity < 0 || p.intensity > 1000) {
+    throw new Error('invalid intensity (expected 0..1000)');
+  }
+  if (typeof p.stimulusDurationMs !== 'number' || p.stimulusDurationMs < 0 || p.stimulusDurationMs > 1000) {
+    throw new Error('invalid stimulusDurationMs (expected 0..1000)');
+  }
+}
+
 export class SNNWorkerCore {
   private net: NeuralNetwork | null = null;
   private monitor: SpikeMonitor | null = null;
   private registry: ClusterRegistry | null = null;
   private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
+  // PR-B (Web Worker background offload, 2026-05-10): push event emitter.
+  // worker entry (snn-worker.ts) 영역 self.postMessage 영역 wire,
+  // main-thread-transport 영역 listeners.dispatch 영역 wire.
+  // null 시점 영역 push event emit 영역 silent skip — RPC 영역 trigger/reinforce
+  // background 영역 sync ack 영역 정합 (push 영역 0 발화 단 동작 무관).
+  private pushEmitter: ((event: WorkerPushEvent) => void) | null = null;
+
+  /**
+   * PR-B (Web Worker background offload, 2026-05-10): worker 영역 push event
+   * emitter 영역 wire. 외부 영역 push channel 영역 inject — sync ack RPC 영역
+   * 별도 path 영역 결과 영역 main thread 영역 emit.
+   *
+   * worker entry: `core.setPushEmitter((event) => self.postMessage(event))`.
+   * main-thread-transport: `core.setPushEmitter((event) => listeners.dispatch(event))`.
+   */
+  setPushEmitter(emitter: (event: WorkerPushEvent) => void): void {
+    this.pushEmitter = emitter;
+  }
 
   handle(req: WorkerRequest): WorkerResponse {
     try {
+      // PR #192 polish (SEC-2): type whitelist 영역 explicit reject — defense-
+      // in-depth (직전 silent default 영역 _exhaustive: never 영역 정합 catch
+      // 영역 hostile / typo'd type 영역 catch 영역 catch 0).
+      if (!ALLOWED_REQUEST_TYPES.has((req as { type: string }).type)) {
+        return { id: req.id, ok: false, error: `disallowed request type: ${(req as { type: string }).type}` };
+      }
       switch (req.type) {
         case 'build':
           return { id: req.id, ok: true, result: this.handleBuild(req.payload) };
@@ -148,6 +242,25 @@ export class SNNWorkerCore {
           this.net = null;
           this.monitor = null;
           this.registry = null;
+          return { id: req.id, ok: true, result: null };
+        case 'triggerBackground':
+          // PR-B (Web Worker background offload, 2026-05-10): fire-and-forget.
+          // sync ack `null` 영역 main thread 영역 즉시 return → 사용자 input
+          // event loop 영역 unblock. 결과 영역 push event 영역 emit.
+          // 주의: 본 case 영역 sync handle path 영역 호출 영역 inline 영역 simulation
+          // 영역 실행 사실 — main-thread-transport (SSR fallback) 영역 microtask
+          // 영역 ack postMessage 영역 정합 영역 simulation 영역 ack 후 영역 시작
+          // 영역 catch (queueMicrotask 영역 ack 먼저 dispatch). 단 worker
+          // 영역 message handler 영역 sync 영역 — 본 simulation 영역 worker
+          // thread 영역 block 영역 main thread 영역 unblock. 정직 한계: snn-worker
+          // entry 영역 message handler 영역 try 영역 inline 영역 simulation
+          // 영역 처리 영역 후 영역 push event 영역 emit (next message 영역
+          // 처리 영역 wait 영역 — coalesce policy 영역 worker 영역 sequential
+          // serial 영역 정합).
+          this.handleTriggerBackground(req.payload);
+          return { id: req.id, ok: true, result: null };
+        case 'reinforceBackground':
+          this.handleReinforceBackground(req.payload);
           return { id: req.id, ok: true, result: null };
       }
       const _exhaustive: never = req;
@@ -457,6 +570,129 @@ export class SNNWorkerCore {
       }
     }
     return { rates, winner: max > 0 ? winner : -1 };
+  }
+
+  // ── PR-B (Web Worker background offload, 2026-05-10): background RPC ──
+  //
+  // 사용자 catch 2026-05-09 [2]: "학습이나 추론시에 백그라운드에서 동작하면
+  // 좋을 것 같습니다. 너무 버벅이고 유저 액션(이벤트)에 지연발생(불편함)"
+  //
+  // 본 method 영역 inline simulation (inject + run + clusterFiringRates +
+  // regionFiringRates × 2) 영역 실행 영역 push event 영역 emit. live-snn.ts
+  // triggerOnce + emitTick 영역 동일 semantics — 단 RPC round-trip 영역 5 →
+  // 1 절감 + 결과 영역 비동기 push (main thread 영역 await 0).
+
+  private handleTriggerBackground(payload: TriggerBackgroundPayload): void {
+    try {
+      // PR #192 polish (SEC-1): payload validation guard — defense-in-depth.
+      validateTriggerBackgroundPayload(payload);
+      const net = this.requireNet();
+      // resetThreshold — Diehl & Cook 2015 §3.2 batch frame reset 정합.
+      if (payload.resetThreshold) {
+        for (const n of net.neurons) {
+          n.thresholdOffset = 0;
+        }
+      }
+      let cfr: ClusterFiringRatesResult | null = null;
+      // repeats 회 inject + run — Risk 4 mitigation (PR #184 정합).
+      for (let i = 0; i < payload.repeats; i += 1) {
+        const tNow = net.t;
+        const events = this.buildInjectEventsLocal(payload, tNow);
+        if (events.length > 0) net.inject(events);
+        net.run(payload.observeMs, {
+          dtMs: 0.1,
+          stdpEnabled: true,
+          stdpGain: payload.stdpGain,
+        });
+        cfr = this.handleClusterFiringRates({ windowMs: payload.observeMs, layer: 'OUT' });
+      }
+      // V1/V2 region rates — 마지막 repeat 후 영역 catch (PR fix Fix 5).
+      const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });
+      const v2 = this.handleRegionFiringRates({ region: 'V2', windowMs: payload.observeMs });
+      if (this.pushEmitter && cfr) {
+        this.pushEmitter({
+          type: 'push',
+          event: 'triggerComplete',
+          payload: {
+            trialToken: payload.trialToken,
+            cfr,
+            v1Hz: v1.hz,
+            v2Hz: v2.hz,
+            netTime: net.t,
+          },
+        });
+      }
+    } catch (e) {
+      // 정직 한계: simulation fail 영역 push 0 — main thread 영역 push event
+      // 미수신 영역 timeout 영역 catch 사실. 본 path 영역 dev mode 영역만
+      // console.warn (worker globalThis 영역 console 영역 정합).
+      console.warn('[SNNWorkerCore] triggerBackground failed:', e);
+    }
+  }
+
+  private handleReinforceBackground(payload: ReinforceBackgroundPayload): void {
+    try {
+      // PR #192 polish (SEC-1): payload validation guard — defense-in-depth.
+      validateReinforceBackgroundPayload(payload);
+      const net = this.requireNet();
+      // resetHomeostatic — supervised batch 영역 frame reset 정합.
+      for (const n of net.neurons) {
+        n.thresholdOffset = 0;
+      }
+      // clusterTrainRStdp 영역 1-pattern batch reuse — 직전 reinforce path 영역 정합.
+      const trainResult = this.handleClusterTrainRStdp({
+        patterns: [payload.pattern.slice()],
+        targetCluster: payload.targetCluster,
+        rewardGain: payload.rewardGain,
+        punishGain: payload.punishGain,
+        observeMs: payload.observeMs,
+        stimulusDurationMs: payload.stimulusDurationMs,
+        intensity: payload.intensity,
+      });
+      // cluster firing rates + region rates — UI sync (NodeLearn / NodeInfer).
+      const cfr = this.handleClusterFiringRates({ windowMs: payload.observeMs, layer: 'OUT' });
+      const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });
+      const v2 = this.handleRegionFiringRates({ region: 'V2', windowMs: payload.observeMs });
+      if (this.pushEmitter) {
+        this.pushEmitter({
+          type: 'push',
+          event: 'reinforceComplete',
+          payload: {
+            trialToken: payload.trialToken,
+            targetCluster: payload.targetCluster,
+            cfr,
+            v1Hz: v1.hz,
+            v2Hz: v2.hz,
+            trained: trainResult.trained,
+            correct: trainResult.correct,
+            accuracy: trainResult.accuracy,
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('[SNNWorkerCore] reinforceBackground failed:', e);
+    }
+  }
+
+  // triggerBackground inject events helper — pattern 영역 16-dim 영역 in_feat_*
+  // 영역 sustained injection 영역 정합 (live-snn buildInjectEvents 영역 동일).
+  private buildInjectEventsLocal(
+    payload: TriggerBackgroundPayload,
+    currentT: number,
+  ): Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> {
+    const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
+    for (let i = 0; i < 16; i += 1) {
+      const v = payload.pattern[i] ?? 0;
+      if (v <= 0.5) continue;
+      out.push({
+        neuron: `in_feat_${i}`,
+        weight: payload.intensity * v,
+        time: currentT,
+        durationMs: payload.stimulusDurationMs,
+        stepMs: 0.1,
+      });
+    }
+    return out;
   }
 
   // 테스트용 — 직접 net 접근.

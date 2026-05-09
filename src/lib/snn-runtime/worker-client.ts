@@ -17,16 +17,30 @@ import type {
   GetNetworkTimeResult,
   RegionFiringRatesPayload,
   RegionFiringRatesResult,
+  ReinforceBackgroundPayload,
+  ReinforceCompletePayload,
   ResetClusterWeightsResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
   RunResult,
   SnapshotResult,
+  TriggerBackgroundPayload,
+  TriggerCompletePayload,
+  WorkerPushEvent,
   WorkerRequest,
   WorkerResponse,
 } from './worker-protocol';
 import type { InjectEvent } from './network';
+
+// PR-B (Web Worker background offload, 2026-05-10): push event listener types.
+// triggerComplete / reinforceComplete event 영역 별도 handler 영역 등록 사실.
+export type PushEventName = 'triggerComplete' | 'reinforceComplete';
+
+export interface PushHandlers {
+  triggerComplete: (payload: TriggerCompletePayload) => void;
+  reinforceComplete: (payload: ReinforceCompletePayload) => void;
+}
 
 // 표준 Worker / 등가물의 최소 인터페이스.
 export interface WorkerLike {
@@ -52,10 +66,80 @@ export class SNNWorkerClient {
   private nextId = 1;
   private pending = new Map<number, PendingEntry>();
   private listener: (e: MessageEvent) => void;
+  // PR-B (Web Worker background offload, 2026-05-10): push event listeners.
+  // Map<event, Set<handler>> 영역 multi-listener 영역 정합. unsubscribe 영역
+  // closure 영역 set.delete 영역 정합 (return 영역 functional).
+  private pushListeners: Map<PushEventName, Set<(payload: unknown) => void>> = new Map();
 
   constructor(private worker: WorkerLike) {
-    this.listener = (e: MessageEvent) => this.handleResponse(e.data as WorkerResponse);
+    this.listener = (e: MessageEvent) => {
+      const data = e.data as WorkerResponse | WorkerPushEvent;
+      // PR-B: type='push' 영역 push event 영역 dispatch (RPC 정합 0).
+      if (data && typeof data === 'object' && 'type' in data && data.type === 'push') {
+        this.dispatchPush(data);
+        return;
+      }
+      this.handleResponse(data as WorkerResponse);
+    };
     worker.addEventListener('message', this.listener);
+  }
+
+  private dispatchPush(event: WorkerPushEvent): void {
+    const set = this.pushListeners.get(event.event);
+    if (!set || set.size === 0) return;
+    // payload 영역 event 영역 discriminated 영역 catch — handler 영역 동일 type.
+    for (const handler of set) {
+      try {
+        handler(event.payload);
+      } catch (e) {
+        // 정직 한계: handler 영역 throw 영역 silent — 다른 listener 영역 fairness 보존.
+        // PR #192 polish (SEC-3): console.warn 영역 fall-back 영역 보존 +
+        // backend-events 영역 'snn-error' telemetry 영역 emit (UI 영역 catch 가능
+        // 영역 future hook — 본 PR 영역 listener 0 영역 silent fan-out 정합).
+        console.warn('[SNNWorkerClient] push handler threw:', e);
+        try {
+          // 동적 import 영역 cyclic dep 영역 회피 + worker-context (browser/node)
+          // 영역 events.ts 영역 lazy fetch — 정직 한계 catch 영역 catch 0 silent.
+          // worker thread 영역 events.ts 영역 access path 영역 main thread bus
+          // 영역 정합 — worker 자체 영역 listener 0 단 client 영역 main thread
+          // 영역 dispatchPush 영역 호출 영역 정합 catch 영역 emitBackendEvent 영역
+          // 호출 가능. circular import 회피 catch 영역 동적 import.
+          void import('@/lib/backend/events').then(({ emitBackendEvent }) => {
+            emitBackendEvent('snn-error', {
+              source: 'push-handler',
+              message: e instanceof Error ? e.message : String(e),
+              context: { event: event.event },
+            });
+          }).catch(() => undefined);
+        } catch {
+          // SSR / events.ts 영역 import fail 영역 silent — telemetry 영역 best-effort.
+        }
+      }
+    }
+  }
+
+  /**
+   * PR-B (Web Worker background offload, 2026-05-10): push event listener 등록.
+   * triggerBackground / reinforceBackground RPC 영역 sync ack `null` 영역 별도
+   * path 영역 worker 영역 simulation 영역 끝난 시점 영역 push event 영역 emit.
+   *
+   * 반환 영역 unsubscribe — caller 영역 dispose / substrate switch 시점 영역 호출.
+   *
+   * 정직 한계: 동일 handler 영역 multi-register 영역 Set 영역 dedupe — 동일
+   * reference 영역 한 번만 listen.
+   */
+  on<E extends PushEventName>(event: E, handler: (payload: PushHandlers[E] extends (p: infer P) => void ? P : never) => void): () => void {
+    let set = this.pushListeners.get(event);
+    if (!set) {
+      set = new Set();
+      this.pushListeners.set(event, set);
+    }
+    const wrapped = handler as (payload: unknown) => void;
+    set.add(wrapped);
+    return () => {
+      const s = this.pushListeners.get(event);
+      if (s) s.delete(wrapped);
+    };
   }
 
   private handleResponse(res: WorkerResponse): void {
@@ -166,6 +250,25 @@ export class SNNWorkerClient {
     return this.send<null>({ type: 'reset' });
   }
 
+  /**
+   * PR-B (Web Worker background offload, 2026-05-10): fire-and-forget trigger.
+   * sync ack `null` 영역 즉시 return — 사용자 input event loop 영역 unblock.
+   * 결과 영역 push event ('triggerComplete') 영역 emit. caller (live-snn.ts
+   * triggerAsync) 영역 on('triggerComplete', ...) 영역 listener 영역 wire.
+   */
+  triggerBackground(payload: TriggerBackgroundPayload): Promise<null> {
+    return this.send<null>({ type: 'triggerBackground', payload });
+  }
+
+  /**
+   * PR-B (Web Worker background offload, 2026-05-10): fire-and-forget reinforce.
+   * sync ack `null` + 결과 영역 push event ('reinforceComplete') 영역 emit.
+   * R-STDP supervised 1-pattern batch 영역 worker 내부 영역 inline 처리.
+   */
+  reinforceBackground(payload: ReinforceBackgroundPayload): Promise<null> {
+    return this.send<null>({ type: 'reinforceBackground', payload });
+  }
+
   dispose(): void {
     if (this.worker.removeEventListener) {
       this.worker.removeEventListener('message', this.listener);
@@ -173,5 +276,8 @@ export class SNNWorkerClient {
     if (this.worker.terminate) this.worker.terminate();
     this.pending.forEach((p) => p.reject(new Error('worker disposed')));
     this.pending.clear();
+    // PR-B: push listener 영역 clear — caller 영역 unsubscribe 영역 catch
+    // 회피 catch 영역 disposed worker 영역 emit 0 단 defensive cleanup.
+    this.pushListeners.clear();
   }
 }

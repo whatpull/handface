@@ -21,6 +21,14 @@ declare const self: WorkerSelf;
 
 const core = new SNNWorkerCore();
 
+// PR-B (Web Worker background offload, 2026-05-10): worker push event channel.
+// triggerBackground / reinforceBackground RPC 영역 sync ack 영역 별도 path 영역
+// simulation 영역 끝난 시점 영역 push event 영역 main thread 영역 emit. main
+// thread (worker-client.ts) 영역 message handler 영역 type='push' 영역 분기.
+core.setPushEmitter((event) => {
+  self.postMessage(event);
+});
+
 self.addEventListener('message', (e) => {
   const res = core.handle(e.data);
   self.postMessage(res);

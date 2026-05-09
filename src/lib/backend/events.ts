@@ -9,7 +9,20 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error';
+
+// PR #192 polish (SEC-3): worker push handler / RPC layer 영역 error telemetry.
+// 직전 console.warn silent path 영역 정합 catch 영역 본 event 영역 별도 emit —
+// UI 영역 error toast / observability 영역 hook (현재 path 영역 listener 0
+// 영역 silent fan-out 영역 정합 — 후속 PR 영역 dev panel 영역 visualize).
+export interface SnnErrorDetail {
+  // 'push-handler' (worker-client dispatchPush 영역 handler throw) /
+  // 'rpc' (worker-core handle 영역 throw 영역 catch path) 등 source 영역 catch.
+  source: 'push-handler' | 'rpc' | string;
+  message: string;
+  // 원 event / request 영역 식별 (선택) — debugging 영역 정합.
+  context?: unknown;
+}
 
 export interface InputModeDetail { mode: 'camera' | 'grid'; }
 export interface GridTrainingDetail {

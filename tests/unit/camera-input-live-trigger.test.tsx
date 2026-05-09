@@ -13,13 +13,21 @@ import { render, cleanup } from '@testing-library/react';
 const mockSetPattern = vi.fn();
 const mockTriggerOnce = vi.fn(async () => ({ saveFailed: false }));
 const mockReinforce = vi.fn(async () => ({ saveFailed: false }));
+// PR-B (Web Worker background offload, 2026-05-10): fire-and-forget API mock.
+let mockTrialTokenSeq = 0;
+const mockTriggerAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
+const mockReinforceAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
 
 vi.mock('@/lib/snn/live-snn', () => ({
   getLiveSnn: vi.fn(() => ({
     setPattern: mockSetPattern,
     triggerOnce: mockTriggerOnce,
     reinforce: mockReinforce,
+    triggerAsync: mockTriggerAsync,
+    reinforceAsync: mockReinforceAsync,
   })),
+  // PR #192 polish (UX-3 token-aware reset): onLiveTick noop unsubscribe.
+  onLiveTick: vi.fn(() => () => undefined),
 }));
 
 // ── engine-mode mock — 'live' 영역 default. ──
@@ -85,6 +93,9 @@ describe('CameraInput — event-driven stable-gated trigger (Live mode)', () => 
     mockSetPattern.mockClear();
     mockTriggerOnce.mockClear();
     mockReinforce.mockClear();
+    mockTriggerAsync.mockClear();
+    mockReinforceAsync.mockClear();
+    mockTrialTokenSeq = 0;
     listeners.clear();
     mockUseEngineMode.mockReturnValue(['live', vi.fn()]);
   });
@@ -94,36 +105,38 @@ describe('CameraInput — event-driven stable-gated trigger (Live mode)', () => 
     listeners.clear();
   });
 
-  it('C1: stable cluster — 5 frame + conf 0.8 + Pointing_Up → triggerOnce 1회', async () => {
+  it('C1: stable cluster — 5 frame + conf 0.8 + Pointing_Up → triggerAsync 1회 (PR-B)', async () => {
     render(<CameraInput cameraConnected={true} />);
     // 5 frame Pointing_Up (cluster 0) — conf 0.8 (>= 0.6 threshold).
     for (let i = 0; i < 5; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.8 });
     }
-    // setPattern 영역 매 frame 호출. triggerOnce 영역 5 frame stable 영역 1회만.
+    // setPattern 영역 매 frame 호출. triggerAsync 영역 5 frame stable 영역 1회만.
     expect(mockSetPattern).toHaveBeenCalledTimes(5);
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    // PR-B: triggerOnce → triggerAsync swap (사용자 catch 2026-05-09 [2]).
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(1);
+    expect(mockTriggerOnce).not.toHaveBeenCalled();
   });
 
-  it('C2: 같은 cluster stable × 10 → triggerOnce 1회 (idempotent gate)', async () => {
+  it('C2: 같은 cluster stable × 10 → triggerAsync 1회 (idempotent gate)', async () => {
     render(<CameraInput cameraConnected={true} />);
     for (let i = 0; i < 10; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.8 });
     }
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('C3: 다른 cluster stable → 새 triggerOnce (Pointing_Up → Open_Palm)', async () => {
+  it('C3: 다른 cluster stable → 새 triggerAsync (Pointing_Up → Open_Palm)', async () => {
     render(<CameraInput cameraConnected={true} />);
     for (let i = 0; i < 5; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.8 });
     }
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(1);
     // 새 cluster 영역 5 frame stable.
     for (let i = 0; i < 5; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Open_Palm', gestureScore: 0.8 });
     }
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(2);
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(2);
   });
 
   it('C4: hasHand=false → reset → 같은 cluster 새 stable 영역 새 trigger', async () => {
@@ -131,14 +144,14 @@ describe('CameraInput — event-driven stable-gated trigger (Live mode)', () => 
     for (let i = 0; i < 5; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.8 });
     }
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(1);
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(1);
     // hand 사라짐 — reset.
     emitHandFeature({ hasHand: false });
     // 같은 cluster 영역 다시 5 frame stable — gate reset 영역 새 trigger.
     for (let i = 0; i < 5; i += 1) {
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.8 });
     }
-    expect(mockTriggerOnce).toHaveBeenCalledTimes(2);
+    expect(mockTriggerAsync).toHaveBeenCalledTimes(2);
   });
 
   it('C5: conf < threshold (0.5) → trigger 0 호출', async () => {
@@ -147,6 +160,7 @@ describe('CameraInput — event-driven stable-gated trigger (Live mode)', () => 
       emitHandFeature({ hasHand: true, gestureName: 'Pointing_Up', gestureScore: 0.5 });
     }
     expect(mockTriggerOnce).not.toHaveBeenCalled();
+    expect(mockTriggerAsync).not.toHaveBeenCalled();
     // setPattern 영역 매 frame 호출 (gate 영역 무관).
     expect(mockSetPattern).toHaveBeenCalledTimes(10);
   });

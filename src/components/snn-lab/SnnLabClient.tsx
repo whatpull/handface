@@ -172,13 +172,28 @@ export default function SnnLabClient() {
     if (!lab.ready || busy) return;
     setBusy(true);
     try {
-      for (let i = 0; i < TRAIN_FRAMES_PER_BUTTON; i += 1) {
-        await lab.inject(buildInjectEvents(cluster.pattern));
-        await lab.run({ durationMs: RUN_MS, dtMs: 0.1, stdpEnabled: true, stdpGain: 1.0 });
-      }
-      const r = await measure();
+      // 16-dim binary pattern — cluster.pattern 의 active index 만 1.
+      const featurePattern = new Array<number>(16).fill(0);
+      for (const i of cluster.pattern) featurePattern[i] = 1;
+      const patterns = Array.from(
+        { length: TRAIN_FRAMES_PER_BUTTON },
+        () => featurePattern.slice(),
+      );
+      const trainResult = await lab.clusterTrainRStdp({
+        patterns,
+        targetCluster: cluster.id,
+        intensity: STIM_WEIGHT,
+        stimulusDurationMs: STIM_DURATION_MS,
+        observeMs: RUN_MS,
+        dtMs: 0.1,
+      });
+      const m = await measure();
+      const acc =
+        trainResult !== null
+          ? `acc ${(trainResult.accuracy * 100).toFixed(0)}% (${trainResult.correct}/${trainResult.trained})`
+          : 'acc N/A';
       appendLog(
-        `train ${cluster.label} (id=${cluster.id}) ×${TRAIN_FRAMES_PER_BUTTON} → winner=${r.winner === -1 ? 'silent' : r.winner} share=${r.share.toFixed(2)}`,
+        `R-STDP ${cluster.label} (id=${cluster.id}) ×${TRAIN_FRAMES_PER_BUTTON} → ${acc} · winner=${m.winner === -1 ? 'silent' : m.winner} share=${m.share.toFixed(2)}`,
       );
     } finally {
       setBusy(false);

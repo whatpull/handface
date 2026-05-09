@@ -8,6 +8,8 @@ import type {
   BuildResult,
   ClusterFiringRatesPayload,
   ClusterFiringRatesResult,
+  ClusterTrainRStdpPayload,
+  ClusterTrainRStdpResult,
   ExpandClusterPayload,
   ExpandClusterResult,
   FiringRatesPayload,
@@ -111,6 +113,10 @@ export class SNNWorkerClient {
 
   clusterFiringRates(payload: ClusterFiringRatesPayload): Promise<ClusterFiringRatesResult> {
     return this.send<ClusterFiringRatesResult>({ type: 'clusterFiringRates', payload });
+  }
+
+  clusterTrainRStdp(payload: ClusterTrainRStdpPayload): Promise<ClusterTrainRStdpResult> {
+    return this.send<ClusterTrainRStdpResult>({ type: 'clusterTrainRStdp', payload });
   }
 
   reset(): Promise<null> {

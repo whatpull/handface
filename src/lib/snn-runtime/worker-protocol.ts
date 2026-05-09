@@ -26,6 +26,7 @@ export type WorkerRequest =
   | { id: number; type: 'firingRates'; payload: FiringRatesPayload }
   | { id: number; type: 'expandCluster'; payload: ExpandClusterPayload }
   | { id: number; type: 'clusterFiringRates'; payload: ClusterFiringRatesPayload }
+  | { id: number; type: 'clusterTrainRStdp'; payload: ClusterTrainRStdpPayload }
   | { id: number; type: 'reset' };
 
 export interface BuildPayload {
@@ -65,6 +66,30 @@ export interface ClusterFiringRatesPayload {
   // OUT 또는 V1_L23 / V2_L5 layer 영역 cluster 별 평균 firing rate.
   windowMs: number;
   layer?: 'OUT' | 'V1_L23' | 'V2_L5';
+}
+
+// R-STDP 감독 학습 — 각 frame 별 measure→reward 2-pass.
+// frame 단위:
+//   1. inject(pattern) → run(observeMs, stdp=false) → cluster firing rate 측정
+//      → winner === targetCluster 면 correct (rewardGain), 아니면 punishGain.
+//   2. inject(pattern) → run(observeMs, stdp=true, gain=결정값) — STDP 적용.
+// 본 RPC 영역 worker 내부 loop — RPC 횟수 = 1 (network round-trip 절감).
+export interface ClusterTrainRStdpPayload {
+  // 학습 패턴 — N×16 (각 row 영역 in_feat_0..15 활성도 0..1).
+  patterns: number[][];
+  // 정답 cluster index (0..N_CLUSTER-1).
+  targetCluster: number;
+  // 입력 자극 weight 강도. default 25.
+  intensity?: number;
+  // 자극 sustained duration (ms). default 30.
+  stimulusDurationMs?: number;
+  // 한 frame 영역 measure / reward run duration (ms). default 50.
+  observeMs?: number;
+  dtMs?: number;
+  // 정답 cluster winner 일 시 STDP gain. default 2.0 (보상).
+  rewardGain?: number;
+  // 오답 cluster winner 일 시 STDP gain. default 0.5 (벌).
+  punishGain?: number;
 }
 
 // ── 응답 ──
@@ -118,4 +143,15 @@ export interface ClusterFiringRatesResult {
   share: number; // rates[winner] / sum(rates). silent → 0.
   margin: number; // (max - second) / max. silent → 0.
   layer: 'OUT' | 'V1_L23' | 'V2_L5';
+}
+
+export interface ClusterTrainRStdpResult {
+  trained: number; // 처리된 frame 수 (= patterns.length).
+  correct: number; // winner === targetCluster 인 frame 수.
+  accuracy: number; // correct / trained.
+  targetCluster: number;
+  // 각 frame 의 measure 단계 cluster firing rates (디버깅 / 시각화).
+  clusterRatesHistory: number[][];
+  // measure 단계의 winner (-1 = silent).
+  winnerHistory: number[];
 }

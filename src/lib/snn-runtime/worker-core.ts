@@ -18,6 +18,8 @@ import type {
   BuildResult,
   ClusterFiringRatesPayload,
   ClusterFiringRatesResult,
+  ClusterTrainRStdpPayload,
+  ClusterTrainRStdpResult,
   ExpandClusterPayload,
   ExpandClusterResult,
   FiringRatesPayload,
@@ -89,6 +91,8 @@ export class SNNWorkerCore {
           return { id: req.id, ok: true, result: this.handleExpandCluster(req.payload) };
         case 'clusterFiringRates':
           return { id: req.id, ok: true, result: this.handleClusterFiringRates(req.payload) };
+        case 'clusterTrainRStdp':
+          return { id: req.id, ok: true, result: this.handleClusterTrainRStdp(req.payload) };
         case 'reset':
           this.net = null;
           this.monitor = null;
@@ -255,6 +259,92 @@ export class SNNWorkerCore {
       margin: max > 0 ? (max - second) / max : 0,
       layer,
     };
+  }
+
+  private handleClusterTrainRStdp(payload: ClusterTrainRStdpPayload): ClusterTrainRStdpResult {
+    const net = this.requireNet();
+    const monitor = this.monitor;
+    const registry = this.requireRegistry();
+    if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
+    if (
+      payload.targetCluster < 0 ||
+      payload.targetCluster >= registry.slots.length
+    ) {
+      throw new Error(
+        `targetCluster ${payload.targetCluster} 범위 밖 (slots ${registry.slots.length})`,
+      );
+    }
+    const intensity = payload.intensity ?? 25;
+    const stimulusDurationMs = payload.stimulusDurationMs ?? 30;
+    const observeMs = payload.observeMs ?? 50;
+    const dtMs = payload.dtMs ?? 0.1;
+    const rewardGain = payload.rewardGain ?? 2.0;
+    const punishGain = payload.punishGain ?? 0.5;
+
+    const ratesHistory: number[][] = [];
+    const winnerHistory: number[] = [];
+    let correct = 0;
+
+    for (const pattern of payload.patterns) {
+      // 1. inject(pattern) — 활성도 > 0.5 dim 만 사용 (binary 정합).
+      const events = pattern
+        .map((v, i) => {
+          if (v <= 0.5) return null;
+          return {
+            neuron: `in_feat_${i}`,
+            weight: intensity * v,
+            time: 0,
+            durationMs: stimulusDurationMs,
+            stepMs: dtMs,
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null);
+      if (events.length > 0) net.inject(events);
+
+      // 2. measure pass — STDP off.
+      net.run(observeMs, { dtMs, stdpEnabled: false });
+      const measure = this.measureClusterRates(observeMs);
+      ratesHistory.push(measure.rates);
+      winnerHistory.push(measure.winner);
+      const isCorrect = measure.winner === payload.targetCluster;
+      if (isCorrect) correct += 1;
+
+      // 3. reward pass — 같은 자극 재 inject + STDP on with modulated gain.
+      // (자극 재인입 없으면 직전 spike 이후 net 영역 quiescent — STDP 효과 0.)
+      if (events.length > 0) net.inject(events);
+      const gain = isCorrect ? rewardGain : punishGain;
+      net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });
+    }
+
+    const trained = payload.patterns.length;
+    return {
+      trained,
+      correct,
+      accuracy: trained > 0 ? correct / trained : 0,
+      targetCluster: payload.targetCluster,
+      clusterRatesHistory: ratesHistory,
+      winnerHistory,
+    };
+  }
+
+  private measureClusterRates(windowMs: number): { rates: number[]; winner: number } {
+    const net = this.requireNet();
+    const monitor = this.monitor!;
+    const registry = this.registry!;
+    const rates = registry.slots.map((slot) => {
+      let sum = 0;
+      for (const name of slot.out) sum += monitor.firingRate(name, net.t, windowMs);
+      return slot.out.length > 0 ? sum / slot.out.length : 0;
+    });
+    let max = 0;
+    let winner = -1;
+    for (let i = 0; i < rates.length; i += 1) {
+      if (rates[i] > max) {
+        max = rates[i];
+        winner = i;
+      }
+    }
+    return { rates, winner: max > 0 ? winner : -1 };
   }
 
   // 테스트용 — 직접 net 접근.

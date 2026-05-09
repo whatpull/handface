@@ -17,10 +17,34 @@ import { useEffect, useState } from 'react';
 export type EngineMode = 'backend' | 'live';
 
 const STORAGE_KEY = 'handface.engine-mode';
+const MIGRATION_KEY = 'handface.migration.live5';
+
+// Live 5차 (2026-05-09): 직전 useLocalSnn 영역 'snn-lab-default' netId snapshot
+// 영역 storage 영역 잔존 — quota 부담 (특히 weight blob). 1회 cleanup —
+// idempotent 정합 (MIGRATION_KEY mark).
+function migrateLegacyStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (window.localStorage.getItem(MIGRATION_KEY) === '1') return;
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith('snn.snapshot.snn-lab-default')) keys.push(k);
+    }
+    for (const k of keys) {
+      window.localStorage.removeItem(k);
+    }
+    window.localStorage.setItem(MIGRATION_KEY, '1');
+  } catch {
+    // localStorage 차단 — 무시 (다음 mount 영역 retry).
+  }
+}
 
 function readMode(): EngineMode {
   // SSR 시점 영역 default 'live' — Live 모드 영역 사용자 명시 default 정합.
   if (typeof window === 'undefined') return 'live';
+  // 첫 readMode 호출 영역 legacy snapshot cleanup — idempotent.
+  migrateLegacyStorage();
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
     if (v === 'backend' || v === 'live') return v;

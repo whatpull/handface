@@ -8,6 +8,11 @@
 
 라이브: <https://whatpull.github.io/handface/>
 
+> ## /snn-lab 라우트 폐기 (Live 5차, 2026-05-09)
+> 직전 `/snn-lab/` 라우트 영역 root `/handface/` 영역 Live 모드 영역 통합.
+> 직접 URL bookmark 영역 사용자 영역 자동 root 영역 redirect (`src/app/not-found.tsx` 영역 404 처리).
+> gh-pages 배포 직후 `/handface/snn-lab/` 영역 stale asset 영역 catch 시점 영역 deploy workflow (`.github/workflows/deploy.yml`) 영역 clean rebuild (upload-pages-artifact 영역 fresh artifact 정합) 검증.
+
 ---
 
 ## 1. What is HandFace?

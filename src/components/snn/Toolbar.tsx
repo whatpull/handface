@@ -8,9 +8,9 @@ import { useEngineMode, type EngineMode } from '@/lib/snn/engine-mode';
 // (neuron drawflow 472 sampling 영역 직전 영역 폐기 — 데이터 정합 0.)
 //
 // 사용자 catch 2026-05-09 (no-new-UI 규칙): 새 페이지/라우트 금지 — root
-// /handface/ 의 업그레이드만. 본 Toolbar 에 Engine 토글 (backend / local)
-// 추가해 학습/추론 실행 엔진 swap. 1차 PR 영역 토글 + persist 만 — 노드들
-// 영역 mode listen 영역 후속 PR.
+// /handface/ 의 업그레이드만. 본 Toolbar 에 Engine 토글 (backend / live)
+// 추가해 학습/추론 실행 엔진 swap. Live 5차 (2026-05-09): 직전 'local' batch
+// path 폐기 영역 토글 영역 ('backend' / 'live') 단일 분기 정합.
 
 interface ToolbarProps {
   onStatusChange?: (msg: string) => void;
@@ -61,11 +61,18 @@ const segOnCls = 'bg-violet-500/30 text-white border border-violet-400/40';
 const segOffCls = 'text-white/55 hover:text-white hover:bg-white/10 border border-transparent';
 
 function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m: EngineMode) => void }) {
+  const isLive = value === 'live';
+  const isBackend = value === 'backend';
   return (
-    <div className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-black/30 p-0.5">
+    <div
+      role="group"
+      aria-label="실행 엔진 선택"
+      className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-black/30 p-0.5"
+    >
       <button
         type="button"
-        className={`${segBaseCls} ${value === 'live' ? segOnCls : segOffCls}`}
+        aria-pressed={isLive ? 'true' : 'false'}
+        className={`${segBaseCls} ${isLive ? segOnCls : segOffCls}`}
         onClick={() => onChange('live')}
         title="항상 동작 SNN — 즉시 학습 + 추론 (Hebbian, R-STDP). SNN 본질 정합 (default)."
       >
@@ -73,7 +80,8 @@ function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m:
       </button>
       <button
         type="button"
-        className={`${segBaseCls} ${value === 'backend' ? segOnCls : segOffCls}`}
+        aria-pressed={isBackend ? 'true' : 'false'}
+        className={`${segBaseCls} ${isBackend ? segOnCls : segOffCls}`}
         onClick={() => onChange('backend')}
         title="HF Spaces 백엔드 batch (rev15 검증된 path — 학술 검증)"
       >

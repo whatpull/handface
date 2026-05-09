@@ -139,7 +139,9 @@ export default function GridInput() {
     // ── Backend mode (engineMode='backend' — 학술 검증된 batch path) ──
     // Live 5차 (사용자 catch 2026-05-09): 'local' batch path 폐기 — Live 모드
     // 영역 일상 사용 / Backend 영역 학술 검증 path 영역 단일 batch 분기.
-    // 현 함수 영역 isLiveMode 시점 영역 호출 0 영역 wiring (button hide).
+    // 본 trainPreset 함수 영역 isLiveMode 시점 영역 호출 0 — Live 모드 button
+    // 영역 'reinforceLive' 영역 swap (cell click 시점 즉시 Live runtime 강화),
+    // Backend 모드 시점에만 본 함수 영역 호출.
     const client = getClient();
     if (!substrateBuiltRef.current) {
       const built = await client.presetOrientation({ overwrite: true });

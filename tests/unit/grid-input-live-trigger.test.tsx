@@ -21,6 +21,13 @@ const mockSetPattern = vi.fn();
 const mockTriggerOnce = vi.fn(async () => ({ saveFailed: false }));
 const mockReinforce = vi.fn(async () => ({ saveFailed: false }));
 const mockInferOnce = vi.fn(async () => ({ saveFailed: false }));
+// PR-B (Web Worker background offload, 2026-05-10): fire-and-forget API mock.
+// triggerAsync / inferAsync / reinforceAsync 영역 sync return `{ trialToken }` —
+// callsite 영역 await 0. 본 mock 영역 동일 sync return semantics.
+let mockTrialTokenSeq = 0;
+const mockTriggerAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
+const mockInferAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
+const mockReinforceAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
 
 vi.mock('@/lib/snn/live-snn', () => ({
   getLiveSnn: vi.fn(() => ({
@@ -28,6 +35,9 @@ vi.mock('@/lib/snn/live-snn', () => ({
     triggerOnce: mockTriggerOnce,
     reinforce: mockReinforce,
     inferOnce: mockInferOnce,
+    triggerAsync: mockTriggerAsync,
+    inferAsync: mockInferAsync,
+    reinforceAsync: mockReinforceAsync,
   })),
 }));
 
@@ -68,6 +78,10 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     mockTriggerOnce.mockClear();
     mockReinforce.mockClear();
     mockInferOnce.mockClear();
+    mockTriggerAsync.mockClear();
+    mockInferAsync.mockClear();
+    mockReinforceAsync.mockClear();
+    mockTrialTokenSeq = 0;
     mockUseEngineMode.mockReturnValue(['live', vi.fn()]);
   });
 
@@ -85,6 +99,10 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockReinforce).not.toHaveBeenCalled();
+    // PR-B: async API 영역 호출 0 — pixel click 영역 명시 trigger 0 정합 보존.
+    expect(mockTriggerAsync).not.toHaveBeenCalled();
+    expect(mockInferAsync).not.toHaveBeenCalled();
+    expect(mockReinforceAsync).not.toHaveBeenCalled();
   });
 
   it('G2: pixel toggle Backend mode → live API 0 호출', async () => {
@@ -95,6 +113,8 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockSetPattern).not.toHaveBeenCalled();
+    expect(mockInferAsync).not.toHaveBeenCalled();
+    expect(mockReinforceAsync).not.toHaveBeenCalled();
   });
 
   it('G3: applyPreset 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
@@ -104,6 +124,7 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockSetPattern).toHaveBeenCalled();
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
+    expect(mockInferAsync).not.toHaveBeenCalled();
   });
 
   it('G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix)', async () => {
@@ -114,24 +135,29 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     fireEvent.click(pixels[2]);
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
+    expect(mockTriggerAsync).not.toHaveBeenCalled();
+    expect(mockInferAsync).not.toHaveBeenCalled();
     // setPattern 영역 매 click 영역 호출 — Live runtime 영역 다음 추론 영역 stale 방지.
     expect(mockSetPattern.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('G5: 추론 button click 영역 Live mode → inferOnce 1회 (명시 trigger)', async () => {
+  it('G5: 추론 button click 영역 Live mode → inferAsync 1회 (PR-B fire-and-forget)', async () => {
     render(<GridInput />);
     // PR #191 polish (UX-6, 2026-05-10): 추론 button 영역 aria-label 'STDP off,
     // 가중치 변경 0' 영역 명시 — accessible name override.
     const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);
-    // 비동기 inferOnce 영역 microtask 영역 wait.
+    // PR-B (Web Worker background offload): inferAsync 영역 sync return —
+    // microtask wait 영역 미필요 단 React state batch 영역 정합 catch 영역 await.
     await Promise.resolve();
-    expect(mockInferOnce).toHaveBeenCalledTimes(1);
+    // PR-B: inferOnce 영역 await 영역 별도 path 영역 inferAsync 영역 swap.
+    expect(mockInferAsync).toHaveBeenCalledTimes(1);
+    expect(mockInferOnce).not.toHaveBeenCalled();
     // setPattern 영역 추론 직전 영역 1회 — runInferLive 영역 명시 setPattern.
     expect(mockSetPattern).toHaveBeenCalled();
   });
 
-  it('G6: 현재 패턴 보강 button click → reinforce(targetCluster, 2.0) 1회', async () => {
+  it('G6: 현재 패턴 보강 button click → reinforceAsync(targetCluster, 2.0) 1회 (PR-B fire-and-forget)', async () => {
     render(<GridInput />);
     // PR #191 polish (UX-6, 2026-05-10): cluster N 보강 button 영역 aria-label
     // 'cluster N 현재 패턴 보강 — supervised R-STDP' 영역 명시 정합 query.
@@ -141,7 +167,9 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(reinforceBtns).toHaveLength(4);
     fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
     await Promise.resolve();
-    expect(mockReinforce).toHaveBeenCalledTimes(1);
-    expect(mockReinforce).toHaveBeenCalledWith(1, 2.0);
+    // PR-B: reinforce 영역 await path 영역 reinforceAsync 영역 swap.
+    expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
+    expect(mockReinforceAsync).toHaveBeenCalledWith(1, 2.0);
+    expect(mockReinforce).not.toHaveBeenCalled();
   });
 });

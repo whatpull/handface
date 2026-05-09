@@ -132,7 +132,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         ) {
           lastStableClusterRef.current = mappedCluster;
           try {
-            void getLiveSnn().triggerOnce();
+            // PR-B (Web Worker background offload, 2026-05-10): triggerAsync swap.
+            // 사용자 catch 2026-05-09 [2]: stable-pose 영역 추론 trigger 영역 main
+            // thread block 0 — hand-feature event loop 영역 즉시 unblock 영역
+            // 다음 frame 영역 lag 0. 결과 영역 worker push event 영역 별도 emit.
+            getLiveSnn().triggerAsync();
           } catch {
             // SSR / 미초기화 — 무시.
           }
@@ -264,7 +268,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // 현재 lastFeature 영역 setPattern + reinforce(gain=2.0) — 즉시 1 회 inject
   // + run + lab.save (가중치 영속). 학술 정합: Hebbian + reward modulation
   // (Florian 2007, Izhikevich 2007 R-STDP 정합).
-  const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
+  const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
     if (lastFeatureRef.current === null) {
       setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
       return;
@@ -276,28 +280,22 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode
       // event 영역 LiveSnn 자체 substrate kind 영역 derive.
       live.setPattern(lastFeatureRef.current);
-      // PR audit fix (Fix 1 — MEDIUM): reinforce 영역 saveFailed flag 영역 read
-      // 영역 user-visible warning 표시 — 직전 silent fail catch.
-      const result = await live.reinforce(clusterIdx, 2.0);
-      // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
-      // 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 cluster-specific gradient
-      // 0 영역 정직 라벨 swap — '패턴 보강' (winner cluster boosting only).
-      if (result.saveFailed) {
-        setStatus({
-          kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1 (저장 실패 — 새로고침 전 다시 보강 권장)`,
-        });
-      } else {
-        setStatus({
-          kind: 'ok',
-          message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 +1`,
-        });
-      }
+      // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
+      // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
+      // event 영역 별도 emit (NodeLearn / NodeInfer 영역 자동 sync).
+      live.reinforceAsync(clusterIdx, 2.0);
+      setStatus({
+        kind: 'ok',
+        message: `${GESTURE_LABELS[clusterIdx]} 패턴 보강 요청 완료 (백그라운드 처리)`,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
     } finally {
-      setReinforcingCluster(null);
+      // visual gate 영역 짧은 지연 후 reset — push event 영역 reset path 영역
+      // 별도 미구현 catch 영역 자연 정합 (worker sequential serial 영역 다음
+      // click 영역 latest token 영역 superseding catch).
+      setTimeout(() => setReinforcingCluster(null), 100);
     }
   }, []);
 

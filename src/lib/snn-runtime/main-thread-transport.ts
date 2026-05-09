@@ -17,7 +17,19 @@ export class MainThreadTransport implements WorkerLike {
   private listeners: Array<(e: MessageEvent) => void> = [];
   private disposed = false;
 
-  constructor(private core: SNNWorkerCore = new SNNWorkerCore()) {}
+  constructor(private core: SNNWorkerCore = new SNNWorkerCore()) {
+    // PR-B (Web Worker background offload, 2026-05-10): SSR fallback push wire.
+    // worker entry (snn-worker.ts) 영역 self.postMessage 영역 wire 정합 — 본
+    // transport 영역 listeners.dispatch 영역 swap. queueMicrotask 영역 async
+    // dispatch 영역 정합 (worker postMessage 영역 동기 0 — fairness 보존).
+    this.core.setPushEmitter((event) => {
+      queueMicrotask(() => {
+        if (this.disposed) return;
+        const ev = { data: event } as MessageEvent;
+        for (const l of this.listeners) l(ev);
+      });
+    });
+  }
 
   postMessage(message: unknown): void {
     if (this.disposed) return;

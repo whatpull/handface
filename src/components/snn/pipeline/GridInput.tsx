@@ -357,14 +357,14 @@ export default function GridInput() {
     try {
       const live = getLiveSnn();
       live.setPattern(grid);
-      // inferOnce — triggerOnce({ stdpGain: 0 }) 영역 thin wrapper (semantic
-      // clarity). 학술 정합: STDP off — Hebbian 0, cluster firing rates only.
-      const result = await live.inferOnce();
-      if (result.saveFailed) {
-        setStatus({ kind: 'ok', message: '추론 완료 (저장 skip — 가중치 변경 0)' });
-      } else {
-        setStatus({ kind: 'ok', message: '추론 완료' });
-      }
+      // PR-B (Web Worker background offload, 2026-05-10): inferAsync 영역 swap.
+      // 사용자 catch 2026-05-09 [2]: "버벅이고 유저 액션 지연발생" 영역 정정 —
+      // 즉시 return + 결과 영역 worker push event 영역 별도 emit (NodeInfer 영역
+      // neuron-firing event listen 영역 자동 sync).
+      // 정직 한계: status 영역 'inferring' 영역 표시 catch 단 결과 표시 영역
+      // 비동기 (cluster_rates 영역 NodeInfer 영역 별도 update path).
+      live.inferAsync();
+      setStatus({ kind: 'ok', message: '추론 요청 완료 (백그라운드 처리)' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
@@ -383,29 +383,31 @@ export default function GridInput() {
   // 1-pattern batch 영역 호출 (worker-core.ts:343-416 R-STDP 본격 구현 정합).
   // 직전 reinforce 영역 void targetCluster + STDP unsupervised self-reinforcing
   // loop 영역 horizontal 우연 winner 영역 lock-in 사실 영역 root cause 정정.
-  const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
+  const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
     setStatus({ kind: 'training', cluster: clusterIdx });
     setReinforcingCluster(clusterIdx);
     try {
       const live = getLiveSnn();
       live.setPattern(grid);
-      const result = await live.reinforce(clusterIdx, 2.0);
-      if (result.saveFailed) {
-        setStatus({
-          kind: 'ok',
-          message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 +1 (저장 실패 — 새로고침 전 다시 보강 권장)`,
-        });
-      } else {
-        setStatus({
-          kind: 'ok',
-          message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 +1`,
-        });
-      }
+      // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
+      // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
+      // event 영역 별도 emit. UI 영역 click 영역 latency 영역 main thread block
+      // 0 (R-STDP supervised batch 영역 worker thread 영역 처리).
+      // 정직 한계: in-flight gate (reinforcingCluster) 영역 동기 catch — push
+      // event 영역 도달 영역 별도 reset path 영역 catch 0 (timeout fallback 영역
+      // 100ms 영역 reset — worker 영역 sequential serialize 영역 자연 정합 catch
+      // 영역 다음 click 영역 latest token 영역 superseding catch).
+      live.reinforceAsync(clusterIdx, 2.0);
+      setStatus({
+        kind: 'ok',
+        message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 요청 완료 (백그라운드 처리)`,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
     } finally {
-      setReinforcingCluster(null);
+      // 짧은 지연 후 in-flight gate 해제 — visual feedback 영역 한계 catch.
+      setTimeout(() => setReinforcingCluster(null), 100);
     }
   }, [grid]);
 

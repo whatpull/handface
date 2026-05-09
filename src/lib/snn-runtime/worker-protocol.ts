@@ -31,7 +31,14 @@ export type WorkerRequest =
   | { id: number; type: 'getNetworkTime' }
   | { id: number; type: 'resetHomeostatic' }
   | { id: number; type: 'resetClusterWeights' }
-  | { id: number; type: 'reset' };
+  | { id: number; type: 'reset' }
+  // PR-B (Web Worker background offload, 2026-05-10): fire-and-forget RPC.
+  // 사용자 catch 2026-05-09 [2]: 학습/추론 영역 background 영역 latency hide.
+  // 본 RPC 영역 sync ack `null` + 결과 영역 push event (postMessage type='push')
+  // 영역 별도 channel 영역 emit. main thread 영역 await 0 (즉시 return).
+  // 학술 정합 (CPU pipeline parallelism): 사용자 input event loop 영역 unblock.
+  | { id: number; type: 'triggerBackground'; payload: TriggerBackgroundPayload }
+  | { id: number; type: 'reinforceBackground'; payload: ReinforceBackgroundPayload };
 
 export interface BuildPayload {
   preset: 'n13_orientation';
@@ -111,6 +118,70 @@ export interface RegionFiringRatesPayload {
 export type WorkerResponse =
   | { id: number; ok: true; result: unknown }
   | { id: number; ok: false; error: string };
+
+// PR-B (Web Worker background offload, 2026-05-10): worker 영역 비동기 push event.
+// id 영역 0 (RPC 정합 0 — handleResponse 영역 type='push' 영역 dispatch).
+// trialToken 영역 main thread 영역 fire-and-forget RPC 영역 catch token —
+// out-of-order arrival 영역 latest-token-wins discrimination.
+//
+// 학술 정합 (event-driven reactive SNN): worker thread 영역 simulation 영역
+// 끝난 시점 영역 self.postMessage(push) 영역 emit. main thread 영역 listener
+// 영역 LiveTickDetail emit + lab.save fire-and-forget.
+export type WorkerPushEvent =
+  | { type: 'push'; event: 'triggerComplete'; payload: TriggerCompletePayload }
+  | { type: 'push'; event: 'reinforceComplete'; payload: ReinforceCompletePayload };
+
+// triggerBackground RPC payload — triggerOnce 영역 동일 semantics + trialToken.
+// pattern 영역 main thread 영역 16-dim binary catch (LiveSnn.patternRef snapshot).
+// trialToken 영역 main thread 영역 monotonic seq — push event 영역 same token
+// 영역 catch 사실.
+export interface TriggerBackgroundPayload {
+  pattern: number[]; // 16-dim 0..1.
+  intensity: number;
+  observeMs: number;
+  stimulusDurationMs: number;
+  stdpGain: number; // 0 (infer) or 1.0+ (training).
+  repeats: number; // default 3 — Risk 4 mitigation.
+  resetThreshold: boolean;
+  trialToken: number;
+}
+
+// triggerComplete push payload — main thread 영역 emitTick 영역 직접 reuse.
+// cluster firing rates + V1/V2 region rates + 마지막 simulation 영역 net.t.
+export interface TriggerCompletePayload {
+  trialToken: number;
+  cfr: ClusterFiringRatesResult;
+  v1Hz: number;
+  v2Hz: number;
+  netTime: number;
+}
+
+// reinforceBackground RPC payload — clusterTrainRStdp 1-pattern batch wrap.
+// targetCluster 영역 명시 supervised 신호. rewardGain / punishGain 영역 main
+// thread 영역 reinforce(targetCluster, gain) 영역 catch (gain × 0.25 punish).
+export interface ReinforceBackgroundPayload {
+  pattern: number[]; // 16-dim 0..1.
+  targetCluster: number;
+  rewardGain: number;
+  punishGain: number;
+  intensity: number;
+  observeMs: number;
+  stimulusDurationMs: number;
+  trialToken: number;
+}
+
+// reinforceComplete push payload — main thread 영역 emitTick + lab.save force.
+export interface ReinforceCompletePayload {
+  trialToken: number;
+  targetCluster: number;
+  cfr: ClusterFiringRatesResult;
+  v1Hz: number;
+  v2Hz: number;
+  // R-STDP supervised batch 영역 결과 (worker-core handleClusterTrainRStdp 정합).
+  trained: number;
+  correct: number;
+  accuracy: number;
+}
 
 // 각 요청 별 result 타입 (호출 측에서 cast 사용).
 export interface BuildResult {

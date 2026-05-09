@@ -29,6 +29,7 @@ import {
   type GridInferDetail,
   type NeuronFiringDetail,
   type HandFeatureDetail,
+  type InputModeDetail,
 } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import {
@@ -107,27 +108,25 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     setStatus({ kind: 'idle' });
   }), []);
 
-  // PR4 — Live 모드 mount/unmount: LiveSnn substrate='gesture' set + start.
-  // engineMode 변경 시 cleanup 영역 stop. cancelled flag 영역 await race 영역
-  // 안전 unmount 정합.
+  // PR4 — Live 모드 mount/unmount: LiveSnn start/stop 만.
+  // PR #171 audit fix (Fix 2 — QA HIGH): substrate='gesture' 명시 setSubstrate
+  // 호출 영역 제거 — LiveSnn 자체 input-mode event listener 영역 derive 영역
+  // GridInput / CameraInput 동시 mount race 회피.
   useEffect(() => {
     if (engineMode !== 'live') return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const live = getLiveSnn();
-        await live.setSubstrate('gesture');
-        if (cancelled) return;
-        live.start();
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        setStatus({ kind: 'error', message: `Live 시작 실패: ${msg}` });
-      }
-    })();
+    // NodeInput input-mode emit 영역 LiveSnn 미초기화 시점 영역 missed catch —
+    // CameraInput Live mount 시 idempotent re-emit 영역 substrate sync 보장.
+    emitBackendEvent<InputModeDetail>('input-mode', { mode: 'camera' });
+    const live = getLiveSnn();
+    try {
+      live.start();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `Live 시작 실패: ${msg}` });
+    }
     return () => {
-      cancelled = true;
       try {
-        getLiveSnn().stop();
+        live.stop();
       } catch {
         // ignore
       }
@@ -245,7 +244,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     setStatus({ kind: 'training', cluster: clusterIdx });
     try {
       const live = getLiveSnn();
-      await live.setSubstrate('gesture');
+      // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode
+      // event 영역 LiveSnn 자체 substrate kind 영역 derive.
       live.setPattern(lastFeatureRef.current);
       await live.reinforce(clusterIdx, 2.0);
       setStatus({

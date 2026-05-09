@@ -1,7 +1,12 @@
 'use client';
 // LiveSnn — 항상 동작 SNN (사용자 catch 2026-05-09 A: Live 모드 본격 pivot).
 
-import { emitBackendEvent, type NeuronFiringDetail } from '@/lib/backend/events';
+import {
+  emitBackendEvent,
+  onBackendEvent,
+  type NeuronFiringDetail,
+  type InputModeDetail,
+} from '@/lib/backend/events';
 //
 // 본질: 사용자가 패턴을 보여주는 즉시 STDP 적용 + cluster firing 측정 +
 // winner emerge. 별도 Train/Infer 분리 X — SNN 본질 (Diehl & Cook 2015 +
@@ -62,9 +67,27 @@ export class LiveSnn {
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
   private substrateKind: SubstrateKind = 'orientation';
+  // PR #171 audit fix (Fix 2 — QA HIGH): input-mode event 영역 derive 영역
+  // GridInput / CameraInput 동시 mount last-write-wins race 회피.
+  private _unsubscribeInputMode: (() => void) | null = null;
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
+    // input-mode event listener — NodeInput tab change 영역 emit 영역 정합.
+    //   mode='camera' → substrate='gesture'
+    //   mode='grid'   → substrate='orientation'
+    this._unsubscribeInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
+      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation';
+      void this.setSubstrate(next);
+    });
+  }
+
+  dispose(): void {
+    this.stop();
+    if (this._unsubscribeInputMode) {
+      this._unsubscribeInputMode();
+      this._unsubscribeInputMode = null;
+    }
   }
 
   // 학술 정합: substrate 변경 시점 영역 기존 회로 영역 보존 + 새 회로 영역
@@ -232,7 +255,7 @@ export function getLiveSnn(): LiveSnn {
 }
 
 export function disposeLiveSnn(): void {
-  if (_instance) _instance.stop();
+  if (_instance) _instance.dispose();
   _instance = null;
 }
 

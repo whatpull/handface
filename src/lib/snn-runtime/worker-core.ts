@@ -802,7 +802,12 @@ export class SNNWorkerCore {
       // push event 'triggerError' 영역 emit — main thread 영역 timeout fall-through
       // 회피 + 사용자 visual catch (snn-error toast). 정직 한계 정정 — 직전
       // silent path 영역 사용자 catch 0 영역 root cause 영역 정합.
-      const errMsg = e instanceof Error ? e.message : String(e);
+      // PR #196 polish (Security LOW-1, 2026-05-10): production 영역 internal
+      // Error.message 영역 push payload 영역 paste 영역 generic copy ('내부 오류
+      //   — 새로고침 권장') 영역 replace — 사용자 facing toast 영역 stack/path
+      //   영역 leak 회피. 원본 Error 영역 console.warn 영역 retain (dev mode 영역
+      //   debug catch). validateTriggerBackgroundPayload 등 internal 영역 sensitive
+      //   data 영역 0 단 defense-in-depth 영역 generic swap.
       console.warn('[SNNWorkerCore] triggerBackground failed:', e);
       if (this.pushEmitter) {
         this.pushEmitter({
@@ -811,7 +816,7 @@ export class SNNWorkerCore {
           payload: {
             trialToken: payload.trialToken,
             source: 'trigger',
-            error: errMsg,
+            error: '내부 오류 — 새로고침 권장',
           },
         });
       }
@@ -889,7 +894,11 @@ export class SNNWorkerCore {
       // QA FINDING-4 fix (2026-05-10): silent console.warn 영역 push event
       // 'triggerError' 영역 emit (source='reinforce') — main thread 영역 timeout
       // fall-through 회피 + 사용자 visual catch.
-      const errMsg = e instanceof Error ? e.message : String(e);
+      // PR #196 polish (Security LOW-1, 2026-05-10): production 영역 internal
+      //   Error.message 영역 push payload 영역 paste 영역 generic copy 영역 replace
+      //   — sensitive data leak 회피 (defense-in-depth). 원본 Error 영역 console.warn
+      //   영역 retain (dev mode 영역 debug catch). triggerBackground catch 영역 정합
+      //   pattern.
       console.warn('[SNNWorkerCore] reinforceBackground failed:', e);
       if (this.pushEmitter) {
         this.pushEmitter({
@@ -898,7 +907,7 @@ export class SNNWorkerCore {
           payload: {
             trialToken: payload.trialToken,
             source: 'reinforce',
-            error: errMsg,
+            error: '내부 오류 — 새로고침 권장',
             targetCluster: payload.targetCluster,
           },
         });

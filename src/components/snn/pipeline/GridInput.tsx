@@ -40,12 +40,20 @@ export const ORIENTATION_PRESETS: ReadonlyArray<readonly number[]> = [
   [0, 0, 0, 1,  0, 0, 1, 0,  0, 1, 0, 0,  1, 0, 0, 0],
 ] as const;
 
+// PR #196 polish (UX LOW-1/2): Status 영역 hint 영역 secondary line + warning
+// kind 영역 amber visual cue 영역 추가. 직전 message 영역 long copy (timeout 영역
+// '회로 build 또는 worker bundle 점검' 영역 모바일 320px 영역 줄바꿈) + 'low
+// confidence' 영역 단순 text 영역 visual 0 catch.
+//   - hint: secondary <small> line (long detail, screen reader 영역 보존, mobile
+//           wrap-friendly).
+//   - 'warning' kind: amber pill 영역 visual escalation (low-conf 영역 정합).
 type Status =
   | { kind: 'idle' }
   | { kind: 'building' }
   | { kind: 'training'; cluster: number }
   | { kind: 'inferring' }
-  | { kind: 'ok'; message: string }
+  | { kind: 'ok'; message: string; hint?: string }
+  | { kind: 'warning'; message: string; hint?: string }
   | { kind: 'error'; message: string };
 
 const TRAIN_FRAMES = 30;
@@ -337,13 +345,25 @@ export default function GridInput() {
 
   const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
 
+  // PR #196 polish (UX LOW-1): hint 영역 secondary <small> line 영역 render —
+  // ok/warning kind 영역 long detail 영역 wrap-friendly catch (모바일 320px
+  // viewport 영역 줄바꿈 정합).
   const statusLine = useMemo(() => {
     switch (status.kind) {
       case 'idle': return '대기 중';
       case 'building': return '회로 빌드 중…';
       case 'training': return `${ORIENTATION_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
-      case 'ok': return status.message;
+      case 'ok':
+      case 'warning':
+        return status.hint
+          ? (
+            <>
+              <span className="snn-grid-status-msg">{status.message}</span>
+              <small className="snn-grid-status-hint">{status.hint}</small>
+            </>
+          )
+          : status.message;
       case 'error': return status.message;
     }
   }, [status]);
@@ -383,7 +403,12 @@ export default function GridInput() {
       setTimeout(() => {
         if (pendingInferTokenRef.current === trialToken) {
           pendingInferTokenRef.current = null;
-          setStatus((s) => s.kind === 'inferring' ? { kind: 'ok', message: '추론 완료 (timeout — 회로 build 또는 worker bundle 점검)' } : s);
+          // PR #196 polish (UX LOW-1): 긴 'timeout — 회로 build 또는 worker
+          // bundle 점검' 영역 hint 영역 secondary line 영역 split — 모바일
+          // 320px wrap 정합 + ellipsis 영역 main message 보존.
+          setStatus((s) => s.kind === 'inferring'
+            ? { kind: 'ok', message: '추론 완료 *', hint: '(timeout — 새로고침 권장)' }
+            : s);
         }
       }, 8000);
     } catch (e) {
@@ -435,8 +460,9 @@ export default function GridInput() {
         if (pendingReinforceTokenRef.current === trialToken) {
           pendingReinforceTokenRef.current = null;
           setReinforcingCluster(null);
+          // PR #196 polish (UX LOW-1): hint 영역 secondary line split.
           setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 (timeout — 회로 build 또는 worker bundle 점검)` }
+            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 *`, hint: '(timeout — 새로고침 권장)' }
             : s);
         }
       }, 8000);
@@ -462,11 +488,20 @@ export default function GridInput() {
           // 영역 status copy 영역 hint — Diehl & Cook 2015 winner margin 10%
           // threshold 정합 (NodeInfer MarginMeter 영역 정합). winner -1 영역
           // silent 영역 별도 catch.
+          // PR #196 polish (UX LOW-2): low-conf 영역 단순 text → 'warning' kind
+          // 영역 amber pill 영역 visual cue 정합 (snn-grid-status--warning CSS
+          // 영역 amber border + ⚠ glyph). hint 영역 short detail 영역 분리 —
+          // main message 영역 단축 catch.
           const lowConf = d.winner < 0 || d.margin < 0.10;
-          setStatus({
-            kind: 'ok',
-            message: lowConf ? '추론 완료 (낮은 confidence)' : '추론 완료',
-          });
+          if (lowConf) {
+            setStatus({
+              kind: 'warning',
+              message: '추론 완료',
+              hint: '낮은 confidence — 자세 안정화 권장',
+            });
+          } else {
+            setStatus({ kind: 'ok', message: '추론 완료' });
+          }
         }
       } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
         if (pendingReinforceTokenRef.current === d.trialToken) {

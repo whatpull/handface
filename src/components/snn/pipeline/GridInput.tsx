@@ -138,16 +138,10 @@ export default function GridInput() {
     }
   }, [engineMode, grid]);
 
-  const buildSubstrate = useCallback(async () => {
-    setStatus({ kind: 'building' });
-    const r = await getClient().presetOrientation({ overwrite: true });
-    if (r.ok) {
-      substrateBuiltRef.current = true;
-      setStatus({ kind: 'ok', message: 'orientation 회로 빌드 완료' });
-    } else {
-      setStatus({ kind: 'error', message: `회로 빌드 실패: ${r.reason}` });
-    }
-  }, []);
+  // 사용자 catch 2026-05-09 [1]: '회로 빌드 (orientation)' button 영역 제거 영역
+  // buildSubstrate callback 영역 본격 제거 — trainPreset / runInfer 영역 자동 빌드
+  // (substrateBuiltRef gate) 영역 정합. 'building' status kind 영역 보존 — 자동 빌드
+  // 진행 중 status 영역 정합 (statusLine '회로 빌드 중…').
 
   const trainPreset = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
     const pattern = ORIENTATION_PRESETS[clusterIdx];
@@ -342,17 +336,17 @@ export default function GridInput() {
       if (result.saveFailed) {
         setStatus({
           kind: 'ok',
-          message: `${ORIENTATION_LABELS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
+          message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 +1 (저장 실패 — 새로고침 전 다시 보강 권장)`,
         });
       } else {
         setStatus({
           kind: 'ok',
-          message: `${ORIENTATION_LABELS[clusterIdx]} 강화 +1`,
+          message: `${ORIENTATION_LABELS[clusterIdx]} 패턴 보강 +1`,
         });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `강화 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
     } finally {
       setReinforcingCluster(null);
     }
@@ -364,17 +358,18 @@ export default function GridInput() {
     <div className="snn-grid-input">
       {!isLiveMode && (
         <>
+          {/* 사용자 catch 2026-05-09 [1]: '회로 빌드 (orientation)' button 제거 —
+              trainPreset / runInfer 영역 자동 빌드 (substrateBuiltRef gate).
+              명시 빌드 button 영역 noise. round-robin 영역 보존 — single cluster
+              dominance mitigation 학술 정합 (Diehl & Cook 2015 / homeostatic scaling). */}
+          {/* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): semantic-correct
+              class rename. 직전 .snn-grid-build-btn 영역 회로 빌드 button 영역 폐기 후
+              round-robin reuse — semantic mismatch. .snn-grid-train-all-btn 영역
+              정합 (전체 학습 round-robin path). LIVE 안내 span 영역 별도 static
+              variant 영역 분리 (HIGH-1 동시 정정). */}
           <button
             type="button"
-            className="snn-grid-build-btn"
-            onClick={buildSubstrate}
-            disabled={isBusy}
-          >
-            회로 빌드 (orientation)
-          </button>
-          <button
-            type="button"
-            className="snn-grid-build-btn"
+            className="snn-grid-train-all-btn"
             onClick={trainAllRoundRobin}
             disabled={isBusy}
             title="4 cluster 균등하게 학습 — 정확도 향상"
@@ -384,7 +379,7 @@ export default function GridInput() {
         </>
       )}
       {isLiveMode && (
-        <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
+        <div className="snn-grid-train-all-btn snn-grid-train-all-btn--static pointer-events-none text-center">
           {/* UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
@@ -435,17 +430,21 @@ export default function GridInput() {
               title={
                 isLiveMode
                   ? reinforcingCluster === i
-                    ? `${label} 강화 진행 중…`
+                    ? `${label} 패턴 보강 진행 중…`
                     : reinforcingCluster !== null
-                      ? '다른 cluster 강화 진행 중 — 잠시 대기'
-                      : `${label} 강화 (R-STDP 보상)`
+                      ? '다른 cluster 패턴 보강 진행 중 — 잠시 대기'
+                      : `${label} 현재 패턴 보강 (R-STDP gain ↑ — winner cluster boosting)`
                   : `${label} 학습 (R-STDP, batch)`
               }
             >
+              {/* 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 R-STDP cluster-
+                  specific gradient 0 영역 정직 라벨 swap — '현재 패턴 보강' (winner
+                  cluster boosting only, Florian 2007 / Izhikevich 2007 R-STDP 정합
+                  영역 정직 한계 — README 명시). */}
               {isLiveMode
                 ? reinforcingCluster === i
-                  ? '강화 중…'
-                  : '강화'
+                  ? '보강 중…'
+                  : '현재 패턴 보강'
                 : '학습'}
             </button>
           </div>
@@ -472,8 +471,9 @@ export default function GridInput() {
           className="snn-grid-reset-btn"
           onClick={reset}
           disabled={isBusy}
+          title="현재 4×4 패턴 지우기 (가중치 영역 영향 0)"
         >
-          Reset
+          패턴 지우기
         </button>
       </div>
 

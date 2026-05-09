@@ -7,11 +7,11 @@
 //   "이거 캔버스에 편집 가능한 노드로 구성 못하면 해고당하실 수 있어요"
 //
 // 설계 (drawflow 정합 — 단 vanilla JS lib 사용 0, 순수 SVG + React 직접 구현):
-//   - 5 노드 absolute position (px) — INPUT/LEARN/INFER/OUT/LLM.
+//   - 4 노드 absolute position (px) — INPUT/LEARN/INFER/OUT (LLM 폐기 2026-05-09 [2]).
 //   - 각 노드 draggable: header onPointerDown → Move/Up + transform translate.
-//   - SVG overlay (absolute inset-0) — 4 bezier path (INPUT→LEARN→INFER→OUT→LLM).
+//   - SVG overlay (absolute inset-0) — 3 bezier path (INPUT→LEARN→INFER→OUT).
 //   - 노드 위치 변경 시 SVG path 자동 redraw (state 기반).
-//   - localStorage 'handface.pipeline.positions.v1' — 노드 위치 영구 보존.
+//   - localStorage 'handface.pipeline.positions.v3' — 노드 위치 영구 보존.
 //   - active 발화 시 path stroke 강 + drop-shadow glow + animateMotion dot.
 //   - 우측 하단 "Reset Layout" 버튼 — localStorage clear + initial 복귀.
 //
@@ -33,14 +33,12 @@ import {
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { useHandControl } from '@/lib/snn/use-hand-control';
-import { type LlmSendResult } from '@/lib/snn/llm-client';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
 import NodeInput from './pipeline/NodeInput';
 import NodeLearn from './pipeline/NodeLearn';
 import NodeInfer from './pipeline/NodeInfer';
 import NodeOut from './pipeline/NodeOut';
-import NodeLlm from './pipeline/NodeLlm';
 import {
   PipelineEventProvider,
   usePipelineEvents,
@@ -50,32 +48,33 @@ interface Props {
   cameraConnected: boolean;
 }
 
-// 5 노드 키 — drawflow node id 정합.
-type NodeId = 'input' | 'learn' | 'infer' | 'out' | 'llm';
+// 4 노드 키 — drawflow node id 정합. LLM 노드 영역 폐기 (사용자 명시 2026-05-09 [2]).
+type NodeId = 'input' | 'learn' | 'infer' | 'out';
 
 interface Pos { x: number; y: number; }
 type PositionMap = Record<NodeId, Pos>;
 
-const STORAGE_KEY = 'handface.pipeline.positions.v2';
+// storage key v3 — v2 (5-node, includes 'llm') 영역 schema 변경 정합.
+// 직전 v2 영역 leftover 'llm' 키 영역 loadPositions 영역 무시 (key validation 영역
+// INITIAL_POS 영역 정합 4 키 only).
+const STORAGE_KEY = 'handface.pipeline.positions.v3';
 const NODE_WIDTH = 220;
 const NODE_HEIGHT_ESTIMATE = 320; // bezier endpoint 영역 estimate (실제 height 영역 자식 fit).
 
 // initial position — 사용자 catch (스크린샷): viewport fit + top-aligned.
-// 5 × 220 = 1100 + 4 × gap 18 = 72 + left margin 16 = 1188 (viewport 1280 fit).
+// 4 × 220 = 880 + 3 × gap 24 = 72 + left margin 16 = 968 (viewport 1280 fit, 여백 ↑).
 const INITIAL_POS: PositionMap = {
   input: { x: 16, y: 16 },
-  learn: { x: 254, y: 16 },
-  infer: { x: 492, y: 16 },
-  out: { x: 730, y: 16 },
-  llm: { x: 968, y: 16 },
+  learn: { x: 260, y: 16 },
+  infer: { x: 504, y: 16 },
+  out: { x: 748, y: 16 },
 };
 
-// segment edge — 4 connector (5 노드 chain).
+// segment edge — 3 connector (4 노드 chain). 직전 LLM connector 영역 폐기.
 const EDGES: Array<[NodeId, NodeId]> = [
   ['input', 'learn'],
   ['learn', 'infer'],
   ['infer', 'out'],
-  ['out', 'llm'],
 ];
 
 function loadPositions(): PositionMap {
@@ -84,7 +83,7 @@ function loadPositions(): PositionMap {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...INITIAL_POS };
     const parsed = JSON.parse(raw) as Partial<PositionMap>;
-    // shape 검증 — 5 키 모두 존재 + numeric.
+    // shape 검증 — 4 키 (input/learn/infer/out) 모두 존재 + numeric.
     const out: PositionMap = { ...INITIAL_POS };
     (Object.keys(INITIAL_POS) as NodeId[]).forEach((k) => {
       const p = parsed[k];
@@ -200,70 +199,49 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   const inferActive = gridInferActive || (isLiveMode && liveInferActive);
   const phaseClass = `is-phase-${phase}`;
 
-  // segment active — 단계별:
+  // segment active — 단계별 (3 connector, 4 노드 chain):
   //   학습 시: segment 0 (INPUT→LEARN) 만
   //   추론 시: segment 0 + 1 (INPUT→LEARN→INFER)
   //   결과 시: segment 2 (INFER→OUT)
-  const [segActive, setSegActive] = useState<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
+  const [segActive, setSegActive] = useState<[boolean, boolean, boolean]>([false, false, false]);
   const ACTIVE_MS = 1500;
 
   useEffect(() => {
     if (learnActive) {
-      setSegActive([true, false, false, false]);
-      return () => setSegActive([false, false, false, false]);
+      setSegActive([true, false, false]);
+      return () => setSegActive([false, false, false]);
     }
     if (inferActive) {
-      setSegActive([true, true, false, false]);
-      return () => setSegActive([false, false, false, false]);
+      setSegActive([true, true, false]);
+      return () => setSegActive([false, false, false]);
     }
     if (resultActive) {
-      setSegActive([false, false, true, false]);
-      return () => setSegActive([false, false, false, false]);
+      setSegActive([false, false, true]);
+      return () => setSegActive([false, false, false]);
     }
-    setSegActive([false, false, false, false]);
+    setSegActive([false, false, false]);
   }, [learnActive, inferActive, resultActive]);
 
-  // camera path fire — 학습/추론/결과 모두 inactive 일 때 segment 0/1 짧게 active.
+  // camera path fire — 학습/추론/결과 모두 inactive 일 때 segment 0 짧게 active.
   useEffect(() => {
     if (learnActive || inferActive || resultActive) return;
     if (lastFiringTimestamp === null && framesNonce === 0) return;
-    setSegActive((p) => [true, p[1], p[2], p[3]]);
-    const t = setTimeout(() => setSegActive((p) => [false, p[1], p[2], p[3]]), ACTIVE_MS);
+    setSegActive((p) => [true, p[1], p[2]]);
+    const t = setTimeout(() => setSegActive((p) => [false, p[1], p[2]]), ACTIVE_MS);
     return () => clearTimeout(t);
   }, [lastFiringTimestamp, framesNonce, learnActive, inferActive, resultActive]);
 
-  // 사용자 catch 2026-05-07: INFER→OUT / OUT→LLM connector 항상 active catch.
+  // 사용자 catch 2026-05-07: INFER→OUT connector 활성 — winner derivation 시점.
   // saturate tie 영역 winnerCluster 영역 cluster 0/1 영역 빠르게 변동 → 매 변경 시
   // useEffect trigger → 1500ms 활성 누적 → 항상 active. fix: lastFiringTimestamp
   // 영역 trigger (no hand 시점에 PipelineEventContext detail null → ts null →
   // useEffect 영역 trigger 0 → connector idle).
   useEffect(() => {
     if (lastFiringTimestamp === null || winnerCluster === null || !flowActive) return;
-    setSegActive((p) => [p[0], p[1], true, p[3]]);
-    const t = setTimeout(() => setSegActive((p) => [p[0], p[1], false, p[3]]), ACTIVE_MS);
+    setSegActive((p) => [p[0], p[1], true]);
+    const t = setTimeout(() => setSegActive((p) => [p[0], p[1], false]), ACTIVE_MS);
     return () => clearTimeout(t);
   }, [lastFiringTimestamp, winnerCluster, flowActive]);
-
-  useEffect(() => {
-    if (lastFiringTimestamp === null || winnerCluster === null || !flowActive) return;
-    let innerT: ReturnType<typeof setTimeout> | null = null;
-    const delay = setTimeout(() => {
-      setSegActive((p) => [p[0], p[1], p[2], true]);
-      innerT = setTimeout(() => setSegActive((p) => [p[0], p[1], p[2], false]), ACTIVE_MS);
-    }, 300);
-    return () => {
-      clearTimeout(delay);
-      if (innerT) clearTimeout(innerT);
-    };
-  }, [lastFiringTimestamp, winnerCluster, flowActive]);
-
-  // LLM toast.
-  const [llmToast, setLlmToast] = useState<{ kind: 'ok' | 'fail'; msg: string } | null>(null);
-  useEffect(() => {
-    if (!llmToast) return;
-    const t = setTimeout(() => setLlmToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [llmToast]);
 
   // 사용자 catch 2026-05-06: trainStatus toast auto-dismiss 5s — stale "batch supervised 진행" 영역 catch.
   // batch flush fire-and-forget 영역 진행 toast 영역 응답 일부 setTrainStatus 일부, 단
@@ -276,24 +254,18 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [ctrl.trainStatus]);
 
-  const onLlmResult = (r: LlmSendResult) => setLlmToast({
-    kind: r.ok ? 'ok' : 'fail',
-    msg: r.ok ? `LLM POST ok · ${r.status} · ${r.latencyMs}ms` : `LLM fail · ${r.error || `HTTP ${r.status}`}`,
-  });
-
   // ───────── editable canvas — node position state + drag handler ─────────
   const [positions, setPositions] = useState<PositionMap>(() => loadPositions());
 
   // node 실제 height 측정 — bezier path endpoint 정합 (자식 fit height).
   const nodeRefs = useRef<Record<NodeId, HTMLDivElement | null>>({
-    input: null, learn: null, infer: null, out: null, llm: null,
+    input: null, learn: null, infer: null, out: null,
   });
   const [heights, setHeights] = useState<Record<NodeId, number>>({
     input: NODE_HEIGHT_ESTIMATE,
     learn: NODE_HEIGHT_ESTIMATE,
     infer: NODE_HEIGHT_ESTIMATE,
     out: NODE_HEIGHT_ESTIMATE,
-    llm: NODE_HEIGHT_ESTIMATE,
   });
 
   // ResizeObserver — 각 노드 실제 height 추적.
@@ -545,14 +517,13 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     }
   }, [stageWidth, stageHeight]);
 
-  // node renderer — 5 노드 분기.
+  // node renderer — 4 노드 분기 (LLM 폐기 — 사용자 명시 2026-05-09 [2]).
   const renderNode = (id: NodeId): React.ReactNode => {
     switch (id) {
       case 'input': return <NodeInput cameraConnected={cameraConnected} />;
       case 'learn': return <NodeLearn />;
       case 'infer': return <NodeInfer />;
       case 'out': return <NodeOut />;
-      case 'llm': return <NodeLlm onLlmResult={onLlmResult} />;
     }
   };
 
@@ -635,15 +606,6 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       {statusVisible && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">
           {statusVisible}
-        </div>
-      )}
-      {llmToast && (
-        <div
-          className={`snn-pipeline-toast snn-pipeline-toast--${llmToast.kind}`}
-          role="status"
-          aria-live="polite"
-        >
-          {llmToast.msg}
         </div>
       )}
     </div>

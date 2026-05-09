@@ -1,8 +1,14 @@
 'use client';
 
-// NodeOut — winner cluster (orientation) + RenameButton + Export JSON.
+// NodeOut — winner cluster (orientation/gesture) + RenameButton + cluster count.
 // HIGH #3 정합 보존: deriveWinner 영역 단일 source — PipelineEventContext 영역 위임.
 // UX 4th HIGH 정정: neuron-firing 직접 구독 영역 — context consumer 일부.
+//
+// 사용자 catch 2026-05-09 [1]:
+//   - conf/margin row 영역 제거 (NodeInfer 중복 — winner row + margin meter 영역 정합).
+//   - Export JSON button 영역 제거 (학술 record schema 영역 약 — follow-up 영역 강화).
+//   - cluster count 영역 8-OUT 합산 (out_{ci}_0 ~ out_{ci}_7) — cluster broadcast
+//     supervisor 정합 (QA MEDIUM-3, N3 cluster_train_supervised path).
 
 import { useEffect, useRef, useState } from 'react';
 import { onBackendEvent, type InputModeDetail } from '@/lib/backend/events';
@@ -15,6 +21,44 @@ import {
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { getClusterLabel } from './shared';
+
+// 8 OUT per cluster — N3 cluster broadcast supervisor 정합 (out_{ci}_0 ~ out_{ci}_7).
+const OUT_PER_CLUSTER = 8;
+
+/**
+ * cluster ci 영역 count 합산:
+ *   - 우선: out_{ci}_0 ~ out_{ci}_7 sum (N3 cluster broadcast supervisor 정합).
+ *   - fallback: out_{ci} (legacy single-OUT exemplar) — 8-OUT slot 영역 0 영역 시점.
+ */
+function sumClusterCount(exemplars: OutExemplars, ci: number): number {
+  let sum = 0;
+  for (let n = 0; n < OUT_PER_CLUSTER; n += 1) {
+    sum += exemplars[`out_${ci}_${n}`]?.count ?? 0;
+  }
+  if (sum === 0) {
+    // legacy fallback — single out_{ci} key (old snapshot 영역).
+    sum = exemplars[`out_${ci}`]?.count ?? 0;
+  }
+  return sum;
+}
+
+/**
+ * cluster ci 영역 label 영역 — 8-OUT 영역 첫 비-null label 우선,
+ * fallback out_{ci}, fallback default cluster label.
+ */
+function resolveClusterLabel(
+  exemplars: OutExemplars,
+  ci: number,
+  inputMode: 'grid' | 'camera',
+): string {
+  for (let n = 0; n < OUT_PER_CLUSTER; n += 1) {
+    const lbl = exemplars[`out_${ci}_${n}`]?.label;
+    if (lbl) return lbl;
+  }
+  const legacy = exemplars[`out_${ci}`]?.label;
+  if (legacy) return legacy;
+  return getClusterLabel(ci, inputMode);
+}
 
 export default function NodeOut() {
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
@@ -33,24 +77,6 @@ export default function NodeOut() {
     ? (winnerEx?.label || getClusterLabel(winner.cluster, inputMode))
     : null;
 
-  const onExport = () => {
-    const payload = {
-      winner: winner.cluster !== null ? `cluster_${winner.cluster}` : null,
-      winnerLabel,
-      confidence: winner.confidence,
-      margin: winner.margin,
-      exemplars,
-      timestamp: Date.now(),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `handface-state-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <NodeShell title="OUT" subtitle="결과값" tone="out">
 
@@ -61,36 +87,18 @@ export default function NodeOut() {
           <span className="snn-pipeline-out-winner-empty">—</span>
         )}
       </div>
-      <div className="snn-pipeline-row">
-        <span className="snn-pipeline-row-label">conf</span>
-        <span className="snn-pipeline-row-value snn-pipeline-mono">
-          {(winner.confidence * 100).toFixed(0)}%
-        </span>
-      </div>
-      <div className="snn-pipeline-row">
-        <span className="snn-pipeline-row-label">margin</span>
-        <span className="snn-pipeline-row-value snn-pipeline-mono">
-          {(winner.margin * 100).toFixed(0)}%
-        </span>
-      </div>
       <div className="snn-pipeline-out-counts">
         {[0, 1, 2, 3].map((ci) => {
-          const k0 = `out_${ci}_0`;
-          const k1 = `out_${ci}`;
-          const ex = exemplars[k0] || exemplars[k1];
+          const count = sumClusterCount(exemplars, ci);
+          const label = resolveClusterLabel(exemplars, ci, inputMode);
           return (
             <div key={ci} className="snn-pipeline-out-count-row">
-              <span className="snn-pipeline-out-count-label">
-                {ex?.label || getClusterLabel(ci, inputMode)}
-              </span>
-              <span className="snn-pipeline-out-count-value">{ex?.count ?? 0}</span>
+              <span className="snn-pipeline-out-count-label">{label}</span>
+              <span className="snn-pipeline-out-count-value">{count}</span>
             </div>
           );
         })}
       </div>
-      <button type="button" className="snn-pipeline-btn" onClick={onExport}>
-        Export JSON
-      </button>
     </NodeShell>
   );
 }

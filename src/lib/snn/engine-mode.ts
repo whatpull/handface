@@ -18,6 +18,11 @@ export type EngineMode = 'backend' | 'live';
 
 const STORAGE_KEY = 'handface.engine-mode';
 const MIGRATION_KEY = 'handface.migration.live5';
+// PR #187 polish — SEC-1/SEC-2 (audit 2026-05-10): LLM 폐기 (commit 5e9082a) 후
+// 사용자 직전 입력 secret API key 영역 storage 영영 잔존 — 영구 wipe + positions
+// v1/v2 영역 quota leak 방지. idempotent (별도 MIGRATION_KEY mark — live5 와 분리,
+// 신규 사용자 영역 retro-active 정합).
+const LLM_REMOVAL_MIGRATION_KEY = 'handface.migration.llm-removal-187';
 
 // Live 5차 (2026-05-09): 직전 useLocalSnn 영역 'snn-lab-default' netId snapshot
 // 영역 storage 영역 잔존 — quota 부담 (특히 weight blob). 1회 cleanup —
@@ -40,11 +45,35 @@ function migrateLegacyStorage(): void {
   }
 }
 
+// PR #187 polish — SEC-1/SEC-2: LLM secret + legacy positions wipe.
+// SEC-1: 사용자 직전 입력 OpenAI/Anthropic API key 영역 영구 삭제 (security
+//        hygiene — LLM path 폐기 후 storage 잔존 영역 누설 risk).
+// SEC-2: 직전 v1/v2 positions snapshot 영역 wipe — v3 영역 정합 (quota 정리).
+// 정합: idempotent — MIGRATION_KEY mark 후 다음 mount no-op.
+function migrateLlmRemovalStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (window.localStorage.getItem(LLM_REMOVAL_MIGRATION_KEY) === '1') return;
+    // SEC-1 — LLM key/endpoint/auto-flag wipe.
+    window.localStorage.removeItem('handface.llm.endpoint');
+    window.localStorage.removeItem('handface.llm.apikey');
+    window.localStorage.removeItem('handface.llm.auto');
+    // SEC-2 — legacy positions v1/v2 wipe (현 active key: positions.v3).
+    window.localStorage.removeItem('handface.pipeline.positions.v1');
+    window.localStorage.removeItem('handface.pipeline.positions.v2');
+    window.localStorage.setItem(LLM_REMOVAL_MIGRATION_KEY, '1');
+  } catch {
+    // localStorage 차단 — 무시 (다음 mount 영역 retry).
+  }
+}
+
 function readMode(): EngineMode {
   // SSR 시점 영역 default 'live' — Live 모드 영역 사용자 명시 default 정합.
   if (typeof window === 'undefined') return 'live';
   // 첫 readMode 호출 영역 legacy snapshot cleanup — idempotent.
   migrateLegacyStorage();
+  // PR #187 polish — SEC-1/SEC-2: LLM secret + legacy positions wipe (idempotent).
+  migrateLlmRemovalStorage();
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
     if (v === 'backend' || v === 'live') return v;

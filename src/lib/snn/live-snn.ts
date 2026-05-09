@@ -384,11 +384,17 @@ export class LiveSnn {
     const proxyRate = patternActive ? Math.max(maxRate, 1) : maxRate;
     const v1Final = v1Hz > 0 ? v1Hz : proxyRate;
     const v2Final = v2Hz > 0 ? v2Hz : proxyRate;
+    // PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): proxy fallback 영역 사실
+    // 영역 boolean 영역 emit — UI 영역 실 spike rate vs proxy 영역 catch.
+    // V1/V2 둘 중 하나 영역 RPC fail (=0) 영역 proxy 영역 fallback 사실 →
+    // patternActive 시점 영역 v1Hz<=0 || v2Hz<=0 영역 isProxy=true.
+    const isProxy = patternActive && (v1Hz <= 0 || v2Hz <= 0);
     emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
       cluster_rates: cfr.rates,
       winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
       winner_margin: cfr.margin,
       rates_by_region: patternActive ? { V1: v1Final, V2: v2Final } : { V1: 0, V2: 0 },
+      rates_by_region_is_proxy: isProxy,
     });
     // OUT count — winner 변경 시점 1회 increment (idempotent: 동일 cluster 연속
     // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid

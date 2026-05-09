@@ -1,10 +1,12 @@
 # HandFace
 
-손 자세 → SNN 학습 → LLM 연동.
+손 자세 → SNN 학습 → 추론 시각화.
 
-브라우저 카메라로 잡은 손 제스처를 Spiking Neural Network 가 직접 학습하고, 그 추론 결과(JSON state payload)를 사용자가 지정한 외부 endpoint(LLM 등) 로 흘려보내는 실험용 프론트엔드.
+브라우저 카메라로 잡은 손 제스처(또는 4×4 grid orientation 패턴)를 Spiking Neural Network 가 직접 학습하고, 그 추론 결과를 4-노드 파이프라인 UI 로 시각화하는 실험용 프론트엔드.
 
-> **정직 한계 명시 (먼저 읽으세요):** 본 프로젝트는 학술 검증된 분류기가 아닙니다. SNN 의 4-way 제스처 분류는 STDP / R-STDP / WTA / population coding 기반 비교적 단순한 셋업이며 — 학습 안정성, 일반화, 노이즈 강건성은 보장되지 않습니다. 동작은 환경(카메라/조명/손 위치/MediaPipe 신뢰도)에 민감합니다. 이 README 는 사용자 onboarding 만 다루며, 분류 정확도 / endpoint 호환성 / 동작 보장은 **0** 입니다.
+> **정직 한계 명시 (먼저 읽으세요):** 본 프로젝트는 학술 검증된 분류기가 아닙니다. SNN 의 4-way 제스처 분류는 STDP / R-STDP / WTA / population coding 기반 비교적 단순한 셋업이며 — 학습 안정성, 일반화, 노이즈 강건성은 보장되지 않습니다. 동작은 환경(카메라/조명/손 위치/MediaPipe 신뢰도)에 민감합니다. 이 README 는 사용자 onboarding 만 다루며, 분류 정확도 / 동작 보장은 **0** 입니다.
+
+> **LLM 노드 폐기 (2026-05-09 [2]):** 직전 5-node pipeline 의 LLM 외부 연동 노드는 본 PR 에서 본격 제거. SNN(STDP) 연구 흐름 시각화 영역 단일 scope 정합 — 추론 결과 → 외부 endpoint 송출 path 영역 별도 user-defined integration 으로 위임 (frontend scope 외).
 
 라이브: <https://whatpull.github.io/handface/>
 
@@ -17,24 +19,23 @@
 
 ## 1. What is HandFace?
 
-5 개 노드의 horizontal pipeline 으로 SNN 학습/추론 흐름을 그대로 노출합니다.
+4 개 노드의 horizontal pipeline 으로 SNN 학습/추론 흐름을 그대로 노출합니다.
 
 ```
-  ┌────────┐    ┌───────┐    ┌───────┐    ┌──────┐    ┌──────┐
-  │ INPUT  │ →  │ LEARN │ →  │ INFER │ →  │ OUT  │ →  │ LLM  │
-  │제스처  │    │진행상황│    │추론   │    │결과값│    │외부  │
-  └────────┘    └───────┘    └───────┘    └──────┘    └──────┘
-   MediaPipe     5-phase      WTA          rename     endpoint
-   16-dim feat   STDP+RSTDP   margin       export     auto stream
+  ┌────────┐    ┌───────┐    ┌───────┐    ┌──────┐
+  │ INPUT  │ →  │ LEARN │ →  │ INFER │ →  │ OUT  │
+  │제스처  │    │진행상황│    │추론   │    │결과값│
+  └────────┘    └───────┘    └───────┘    └──────┘
+   MediaPipe     5-phase      WTA          rename
+   16-dim feat   STDP+RSTDP   margin       count
 ```
 
 | 노드 | 역할 |
 |---|---|
-| **INPUT** | MediaPipe Hand Landmarker 21 landmarks → 16-dim feature → 카메라/skeleton 라이브 표시. Gesture name + confidence 같이 표시. |
-| **LEARN** | 5-phase state machine (`untrained` → `learning` → `partial` / `trained` → `inference`), cluster 별 frame 카운트 (target 30), Δw 합계, teacher 신뢰도. |
-| **INFER** | OUT cluster mean rate, WTA winner + margin, 최근 winner timeline (sparkline), saturation 경고. |
-| **OUT** | winner cluster 라벨 (✎ rename 가능 — 예: "Pointing" → "다음 슬라이드"), 4 cluster 별 누적 카운트, JSON export. |
-| **LLM** | endpoint URL + API key (localStorage), state payload preview, manual Test send, auto stream toggle (winner 변경 시점만 POST). |
+| **INPUT** | MediaPipe Hand Landmarker 21 landmarks → 16-dim feature → 카메라/skeleton 라이브 표시 (또는 4×4 orientation grid). Gesture name + confidence 같이 표시. |
+| **LEARN** | 5-phase state machine (`untrained` → `learning` → `partial` / `trained` → `inference`), cluster 별 frame 카운트 (target 30), Δw 합계, teacher 신뢰도, V1/V2 cortical region cascade strip. |
+| **INFER** | OUT cluster mean rate, WTA winner + margin (Diehl & Cook 2015 stability indicator), 최근 winner timeline (sparkline), saturation 경고. |
+| **OUT** | winner cluster 라벨 (✎ rename 가능 — 예: "Pointing" → "다음 슬라이드"), 4 cluster 별 누적 카운트 (8-OUT cluster broadcast 합산). |
 
 ### SNN 학술 배경 (정직 명시)
 
@@ -44,9 +45,9 @@
 - **Population coding** — 한 cluster 당 여러 OUT 뉴런(prefix `out_{c}_`)이 평균 rate 로 응답.
 - **Homeostatic scaling** — N=30 tick 마다 synaptic scaling + per-neuron `V_th` 조정으로 monopoly(한 cluster 가 모든 입력 지배) 회피.
 
-> **4-way SNN 분류는 nontrivial 합니다.** 일반 ANN/CNN 대비 학습 효율, 정확도, 안정성 모두 떨어집니다. 본 프로젝트의 목표는 *분류 정확도 경쟁*이 아니라 *SNN 학습/추론 흐름의 시각화 + LLM agent 연동의 실험적 demo* 입니다.
+> **4-way SNN 분류는 nontrivial 합니다.** 일반 ANN/CNN 대비 학습 효율, 정확도, 안정성 모두 떨어집니다. 본 프로젝트의 목표는 *분류 정확도 경쟁*이 아니라 *SNN(STDP) 학습/추론 흐름의 시각화 + 연구용 demo* 입니다.
 
-이 모든 메커니즘은 백엔드 [neuronface](https://github.com/whatpull/neuronface) (FastAPI + N3 SNN) 안에서 돌아가며, 본 프론트엔드는 시각화 + 사용자 제어 + LLM 송출만 담당합니다.
+이 모든 메커니즘은 백엔드 [neuronface](https://github.com/whatpull/neuronface) (FastAPI + N3 SNN) 안에서 돌아가며, 본 프론트엔드는 시각화 + 사용자 제어만 담당합니다.
 
 ---
 
@@ -80,16 +81,6 @@ cluster 별로 30 frame 캡처가 채워지면 ✓ 표시 + green bar. 4 cluster
 
 `trained` 이후 자동으로 phase = `inference` 로 전환 (STDP off + cluster mean readout). INFER 노드에 winner 가 표시되며, OUT 노드에서 winner 라벨을 ✎ 클릭하여 사용자 지정 이름으로 rename 가능.
 
-### 6) LLM 연동
-
-LLM 노드에서:
-- **endpoint** = state payload 를 받을 사용자 정의 URL (자체 LLM gateway / n8n webhook / Cloud Function / OpenAI-호환 wrapper 등 — 사용자 환경)
-- **api key** = (옵션) `Authorization: Bearer <key>` 헤더로 첨부
-- **auto stream** = winner cluster 가 변경될 때마다 1 회 POST
-- **Test send** = 현재 state 즉시 송신
-
-> **정직 한계 명시:** endpoint 의 CORS 허용 / rate limit / 응답 schema / 비용은 전적으로 사용자 환경 책임입니다. 본 프로젝트는 단순 `fetch(POST, JSON)` wrapper 만 제공합니다.
-
 ---
 
 ## 3. Architecture
@@ -112,15 +103,10 @@ LLM 노드에서:
                               │  cluster_train_supervised    │
                               │  cluster_lock                │
                               │  rstdp-pulse / homeostasis   │
-                              └──────────────┬───────────────┘
-                                             │ winner_cluster, rates,
-                                             │ synapses_changed, phase
-                                             ▼
-                              ┌──────────────────────────────┐
-                              │ User-defined LLM endpoint    │
-                              │  (CORS / auth / schema —     │
-                              │   사용자 환경 책임)         │
                               └──────────────────────────────┘
+                                          winner_cluster, rates,
+                                          synapses_changed, phase
+                                          → PipelineCanvas 렌더
 ```
 
 ### Frontend
@@ -128,7 +114,7 @@ LLM 노드에서:
 - **Next.js 15** (App Router, static export, basePath `/handface`)
 - **React 19** + TypeScript + Tailwind 3
 - **MediaPipe Tasks Vision** — Hand Landmarker (CDN ESM 런타임)
-- **PipelineCanvas** ([src/components/snn/PipelineCanvas.tsx](src/components/snn/PipelineCanvas.tsx)) — Pipeline view 의 5-node UI (단일 view — drawflow Region / Neuron view 는 commit f4a278d 에서 폐기)
+- **PipelineCanvas** ([src/components/snn/PipelineCanvas.tsx](src/components/snn/PipelineCanvas.tsx)) — Pipeline view 의 4-node UI (단일 view — drawflow Region / Neuron view 는 commit f4a278d 에서 폐기, LLM 노드는 본 PR 영역 폐기)
 
 ### Backend
 
@@ -144,46 +130,11 @@ LLM 노드에서:
 
 ---
 
-## 4. LLM 연동 — state payload schema
-
-LLM 노드가 사용자 endpoint 로 POST 하는 JSON 형식 ([src/lib/snn/state-payload.ts](src/lib/snn/state-payload.ts)):
-
-```json
-{
-  "phase": "inference",
-  "winner": "cluster_2",
-  "winnerLabel": "Fist",
-  "confidence": 0.78,
-  "margin": 0.42,
-  "clusterRates": [12.3, 8.1, 145.2, 6.5],
-  "clusterCounts": [30, 30, 30, 30],
-  "history": [
-    { "winner": "cluster_0", "label": "Pointing", "confidence": 0.71, "ts": 1746400000000 },
-    { "winner": "cluster_2", "label": "Fist",     "confidence": 0.78, "ts": 1746400003200 }
-  ],
-  "gestureName": "Closed_Fist",
-  "gestureScore": 0.91,
-  "timestamp": 1746400003500
-}
-```
-
-| 필드 | 설명 |
-|---|---|
-| `phase` | `untrained` / `learning` / `partial` / `trained` / `inference` |
-| `winner` | `cluster_<0..3>` 또는 `null` (WTA tie / 미학습) |
-| `winnerLabel` | OUT 노드에서 사용자가 rename 한 라벨 (없으면 default cluster 라벨) |
-| `confidence` | `winnerRate / totalRate` (0..1) |
-| `margin` | `(max - second) / max` (0..1, ≥ 0.10 일 때만 winner 인정) |
-| `clusterRates` | cluster 별 평균 OUT firing rate (Hz) |
-| `clusterCounts` | cluster 별 학습 frame 수 (target 30) |
-| `history` | 최근 32 개 winner 전이 timeline |
-| `gestureName` | MediaPipe 가 인식한 gesture 이름 (teacher 신호) |
-| `gestureScore` | MediaPipe gesture 신뢰도 (0..1) |
-| `timestamp` | 송신 시각 (ms) |
-
-송신은 단순 `fetch(POST, JSON)` ([src/lib/snn/llm-client.ts](src/lib/snn/llm-client.ts)). API key 가 있으면 `Authorization: Bearer <key>` 헤더로 붙습니다. 응답은 raw text 4096 byte 까지 LLM 노드에 그대로 표시됩니다 — schema parsing 은 하지 않습니다.
+## 4. Gesture mapping
 
 `GESTURE_LABEL_TO_CLUSTER`: `Pointing_Up→0`, `Open_Palm→1`, `Closed_Fist→2`, `Victory→3`.
+
+GRID mode: orientation 4 종 (`horizontal` / `vertical` / `diag-back` / `diag-fore`) — 4×4 픽셀 패턴 click toggle.
 
 ---
 
@@ -222,14 +173,14 @@ src/
       events.ts                             # 이벤트 버스
       settings.ts                           # endpoint/apiKey localStorage
     snn/
-      state-payload.ts                      # ★ LLM payload builder
-      llm-client.ts                         # ★ endpoint POST wrapper
       use-hand-control.ts                   # autoCapture / autoLive driver
       out-exemplars.ts                      # OUT 라벨 영구화
       auto-snapshot.ts                      # 학습 weight localStorage snapshot
       actions.ts + winner-derivation.ts     # backend action wrapper + WTA winner 도출
+      live-snn.ts + root-local-snn.ts       # Live 모드 in-browser N3 SNN runtime
       # 폐기 (commit f4a278d 외): drawflow-helpers.ts / layout.ts / positions.ts /
       #                            data.ts / train-counts.ts / community-baseline.ts
+      # 폐기 (2026-05-09 [2]): state-payload.ts / llm-client.ts (LLM 노드 제거)
   mediapipe/
     hand-tracker.ts + feature-encoder.ts + landmark.ts  # 21 landmarks → 16-dim
 ```
@@ -246,8 +197,9 @@ MIT.
 
 ## 정직 한계 명시 (반복)
 
-- 4-way 제스처 분류조차 SNN 으로는 학술적으로 nontrivial — 본 프로젝트는 **검증된 분류기가 아니라** 학습/추론 흐름의 *시각화 + LLM agent 연동 실험* 입니다.
-- 5-node Pipeline view 는 진행 중인 redesign 이며, Toolbar 의 legacy view 토글 등 일부 fragment 가 코드에 잔존합니다 (drawflow Region / Neuron view 자체는 commit f4a278d 에서 폐기).
-- LLM endpoint 의 CORS / auth / schema / rate limit / 비용은 전적으로 사용자 환경 책임입니다. 본 프로젝트는 단순 fetch wrapper 만 제공.
+- 4-way 제스처 분류조차 SNN 으로는 학술적으로 nontrivial — 본 프로젝트는 **검증된 분류기가 아니라** 학습/추론 흐름의 *시각화 + 연구용 demo* 입니다.
+- 4-node Pipeline view 는 진행 중인 redesign 이며, Toolbar 의 legacy view 토글 등 일부 fragment 가 코드에 잔존합니다 (drawflow Region / Neuron view 자체는 commit f4a278d 에서 폐기).
+- LLM 외부 연동 노드는 본 PR (2026-05-09 [2]) 에서 제거. 추론 결과 → 외부 endpoint 송출이 필요하면 user-defined integration 으로 위임 (frontend scope 외).
+- Live 모드의 R-STDP `reinforce()` 는 `targetCluster` 인자를 받지만 cluster-specific gradient 0 — 현재 구현은 winner cluster boosting (Florian 2007 / Izhikevich 2007 R-STDP 정합 path 영역 정직 한계). 본격 cluster-conditional reward shaping 영역 follow-up.
 - 학습 weight 는 `localStorage` 에 저장되지만, 브라우저 storage 정책 / 시크릿 모드 / 사이트 데이터 삭제 등으로 휘발될 수 있습니다.
 - HF Spaces 백엔드는 cold-start 지연 / rate limit 가능 — 본격 사용 시 자체 호스팅 권장.

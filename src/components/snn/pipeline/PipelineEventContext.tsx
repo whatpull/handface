@@ -4,9 +4,10 @@
 //
 // 배경:
 //  fc5ae62 영역 5 노드 영역 각각 onBackendEvent('neuron-firing') 구독 영역 6 listener 영역
-//  중첩 (PipelineCanvas + NodeLearn x2 + NodeInfer + NodeLlm + NodeOut). 영역 deriveWinner /
+//  중첩 (PipelineCanvas + NodeLearn x2 + NodeInfer + NodeOut + LLM-legacy). 영역 deriveWinner /
 //  cluster mean 산출 영역 4회 일부 — 동일 frame 영역 중복 비용. 본 Provider 영역 상위
 //  영역 단일 listener 일부, 모든 derived state 영역 context value 영역 hoist.
+//  (LLM 노드 영역 폐기 2026-05-09 [2] — 4-node 정합.)
 //
 // 정직 한계 명시:
 //  - Provider 영역 mount 영역 시점 영역 listener 1회 등록 / unmount 영역 1회 해제.

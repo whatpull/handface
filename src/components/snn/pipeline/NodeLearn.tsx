@@ -164,9 +164,16 @@ export default function NodeLearn() {
   const prevClusterFramesRef = useRef<{ 0: number; 1: number; 2: number; 3: number } | null>(null);
 
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
+  // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 추가 — Felleman & Van Essen 1991
+  // V1/V2 cortical hierarchy 정합 영역 mean Hz mini-bar 영역 시각 catch (직전
+  // active count only → spike rate 정직 표현 강화).
   const [regionTotals, setRegionTotals] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
   const [regionActive, setRegionActive] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
+  const [regionRateHz, setRegionRateHz] = useState<{ V1: number; V2: number }>({ V1: 0, V2: 0 });
   const [regionFired, setRegionFired] = useState<{ V1: boolean; V2: boolean }>({ V1: false, V2: false });
+  // PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): live-snn proxy fallback 영역
+  // catch — true 영역 ~ prefix + reduced opacity (정직 한계 시각 catch).
+  const [regionRateIsProxy, setRegionRateIsProxy] = useState<boolean>(false);
   const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
@@ -323,6 +330,14 @@ export default function NodeLearn() {
       if (fromActive > counts[region]) counts[region] = fromActive;
     }
     setRegionActive(counts);
+    // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 sync — mean Hz mini-bar 영역
+    // 정합. Live tick 영역 V1/V2 Hz 영역 rates_by_region 영역 동봉 (live-snn.ts:391).
+    setRegionRateHz({
+      V1: byRegionRate.V1 || 0,
+      V2: byRegionRate.V2 || 0,
+    });
+    // PR #187 polish — QA MEDIUM-5: proxy fallback 영역 sync.
+    setRegionRateIsProxy(lastDetail.rates_by_region_is_proxy === true);
 
     for (const region of ['V1', 'V2'] as const) {
       const avgRate = byRegionRate[region] || 0;
@@ -480,9 +495,15 @@ export default function NodeLearn() {
     >
 
       {/* V1/V2 cortical region strip — 학습 substrate cascade.
-          INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}
+          INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수.
+          사용자 catch 2026-05-09 [3]: Hz mini-bar 영역 추가 (Felleman & Van Essen 1991
+          V1/V2 cortical hierarchy 정합 영역 spike rate 영역 정직 표현). */}
       <div className="snn-pipeline-learn-region-strip" aria-label="V1/V2 cortical cascade">
-        <RegionStripBox region="V1" total={regionTotals.V1} active={regionActive.V1} fired={regionFired.V1} />
+        <RegionStripBox
+          region="V1" total={regionTotals.V1} active={regionActive.V1}
+          rateHz={regionRateHz.V1} fired={regionFired.V1}
+          isProxy={regionRateIsProxy}
+        />
         <div
           className={`snn-pipeline-learn-region-arrow ${stripActive ? 'is-active' : ''}`}
           aria-hidden
@@ -492,7 +513,11 @@ export default function NodeLearn() {
             <polyline points="22,2 28,6 22,10" stroke="currentColor" strokeWidth="1.4" fill="none" />
           </svg>
         </div>
-        <RegionStripBox region="V2" total={regionTotals.V2} active={regionActive.V2} fired={regionFired.V2} />
+        <RegionStripBox
+          region="V2" total={regionTotals.V2} active={regionActive.V2}
+          rateHz={regionRateHz.V2} fired={regionFired.V2}
+          isProxy={regionRateIsProxy}
+        />
       </div>
 
       {isLiveMode ? (
@@ -602,7 +627,7 @@ function LiveLearnPanel({
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
         <div className="snn-pipeline-hint">
-          클릭 또는 자세를 인식하면 1회 학습 + 추론. 강화 버튼은 보강 학습.
+          클릭 또는 자세를 인식하면 1회 학습 + 추론. 현재 패턴 보강 버튼은 R-STDP 보강.
         </div>
       </>
     );
@@ -676,19 +701,43 @@ function LiveRateRow({ label, rate, max, isWinner }:
   );
 }
 
-function RegionStripBox({ region, total, active, fired }:
-  { region: 'V1' | 'V2'; total: number; active: number; fired: boolean }) {
+// region Hz visualization scale — 0..40Hz 영역 0..100% 영역 mini-bar.
+// V1 typical Hz (Hubel & Wiesel 1962 cat V1 simple cell) ~10-40Hz peak.
+const REGION_HZ_MAX = 40;
+
+function RegionStripBox({ region, total, active, rateHz, fired, isProxy = false }:
+  { region: 'V1' | 'V2'; total: number; active: number; rateHz: number; fired: boolean; isProxy?: boolean }) {
   const tone = region.toLowerCase();
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const pct = Math.max(0, Math.min(100, (rateHz / REGION_HZ_MAX) * 100));
+  useEffect(() => {
+    if (fillRef.current) fillRef.current.style.setProperty('--w', `${pct}%`);
+  }, [pct]);
+  // PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): proxy fallback 영역 시각
+  // catch — '~' prefix + reduced opacity (0.6) + aria-label 영역 명시. 사용자
+  // 영역 실 spike rate vs proxy (cluster_rates max fallback) 영역 catch.
+  const ariaSuffix = isProxy ? ' (proxy estimate)' : '';
+  const hzPrefix = isProxy ? '~' : '';
   return (
     <div
-      className={`snn-pipeline-learn-region-box snn-pipeline-learn-region-box--${tone} ${fired ? 'is-fired' : ''}`}
-      aria-label={`${region} region — ${active} of ${total} active`}
+      className={`snn-pipeline-learn-region-box snn-pipeline-learn-region-box--${tone} ${fired ? 'is-fired' : ''} ${isProxy ? 'is-proxy' : ''}`}
+      aria-label={`${region} region — ${active} of ${total} active, ${rateHz.toFixed(0)}Hz mean${ariaSuffix}`}
+      title={isProxy ? 'V1/V2 spike rate proxy — cluster_rates max fallback (정직 한계: regionFiringRates RPC 미동봉).' : undefined}
     >
       <span className="snn-pipeline-learn-region-label">{region}</span>
       <span className="snn-pipeline-learn-region-counts">
         <span className="snn-pipeline-learn-region-active">{active}</span>
         <span className="snn-pipeline-learn-region-sep">/</span>
         <span className="snn-pipeline-learn-region-total">{total}</span>
+      </span>
+      <div className="snn-pipeline-learn-region-hz-bar" aria-hidden>
+        <div
+          ref={fillRef}
+          className="snn-mode-progress-fill snn-pipeline-learn-region-hz-fill"
+        />
+      </div>
+      <span className="snn-pipeline-learn-region-hz-value snn-pipeline-mono">
+        {hzPrefix}{rateHz.toFixed(0)}Hz
       </span>
     </div>
   );

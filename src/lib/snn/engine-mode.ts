@@ -1,34 +1,60 @@
 'use client';
 // Engine mode — root /handface/ 5-node 파이프라인의 학습/추론 실행 엔진 선택.
 //
-// 'backend'  → 기존 HF Spaces FastAPI (rev15 검증된 path). default.
-// 'local'    → 브라우저 내 TS SNN runtime (Phase C1~C5c). 백엔드 의존 0.
+// 사용자 catch 2026-05-09 (Live 5차 — case B moderate): batch path 폐기.
+//   'backend' → HF Spaces FastAPI (rev15 batch path — 학술 검증 path 정합 보존).
+//   'live'    → 항상 동작 SNN, STDP on, 즉시 학습+추론 (SNN 본질 정합).
+//              자동 local TS runtime 사용 (backend round-trip 영역 continuous
+//              loop 부적합).
 //
-// 사용자 명시 (2026-05-09): 새 UI 페이지/라우트 금지 — root /handface/ 의
-// 업그레이드만. 본 모듈은 토글 1 개로 두 엔진 swap 가능하게 함.
+// 직전 'local' batch mode 영역 폐기 — /snn-lab 영역 폐기 영역 정합.
+// 직전 localStorage 영역 'local' 영역 backward-compat 영역 'backend' fallback.
 //
 // localStorage persist — 새로고침 후에도 같은 모드 유지.
 
 import { useEffect, useState } from 'react';
 
-// 사용자 catch 2026-05-09 (A: Live 모드 본격 pivot): 'live' 추가.
-//   'backend' → HF Spaces FastAPI (rev15 batch path).
-//   'local'   → 브라우저 TS runtime (batch, /snn-lab 정합).
-//   'live'    → 항상 동작 SNN, STDP on, 즉시 학습+추론 (SNN 본질 정합).
-//              자동 local 엔진 사용 (backend round-trip 영역 continuous loop 부적합).
-export type EngineMode = 'backend' | 'local' | 'live';
+export type EngineMode = 'backend' | 'live';
 
 const STORAGE_KEY = 'handface.engine-mode';
+const MIGRATION_KEY = 'handface.migration.live5';
+
+// Live 5차 (2026-05-09): 직전 useLocalSnn 영역 'snn-lab-default' netId snapshot
+// 영역 storage 영역 잔존 — quota 부담 (특히 weight blob). 1회 cleanup —
+// idempotent 정합 (MIGRATION_KEY mark).
+function migrateLegacyStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (window.localStorage.getItem(MIGRATION_KEY) === '1') return;
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith('snn.snapshot.snn-lab-default')) keys.push(k);
+    }
+    for (const k of keys) {
+      window.localStorage.removeItem(k);
+    }
+    window.localStorage.setItem(MIGRATION_KEY, '1');
+  } catch {
+    // localStorage 차단 — 무시 (다음 mount 영역 retry).
+  }
+}
 
 function readMode(): EngineMode {
-  if (typeof window === 'undefined') return 'backend';
+  // SSR 시점 영역 default 'live' — Live 모드 영역 사용자 명시 default 정합.
+  if (typeof window === 'undefined') return 'live';
+  // 첫 readMode 호출 영역 legacy snapshot cleanup — idempotent.
+  migrateLegacyStorage();
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    if (v === 'backend' || v === 'local' || v === 'live') return v;
+    if (v === 'backend' || v === 'live') return v;
+    // 직전 'local' mode 영역 storage 영역 backward-compat — 학술 검증 path
+    // 정합 영역 'backend' 영역 fallback (사용자 catch 2026-05-09).
+    if (v === 'local') return 'backend';
   } catch {
     // localStorage 차단 (SSR / private mode) — 무시.
   }
-  return 'backend';
+  return 'live';
 }
 
 function writeMode(m: EngineMode): void {
@@ -62,7 +88,7 @@ export function useEngineMode(): [EngineMode, (m: EngineMode) => void] {
   useEffect(() => {
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent<EngineMode>).detail;
-      if (detail === 'backend' || detail === 'local' || detail === 'live') setMode(detail);
+      if (detail === 'backend' || detail === 'live') setMode(detail);
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setMode(readMode());

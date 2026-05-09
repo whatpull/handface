@@ -1,8 +1,11 @@
 'use client';
-// Root /handface/ 5-node 파이프라인 의 Local 모드 LocalSNN singleton.
+// Root /handface/ 5-node 파이프라인 의 Live 모드 substrate LocalSNN singleton.
 //
 // 사용자 명시 (2026-05-09 no-new-UI 규칙): /snn-lab 폐기 → root 통합.
-// EngineMode='local' 시 backend client 대신 본 instance 사용.
+// Live 5차 (2026-05-09 — case B moderate): EngineMode='local' batch path
+// 폐기 — 본 모듈 영역 last consumer 영역 LiveSnn (live-snn.ts) 영역 단일.
+// LiveSnn tick / reinforce 영역 substrate 회로 영역 lazy init / 가중치
+// 영속 영역 단일 책임.
 //
 // PR4 (사용자 catch 2026-05-09 — Live 4차): substrate kind 별 segregated
 // instance map. 'orientation' / 'gesture' 각각 별도 LocalSNN + storage key

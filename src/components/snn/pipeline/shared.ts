@@ -13,8 +13,10 @@ export const CLUSTER_LABELS_GRID = ['─ horizontal', '│ vertical', '╲ diag-
 
 // CAMERA mode (제스처) — feature-encoder.ts 의 cluster slot 정합.
 //   0 = Pointing, 1 = Open Palm, 2 = Closed Fist, 3 = Victory.
-// VS-15 (U+FE0E) 로 text presentation 강제 (cluster 0 만 컬러 emoji catch 정정).
-export const CLUSTER_LABELS_CAMERA = ['☝︎ Pointing', '✋︎ Open Palm', '✊︎ Closed Fist', '✌︎ Victory'] as const;
+// 사용자 catch 2026-05-09 — cluster 0 영역 ☝︎ (U+261D Dingbat) 영역 platform 별 colored emoji
+// fallback rendering catch (다른 ✋︎/✊︎/✌︎ 영역 visual 차이). VS-15 (U+FE0E) text 강제 무력.
+// CameraInput.tsx 영역 GESTURE_GLYPHS = ['─','│','╲','╱'] 영역 동일 monochrome glyph 정합 swap.
+export const CLUSTER_LABELS_CAMERA = ['─ Pointing', '│ Open Palm', '╲ Closed Fist', '╱ Victory'] as const;
 
 export type InputModeKind = 'grid' | 'camera';
 

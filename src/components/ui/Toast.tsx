@@ -77,10 +77,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   //   직전 toast 영역 visual only — 키보드 사용자 dismiss path 0 (auto 5s 정합 단
   //   명시 dismiss 0). ToastView 영역 ✕ 버튼 영역 보조 — 키보드 우선 사용자 정합.
   //   focus catch 영역 input/textarea 입력 영역 영역 정합 — 입력 element focus 시점 skip.
+  // Polish PR3 Fix 1 (Security LOW, 2026-05-09): IME composition (한국어 입력 중)
+  //   영역 Esc 영역 catch 0 — 입력 escape 시점 의도 차이 dismiss 회피.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (e.isComposing) return; // IME composition 영역 skip
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       setItems((prev) => prev.length === 0 ? prev : prev.slice(0, -1));

@@ -99,9 +99,11 @@ export default function NodeLlm({
   };
 
   // Auto stream — winner 변경 시점만 POST (cfg.auto && endpoint 영역 정합).
+  // Polish PR3 Fix 2 (QA LOW, 2026-05-09): trim 정합 — whitespace-only endpoint
+  //   silent OK pass 회피.
   useEffect(() => {
     if (!cfg.auto) return;
-    if (!cfg.endpoint) return;
+    if (cfg.endpoint.trim() === '') return;
     if (winner.cluster === null) return;
     let cancelled = false;
     (async () => {
@@ -123,6 +125,10 @@ export default function NodeLlm({
       return next;
     });
   };
+
+  // Polish PR3 Fix 2 (QA LOW, 2026-05-09): trim 정합 — whitespace-only endpoint
+  //   silent pass 회피. UI disable + Test send disable + auto stream skip 영역 정합.
+  const isEndpointEmpty = cfg.endpoint.trim() === '';
 
   // payload preview — 직접 build (live). dep 영역 string 영역 stringify 영역 단순화.
   const clusterCountsKey = clusterCounts.join(',');
@@ -159,16 +165,18 @@ export default function NodeLlm({
       </label>
       {/* UX Polish PR2 Fix 6 (MEDIUM [M6], 2026-05-09): endpoint 빈 시점 영역
           auto stream 영역 silent fail (line 104 `if (!cfg.endpoint) return`).
-          checkbox 영역 disable + hint 안내 — 사용자 catch path 정합. */}
-      <label className={`snn-pipeline-toggle ${cfg.endpoint === '' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          checkbox 영역 disable + hint 안내 — 사용자 catch path 정합.
+          Polish PR3 Fix 2 (QA LOW, 2026-05-09): trim 적용 — whitespace-only
+          endpoint silent pass 회피. */}
+      <label className={`snn-pipeline-toggle ${isEndpointEmpty ? 'opacity-50 cursor-not-allowed' : ''}`}>
         <input
           type="checkbox"
           checked={cfg.auto}
-          disabled={cfg.endpoint === ''}
+          disabled={isEndpointEmpty}
           onChange={(e) => updateCfg({ auto: e.target.checked })}
         />
         <span>auto stream (winner 변경 시 POST)</span>
-        {cfg.endpoint === '' && (
+        {isEndpointEmpty && (
           <span className="text-xs text-white/50">— 엔드포인트 입력 후 활성</span>
         )}
       </label>
@@ -180,7 +188,7 @@ export default function NodeLlm({
         type="button"
         className="snn-pipeline-btn"
         onClick={onTest}
-        disabled={busy || !cfg.endpoint}
+        disabled={busy || isEndpointEmpty}
       >
         {busy ? 'sending…' : 'Test send'}
       </button>

@@ -16,6 +16,9 @@ coverage/
 out/
 build/
 
+# icon preview rasters (scripts/preview-icon.mjs)
+preview-out/
+
 # misc
 .DS_Store
 *.pem

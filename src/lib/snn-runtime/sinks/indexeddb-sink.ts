@@ -204,8 +204,15 @@ export function migrateLocalStorageToIndexedDB(): void {
       const k = window.localStorage.key(i);
       if (k && k.startsWith('snn:handface:')) keys.push(k);
     }
+    let cleaned = 0;
     for (const k of keys) {
       window.localStorage.removeItem(k);
+      cleaned += 1;
+    }
+    if (cleaned > 0) {
+      console.info(
+        `[handface migration] localStorage 영역 ${cleaned}개 SNN snapshot key 영역 cleanup — IndexedDB 영역 swap (quota 영역 ~50MB+).`,
+      );
     }
     window.localStorage.setItem(MIGRATION_KEY, '1');
   } catch {

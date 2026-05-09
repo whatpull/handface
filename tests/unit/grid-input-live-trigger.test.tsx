@@ -162,7 +162,7 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockSetPattern).toHaveBeenCalled();
   });
 
-  it('G6: 현재 패턴 보강 button click → reinforceAsync(targetCluster, 2.0) 1회 (PR-B fire-and-forget)', async () => {
+  it('G6: 현재 패턴 보강 button click → reinforceAsync(targetCluster, 0.8) 1회 (PR-B fire-and-forget)', async () => {
     render(<GridInput />);
     // PR #191 polish (UX-6, 2026-05-10): cluster N 보강 button 영역 aria-label
     // 'cluster N 현재 패턴 보강 — supervised R-STDP' 영역 명시 정합 query.
@@ -173,8 +173,9 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
     await Promise.resolve();
     // PR-B: reinforce 영역 await path 영역 reinforceAsync 영역 swap.
+    // QA CAUSE D fix (2026-05-10): 2.0 → 0.8 — saturation overshoot 회피.
     expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
-    expect(mockReinforceAsync).toHaveBeenCalledWith(1, 2.0);
+    expect(mockReinforceAsync).toHaveBeenCalledWith(1, 0.8);
     expect(mockReinforce).not.toHaveBeenCalled();
   });
 });

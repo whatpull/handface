@@ -204,7 +204,17 @@ export default function NodeLearn() {
   // 사용자 catch 2026-05-09: 직전 마운트 시점 영역 backend 영역 빈 네트워크
   // 이면 totals=0 으로 고정 → 회로 빌드/재빌드 후에도 V1 164/0 표시 stale.
   // circuit-changed listen 영역 정합 갱신.
+  //
+  // 사용자 catch 2026-05-09 (401 fix): engineMode='live' default 영역 backend
+  // 호출 0 — getFullSnapshot 영역 ensureNetwork → POST /networks 영역 trigger 영역
+  // NEURONFACE_API_KEY 미설정 시점 영역 401 silent error catch. backend mode
+  // 영역만 fetch 진행 — Live 영역 V1/V2 totals 영역 LiveSnn 영역 별도 path 정합.
   useEffect(() => {
+    if (engineMode !== 'backend') {
+      // Live 영역 backend totals 0 표시 — Live tick rates strip 영역 활성 정보 catch 정합.
+      setRegionTotals({ V1: 0, V2: 0 });
+      return;
+    }
     let cancelled = false;
     const fetchTotals = async () => {
       const r = await getClient().getFullSnapshot();
@@ -224,7 +234,7 @@ export default function NodeLearn() {
       cancelled = true;
       off();
     };
-  }, []);
+  }, [engineMode]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
   const { lastDetail } = usePipelineEvents();

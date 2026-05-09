@@ -89,15 +89,24 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">API 키</span>
+            <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">
+              API 키 (NEURONFACE_API_KEY)
+            </span>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               autoComplete="new-password"
               spellCheck={false}
+              placeholder="NEURONFACE_API_KEY"
               className="w-full rounded border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none focus:border-violet-400/50 focus-visible:ring-2 focus-visible:ring-violet-300/60"
             />
+            {/* 사용자 catch 2026-05-09 (401 fix): 백엔드 영역 NEURONFACE_API_KEY 영역
+                set 영역 401 silent — placeholder hint 영역 사용자 명시. Backend 모드
+                영역 사용 시 mandatory. Live 모드 영역 backend 호출 0 영역 unused. */}
+            <span className="mt-1 block text-[10px] text-white/40">
+              Backend 모드 사용 시 입력 필수 — Live 모드는 빈 값 가능
+            </span>
           </label>
           <div className="flex gap-2">
             <button

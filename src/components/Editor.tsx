@@ -59,12 +59,19 @@ export default function Editor() {
       setPhase('untrained');
     });
     // 자동 학습 weight 저장 — 1회 install (training-changed → debounced save).
+    // listener 자체 영역 install 영역 무해 (event emit 0 일부 backend 호출 0).
     installAutoSnapshot();
     // 페이지 로드 직후 1회 — localStorage 영역 stored snapshot 영역 backend 영역 복원.
-    // 사용자 학습 weight 영역 reload 영역 보존 catch (silent UX regression 정정).
-    void restoreSnapshotOnce();
+    // 사용자 catch 2026-05-09 (401 fix): Live default 영역 restoreSnapshotOnce
+    // 영역 loadSnapshot → ensureNetwork → POST /networks 영역 trigger 영역
+    // NEURONFACE_API_KEY 미설정 시점 영역 401 silent. backend 모드 진입 시
+    // ensureNetwork chain 영역 자동 호출 (auto-snapshot.ts:11-19) 영역
+    // restoreFromStorage 사실 — Editor mount-time auto-call 영역 폐기.
+    if (engineMode === 'backend') {
+      void restoreSnapshotOnce();
+    }
     return off;
-  }, []);
+  }, [engineMode]);
 
   // UX Polish PR2 Fix 2: training-phase 구독 — header phase badge 갱신.
   useEffect(() => {

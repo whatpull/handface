@@ -17,6 +17,7 @@ import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getRootLocalSnn } from '@/lib/snn/root-local-snn';
+import { getLiveSnn } from '@/lib/snn/live-snn';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -79,6 +80,20 @@ export default function GridInput() {
     substrateBuiltRef.current = false;
     setStatus({ kind: 'idle' });
   }), []);
+
+  // ── Live 모드 wiring (사용자 catch 2026-05-09 A: SNN 본질 정합 pivot) ──
+  // engineMode='live' 시점 LiveSnn 영역 시작. grid 변경 영역 즉시 setPattern
+  // → 200ms tick loop 영역 inject + run + cluster firing 측정.
+  // engineMode 변경 (live → backend/local) 시 stop.
+  useEffect(() => {
+    if (engineMode !== 'live') return;
+    const live = getLiveSnn();
+    live.setPattern(grid);
+    live.start();
+    return () => {
+      live.stop();
+    };
+  }, [engineMode, grid]);
 
   const buildSubstrate = useCallback(async () => {
     setStatus({ kind: 'building' });
@@ -337,25 +352,50 @@ export default function GridInput() {
     }
   }, [status]);
 
+  // Live 모드 전용 — R-STDP positive reward 즉시 (사용자 명시 라벨 신호).
+  const reinforceLive = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
+    setStatus({ kind: 'training', cluster: clusterIdx });
+    try {
+      const live = getLiveSnn();
+      live.setPattern(grid);
+      await live.reinforce(clusterIdx, 2.0);
+      setStatus({ kind: 'ok', message: `${ORIENTATION_GLYPHS[clusterIdx]} reinforced` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `reinforce 실패: ${msg}` });
+    }
+  }, [grid]);
+
+  const isLiveMode = engineMode === 'live';
+
   return (
     <div className="snn-grid-input">
-      <button
-        type="button"
-        className="snn-grid-build-btn"
-        onClick={buildSubstrate}
-        disabled={isBusy}
-      >
-        회로 빌드 (orientation)
-      </button>
-      <button
-        type="button"
-        className="snn-grid-build-btn"
-        onClick={trainAllRoundRobin}
-        disabled={isBusy}
-        title="4 cluster 균등 round-robin 학습 — 정확 학습 path"
-      >
-        전체 학습 (round-robin)
-      </button>
+      {!isLiveMode && (
+        <>
+          <button
+            type="button"
+            className="snn-grid-build-btn"
+            onClick={buildSubstrate}
+            disabled={isBusy}
+          >
+            회로 빌드 (orientation)
+          </button>
+          <button
+            type="button"
+            className="snn-grid-build-btn"
+            onClick={trainAllRoundRobin}
+            disabled={isBusy}
+            title="4 cluster 균등 round-robin 학습 — 정확 학습 path"
+          >
+            전체 학습 (round-robin)
+          </button>
+        </>
+      )}
+      {isLiveMode && (
+        <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
+          🔴 LIVE — 패턴 클릭 시 즉시 학습 + 추론
+        </div>
+      )}
 
       <div className="snn-grid-pixels" aria-label="4x4 orientation grid">
         {grid.map((v, i) => (
@@ -364,7 +404,7 @@ export default function GridInput() {
             type="button"
             className={`snn-grid-pixel ${v > 0.5 ? 'is-on' : ''}`}
             onClick={() => togglePixel(i)}
-            disabled={isBusy}
+            disabled={isBusy && !isLiveMode}
             aria-label={`pixel ${i} — ${v > 0.5 ? 'on' : 'off'}`}
           />
         ))}
@@ -377,7 +417,7 @@ export default function GridInput() {
               type="button"
               className="snn-grid-preset-btn"
               onClick={() => applyPreset(i)}
-              disabled={isBusy}
+              disabled={isBusy && !isLiveMode}
               title={label}
             >
               <span className="snn-grid-preset-glyph">{ORIENTATION_GLYPHS[i]}</span>
@@ -386,11 +426,15 @@ export default function GridInput() {
             <button
               type="button"
               className="snn-grid-train-btn"
-              onClick={() => trainPreset(i as 0 | 1 | 2 | 3)}
-              disabled={isBusy}
-              title={`R-STDP 학습 — ${label}`}
+              onClick={
+                isLiveMode
+                  ? () => reinforceLive(i as 0 | 1 | 2 | 3)
+                  : () => trainPreset(i as 0 | 1 | 2 | 3)
+              }
+              disabled={isBusy && !isLiveMode}
+              title={isLiveMode ? `R-STDP 보상 — ${label}` : `R-STDP 학습 (batch) — ${label}`}
             >
-              학습
+              {isLiveMode ? '강화' : '학습'}
             </button>
           </div>
         ))}

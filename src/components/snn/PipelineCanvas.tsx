@@ -34,6 +34,8 @@ import {
 } from '@/lib/backend/events';
 import { useHandControl } from '@/lib/snn/use-hand-control';
 import { type LlmSendResult } from '@/lib/snn/llm-client';
+import { useEngineMode } from '@/lib/snn/engine-mode';
+import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
 import NodeInput from './pipeline/NodeInput';
 import NodeLearn from './pipeline/NodeLearn';
 import NodeInfer from './pipeline/NodeInfer';
@@ -154,10 +156,48 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
 
   const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
 
-  const flowActive = winnerCluster !== null && (phase === 'trained' || phase === 'inference');
-  // 학습 active — camera path 또는 grid path.
-  const learnActive = phase === 'learning' || phase === 'partial' || gridTrainingActive;
-  const inferActive = gridInferActive;
+  // QA-CATCH-3 (HIGH) 정합 — event-driven 1-shot pivot (사용자 catch 2026-05-09 B):
+  // PipelineCanvas 영역 Live mode aware. 직전 영역 grid-training / grid-infer
+  // event 영역 backend path 영역 한정 — Live 영역 5-node connector / glow 영역
+  // 활성 0 catch. liveTick 영역 patternActive / winner 영역 derive 영역 정합.
+  const [engineMode] = useEngineMode();
+  const isLiveMode = engineMode === 'live';
+  const [liveTick, setLiveTick] = useState<LiveTickDetail | null>(null);
+  useEffect(() => {
+    if (!isLiveMode) {
+      setLiveTick(null);
+      return;
+    }
+    return onLiveTick(setLiveTick);
+  }, [isLiveMode]);
+  // Live tick 영역 1회 trigger 영역 catch 후 잠시 active glow (1500ms decay).
+  // patternActive 영역 STDP active path / winner >= 0 영역 inference path.
+  const [liveLearnActive, setLiveLearnActive] = useState<boolean>(false);
+  const [liveInferActive, setLiveInferActive] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isLiveMode || !liveTick) return;
+    if (liveTick.patternActive) {
+      setLiveLearnActive(true);
+      const t = setTimeout(() => setLiveLearnActive(false), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [isLiveMode, liveTick]);
+  useEffect(() => {
+    if (!isLiveMode || !liveTick) return;
+    if (liveTick.winner >= 0) {
+      setLiveInferActive(true);
+      const t = setTimeout(() => setLiveInferActive(false), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [isLiveMode, liveTick]);
+
+  const flowActive =
+    (isLiveMode ? (liveTick?.winner ?? -1) >= 0 : winnerCluster !== null && (phase === 'trained' || phase === 'inference'));
+  // 학습 active — camera path 또는 grid path 또는 Live patternActive.
+  const learnActive =
+    phase === 'learning' || phase === 'partial' || gridTrainingActive ||
+    (isLiveMode && liveLearnActive);
+  const inferActive = gridInferActive || (isLiveMode && liveInferActive);
   const phaseClass = `is-phase-${phase}`;
 
   // segment active — 단계별:

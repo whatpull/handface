@@ -1,7 +1,11 @@
-// live-snn emitTick 영역 단위 검증 — fix/live-mode-substrate-init root cause regression catch.
+// LiveSnn — event-driven 1-shot pivot 검증 + V1/V2 cascade emit + OUT increment.
 //
-// 영역 root cause:
-//  1. Live tick 영역 emit 영역 'neuron-firing' 영역 rates_by_region 영역 미동봉 →
+// 직전 (A): 200ms setInterval 기반 background tick — runOneTick + tickCount.
+// 본 정정 (B — PR #184): triggerOnce + trialCount + lab.save throttle.
+// PR #183 통합: emitTick 영역 rates_by_region V1/V2 + incrementCount idempotent.
+//
+// 영역 root cause (PR #183):
+//  1. Live trigger 영역 emit 영역 'neuron-firing' 영역 rates_by_region 영역 미동봉 →
 //     NodeLearn V1/V2 cascade strip 영역 0 + fired=false (broken state).
 //  2. winner emerge 시점 OUT count 영역 incrementCount trigger 0 — Live grid path
 //     영역 OUT count 0 잔존.
@@ -10,8 +14,21 @@
 //  - LiveSnn 영역 root-local-snn / runtime worker 영역 mock 영역 — emit 직접 호출 path.
 //  - rates_by_region 영역 V1/V2 영역 proxy rate (실 spike rate 영역 별도 RPC 영역 catch
 //    영역 — 본 path 영역 cascade fired flag 영역 작동 보장).
+//
+// T1-T7 (PR #184) + cascade tests (PR #183):
+//   T1: triggerOnce 1회 — inject/run/clusterFiringRates 각 repeats 횟수 + emit 1회 + lab.save 1회.
+//   T2: triggerOnce × 2 — trial 영역 1, 2 (LiveTickDetail capture).
+//   T3: idle 영역 stable — emit 0, trial 0 (start/stop API 미호출 → setInterval 0).
+//   T4: triggerOnce × 2 영역 lab.save throttle — 2번째 직전 save 영역 500ms 내 영역 trailing schedule.
+//   T5: start() / stop() undefined catch (background loop 폐기 영역 사실).
+//   T6: Promise.all([triggerOnce, triggerOnce]) sequential — mockRun call order verify.
+//   T7: triggerOnce({ repeats: 3 }) — mockRun 3회 catch (default repeats 영역 정합).
+//   C1: pattern active 시점 영역 rates_by_region V1/V2 영역 동봉 (NodeLearn cascade fired).
+//   C2: pattern silent 영역 rates_by_region 영역 0 (idle catch).
+//   C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회).
+//   C4: winner=-1 (silent) 시점 영역 incrementCount 호출 0 + lastWinner reset.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock factory 영역 hoist 정합 — 내부 영역 top-level state 영역 catch 0
 // (vi.fn() / Map 영역 factory scope 안 영역 declare). 외부 access 영역 vi.mocked
@@ -80,14 +97,13 @@ vi.mock('@/lib/backend/events', () => ({
   emitBackendEvent: mocks.emitBackendEvent,
 }));
 
-import { LiveSnn } from '@/lib/snn/live-snn';
-
-// LiveSnn private tick 호출 — 본 test 영역 timer wait 회피 catch 영역
-// reflection (cast to unknown then any-shaped record). 직접 호출 정합.
-async function runOneTick(snn: LiveSnn): Promise<void> {
-  const recordTick = snn as unknown as { tick: () => Promise<void> };
-  await recordTick.tick();
-}
+import {
+  getLiveSnn,
+  disposeLiveSnn,
+  onLiveTick,
+  LiveSnn,
+  type LiveTickDetail,
+} from '@/lib/snn/live-snn';
 
 interface NeuronFiringDetailLite {
   cluster_rates?: number[];
@@ -103,13 +119,129 @@ beforeEach(() => {
   mocks.mockIncrementCount.mockClear();
   mocks.emittedEvents.length = 0;
   mocks.eventListeners.clear();
+  disposeLiveSnn();
 });
 
-describe('LiveSnn emitTick — broken state regression catch', () => {
-  it('pattern active 시점 영역 rates_by_region V1/V2 영역 동봉 (NodeLearn cascade fired)', async () => {
+afterEach(() => {
+  disposeLiveSnn();
+});
+
+describe('LiveSnn — event-driven 1-shot pivot (2026-05-09 B)', () => {
+  it('T1: triggerOnce — inject/run/clusterFiringRates 각 repeats 횟수 + emit 1회 + lab.save 1회', async () => {
+    const live = getLiveSnn();
+    live.setPattern([1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const ticks: LiveTickDetail[] = [];
+    const off = onLiveTick((d) => ticks.push(d));
+
+    const r = await live.triggerOnce();
+
+    expect(r.saveFailed).toBe(false);
+    // default repeats=3 — inject/run/clusterFiringRates 영역 3회.
+    expect(mocks.mockInject).toHaveBeenCalledTimes(3);
+    expect(mocks.mockRun).toHaveBeenCalledTimes(3);
+    expect(mocks.mockClusterFiringRates).toHaveBeenCalledTimes(3);
+    // emit 영역 1회 (trial 1) — repeats 누적 0 (마지막 cfr 영역 emit).
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0].trial).toBe(1);
+    expect(ticks[0].patternActive).toBe(true);
+    // lab.save 영역 1회 (force=false 단 첫 호출 영역 throttle window 외 영역 immediate).
+    expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it('T2: triggerOnce × 2 — trial 영역 1 → 2 catch', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = getLiveSnn();
+      live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      const ticks: LiveTickDetail[] = [];
+      const off = onLiveTick((d) => ticks.push(d));
+
+      await live.triggerOnce();
+      // throttle bypass — 2번째 trigger 영역 force 영역 정합 (T4 영역 throttle 별도 검증).
+      await live.triggerOnce({ force: true });
+
+      expect(ticks).toHaveLength(2);
+      expect(ticks[0].trial).toBe(1);
+      expect(ticks[1].trial).toBe(2);
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('T3: idle 영역 stable — emit 0, trial 0 (background loop 폐기 영역 사실)', async () => {
+    const ticks: LiveTickDetail[] = [];
+    const off = onLiveTick((d) => ticks.push(d));
+    // 직전 (A) 영역 200ms setInterval 영역 ticks 영역 누적 영역 — 본 정정 (B)
+    // 영역 background loop 폐기 영역 정합 영역 idle 영역 emit 0.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ticks).toHaveLength(0);
+    expect(mocks.mockInject).not.toHaveBeenCalled();
+    expect(mocks.mockRun).not.toHaveBeenCalled();
+    off();
+  });
+
+  it('T4: triggerOnce × 2 영역 lab.save throttle — 2번째 직전 영역 500ms 내 영역 trailing schedule', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = getLiveSnn();
+      live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+      await live.triggerOnce();
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+      // 직후 (throttle window 내) 2번째 trigger — immediate save 영역 skip 영역
+      // trailing setTimeout 영역 schedule.
+      await live.triggerOnce();
+      // immediate save 영역 1회 유지.
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+      // trailing timer 영역 advance — 500ms.
+      await vi.advanceTimersByTimeAsync(600);
+      // trailing save 영역 1회 추가 — 합 2회.
+      expect(mocks.mockSave).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('T5: start() / stop() undefined catch (background loop 폐기 영역 본격 사실)', () => {
+    const live = getLiveSnn();
+    // start/stop 영역 본 instance 영역 method 미존재 — typeof undefined 영역 정합.
+    // (TypeScript 영역 type-level 영역 LiveSnn 영역 export 영역 verify catch.)
+    const lAny = live as unknown as { start?: unknown; stop?: unknown };
+    expect(typeof lAny.start).toBe('undefined');
+    expect(typeof lAny.stop).toBe('undefined');
+    // LiveSnn class 자체 영역 method 영역 0 — prototype 영역 verify.
+    expect(typeof (LiveSnn.prototype as unknown as { start?: unknown }).start).toBe('undefined');
+    expect(typeof (LiveSnn.prototype as unknown as { stop?: unknown }).stop).toBe('undefined');
+  });
+
+  it('T6: Promise.all([triggerOnce, triggerOnce]) — sequential mockRun call order', async () => {
+    const live = getLiveSnn();
+    live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    // tickInFlight gate 영역 sequential 보장 — concurrent triggerOnce 영역
+    // run call 영역 interleave 0 (각 trigger 영역 repeats 회 batch 단위).
+    await Promise.all([live.triggerOnce({ force: true }), live.triggerOnce({ force: true })]);
+    // 2 trigger × default repeats 3 = 6 회.
+    expect(mocks.mockRun).toHaveBeenCalledTimes(6);
+    expect(mocks.mockInject).toHaveBeenCalledTimes(6);
+  });
+
+  it('T7: triggerOnce({ repeats: 3 }) — mockRun 3회 catch (명시 repeats)', async () => {
+    const live = getLiveSnn();
+    live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await live.triggerOnce({ repeats: 3 });
+    expect(mocks.mockRun).toHaveBeenCalledTimes(3);
+    expect(mocks.mockInject).toHaveBeenCalledTimes(3);
+    expect(mocks.mockClusterFiringRates).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
+  it('C1: pattern active 시점 영역 rates_by_region V1/V2 영역 동봉 (NodeLearn cascade fired)', async () => {
     const snn = new LiveSnn();
-    snn.setPattern([1, 0, 0, 0,  1, 1, 1, 1,  0, 0, 0, 0,  0, 0, 0, 0]); // active.
-    await runOneTick(snn);
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]); // active.
+    await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
     expect(firing).toBeDefined();
@@ -120,8 +252,8 @@ describe('LiveSnn emitTick — broken state regression catch', () => {
     snn.dispose();
   });
 
-  it('pattern silent 영역 rates_by_region 영역 0 (idle catch)', async () => {
-    mocks.mockClusterFiringRates.mockResolvedValueOnce({
+  it('C2: pattern silent 영역 rates_by_region 영역 0 (idle catch)', async () => {
+    mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [0, 0, 0, 0],
       winner: -1,
       share: 0,
@@ -132,7 +264,7 @@ describe('LiveSnn emitTick — broken state regression catch', () => {
     });
     const snn = new LiveSnn();
     snn.setPattern(new Array(16).fill(0)); // silent.
-    await runOneTick(snn);
+    await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
     expect(firing).toBeDefined();
@@ -142,20 +274,20 @@ describe('LiveSnn emitTick — broken state regression catch', () => {
     snn.dispose();
   });
 
-  it('winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회)', async () => {
+  it('C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회)', async () => {
     const snn = new LiveSnn();
-    snn.setPattern([1, 0, 0, 0,  1, 1, 1, 1,  0, 0, 0, 0,  0, 0, 0, 0]);
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-    // tick 1: winner=0 (mock default).
-    await runOneTick(snn);
+    // trigger 1: winner=0 (mock default).
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', expect.any(Array));
 
-    // tick 2: winner 동일 (0) — idempotent (call count 1 유지).
-    await runOneTick(snn);
+    // trigger 2: winner 동일 (0) — idempotent (call count 1 유지).
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
-    // tick 3: winner 변경 → 새 increment.
+    // trigger 3: winner 변경 → 새 increment.
     mocks.mockClusterFiringRates.mockResolvedValueOnce({
       rates: [0, 12, 0, 0],
       winner: 1,
@@ -165,36 +297,47 @@ describe('LiveSnn emitTick — broken state regression catch', () => {
       windowMs: 30,
       layer: 'OUT',
     });
-    await runOneTick(snn);
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
     expect(mocks.mockIncrementCount).toHaveBeenLastCalledWith('out_1_0', expect.any(Array));
     snn.dispose();
   });
 
-  it('winner=-1 (silent) 시점 영역 incrementCount 호출 0 + lastWinner reset', async () => {
+  it('C4: winner=-1 (silent) 시점 영역 incrementCount 호출 0 + lastWinner reset', async () => {
     const snn = new LiveSnn();
-    // tick 1: winner=0 → increment.
-    snn.setPattern([1, 0, 0, 0,  1, 1, 1, 1,  0, 0, 0, 0,  0, 0, 0, 0]);
-    await runOneTick(snn);
+    // trigger 1: winner=0 → increment.
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
-    // tick 2: silent (winner=-1).
-    mocks.mockClusterFiringRates.mockResolvedValueOnce({
-      rates: [0, 0, 0, 0], winner: -1, share: 0, margin: 0,
-      total: 0, windowMs: 30, layer: 'OUT',
+    // trigger 2: silent (winner=-1).
+    // repeats=3 영역 3회 모두 silent 정합 — mockResolvedValue (persistent).
+    mocks.mockClusterFiringRates.mockResolvedValue({
+      rates: [0, 0, 0, 0],
+      winner: -1,
+      share: 0,
+      margin: 0,
+      total: 0,
+      windowMs: 30,
+      layer: 'OUT',
     });
     snn.setPattern(new Array(16).fill(0));
-    await runOneTick(snn);
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 미증가.
 
-    // tick 3: 동일 cluster (0) 재winner — silent 후 영역 lastWinner reset 영역
+    // trigger 3: 동일 cluster (0) 재winner — silent 후 영역 lastWinner reset 영역
     // 동일 cluster 영역 새 trigger 정합.
-    mocks.mockClusterFiringRates.mockResolvedValueOnce({
-      rates: [12, 0, 0, 0], winner: 0, share: 1.0, margin: 1.0,
-      total: 12, windowMs: 30, layer: 'OUT',
+    mocks.mockClusterFiringRates.mockResolvedValue({
+      rates: [12, 0, 0, 0],
+      winner: 0,
+      share: 1.0,
+      margin: 1.0,
+      total: 12,
+      windowMs: 30,
+      layer: 'OUT',
     });
-    snn.setPattern([1, 0, 0, 0,  1, 1, 1, 1,  0, 0, 0, 0,  0, 0, 0, 0]);
-    await runOneTick(snn);
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
     snn.dispose();
   });

@@ -117,6 +117,11 @@ export class LiveSnn {
       this._unsubscribeInputMode();
       this._unsubscribeInputMode = null;
     }
+    // PR #184 audit fix (SEC-1 Path 2): trailing pending 시 unmount 영역
+    // root.lab.save() 영역 즉시 fire — 마지막 trigger 영역 영속 보장.
+    // dispose 영역 substrate 영역 정합 사실 (trailing closure 영역 capture
+    // root 영역 dispose 시점 substrate 영역 정합 — setSubstrate Path 1 영역
+    // pre-cancel 영역 stale 회피 보장 후 dispose 영역 도달).
     if (this._saveTrailingTimer !== null) {
       clearTimeout(this._saveTrailingTimer);
       this._saveTrailingTimer = null;
@@ -131,6 +136,14 @@ export class LiveSnn {
     if (this.substrateKind === kind) return;
     while (this.tickInFlight) {
       await new Promise((r) => setTimeout(r, 5));
+    }
+    // PR #184 audit fix (SEC-1 Path 1): substrate switch 영역 trailing
+    // setTimeout closure 영역 capture root 영역 stale 회피 — pre-cancel.
+    // GRID → CAMERA switch 직후 500ms 내 trailing fire 영역 wrong substrate
+    // root.lab.save() 영역 호출 사실 catch.
+    if (this._saveTrailingTimer !== null) {
+      clearTimeout(this._saveTrailingTimer);
+      this._saveTrailingTimer = null;
     }
     this.substrateKind = kind;
   }

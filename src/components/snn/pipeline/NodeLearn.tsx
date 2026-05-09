@@ -471,11 +471,11 @@ export default function NodeLearn() {
                 event-driven 1-shot pivot (2026-05-09 B): '항상 STDP on' 영역
                 폐기 — INPUT trigger 영역 1회 학습 영역 정합 표현 swap. */}
             <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-            LIVE — INPUT trigger 영역 1회 학습
+            LIVE — INPUT 1회 학습
           </>
         ) : '진행상황'
       }
-      subtitleAria={isLiveMode ? 'LIVE — INPUT trigger 영역 1회 학습' : '진행상황'}
+      subtitleAria={isLiveMode ? 'LIVE — INPUT 1회 학습' : '진행상황'}
       tone="learn"
     >
 
@@ -602,7 +602,7 @@ function LiveLearnPanel({
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
         <div className="snn-pipeline-hint">
-          클릭 / 자세 영역 1회 학습 + 추론. 강화 button 영역 명시 보강 학습
+          클릭 또는 자세를 인식하면 1회 학습 + 추론. 강화 버튼은 보강 학습.
         </div>
       </>
     );
@@ -624,12 +624,12 @@ function LiveLearnPanel({
             <span
               key={`stdp-${stdpPulseKey}`}
               className="snn-pipeline-stdp-led"
-              aria-label="STDP step fired"
+              aria-label="학습 1회 적용"
             />
           )}
         </div>
         <div className="snn-pipeline-phase-sub">
-          trial #{tick.trial} · {winnerLabel
+          학습 #{tick.trial} · {winnerLabel
             ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
             : 'no winner — WTA 대기'}
         </div>

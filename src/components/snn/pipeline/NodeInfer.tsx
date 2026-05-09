@@ -117,7 +117,7 @@ export default function NodeInfer() {
       )}
       {isLiveMode && (
         <div className="snn-pipeline-note">
-          LIVE 모드 — INPUT trigger 영역 1회 학습 + 추론 → winner 영역 즉시 갱신
+          LIVE 모드 — INPUT 1회 학습 + 추론 → winner 즉시 갱신
         </div>
       )}
       {trained && (

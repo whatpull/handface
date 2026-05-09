@@ -111,10 +111,24 @@ interface NeuronFiringDetailLite {
   rates_by_region?: Record<string, number>;
 }
 
+// default cluster firing 영역 winner=0 (default mock impl) — each test 영역
+// mockResolvedValue 영역 persistent override 영역 회피 catch — beforeEach 영역
+// 명시 재설정 mandatory.
+const DEFAULT_CFR = {
+  rates: [12, 0, 0, 0],
+  winner: 0,
+  share: 1.0,
+  margin: 1.0,
+  total: 12,
+  windowMs: 30,
+  layer: 'OUT' as const,
+};
+
 beforeEach(() => {
   mocks.mockInject.mockClear();
   mocks.mockRun.mockClear();
-  mocks.mockClusterFiringRates.mockClear();
+  mocks.mockClusterFiringRates.mockReset();
+  mocks.mockClusterFiringRates.mockResolvedValue(DEFAULT_CFR);
   mocks.mockSave.mockClear();
   mocks.mockIncrementCount.mockClear();
   mocks.emittedEvents.length = 0;
@@ -288,7 +302,9 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
     // trigger 3: winner 변경 → 새 increment.
-    mocks.mockClusterFiringRates.mockResolvedValueOnce({
+    // repeats=3 영역 cluster firing rate 영역 3회 호출 — 마지막 cfr 영역
+    // emit 영역 정합 catch 영역 mockResolvedValue (persistent) 영역 set.
+    mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [0, 12, 0, 0],
       winner: 1,
       share: 1.0,
@@ -340,5 +356,60 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
     snn.dispose();
+  });
+
+  // PR #184 audit fix (SEC-1): setSubstrate 영역 trailing setTimeout closure
+  // 영역 stale root capture 영역 정정 verify — substrate switch 영역 직후
+  // trailing fire 영역 wrong substrate root.lab.save() 영역 호출 회피.
+  it('T8 (SEC-1): setSubstrate 영역 trailing save timer 영역 cancel — stale root capture 회피', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = getLiveSnn();
+      live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+      // 1차 trigger — immediate save 1회.
+      await live.triggerOnce();
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+
+      // 2차 trigger — throttle window 내 영역 trailing schedule.
+      await live.triggerOnce();
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+
+      // substrate switch — trailing timer 영역 pre-cancel 영역 stale 회피.
+      await live.setSubstrate('gesture');
+
+      // throttle window 영역 advance — trailing fire 영역 사실 시 mocks.mockSave
+      // 영역 2회 (stale root) 도달. 정정 영역 cancel 영역 1회 유지.
+      await vi.advanceTimersByTimeAsync(600);
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // PR #184 audit fix (SEC-1 Path 2): dispose 영역 trailing pending 시
+  // cancel — unmount 영역 stale root.lab.save() 영역 호출 회피.
+  it('T9 (SEC-1): dispose 영역 trailing save timer 영역 cancel', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = getLiveSnn();
+      live.setPattern([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+      await live.triggerOnce();
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+
+      // 2차 trigger — trailing schedule.
+      await live.triggerOnce();
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+
+      // dispose — trailing cancel.
+      disposeLiveSnn();
+
+      await vi.advanceTimersByTimeAsync(600);
+      // trailing fire 0 — mocks.mockSave 영역 1회 유지.
+      expect(mocks.mockSave).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

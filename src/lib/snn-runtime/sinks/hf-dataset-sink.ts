@@ -164,6 +164,11 @@ export interface HealthStatus {
   backend: 'hf' | 'memory';
   repo_id: string | null;
   persistent: boolean;
+  // backend 의 auto-persist 토글 (NEURONFACE_AUTO_PERSIST env). neuronface
+  // PR #60 부터 노출 — 구버전 backend 영역 응답 영역 미존재 → undefined.
+  // true 시 cluster_train_rstdp 후 자동 HF Dataset save +
+  // preset_orientation 후 자동 hydrate.
+  auto_persist?: boolean;
 }
 
 export class HFNotFound extends Error {

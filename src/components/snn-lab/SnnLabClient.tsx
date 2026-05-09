@@ -50,6 +50,7 @@ export default function SnnLabClient() {
     backend: 'hf' | 'memory';
     repo_id: string | null;
     persistent: boolean;
+    auto_persist?: boolean;
   } | null>(null);
   const [hfHealthError, setHfHealthError] = useState<string | null>(null);
   const lab = useLocalSnn({
@@ -79,7 +80,12 @@ export default function SnnLabClient() {
           }
           return;
         }
-        const data = (await res.json()) as { backend: 'hf' | 'memory'; repo_id: string | null; persistent: boolean };
+        const data = (await res.json()) as {
+          backend: 'hf' | 'memory';
+          repo_id: string | null;
+          persistent: boolean;
+          auto_persist?: boolean;
+        };
         if (!cancelled) {
           setHfHealth(data);
           setHfHealthError(null);
@@ -298,6 +304,14 @@ export default function SnnLabClient() {
           {useHfSink && hfHealth && hfHealth.persistent && (
             <div className="text-xs text-emerald-300/90 bg-emerald-900/20 border border-emerald-700/30 rounded px-2 py-1">
               ✓ HF Dataset 영속 ({hfHealth.repo_id})
+              {hfHealth.auto_persist && (
+                <span className="ml-1 text-emerald-200">· auto-sync 활성</span>
+              )}
+              {hfHealth.auto_persist === false && (
+                <span className="ml-1 text-amber-200">
+                  · auto-sync 꺼짐 (NEURONFACE_AUTO_PERSIST=false)
+                </span>
+              )}
             </div>
           )}
           {useHfSink && hfHealthError && (

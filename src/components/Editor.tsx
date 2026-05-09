@@ -7,6 +7,7 @@ import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
+import { HandFaceLogo } from '@/components/handface-logo';
 import { onBackendEvent, type TrainingPhaseDetail } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapshot';
@@ -141,6 +142,7 @@ export default function Editor() {
     <ToastProvider>
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
       <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
+        <HandFaceLogo size={24} />
         <span className="text-sm font-semibold tracking-wider">HandFace</span>
         <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
         <div className="ml-auto flex items-center gap-2 text-[11px]">

@@ -346,7 +346,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         <video id="snn-cam-video" className="snn-camera-mirror snn-cam-video" playsInline muted />
         <canvas id="snn-cam-skel" className="snn-camera-mirror snn-cam-skel" width={640} height={480} />
         <div id="snn-cam-empty" className="snn-pipeline-cam-empty">
-          <span>카메라 꺼짐 — 좌측 사이드바에서 활성화</span>
+          <span>카메라 꺼짐 — 카메라 버튼으로 활성화</span>
         </div>
       </div>
 
@@ -378,7 +378,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
               aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
               title={
                 !cameraConnected
-                  ? '카메라 미연결 — 좌측 사이드바에서 카메라를 활성화하세요'
+                  ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
                   : lastFeatureRef.current === null
                     ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
                     : isLiveMode

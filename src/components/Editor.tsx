@@ -92,7 +92,7 @@ export default function Editor() {
     const raf = window.requestAnimationFrame(() => {
       showToast({
         kind: 'info',
-        message: '🔴 Live 모드 — 자세를 잡으면 즉시 학습이 시작됩니다. 좌측 사이드바에서 카메라를 활성화하세요.',
+        message: '🔴 Live 모드 — 자세를 잡으면 즉시 학습이 시작됩니다. 카메라를 먼저 활성화하세요.',
         duration: 7000,
       });
       try {

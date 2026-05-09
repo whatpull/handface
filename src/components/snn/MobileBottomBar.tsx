@@ -23,10 +23,12 @@ interface MobileBottomBarProps {
   onOpenSettings: () => void;
 }
 
-const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
+// WCAG 2.5.5 (Target Size) — `min-h-[44px]` 보장. py-2 + 14px line ≈ 30px 였던
+//   직전 path 정정. 시각 padding 변동 없음 — flex centering 정합.
+const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 min-h-[44px] ' +
   'text-[10px] text-white/70 hover:bg-white/5 active:bg-white/10 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
-const slotActive = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
+const slotActive = 'flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 min-h-[44px] ' +
   'text-[10px] text-violet-200 bg-violet-500/15 active:bg-violet-500/25 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
 
@@ -43,7 +45,7 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
         className={p.cameraConnected ? slotActive : slot}
         onClick={p.onToggleCamera}
         aria-label={p.cameraConnected ? '카메라 비활성화' : '카메라 활성화'}
-        aria-pressed={p.cameraConnected ? 'true' : 'false'}
+        aria-pressed={p.cameraConnected}
       >
         <Icon kind="camera" />
         카메라
@@ -60,7 +62,9 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
         <Icon kind="settings" />
         설정
       </button>
-      <div className="flex flex-1 items-center justify-center py-2">
+      {/* Engine slot 영역 5등분 균등 배치 시 EngineSegmented (Live/Backend) 영역 압축 —
+            375px viewport 영역 text 잘림 risk. flex-[1.4] 영역 폭 보강. */}
+      <div className="flex flex-[1.4] items-center justify-center px-1 py-2 min-h-[44px]">
         <EngineSegmented value={engine} onChange={setEngine} />
       </div>
     </nav>

@@ -4,8 +4,25 @@
 
 import { loadBackendSettings, normalizeEndpoint } from './settings';
 import { emitBackendEvent, type NeuronFiringDetail } from './events';
+import { showToast } from '@/components/ui/Toast';
 
 const NETWORK_KEY = 'handface.network.id';
+
+// 사용자 catch 2026-05-09 (401 fix): 401/403 토스트 영역 동일 메시지 영역 1회만
+// 발화 영역 spam 회피. backend retry / 다중 component 영역 동시 호출 시점 영역
+// 사용자 영역 동일 안내 영역 multi-stack 회피.
+let lastAuthToastAt = 0;
+const AUTH_TOAST_COOLDOWN_MS = 10000;
+function notifyAuthRequired(status: number): void {
+  const now = Date.now();
+  if (now - lastAuthToastAt < AUTH_TOAST_COOLDOWN_MS) return;
+  lastAuthToastAt = now;
+  showToast({
+    kind: 'error',
+    message: `백엔드 인증 필요 (HTTP ${status}) — 좌측 사이드바 → 설정에서 NEURONFACE_API_KEY 를 입력하세요.`,
+    duration: 8000,
+  });
+}
 // HF Spaces ephemeral container 영역 networkId stale → 새 network 생성 시점 영역
 // localStorage stored snapshot 영역 자동 loadSnapshot chain. 재귀 회피 lazy import.
 async function autoRestoreFromStorage(): Promise<void> {
@@ -144,9 +161,12 @@ export class NeuronFaceClient {
         if (!r.ok) {
           const txt = await r.text().catch(() => '');
           // 사용자 catch 2026-05-05: 401/403 영역 prominent UX — Settings panel 영역 API key 입력 안내.
+          // 사용자 catch 2026-05-09 (401 fix): silent return → showToast 영역 user-visible 영역 정합.
+          // backend NEURONFACE_API_KEY 미설정 catch path — 사용자 영역 catch 0 직전 silent.
           if (r.status === 401 || r.status === 403) {
             lastReason = `API key 가 없거나 잘못됨 — 좌측 Settings (⚙) 에서 API key 를 입력해 주세요 (HTTP ${r.status})`;
             lastStatus = r.status;
+            notifyAuthRequired(r.status);
             return { ok: false, reason: lastReason, status: r.status };
           }
           lastReason = `HTTP ${r.status} ${txt.slice(0, 200)}`;

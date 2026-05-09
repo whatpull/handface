@@ -123,7 +123,15 @@ export class LocalSNN {
   private topologyMatchesPreset(topo: NetworkSnapshot): boolean {
     // 단순 sanity — neurons.length 가 0 이상이면 통과. 더 엄격한 검증은 향후
     // (예: input dim, cluster 수 비교) 추가 가능.
-    return topo.neurons.length > 0;
+    if (topo.neurons.length === 0) return false;
+    // 사용자 catch 2026-05-09 (Fix B) — schema:1 (legacy v1) 영역 stale cache
+    // 영역 reject → fresh n13 build 강제. v1 snapshot 영역 NMDA / homeostatic
+    // 7 필드 drop 영역 default off 영역 적용 → INPUT EPSP 영역 V_th 미달 →
+    // fire 0 → 학습 fail. network.ts 영역 v1 hydrate 영역 default reapply
+    // (Fix A) 와 함께 defense in depth — schema:1 영역 직전 가중치 영역 폐기
+    // (NMDA off 영역 학습 효과 0 영역 폐기 영역 손실 0).
+    if (topo.schema === 1) return false;
+    return true;
   }
 
   private async persistFreshBuild(): Promise<void> {

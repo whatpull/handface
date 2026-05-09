@@ -2,6 +2,14 @@
 
 // 직전 ViewMode (pipeline / region) sheet 영역 폐기됨 — 사용자 명시 영역 단일 통합 view.
 // (neuron drawflow 영역 직전 영역 폐기 — 데이터 정합 0.)
+//
+// UX Polish PR1 Fix 1 (CRITICAL [C1], 2026-05-09): 모바일 engine 토글 추가.
+//   직전 Toolbar `hidden md:flex` → 모바일 사용자 Live ↔ Backend swap path 0.
+//   default 'live' 모바일 사용자 silent stuck 정정. EngineSegmented 컴포넌트
+//   Toolbar 에서 export 하여 동일 UX 재사용.
+
+import { EngineSegmented } from './Toolbar';
+import { useEngineMode } from '@/lib/snn/engine-mode';
 
 interface MobileBottomBarProps {
   onSave: () => void;
@@ -13,20 +21,24 @@ const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
 
 export default function MobileBottomBar(p: MobileBottomBarProps) {
+  const [engine, setEngine] = useEngineMode();
   return (
     <nav
       role="toolbar"
       aria-label="Mobile editor toolbar"
-      className="flex w-full border-t border-white/5 bg-[#0d0d10]/95 md:hidden"
+      className="flex w-full items-center gap-1 border-t border-white/5 bg-[#0d0d10]/95 px-2 md:hidden"
     >
-      <button type="button" className={slot} onClick={p.onSave} aria-label="Save">
+      <button type="button" className={slot} onClick={p.onSave} aria-label="저장">
         <Icon kind="save" />
-        Save
+        저장
       </button>
-      <button type="button" className={slot} onClick={p.onReset} aria-label="Reset">
+      <button type="button" className={slot} onClick={p.onReset} aria-label="초기화">
         <Icon kind="reset" />
-        Reset
+        초기화
       </button>
+      <div className="flex flex-1 items-center justify-center py-2">
+        <EngineSegmented value={engine} onChange={setEngine} />
+      </div>
     </nav>
   );
 }

@@ -425,7 +425,20 @@ export default function NodeLearn() {
   const isLearning = phaseTone === 'amber' || phaseTone === 'orange';
 
   return (
-    <NodeShell title="LEARN" subtitle={isLiveMode ? '🔴 LIVE — 항상 STDP on' : '진행상황'} tone="learn">
+    <NodeShell
+      title="LEARN"
+      subtitle={
+        isLiveMode ? (
+          <>
+            {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
+            <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
+            LIVE — 항상 STDP on
+          </>
+        ) : '진행상황'
+      }
+      subtitleAria={isLiveMode ? 'LIVE — 항상 STDP on' : '진행상황'}
+      tone="learn"
+    >
 
       {/* V1/V2 cortical region strip — 학습 substrate cascade.
           INPUT/OUT region 영역 INPUT/OUT 노드 영역 정합 → 위쪽 row 폐기 → 본 위치 흡수. */}

@@ -28,5 +28,9 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
     css: false,
+    // 사용자 catch 2026-05-09: clusterTrainRStdp / ART expansion 등 heavy
+    // SNN simulation 영역 default 5s 초과 catch — 30s 영역 안전 margin.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

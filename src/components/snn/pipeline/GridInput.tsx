@@ -15,6 +15,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail } from '@/lib/backend/events';
+import { useEngineMode } from '@/lib/snn/engine-mode';
+import { getRootLocalSnn } from '@/lib/snn/root-local-snn';
 
 export const ORIENTATION_LABELS = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
@@ -51,6 +53,7 @@ export default function GridInput() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
+  const [engineMode] = useEngineMode();
 
   const togglePixel = useCallback((i: number) => {
     setGrid((g) => {
@@ -95,6 +98,52 @@ export default function GridInput() {
       kind: 'started', cluster: clusterIdx,
       framesDone: 0, framesTotal: TRAIN_FRAMES,
     });
+
+    // ── Local mode: 브라우저 내 LocalSNN 으로 학습 (no backend round-trip)
+    if (engineMode === 'local') {
+      try {
+        const root = await getRootLocalSnn();
+        const allPatterns = Array.from({ length: TRAIN_FRAMES }, () => pattern.slice());
+        const r = await root.client.clusterTrainRStdp({
+          patterns: allPatterns,
+          targetCluster: clusterIdx,
+          intensity: 25,
+          stimulusDurationMs: 30,
+          observeMs: 50,
+          dtMs: 0.1,
+        });
+        // 학습 후 자동 save (Phase C3 sink — local-storage default).
+        await root.lab.save().catch(() => {});
+        const accuracy = r.accuracy;
+        const accPct = (accuracy * 100).toFixed(0);
+        setStatus({
+          kind: 'ok',
+          message: `${ORIENTATION_GLYPHS[clusterIdx]} ${accPct}% (${r.correct}/${r.trained})`,
+        });
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'progress', cluster: clusterIdx,
+          framesDone: TRAIN_FRAMES, framesTotal: TRAIN_FRAMES,
+        });
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'finished',
+          cluster: clusterIdx,
+          accuracy,
+          correct: r.correct,
+          trained: r.trained,
+          framesDone: TRAIN_FRAMES,
+          framesTotal: TRAIN_FRAMES,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setStatus({ kind: 'error', message: `local 학습 실패: ${msg}` });
+        emitBackendEvent<GridTrainingDetail>('grid-training', {
+          kind: 'error', cluster: clusterIdx, message: msg,
+        });
+      }
+      return;
+    }
+
+    // ── Backend mode (default, rev15 검증된 path) ──────────────────────
     const client = getClient();
     if (!substrateBuiltRef.current) {
       const built = await client.presetOrientation({ overwrite: true });
@@ -151,7 +200,7 @@ export default function GridInput() {
       framesDone: TRAIN_FRAMES,
       framesTotal: TRAIN_FRAMES,
     });
-  }, []);
+  }, [engineMode]);
 
   // 사용자 catch 2026-05-07: round-robin 학습 — 4 cluster 균등 학습.
   // cluster 별 sequential 30 frame 영역 마지막 cluster dominance catch.
@@ -227,6 +276,40 @@ export default function GridInput() {
   const runInfer = useCallback(async () => {
     setStatus({ kind: 'inferring' });
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
+
+    // ── Local mode ────────────────────────────────────────────────
+    if (engineMode === 'local') {
+      try {
+        const root = await getRootLocalSnn();
+        // grid (16-dim binary) → InjectEvent[] (>0.5 dim 만 active).
+        const events = grid
+          .map((v, i) => {
+            if (v <= 0.5) return null;
+            return {
+              neuron: `in_feat_${i}`,
+              weight: 25,
+              time: 0,
+              durationMs: 30,
+              stepMs: 0.1,
+            };
+          })
+          .filter((e): e is NonNullable<typeof e> => e !== null);
+        if (events.length > 0) await root.client.inject(events);
+        await root.client.run({ durationMs: 50, dtMs: 0.1, stdpEnabled: false });
+        const cfr = await root.client.clusterFiringRates({ windowMs: 50, layer: 'OUT' });
+        const winnerCluster =
+          cfr.winner >= 0 && cfr.winner <= 3 ? (cfr.winner as 0 | 1 | 2 | 3) : null;
+        setStatus({ kind: 'ok', message: '추론 완료 (local)' });
+        emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setStatus({ kind: 'error', message: `local 추론 실패: ${msg}` });
+        emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: msg });
+      }
+      return;
+    }
+
+    // ── Backend mode (default) ────────────────────────────────────
     const r = await getClient().injectPattern(grid, { stdp: false });
     if (r.ok) {
       const cluster = r.data.winner_cluster ?? null;
@@ -239,7 +322,7 @@ export default function GridInput() {
       setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
     }
-  }, [grid]);
+  }, [grid, engineMode]);
 
   const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
 

@@ -224,7 +224,13 @@ export class NeuralNetwork {
         tauM: n.tauM,
         refractory: n.refractory,
       });
-      // v2 영역 7 신규 필드 영역 복원. v1 영역 default (current behavior 정합).
+      // v2 영역 7 신규 필드 영역 복원. v1 영역 backward compat — n13 builder
+      // default 영역 reapply (사용자 catch 2026-05-09 — Fix A: 기존 IndexedDB
+      // v1 cache 영역 hydrate 시점 영역 NMDA off / homeostatic off default
+      // 영역 적용 → INPUT EPSP 영역 V_th 미달 → fire 0 → cluster_rates 모두
+      // 0 → "no winner — WTA 대기"). n13-orientation.ts L268-290 영역 ground
+      // truth: 모든 neuron NMDA on, 모든 excitatory + OUT (NOT INPUT, NOT
+      // inhibitory) homeostatic on.
       if (isV2) {
         const nv2 = n as NetworkSnapshotNeuronV2;
         neuron.nmdaEnabled = nv2.nmdaEnabled;
@@ -234,6 +240,23 @@ export class NeuralNetwork {
         neuron.homeostaticIncrement = nv2.homeostaticIncrement;
         neuron.homeostaticDecay = nv2.homeostaticDecay;
         neuron.thresholdOffset = nv2.thresholdOffset;
+      } else {
+        // v1 backward compat — n13 default 영역 reapply.
+        // (1) ALL neurons: NMDA on (threshold=-65, gain=10).
+        neuron.nmdaEnabled = true;
+        neuron.nmdaThreshold = -65.0;
+        neuron.nmdaGain = 10.0;
+        // (2) excitatory + OUT only: homeostatic on.
+        //     INPUT (in_feat_*) + inhibitory (*_I_* / *_I) 는 제외.
+        const id = n.name;
+        const isInput = id.startsWith('in_feat_');
+        const isInhibitory = id.includes('_I_') || /_I$/.test(id);
+        if (!isInput && !isInhibitory) {
+          neuron.homeostaticEnabled = true;
+          neuron.homeostaticIncrement = 2.0;
+          neuron.homeostaticDecay = 0.995;
+        }
+        // thresholdOffset 영역 default 0 — v1 영역 누적 정보 없음.
       }
       net.addNeuron(neuron);
     }

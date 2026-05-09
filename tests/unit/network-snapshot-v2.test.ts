@@ -68,8 +68,12 @@ describe('NetworkSnapshot v2 — NMDA + homeostatic + thresholdOffset round-trip
     }
   });
 
-  it('T3: v1 schema (legacy) restore — default 영역 적용 + 에러 0 (backward compat)', () => {
+  it('T3: v1 schema (legacy) restore — n13 default reapply + 에러 0 (backward compat, Fix A)', () => {
     // legacy v1 snapshot 영역 simulate — neurons 영역 5 필드 only, schema=1.
+    // 사용자 catch 2026-05-09 (Fix A): v1 hydrate → n13 default reapply
+    // (NMDA on / 정합 layer homeostatic on). 단, 본 test 영역 generic name
+    // (A / B) 이므로 INPUT/inhibitory 패턴 0 → excitatory 정합 (NMDA on +
+    //  homeostatic on). 명세 catch 영역 network-snapshot-v1-hydrate.test.ts.
     const v1: NetworkSnapshot = {
       schema: 1,
       dtMs: 0.1,
@@ -103,9 +107,16 @@ describe('NetworkSnapshot v2 — NMDA + homeostatic + thresholdOffset round-trip
     const restored = NeuralNetwork.restore(v1);
     expect(restored.size()).toBe(2);
 
-    // v1 영역 default 영역 적용 — nmdaEnabled / homeostaticEnabled 영역 false.
-    expect(restored.neurons[0].nmdaEnabled).toBe(false);
-    expect(restored.neurons[0].homeostaticEnabled).toBe(false);
+    // v1 backward compat (Fix A) — n13 default reapply: NMDA on (모든 neuron),
+    // homeostatic on (excitatory + OUT — generic name 'A' 영역 INPUT/inhibitory
+    // 패턴 0 이므로 excitatory 정합 적용).
+    expect(restored.neurons[0].nmdaEnabled).toBe(true);
+    expect(restored.neurons[0].nmdaThreshold).toBeCloseTo(-65.0, 6);
+    expect(restored.neurons[0].nmdaGain).toBeCloseTo(10.0, 6);
+    expect(restored.neurons[0].homeostaticEnabled).toBe(true);
+    expect(restored.neurons[0].homeostaticIncrement).toBeCloseTo(2.0, 6);
+    expect(restored.neurons[0].homeostaticDecay).toBeCloseTo(0.995, 6);
+    // thresholdOffset 영역 v1 영역 누적 정보 없음 → default 0.
     expect(restored.neurons[0].thresholdOffset).toBe(0);
   });
 

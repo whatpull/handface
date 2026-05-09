@@ -467,13 +467,15 @@ export default function NodeLearn() {
       subtitle={
         isLiveMode ? (
           <>
-            {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
+            {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap.
+                event-driven 1-shot pivot (2026-05-09 B): '항상 STDP on' 영역
+                폐기 — INPUT trigger 영역 1회 학습 영역 정합 표현 swap. */}
             <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-            LIVE — 항상 STDP on
+            LIVE — INPUT 1회 학습
           </>
         ) : '진행상황'
       }
-      subtitleAria={isLiveMode ? 'LIVE — 항상 STDP on' : '진행상황'}
+      subtitleAria={isLiveMode ? 'LIVE — INPUT 1회 학습' : '진행상황'}
       tone="learn"
     >
 
@@ -569,8 +571,13 @@ export default function NodeLearn() {
 }
 
 // LiveLearnPanel — Live 모드 전용 패널.
-// batch progress strip 영역 swap — cluster firing rates strip + winner +
-// margin + tick rev + 패턴 활성 사실 표시. tick 미수신 (=null) 시 hint.
+// event-driven 1-shot pivot (사용자 catch 2026-05-09 B):
+//   - key 영역 patternActive on/off 영역 한정 fade — 매 trigger 영역 깜빡거림
+//     catch 영역 root fix (직전 key={`live-${tick.rev}`} 영역 매 trial 영역 element
+//     remount → fade 재생).
+//   - STDP LED — tick.trial 변경 영역 1회 8px amber dot pulse 600ms (mount key
+//     변경 영역 animation 재생).
+//   - hint copy — '클릭 / 자세 1회 학습 + 추론. 강화 button 영역 명시 보강 학습'.
 function LiveLearnPanel({
   tick,
   clusterLabels,
@@ -578,6 +585,15 @@ function LiveLearnPanel({
   tick: LiveTickDetail | null;
   clusterLabels: readonly string[];
 }) {
+  // STDP pulse LED — trial 변경 시 mount key ↑ 영역 animation 1회 재생.
+  // tick === null 영역 0 — 첫 trial 도달 시점부터 pulse.
+  const [stdpPulseKey, setStdpPulseKey] = useState<number>(0);
+  useEffect(() => {
+    if (tick && tick.trial > 0) {
+      setStdpPulseKey((k) => k + 1);
+    }
+  }, [tick?.trial, tick]);
+
   if (!tick) {
     return (
       <>
@@ -585,7 +601,9 @@ function LiveLearnPanel({
           <div className="snn-pipeline-phase-label">LIVE — awaiting</div>
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
-        <div className="snn-pipeline-hint">SNN tick (200ms) — 패턴 활성 시 STDP 즉시 적용</div>
+        <div className="snn-pipeline-hint">
+          클릭 또는 자세를 인식하면 1회 학습 + 추론. 강화 버튼은 보강 학습.
+        </div>
       </>
     );
   }
@@ -597,17 +615,21 @@ function LiveLearnPanel({
   return (
     <>
       <div
-        key={`live-${tick.rev}`}
+        key={`live-${tick.patternActive ? 'on' : 'off'}`}
         className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
       >
         <div className="snn-pipeline-phase-label">
           {tick.patternActive ? 'LIVE — STDP active' : 'LIVE — silent'}
-          {tick.patternActive && (
-            <span className="snn-pipeline-tick-spinner" aria-label="STDP 진행 중" />
+          {stdpPulseKey > 0 && (
+            <span
+              key={`stdp-${stdpPulseKey}`}
+              className="snn-pipeline-stdp-led"
+              aria-label="학습 1회 적용"
+            />
           )}
         </div>
         <div className="snn-pipeline-phase-sub">
-          tick #{tick.rev} · {winnerLabel
+          학습 #{tick.trial} · {winnerLabel
             ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
             : 'no winner — WTA 대기'}
         </div>

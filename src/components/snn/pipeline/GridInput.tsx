@@ -64,17 +64,41 @@ export default function GridInput() {
   // 동일 cluster 영역 즉시 multi-click 영역 race 회피 + spinner-like feedback.
   const [reinforcingCluster, setReinforcingCluster] = useState<number | null>(null);
 
+  // event-driven 1-shot pivot (사용자 catch 2026-05-09 B): pixel toggle / preset
+  // 영역 패턴 변경 직후 Live 모드 영역 setPattern + triggerOnce.
+  // setPattern 영역 다음 useEffect [grid] sync 영역 도 race 방지 catch — 단
+  // 본 path 영역 명시 setPattern 영역 동기 보장 (effect 영역 다음 frame 영역
+  // grid state 영역 sync 단 trigger 영역 동일 frame 영역 정합 패턴 사용 catch).
   const togglePixel = useCallback((i: number) => {
     setGrid((g) => {
       const next = g.slice();
       next[i] = next[i] > 0.5 ? 0 : 1;
+      if (engineMode === 'live') {
+        try {
+          const live = getLiveSnn();
+          live.setPattern(next);
+          void live.triggerOnce();
+        } catch {
+          // SSR / 미초기화 — 무시.
+        }
+      }
       return next;
     });
-  }, []);
+  }, [engineMode]);
 
   const applyPreset = useCallback((idx: number) => {
-    setGrid(ORIENTATION_PRESETS[idx].slice());
-  }, []);
+    const next = ORIENTATION_PRESETS[idx].slice();
+    setGrid(next);
+    if (engineMode === 'live') {
+      try {
+        const live = getLiveSnn();
+        live.setPattern(next);
+        void live.triggerOnce();
+      } catch {
+        // SSR / 미초기화 — 무시.
+      }
+    }
+  }, [engineMode]);
 
   const reset = useCallback(() => {
     setGrid(emptyGrid());
@@ -89,34 +113,22 @@ export default function GridInput() {
     setStatus({ kind: 'idle' });
   }), []);
 
-  // ── Live 모드 wiring (사용자 catch 2026-05-09 A: SNN 본질 정합 pivot) ──
-  // engineMode='live' 시점 LiveSnn 영역 시작. grid 변경 영역 즉시 setPattern
-  // → 200ms tick loop 영역 inject + run + cluster firing 측정.
-  // engineMode 변경 (live → backend/local) 시 stop.
+  // ── Live 모드 wiring (사용자 catch 2026-05-09 B: event-driven 1-shot pivot) ──
+  // 직전 (A): 200ms setInterval 기반 background tick loop (live.start/stop).
+  // 본 정정 (B): background loop 본격 폐기 — togglePixel / applyPreset 영역
+  // 명시 trigger (1-shot). 본 effect 영역 substrate sync 영역만 담당.
   //
-  // PR #171 audit fix (Fix 1 — QA HIGH): grid pixel toggle 매 시점 cleanup +
-  // re-start 영역 thrash 회피 영역 effect 영역 split.
-  //   - Effect A (deps: [engineMode]): mount/unmount + start/stop 영역 1 회.
-  //   - Effect B (deps: [engineMode, grid]): pattern sync 영역 setPattern 만.
   // PR #171 audit fix (Fix 2 — QA HIGH): substrate kind 영역 LiveSnn 자체
-  // input-mode listener 영역 derive — 명시 setSubstrate 호출 영역 제거 영역
-  // GridInput / CameraInput 동시 mount race 영역 회피.
+  // input-mode listener 영역 derive — 명시 setSubstrate 호출 영역 제거.
   useEffect(() => {
     if (engineMode !== 'live') return;
     // NodeInput input-mode emit 영역 LiveSnn 미초기화 시점 영역 missed catch —
     // GridInput Live mount 시 idempotent re-emit 영역 substrate sync 보장.
     emitBackendEvent<InputModeDetail>('input-mode', { mode: 'grid' });
-    const live = getLiveSnn();
-    live.start();
-    return () => {
-      try {
-        live.stop();
-      } catch {
-        // ignore
-      }
-    };
   }, [engineMode]);
 
+  // grid state 변경 영역 setPattern sync — togglePixel/applyPreset 영역 명시
+  // setPattern 호출 외 영역 race 회피 (state batch 갱신 후 effect 영역 sync 보장).
   useEffect(() => {
     if (engineMode !== 'live') return;
     try {
@@ -419,7 +431,7 @@ export default function GridInput() {
                 (isBusy && !isLiveMode) ||
                 (isLiveMode && reinforcingCluster !== null)
               }
-              aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
+              aria-busy={isLiveMode && reinforcingCluster === i}
               title={
                 isLiveMode
                   ? reinforcingCluster === i

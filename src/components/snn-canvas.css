@@ -1002,6 +1002,30 @@
   50%      { opacity: 1.0;  transform: scale(1.15); }
 }
 
+/* STDP step LED — event-driven 1-shot pivot (사용자 catch 2026-05-09 B).
+   trial 변경 영역 mount key ↑ 영역 600ms fade-out animation 1회.
+   직전 (A) tick-spinner 영역 매 200ms tick 영역 깜빡거림 catch 영역 root fix.
+   prefers-reduced-motion 영역 instant fade. */
+.snn-pipeline-stdp-led {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.95);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
+  animation: snn-stdp-pulse 600ms ease-out forwards;
+  vertical-align: middle;
+}
+@keyframes snn-stdp-pulse {
+  0%   { opacity: 1.0; transform: scale(1.4); }
+  50%  { opacity: 0.7; transform: scale(1.0); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-stdp-led { animation-duration: 0.01ms !important; }
+}
+
 /* 4) teacher row 영역 stable ready (5/5 stable + conf >= 0.6) — color emphasis. */
 .snn-pipeline-row-value.is-stable-ready {
   color: rgb(var(--pipe-tone-cyan-light, 165 243 252));

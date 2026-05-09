@@ -37,6 +37,11 @@ import {
   sharpenForGesture,
 } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn } from '@/lib/snn/live-snn';
+import {
+  GESTURE_LABEL_TO_CLUSTER,
+  GESTURE_CONFIDENCE_MIN,
+  GESTURE_STABLE_FRAMES,
+} from '@/lib/snn/use-hand-control';
 
 const GESTURE_LABELS = [
   'Pointing',
@@ -77,8 +82,19 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     engineModeRef.current = engineMode;
   }, [engineMode]);
 
+  // event-driven 1-shot pivot (사용자 catch 2026-05-09 B): stable 자세 threshold
+  // 영역 trigger gating. 직전 (A) 영역 background loop 200ms tick 영역 setPattern
+  // 만 push, 본 정정 영역 stable cluster 변경 영역 1회 triggerOnce.
+  //   - lastStableClusterRef: 직전 trigger cluster — 같은 cluster 영역 멱등 (재
+  //     trigger 0). 새 cluster stable 영역 새 trigger.
+  //   - hasHand=false 시점 영역 reset — 다음 동일 cluster stable 영역 새 trigger.
+  //   - GESTURE_LABEL_TO_CLUSTER 매핑 + conf >= GESTURE_CONFIDENCE_MIN +
+  //     stableCount >= GESTURE_STABLE_FRAMES 영역 동시 충족 영역만 trigger.
+  const lastStableClusterRef = useRef<number | null>(null);
+  const stableCountRef = useRef<number>(0);
+  const lastGestureNameRef = useRef<string | null>(null);
+
   // hand-feature event listen → sharpened feature 보존.
-  // PR4: Live 모드 시 즉시 LiveSnn.setPattern 영역 push (200ms tick 영역 inject).
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
     if (d.hasHand && d.feature && d.feature.length >= 16) {
       const sharpened = sharpenForGesture(d.feature);
@@ -89,9 +105,44 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         } catch {
           // SSR / live-snn 미초기화 — 무시.
         }
+        // event-driven 1-shot trigger gating.
+        const gName = d.gestureName ?? null;
+        const gScore = d.gestureScore ?? 0;
+        const mappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
+        const mappedCluster = mappable ? GESTURE_LABEL_TO_CLUSTER[gName!] : null;
+        // stable count 추적 — 본 컴포넌트 내부 cluster gating 정합 (NodeLearn
+        // teacher stable 영역 별도 path 영역 무관).
+        if (mappable && gScore >= GESTURE_CONFIDENCE_MIN) {
+          if (gName === lastGestureNameRef.current) {
+            stableCountRef.current = Math.min(stableCountRef.current + 1, GESTURE_STABLE_FRAMES);
+          } else {
+            lastGestureNameRef.current = gName;
+            stableCountRef.current = 1;
+          }
+        } else {
+          lastGestureNameRef.current = null;
+          stableCountRef.current = 0;
+        }
+        if (
+          mappable &&
+          gScore >= GESTURE_CONFIDENCE_MIN &&
+          stableCountRef.current >= GESTURE_STABLE_FRAMES &&
+          mappedCluster !== null &&
+          lastStableClusterRef.current !== mappedCluster
+        ) {
+          lastStableClusterRef.current = mappedCluster;
+          try {
+            void getLiveSnn().triggerOnce();
+          } catch {
+            // SSR / 미초기화 — 무시.
+          }
+        }
       }
     } else {
       lastFeatureRef.current = null;
+      lastStableClusterRef.current = null;
+      stableCountRef.current = 0;
+      lastGestureNameRef.current = null;
       if (engineModeRef.current === 'live') {
         try {
           getLiveSnn().setPattern(new Array<number>(16).fill(0));
@@ -110,29 +161,15 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     setStatus({ kind: 'idle' });
   }), []);
 
-  // PR4 — Live 모드 mount/unmount: LiveSnn start/stop 만.
+  // event-driven 1-shot pivot (사용자 catch 2026-05-09 B): background loop 폐기.
+  // 본 effect 영역 substrate sync (input-mode re-emit) 영역만 담당.
   // PR #171 audit fix (Fix 2 — QA HIGH): substrate='gesture' 명시 setSubstrate
-  // 호출 영역 제거 — LiveSnn 자체 input-mode event listener 영역 derive 영역
-  // GridInput / CameraInput 동시 mount race 회피.
+  // 호출 영역 제거 — LiveSnn 자체 input-mode event listener 영역 derive.
   useEffect(() => {
     if (engineMode !== 'live') return;
     // NodeInput input-mode emit 영역 LiveSnn 미초기화 시점 영역 missed catch —
     // CameraInput Live mount 시 idempotent re-emit 영역 substrate sync 보장.
     emitBackendEvent<InputModeDetail>('input-mode', { mode: 'camera' });
-    const live = getLiveSnn();
-    try {
-      live.start();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `Live 시작 실패: ${msg}` });
-    }
-    return () => {
-      try {
-        live.stop();
-      } catch {
-        // ignore
-      }
-    };
   }, [engineMode]);
 
   // PR4 — cameraConnected toggle false 시 Live setPattern 영역 zero reset
@@ -372,7 +409,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                 !cameraConnected ||
                 (isLiveMode && reinforcingCluster !== null)
               }
-              aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
+              aria-busy={isLiveMode && reinforcingCluster === i}
               title={
                 !cameraConnected
                   ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'

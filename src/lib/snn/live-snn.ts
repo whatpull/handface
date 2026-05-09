@@ -1,5 +1,33 @@
 'use client';
-// LiveSnn — 항상 동작 SNN (사용자 catch 2026-05-09 A: Live 모드 본격 pivot).
+// LiveSnn — event-driven 1-shot SNN (사용자 catch 2026-05-09 영역 본격 pivot).
+//
+// 직전 (2026-05-09 A): 200ms setInterval 기반 background tick loop.
+//   사용자 catch 영역 issue: "지속적인 학습 노드 틱, 추론과 학습을 진행할
+//   방법이 정확히 구현되어 있지 않습니다." + "tic STDP active 가 너무 깜빡거려
+//   보기 불편함, tic count는 무한대로 증가할 수 있어 좋지 않아보임."
+//
+// 본 정정 (2026-05-09 B): event-driven 1-shot trial.
+//   - background loop 본격 폐기 (start/stop/timer 영역 0).
+//   - INPUT 노드 영역 명시 trigger (GRID cell 클릭 / preset / CAMERA stable
+//     자세 신규 catch) → 1회 inject + run(stdp on) × repeats + cluster firing
+//     측정 + lab.save(throttle) → emitTick.
+//   - tickCount 영역 trialCount 영역 swap — 사용자 명시 학습 시도 횟수 (의미
+//     catch). 무한 background 누적 영역 회피.
+//
+// architecture:
+//   patternRef (현재 16-dim 입력) ← UI 가 setPattern()
+//   triggerOnce(opts):
+//     1. tickInFlight wait
+//     2. inject(pattern)
+//     3. run(observeMs, stdp=true, gain=opts.stdpGain ?? 1.0) × opts.repeats ?? 3
+//        — Risk 4 mitigation: 1 click 영역 hidden burst (학습 효과 보강)
+//     4. clusterFiringRates → winner / share / margin
+//     5. trialCount++ → emitTick → saveDebounced(lab, force)
+//   reinforce(targetCluster, gain=2.0):
+//     thin alias 영역 triggerOnce({ stdpGain: gain, repeats: 3, force: true })
+//
+// no-new-UI 정합: root /handface/ 5-node 가 본 controller 직접 사용.
+// LocalSNN 인스턴스 영역 root-local-snn singleton 영역 공유.
 
 import {
   emitBackendEvent,
@@ -7,26 +35,9 @@ import {
   type NeuronFiringDetail,
   type InputModeDetail,
 } from '@/lib/backend/events';
-//
-// 본질: 사용자가 패턴을 보여주는 즉시 STDP 적용 + cluster firing 측정 +
-// winner emerge. 별도 Train/Infer 분리 X — SNN 본질 (Diehl & Cook 2015 +
-// Hebbian "neurons that fire together wire together") 정합.
-//
-// architecture:
-//   patternRef (현재 16-dim 입력) ← UI 가 setPattern()
-//   tick loop (default 200ms 간격):
-//     1. inject(pattern)
-//     2. run(observeMs, stdp=true) — Hebbian self-reinforcement
-//     3. clusterFiringRates → winner / share / margin
-//     4. emit('live-tick' event) — listener (NodeLearn / NodeInfer) 갱신
-//   reinforce(targetCluster) — 사용자 명시 R-STDP signal:
-//     run(observeMs, stdp=true, gain=2.0) — positive reward to current pattern
-//
-// no-new-UI 정합: root /handface/ 5-node 가 본 controller 직접 사용.
-// LocalSNN 인스턴스 영역 root-local-snn singleton 영역 공유.
 
 import type { ClusterFiringRatesResult } from '@/lib/snn-runtime';
-import { getRootLocalSnnFor, type SubstrateKind } from './root-local-snn';
+import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { incrementCount } from './out-exemplars';
 
 export interface LiveTickDetail {
@@ -35,36 +46,45 @@ export interface LiveTickDetail {
   share: number;
   margin: number;
   patternActive: boolean; // 현재 pattern 영역 active dim 1개 이상 인지.
-  rev: number;
+  /**
+   * trigger 횟수 (사용자 영역 학습 시도) — INPUT 노드 영역 명시 1-shot 만
+   * 누적. background loop 영역 폐기 영역 idle 시점 영역 0 유지.
+   */
+  trial: number;
   tickAtMs: number; // performance.now()
 }
 
 export interface LiveSnnOptions {
-  // tick 간격 (ms). default 200ms — UI 부드러움 + STDP 누적 균형.
-  intervalMs?: number;
-  // 한 tick 영역 simulation 영역 ms. default 30ms.
+  // 한 trigger 영역 simulation 영역 ms. default 30ms.
   observeMs?: number;
-  // 한 tick 영역 자극 weight 강도. default 25.
+  // 한 trigger 영역 자극 weight 강도. default 25.
   intensity?: number;
   stimulusDurationMs?: number;
 }
 
+export interface TriggerOnceOptions {
+  /** STDP gain (default 1.0 — reinforce 시 2.0 권장). */
+  stdpGain?: number;
+  /** 1 click 영역 inject+run 반복 횟수 (default 3 — Risk 4 mitigation). */
+  repeats?: number;
+  /** lab.save throttle bypass — reinforce path 영역 즉시 영속. */
+  force?: boolean;
+}
+
 const DEFAULT_OPTIONS: Required<LiveSnnOptions> = {
-  intervalMs: 200,
   observeMs: 30,
   intensity: 25,
   stimulusDurationMs: 20,
 };
 
 const TICK_EVENT = 'handface.live-snn.tick';
+const SAVE_THROTTLE_MS = 500;
 
 export class LiveSnn {
   private opts: Required<LiveSnnOptions>;
   private patternRef: number[] = new Array(16).fill(0);
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private running = false;
   private tickInFlight = false;
-  private tickCount = 0;
+  private trialCount = 0;
   // 사용자 catch 2026-05-09 (Live 모드 broken state — fix/live-mode-substrate-init):
   // OUT count 영역 직전 use-hand-control (camera path) 영역만 trigger → Live grid
   // 영역 0 잔존 catch. winner 변경 시점 영역 idempotent incrementCount.
@@ -75,6 +95,11 @@ export class LiveSnn {
   // PR #171 audit fix (Fix 2 — QA HIGH): input-mode event 영역 derive 영역
   // GridInput / CameraInput 동시 mount last-write-wins race 회피.
   private _unsubscribeInputMode: (() => void) | null = null;
+  // event-driven pivot (2026-05-09 B): lab.save throttle state.
+  // 첫 호출 영역 immediate save 영역 보장 catch — -∞ 영역 sentinel 영역 시작
+  // (Number.NEGATIVE_INFINITY 영역 sinceLast >> SAVE_THROTTLE_MS 보장).
+  private _lastSaveAtMs = Number.NEGATIVE_INFINITY;
+  private _saveTrailingTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
@@ -88,25 +113,39 @@ export class LiveSnn {
   }
 
   dispose(): void {
-    this.stop();
     if (this._unsubscribeInputMode) {
       this._unsubscribeInputMode();
       this._unsubscribeInputMode = null;
     }
+    // PR #184 audit fix (SEC-1 Path 2): trailing pending 시 unmount 영역
+    // root.lab.save() 영역 즉시 fire — 마지막 trigger 영역 영속 보장.
+    // dispose 영역 substrate 영역 정합 사실 (trailing closure 영역 capture
+    // root 영역 dispose 시점 substrate 영역 정합 — setSubstrate Path 1 영역
+    // pre-cancel 영역 stale 회피 보장 후 dispose 영역 도달).
+    if (this._saveTrailingTimer !== null) {
+      clearTimeout(this._saveTrailingTimer);
+      this._saveTrailingTimer = null;
+    }
   }
 
   // 학술 정합: substrate 변경 시점 영역 기존 회로 영역 보존 + 새 회로 영역
-  // lazy init. running tick 진행 중 시 stop / await tickInFlight / 재시작.
+  // lazy init. trigger 진행 중 시 await tickInFlight (background loop 영역
+  // 폐기 영역 stop/start race 영역 0).
   // 같은 kind 영역 멱등 — early return.
   async setSubstrate(kind: SubstrateKind): Promise<void> {
     if (this.substrateKind === kind) return;
-    const wasRunning = this.running;
-    if (wasRunning) this.stop();
     while (this.tickInFlight) {
       await new Promise((r) => setTimeout(r, 5));
     }
+    // PR #184 audit fix (SEC-1 Path 1): substrate switch 영역 trailing
+    // setTimeout closure 영역 capture root 영역 stale 회피 — pre-cancel.
+    // GRID → CAMERA switch 직후 500ms 내 trailing fire 영역 wrong substrate
+    // root.lab.save() 영역 호출 사실 catch.
+    if (this._saveTrailingTimer !== null) {
+      clearTimeout(this._saveTrailingTimer);
+      this._saveTrailingTimer = null;
+    }
     this.substrateKind = kind;
-    if (wasRunning) this.start();
   }
 
   getSubstrate(): SubstrateKind {
@@ -126,92 +165,113 @@ export class LiveSnn {
     return this.patternRef.slice();
   }
 
-  isRunning(): boolean {
-    return this.running;
-  }
+  /**
+   * Event-driven 1-shot trigger (2026-05-09 B 본격 pivot).
+   *
+   * 사용자 명시 INPUT 시점 (GRID cell click / preset apply / CAMERA stable
+   * 자세) 영역 1회 inject + run(stdp on) × repeats + cluster firing 측정 +
+   * lab.save (throttle) → emitTick.
+   *
+   * @param opts.stdpGain  STDP gain (default 1.0).
+   * @param opts.repeats   inject+run 반복 횟수 (default 3 — Risk 4 mitigation).
+   * @param opts.force     lab.save throttle bypass (reinforce 영역 true).
+   * @returns saveFailed   lab.save 영역 실패 시 호출자 영역 user-visible warning.
+   */
+  async triggerOnce(opts: TriggerOnceOptions = {}): Promise<{ saveFailed: boolean }> {
+    const stdpGain = opts.stdpGain ?? 1.0;
+    const repeats = Math.max(1, opts.repeats ?? 3);
+    const force = opts.force ?? false;
 
-  start(): void {
-    if (this.running) return;
-    this.running = true;
-    this.timer = setInterval(() => {
-      void this.tick();
-    }, this.opts.intervalMs);
-  }
-
-  stop(): void {
-    if (!this.running) return;
-    this.running = false;
-    if (this.timer !== null) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-  }
-
-  private async tick(): Promise<void> {
-    if (this.tickInFlight) return; // 직전 tick 미완료 — skip.
-    this.tickInFlight = true;
-    try {
-      const root = await getRootLocalSnnFor(this.substrateKind);
-      const events = this.buildInjectEvents();
-      if (events.length > 0) await root.client.inject(events);
-      await root.client.run({
-        durationMs: this.opts.observeMs,
-        dtMs: 0.1,
-        stdpEnabled: true,
-        stdpGain: 1.0,
-      });
-      const cfr: ClusterFiringRatesResult = await root.client.clusterFiringRates({
-        windowMs: this.opts.observeMs,
-        layer: 'OUT',
-      });
-      this.tickCount += 1;
-      this.emitTick(cfr);
-    } catch (e) {
-      console.warn('[LiveSnn] tick failed:', e);
-    } finally {
-      this.tickInFlight = false;
-    }
-  }
-
-  // 사용자 명시 R-STDP reward — "이 패턴은 cluster X 가 맞다".
-  // 즉시 1 회 inject + run with positive gain (직전 tick 이 완료될 때까지 대기).
-  // 반환: { saveFailed } — lab.save 영역 실패 시 호출자 영역 user-visible warning
-  // 표시 가능 (in-memory weight 영역 update 영역 OK 단 영속 영역 실패 사실).
-  async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
     while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
     this.tickInFlight = true;
     let saveFailed = false;
+    let cfr: ClusterFiringRatesResult | null = null;
+    let root: RootLocalSnn | null = null;
     try {
-      const root = await getRootLocalSnnFor(this.substrateKind);
-      const events = this.buildInjectEvents();
-      if (events.length > 0) await root.client.inject(events);
-      await root.client.run({
-        durationMs: this.opts.observeMs,
-        dtMs: 0.1,
-        stdpEnabled: true,
-        stdpGain: gain,
-      });
-      // 학습 가중치 즉시 영속화 — 매번 reinforce 시점 lab.save.
-      // PR audit fix (Fix 1 — MEDIUM): 직전 silent catch (`.catch(() => {})`) 영역
-      // user-visible warning 영역 swap. console.warn 영역 진단 신호 + 호출자
-      // 영역 saveFailed flag 영역 status message 영역 차별화 가능.
-      try {
-        await root.lab.save();
-      } catch (e) {
-        saveFailed = true;
-        console.warn('[LiveSnn] reinforce save failed (in-memory weight 영역 update OK):', e);
+      root = await getRootLocalSnnFor(this.substrateKind);
+      for (let i = 0; i < repeats; i += 1) {
+        cfr = await this.runStep(root, stdpGain);
       }
-      const cfr = await root.client.clusterFiringRates({
-        windowMs: this.opts.observeMs,
-        layer: 'OUT',
-      });
-      this.emitTick(cfr);
-      // 호출자 디버깅 위해 winner 반환 등은 emitTick 으로 위임.
-      void targetCluster;
+      this.trialCount += 1;
+      if (cfr) this.emitTick(cfr);
+    } catch (e) {
+      console.warn('[LiveSnn] triggerOnce failed:', e);
     } finally {
       this.tickInFlight = false;
     }
+    if (root) {
+      saveFailed = await this.saveDebounced(root, force);
+    }
     return { saveFailed };
+  }
+
+  /** internal helper — 1 inject+run+clusterFiringRates 반복 단위. */
+  private async runStep(root: RootLocalSnn, stdpGain: number): Promise<ClusterFiringRatesResult> {
+    const events = this.buildInjectEvents();
+    if (events.length > 0) await root.client.inject(events);
+    await root.client.run({
+      durationMs: this.opts.observeMs,
+      dtMs: 0.1,
+      stdpEnabled: true,
+      stdpGain,
+    });
+    return await root.client.clusterFiringRates({
+      windowMs: this.opts.observeMs,
+      layer: 'OUT',
+    });
+  }
+
+  /**
+   * lab.save throttle — 직전 save 영역 SAVE_THROTTLE_MS (500ms) 내 시점
+   * 영역 immediate save skip + trailing setTimeout 영역 마지막 trigger 의 결과
+   * catch. force=true 시 throttle bypass (reinforce 영역 즉시 영속).
+   * 반환 boolean — immediate save 실패 시 true (호출자 영역 user-visible).
+   */
+  private async saveDebounced(root: RootLocalSnn, force = false): Promise<boolean> {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const sinceLast = now - this._lastSaveAtMs;
+    if (!force && sinceLast < SAVE_THROTTLE_MS) {
+      // 직전 save 영역 throttle window 내 — trailing schedule 영역 마지막 결과 catch.
+      if (this._saveTrailingTimer !== null) clearTimeout(this._saveTrailingTimer);
+      const remain = SAVE_THROTTLE_MS - sinceLast;
+      this._saveTrailingTimer = setTimeout(() => {
+        this._saveTrailingTimer = null;
+        // trailing save 영역 silent path (immediate save 영역 throttle 영역 skip
+        // 사실 — 호출자 영역 saveFailed 영역 false 반환 사실).
+        const trailingNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        this._lastSaveAtMs = trailingNow;
+        root.lab.save().catch((e) => {
+          console.warn('[LiveSnn] trailing save failed:', e);
+        });
+      }, remain);
+      return false;
+    }
+    // immediate save path — throttle window 외 또는 force.
+    if (this._saveTrailingTimer !== null) {
+      clearTimeout(this._saveTrailingTimer);
+      this._saveTrailingTimer = null;
+    }
+    this._lastSaveAtMs = now;
+    try {
+      await root.lab.save();
+      return false;
+    } catch (e) {
+      console.warn('[LiveSnn] save failed (in-memory weight 영역 update OK):', e);
+      return true;
+    }
+  }
+
+  /**
+   * 사용자 명시 R-STDP reward — "이 패턴은 cluster X 가 맞다".
+   * triggerOnce({ stdpGain: gain, repeats: 3, force: true }) 영역 thin alias.
+   * targetCluster 영역 backend supervised 신호 0 — 현재 회로 정합 영역 in-place
+   * Hebbian + R-STDP gain 영역 winner cluster 영역 강화 (학술: Florian 2007 /
+   * Izhikevich 2007 R-STDP 정합 — 단 Live runtime 영역 cluster-specific
+   * gradient 영역 직접 0, gain ↑ 영역 fired pattern 영역 boosting).
+   */
+  async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
+    void targetCluster;
+    return await this.triggerOnce({ stdpGain: gain, repeats: 3, force: true });
   }
 
   private buildInjectEvents(): Array<{
@@ -245,7 +305,7 @@ export class LiveSnn {
       share: cfr.share,
       margin: cfr.margin,
       patternActive,
-      rev: this.tickCount,
+      trial: this.trialCount,
       tickAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
     };
     window.dispatchEvent(new CustomEvent<LiveTickDetail>(TICK_EVENT, { detail }));

@@ -68,6 +68,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
   const isLiveMode = engineMode === 'live';
+  // PR audit fix (Fix 4 — LOW): Live reinforce in-flight 영역 visual gate —
+  // 동일 cluster 영역 즉시 multi-click 영역 race 회피 + spinner-like feedback.
+  // LiveSnn.reinforce 영역 internal serialize 영역 race 0 단 visual feedback
+  // 영역 사용자 명시 catch.
+  const [reinforcingCluster, setReinforcingCluster] = useState<number | null>(null);
   // engineMode 영역 useEffect listener closure 영역 stale catch — ref 영역
   // 동기화 후 listener 영역 ref.current 영역 read 사실.
   const engineModeRef = useRef(engineMode);
@@ -242,19 +247,32 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
       return;
     }
     setStatus({ kind: 'training', cluster: clusterIdx });
+    setReinforcingCluster(clusterIdx);
     try {
       const live = getLiveSnn();
       // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode
       // event 영역 LiveSnn 자체 substrate kind 영역 derive.
       live.setPattern(lastFeatureRef.current);
-      await live.reinforce(clusterIdx, 2.0);
-      setStatus({
-        kind: 'ok',
-        message: `${GESTURE_GLYPHS[clusterIdx]} reinforced`,
-      });
+      // PR audit fix (Fix 1 — MEDIUM): reinforce 영역 saveFailed flag 영역 read
+      // 영역 user-visible warning 표시 — 직전 silent fail catch.
+      const result = await live.reinforce(clusterIdx, 2.0);
+      // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
+      if (result.saveFailed) {
+        setStatus({
+          kind: 'ok',
+          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1 (저장 실패 — 새로고침 전 다시 강화 권장)`,
+        });
+      } else {
+        setStatus({
+          kind: 'ok',
+          message: `${GESTURE_GLYPHS[clusterIdx]} 강화 +1`,
+        });
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `reinforce 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `강화 실패: ${msg}` });
+    } finally {
+      setReinforcingCluster(null);
     }
   }, []);
 
@@ -320,7 +338,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         <video id="snn-cam-video" className="snn-camera-mirror snn-cam-video" playsInline muted />
         <canvas id="snn-cam-skel" className="snn-camera-mirror snn-cam-skel" width={640} height={480} />
         <div id="snn-cam-empty" className="snn-pipeline-cam-empty">
-          <span>Camera off — enable from sidebar</span>
+          <span>카메라 꺼짐 — 좌측 사이드바에서 활성화</span>
         </div>
       </div>
 
@@ -344,14 +362,31 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                   ? () => reinforceLive(i as 0 | 1 | 2 | 3)
                   : () => trainGesture(i as 0 | 1 | 2 | 3)
               }
-              disabled={(isBusy && !isLiveMode) || !cameraConnected}
+              disabled={
+                (isBusy && !isLiveMode) ||
+                !cameraConnected ||
+                (isLiveMode && reinforcingCluster !== null)
+              }
+              aria-busy={isLiveMode && reinforcingCluster === i ? true : false}
               title={
-                isLiveMode
-                  ? `R-STDP 보상 — ${label}`
-                  : `R-STDP 학습 — ${label}`
+                !cameraConnected
+                  ? '카메라 미연결 — 좌측 사이드바에서 카메라를 활성화하세요'
+                  : lastFeatureRef.current === null
+                    ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
+                    : isLiveMode
+                      ? reinforcingCluster === i
+                        ? `${label} 강화 진행 중…`
+                        : reinforcingCluster !== null
+                          ? '다른 cluster 강화 진행 중 — 잠시 대기'
+                          : `${label} 강화 (R-STDP 보상)`
+                      : `${label} 학습 (R-STDP)`
               }
             >
-              {isLiveMode ? '강화' : '학습'}
+              {isLiveMode
+                ? reinforcingCluster === i
+                  ? '강화 중…'
+                  : '강화'
+                : '학습'}
             </button>
           </div>
         ))}
@@ -364,6 +399,13 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
             className="snn-grid-infer-btn"
             onClick={runInfer}
             disabled={isBusy || !cameraConnected}
+            title={
+              !cameraConnected
+                ? '카메라 미연결 — 좌측 사이드바에서 카메라를 활성화하세요'
+                : lastFeatureRef.current === null
+                  ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
+                  : '현재 자세로 추론 (STDP off)'
+            }
           >
             추론
           </button>

@@ -342,8 +342,15 @@ export default function NodeLearn() {
   }, [inputMode, gridProgress.activeCluster, phase]);
 
   // mode 별 effective phase / clusterFrames — render 흐름 단일화.
+  // PR audit fix (Fix 5 — LOW): react-hooks/exhaustive-deps warning 정정 —
+  // conditional derived value 영역 useMemo 래핑 영역 deps reference stability
+  // 보장 (직전 phase?.clusterFrames default-fallback object 영역 매 render
+  // 새 reference catch — phaseInfo useMemo 영역 매 render invalidate).
   const effectivePhase = inputMode === 'grid' ? gridPhase : (phase?.phase ?? 'untrained');
-  const effectiveClusterFrames = inputMode === 'grid' ? gridClusterFrames : (phase?.clusterFrames ?? { 0: 0, 1: 0, 2: 0, 3: 0 });
+  const effectiveClusterFrames = useMemo(
+    () => (inputMode === 'grid' ? gridClusterFrames : (phase?.clusterFrames ?? { 0: 0, 1: 0, 2: 0, 3: 0 })),
+    [inputMode, gridClusterFrames, phase?.clusterFrames],
+  );
 
   // mode 별 cluster label — GRID: orientation / CAMERA: gesture (사용자 catch
   // 2026-05-09). hardcoded 'CLUSTER_LABELS' (orientation only) → mode-aware.

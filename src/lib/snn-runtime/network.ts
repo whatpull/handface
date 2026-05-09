@@ -29,20 +29,49 @@ export interface SnapshotSynapse {
   pspDurationMs: number;
 }
 
+// schema v1 — base 5 fields per neuron. v2 adds NMDA + homeostatic + thresholdOffset.
+// 사용자 catch 2026-05-09 (broken state — 두 번째 trigger 0Hz):
+// snapshot 영역 NMDA / homeostatic flag drop → restore 후 default off → INPUT
+// EPSP 영역 V_th 미달 → fire 0. v2 영역 7 신규 필드 영역 round-trip 보존,
+// v1 snapshot 영역 backward compat (default 영역 적용 — 기존 IndexedDB cache 보존).
+export interface NetworkSnapshotNeuronV2 {
+  name: string;
+  region: string | null;
+  population: string | null;
+  vRest: number;
+  vThreshold: number;
+  vReset: number;
+  tauM: number;
+  refractory: number;
+  // v2 신규 필드 — restore 시 7 필드 모두 복원.
+  nmdaEnabled: boolean;
+  nmdaThreshold: number;
+  nmdaGain: number;
+  homeostaticEnabled: boolean;
+  homeostaticIncrement: number;
+  homeostaticDecay: number;
+  thresholdOffset: number;
+}
+
+export type NetworkSnapshotNeuronV1 = Omit<
+  NetworkSnapshotNeuronV2,
+  | 'nmdaEnabled'
+  | 'nmdaThreshold'
+  | 'nmdaGain'
+  | 'homeostaticEnabled'
+  | 'homeostaticIncrement'
+  | 'homeostaticDecay'
+  | 'thresholdOffset'
+>;
+
 export interface NetworkSnapshot {
-  schema: 1;
+  // schema 영역 1 (legacy backward compat) | 2 (current — NMDA + homeostatic).
+  schema: 1 | 2;
   dtMs: number;
   t: number;
-  neurons: Array<{
-    name: string;
-    region: string | null;
-    population: string | null;
-    vRest: number;
-    vThreshold: number;
-    vReset: number;
-    tauM: number;
-    refractory: number;
-  }>;
+  // v2 영역 NetworkSnapshotNeuronV2[] / v1 영역 NetworkSnapshotNeuronV1[].
+  // restore 영역 schema 영역 분기 영역 default 영역 적용.
+  neurons: Array<NetworkSnapshotNeuronV2 | NetworkSnapshotNeuronV1>;
   synapses: SnapshotSynapse[];
 }
 
@@ -140,11 +169,14 @@ export class NeuralNetwork {
   }
 
   // ── snapshot / restore (D1 직렬화 대상) ──
+  // schema v2 (PR fix/live-mode-time-and-restore): NMDA + homeostatic flag +
+  // thresholdOffset 영역 round-trip 영역 보존. v1 snapshot 영역 restore 영역
+  // backward compat — default 영역 적용 (current behavior 영역 동일).
   snapshot(): NetworkSnapshot {
     const idxOf = new Map<Neuron, number>();
     for (let i = 0; i < this.neurons.length; i += 1) idxOf.set(this.neurons[i], i);
     return {
-      schema: 1,
+      schema: 2,
       dtMs: this.defaultDt,
       t: this.t,
       neurons: this.neurons.map((n) => ({
@@ -156,6 +188,14 @@ export class NeuralNetwork {
         vReset: n.vReset,
         tauM: n.tauM,
         refractory: n.refractory,
+        // v2 신규 7 필드.
+        nmdaEnabled: n.nmdaEnabled,
+        nmdaThreshold: n.nmdaThreshold,
+        nmdaGain: n.nmdaGain,
+        homeostaticEnabled: n.homeostaticEnabled,
+        homeostaticIncrement: n.homeostaticIncrement,
+        homeostaticDecay: n.homeostaticDecay,
+        thresholdOffset: n.thresholdOffset,
       })),
       synapses: this.synapses.map((s) => ({
         preIdx: idxOf.get(s.pre) ?? -1,
@@ -168,21 +208,34 @@ export class NeuralNetwork {
   }
 
   static restore(snap: NetworkSnapshot): NeuralNetwork {
-    if (snap.schema !== 1) throw new Error(`알 수 없는 snapshot schema: ${snap.schema}`);
+    if (snap.schema !== 1 && snap.schema !== 2) {
+      throw new Error(`알 수 없는 snapshot schema: ${snap.schema}`);
+    }
     const net = new NeuralNetwork({ defaultDtMs: snap.dtMs });
+    const isV2 = snap.schema === 2;
     for (const n of snap.neurons) {
-      net.addNeuron(
-        new Neuron({
-          name: n.name,
-          region: n.region,
-          population: n.population,
-          vRest: n.vRest,
-          vThreshold: n.vThreshold,
-          vReset: n.vReset,
-          tauM: n.tauM,
-          refractory: n.refractory,
-        }),
-      );
+      const neuron = new Neuron({
+        name: n.name,
+        region: n.region,
+        population: n.population,
+        vRest: n.vRest,
+        vThreshold: n.vThreshold,
+        vReset: n.vReset,
+        tauM: n.tauM,
+        refractory: n.refractory,
+      });
+      // v2 영역 7 신규 필드 영역 복원. v1 영역 default (current behavior 정합).
+      if (isV2) {
+        const nv2 = n as NetworkSnapshotNeuronV2;
+        neuron.nmdaEnabled = nv2.nmdaEnabled;
+        neuron.nmdaThreshold = nv2.nmdaThreshold;
+        neuron.nmdaGain = nv2.nmdaGain;
+        neuron.homeostaticEnabled = nv2.homeostaticEnabled;
+        neuron.homeostaticIncrement = nv2.homeostaticIncrement;
+        neuron.homeostaticDecay = nv2.homeostaticDecay;
+        neuron.thresholdOffset = nv2.thresholdOffset;
+      }
+      net.addNeuron(neuron);
     }
     for (const s of snap.synapses) {
       const pre = net.neurons[s.preIdx];

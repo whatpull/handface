@@ -76,6 +76,9 @@ export {
   type ClusterTrainRStdpResult,
   type RestoreSnapshotPayload,
   type RestoreSnapshotResult,
+  type RegionFiringRatesPayload,
+  type RegionFiringRatesResult,
+  type GetNetworkTimeResult,
 } from './worker-protocol';
 export { SNNWorkerCore } from './worker-core';
 export { SNNWorkerClient, type WorkerLike } from './worker-client';

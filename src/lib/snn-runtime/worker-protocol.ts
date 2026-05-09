@@ -24,9 +24,12 @@ export type WorkerRequest =
   | { id: number; type: 'extractWeights' }
   | { id: number; type: 'applyWeights'; payload: { weights: number[] } }
   | { id: number; type: 'firingRates'; payload: FiringRatesPayload }
+  | { id: number; type: 'regionFiringRates'; payload: RegionFiringRatesPayload }
   | { id: number; type: 'expandCluster'; payload: ExpandClusterPayload }
   | { id: number; type: 'clusterFiringRates'; payload: ClusterFiringRatesPayload }
   | { id: number; type: 'clusterTrainRStdp'; payload: ClusterTrainRStdpPayload }
+  | { id: number; type: 'getNetworkTime' }
+  | { id: number; type: 'resetHomeostatic' }
   | { id: number; type: 'reset' };
 
 export interface BuildPayload {
@@ -92,6 +95,17 @@ export interface ClusterTrainRStdpPayload {
   punishGain?: number;
 }
 
+// PR fix/live-mode-time-and-restore — region-level firing rate (V1/V2 etc).
+// 본 RPC 영역 cluster 단위 averaging 영역 회피 — 지정 region (V1 / V2 / OUT)
+// 영역 모든 excitatory neuron 영역 평균 firing rate (Hz). NodeLearn 영역
+// V1/V2 cascade strip 영역 실 spike rate 영역 표시.
+export interface RegionFiringRatesPayload {
+  // 'V1' → V1_L4_E + V1_L23_E 합산. 'V2' → V2_L4_E + V2_L23_E + V2_L5_E.
+  // 'OUT' → out_*_*. 'V1_L23' → V1_L23_E only (cluster firing 영역 정합).
+  region: 'V1' | 'V2' | 'OUT' | 'V1_L23' | 'V2_L5';
+  windowMs: number;
+}
+
 // ── 응답 ──
 export type WorkerResponse =
   | { id: number; ok: true; result: unknown }
@@ -154,4 +168,27 @@ export interface ClusterTrainRStdpResult {
   clusterRatesHistory: number[][];
   // measure 단계의 winner (-1 = silent).
   winnerHistory: number[];
+}
+
+// PR fix/live-mode-time-and-restore — 본 RPC 영역 net.t 누적 시각 영역
+// main thread 영역 catch 영역 inject events 영역 time 영역 절대 정합.
+// 사용자 catch 2026-05-09 (broken state — 두 번째 trigger 0Hz):
+// inject(time=0) + run() 영역 net.t 영역 누적 → arrival<=t 영역 모든 stale
+// impulse 영역 1-step burst collapse → V1 attenuated → OUT silent. 본 RPC
+// 영역 main thread 영역 currentT 영역 catch 영역 inject(time=currentT) 영역 정합.
+export interface GetNetworkTimeResult {
+  t: number; // 현재 net.t (ms).
+}
+
+// PR fix/live-mode-time-and-restore — homeostatic thresholdOffset 영역 reset.
+// 본 RPC 영역 모든 neuron 영역 thresholdOffset = 0 영역 set. triggerOnce
+// (repeats 3 × 8 OUT × increment 2.0 = thresholdOffset += 48) 영역 누적
+// 영역 두 번째 trigger 영역 V_th saturation 영역 fire 0 영역 회피.
+// 학술 정합: supervised batch 영역 frame reset 정합 (Diehl & Cook 2015 §3.2).
+export interface RegionFiringRatesResult {
+  region: 'V1' | 'V2' | 'OUT' | 'V1_L23' | 'V2_L5';
+  // 지정 region 영역 모든 excitatory neuron 영역 평균 firing rate (Hz).
+  // neuron count 영역 0 영역 0 반환.
+  hz: number;
+  neuronCount: number;
 }

@@ -14,6 +14,9 @@ import type {
   ExpandClusterResult,
   FiringRatesPayload,
   FiringRatesResult,
+  GetNetworkTimeResult,
+  RegionFiringRatesPayload,
+  RegionFiringRatesResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
@@ -107,6 +110,15 @@ export class SNNWorkerClient {
     return this.send<FiringRatesResult>({ type: 'firingRates', payload });
   }
 
+  /**
+   * PR fix/live-mode-time-and-restore — Fix 5: region 단위 평균 firing rate.
+   * V1 / V2 / OUT 영역 모든 excitatory neuron 영역 평균 (Hz). NodeLearn 영역
+   * V1/V2 cascade strip 영역 실 spike rate 영역 표시.
+   */
+  regionFiringRates(payload: RegionFiringRatesPayload): Promise<RegionFiringRatesResult> {
+    return this.send<RegionFiringRatesResult>({ type: 'regionFiringRates', payload });
+  }
+
   expandCluster(payload: ExpandClusterPayload): Promise<ExpandClusterResult> {
     return this.send<ExpandClusterResult>({ type: 'expandCluster', payload });
   }
@@ -117,6 +129,26 @@ export class SNNWorkerClient {
 
   clusterTrainRStdp(payload: ClusterTrainRStdpPayload): Promise<ClusterTrainRStdpResult> {
     return this.send<ClusterTrainRStdpResult>({ type: 'clusterTrainRStdp', payload });
+  }
+
+  /**
+   * PR fix/live-mode-time-and-restore — Fix 1: net.t (현재 시뮬레이션 시각, ms).
+   * 사용자 catch 2026-05-09 (broken state — 두 번째 trigger 0Hz):
+   * inject(time=0) + run() 영역 net.t 누적 영역 1-step burst collapse 회피
+   * catch — main thread 영역 currentT 영역 inject events 영역 time 정합.
+   */
+  async getNetworkTime(): Promise<number> {
+    const r = await this.send<GetNetworkTimeResult>({ type: 'getNetworkTime' });
+    return r.t;
+  }
+
+  /**
+   * PR fix/live-mode-time-and-restore — Fix 3: 모든 neuron 영역 thresholdOffset
+   * 영역 0 영역 reset. triggerOnce repeats 누적 thresholdOffset 영역 V_th
+   * saturation 영역 fire 0 영역 회피 (Diehl & Cook 2015 §3.2 batch reset 정합).
+   */
+  resetHomeostatic(): Promise<null> {
+    return this.send<null>({ type: 'resetHomeostatic' });
   }
 
   reset(): Promise<null> {

@@ -24,6 +24,9 @@ import type {
   ExpandClusterResult,
   FiringRatesPayload,
   FiringRatesResult,
+  GetNetworkTimeResult,
+  RegionFiringRatesPayload,
+  RegionFiringRatesResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
@@ -87,12 +90,36 @@ export class SNNWorkerCore {
             ok: true,
             result: this.handleFiringRates(req.payload),
           };
+        case 'regionFiringRates':
+          return {
+            id: req.id,
+            ok: true,
+            result: this.handleRegionFiringRates(req.payload),
+          };
         case 'expandCluster':
           return { id: req.id, ok: true, result: this.handleExpandCluster(req.payload) };
         case 'clusterFiringRates':
           return { id: req.id, ok: true, result: this.handleClusterFiringRates(req.payload) };
         case 'clusterTrainRStdp':
           return { id: req.id, ok: true, result: this.handleClusterTrainRStdp(req.payload) };
+        case 'getNetworkTime': {
+          const net = this.requireNet();
+          const result: GetNetworkTimeResult = { t: net.t };
+          return { id: req.id, ok: true, result };
+        }
+        case 'resetHomeostatic': {
+          // PR fix/live-mode-time-and-restore — Fix 3: thresholdOffset reset.
+          // 사용자 catch 영역 broken state — triggerOnce repeats 3 × 8 OUT ×
+          // increment 2.0 영역 thresholdOffset += 48 영역 누적 → 두 번째 trigger
+          // 영역 V_th saturation 영역 fire 0. 본 RPC 영역 모든 neuron 영역
+          // thresholdOffset = 0 영역 reset (학술: Diehl & Cook 2015 §3.2 batch
+          // frame reset 정합).
+          const net = this.requireNet();
+          for (const n of net.neurons) {
+            n.thresholdOffset = 0;
+          }
+          return { id: req.id, ok: true, result: null };
+        }
         case 'reset':
           this.net = null;
           this.monitor = null;
@@ -173,6 +200,58 @@ export class SNNWorkerCore {
       stdpGain: payload.stdpGain,
     });
     return { t: net.t, durationMs: payload.durationMs };
+  }
+
+  private handleRegionFiringRates(payload: RegionFiringRatesPayload): RegionFiringRatesResult {
+    // PR fix/live-mode-time-and-restore — Fix 5: region 단위 평균 firing rate.
+    // 사용자 catch 2026-05-09 (broken state — V1 0/512, V2 0/288): Live tick
+    // 영역 cluster_rates max proxy 영역 — 실 spike rate 영역 catch 영역 본 RPC
+    // 영역 region 영역 모든 excitatory neuron 영역 평균 (Hz).
+    const net = this.requireNet();
+    const monitor = this.monitor;
+    if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
+    // region prefix 매핑 — n13 substrate 정합.
+    //   'V1'      → V1_L4_E_* + V1_L23_E_*  (excitatory only — I 영역 제외)
+    //   'V2'      → V2_L4_E_* + V2_L23_E_* + V2_L5_E_*
+    //   'OUT'     → out_*
+    //   'V1_L23'  → V1_L23_E_* (cluster firing 정합)
+    //   'V2_L5'   → V2_L5_E_* (cluster firing 정합 — sub-cluster aware)
+    // FINDING-1 fix 2026-05-10: substrate neuron 명 영역 lowercase prefix
+    // (`v1_L4_E_*`, `v2_L5_E_*` etc — n13-orientation.ts 정합) — 기존 대문자
+    // prefix 영역 case-sensitive `startsWith` mismatch → 매 호출 count=0/hz=0
+    // → fallback proxy 영역 silent failure (Fix 5 무력화).
+    const prefixes: Record<typeof payload.region, string[]> = {
+      V1: ['v1_L4_E_', 'v1_L23_E_'],
+      V2: ['v2_L4_E_', 'v2_L23_E_', 'v2_L5_E_'],
+      OUT: ['out_'],
+      V1_L23: ['v1_L23_E_'],
+      V2_L5: ['v2_L5_E_'],
+    };
+    const prefList = prefixes[payload.region];
+    // SEC-8 defensive guard — hostile/unknown region 영역 silent { hz: 0 }
+    // 응답 (throw 영역 worker crash 회피).
+    if (!prefList) {
+      return { region: payload.region, hz: 0, neuronCount: 0 };
+    }
+    let sum = 0;
+    let count = 0;
+    for (const n of net.neurons) {
+      let match = false;
+      for (const p of prefList) {
+        if (n.name.startsWith(p)) {
+          match = true;
+          break;
+        }
+      }
+      if (!match) continue;
+      sum += monitor.firingRate(n.name, net.t, payload.windowMs);
+      count += 1;
+    }
+    return {
+      region: payload.region,
+      hz: count > 0 ? sum / count : 0,
+      neuronCount: count,
+    };
   }
 
   private handleFiringRates(payload: FiringRatesPayload): FiringRatesResult {
@@ -286,6 +365,10 @@ export class SNNWorkerCore {
     let correct = 0;
 
     for (const pattern of payload.patterns) {
+      // PR fix/live-mode-time-and-restore — Fix 1 (batch path): inject 영역
+      // time 영역 net.t 정합 (직전 buggy time:0 영역 net.t 누적 영역 모든 stale
+      // impulse 영역 1-step burst collapse → V1 attenuated → OUT silent).
+      const tNow = net.t;
       // 1. inject(pattern) — 활성도 > 0.5 dim 만 사용 (binary 정합).
       const events = pattern
         .map((v, i) => {
@@ -293,7 +376,7 @@ export class SNNWorkerCore {
           return {
             neuron: `in_feat_${i}`,
             weight: intensity * v,
-            time: 0,
+            time: tNow,
             durationMs: stimulusDurationMs,
             stepMs: dtMs,
           };
@@ -311,7 +394,12 @@ export class SNNWorkerCore {
 
       // 3. reward pass — 같은 자극 재 inject + STDP on with modulated gain.
       // (자극 재인입 없으면 직전 spike 이후 net 영역 quiescent — STDP 효과 0.)
-      if (events.length > 0) net.inject(events);
+      // 영역 measure run() 후 영역 net.t 영역 갱신 catch 영역 tNow2 영역 재catch.
+      const tNow2 = net.t;
+      if (events.length > 0) {
+        const reEvents = events.map((e) => ({ ...e, time: tNow2 }));
+        net.inject(reEvents);
+      }
       const gain = isCorrect ? rewardGain : punishGain;
       net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });
     }

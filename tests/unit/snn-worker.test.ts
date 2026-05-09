@@ -94,13 +94,24 @@ describe('snn-worker — 가중치 / snapshot', () => {
     await expect(client.applyWeights([1, 2, 3])).rejects.toThrow(/weight 수/);
   });
 
-  it('snapshot 은 NetworkSnapshot schema=1 반환', async () => {
+  // PR fix/live-mode-time-and-restore — Fix 2: schema 1 → 2 bump.
+  it('snapshot 은 NetworkSnapshot schema=2 반환 (NMDA + homeostatic 보존)', async () => {
     const { client } = makeClient();
     await client.build({ preset: 'n13_orientation', seed: 57 });
     const { snapshot } = await client.snapshot();
-    expect(snapshot.schema).toBe(1);
+    expect(snapshot.schema).toBe(2);
     expect(snapshot.neurons.length).toBeGreaterThan(800);
     expect(snapshot.synapses.length).toBeGreaterThan(0);
+    // v2 신규 필드 영역 직렬화 catch 영역 검증 (n13 영역 NMDA + homeostatic 영역
+    // 모든 excitatory neuron 영역 enable).
+    const nmdaCount = snapshot.neurons.filter(
+      (n) => 'nmdaEnabled' in n && n.nmdaEnabled,
+    ).length;
+    expect(nmdaCount).toBeGreaterThan(400);
+    const homeoCount = snapshot.neurons.filter(
+      (n) => 'homeostaticEnabled' in n && n.homeostaticEnabled,
+    ).length;
+    expect(homeoCount).toBeGreaterThan(400);
   });
 });
 

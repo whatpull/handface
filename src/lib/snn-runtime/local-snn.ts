@@ -27,6 +27,15 @@ export interface LocalSNNOptions {
   maxDeltaHistory?: number;
   // weight delta 미세 잡음 임계.
   deltaEps?: number;
+  // 사용자 catch 2026-05-10 (PR #189 polish UX-1, HIGH):
+  //   schema:1 (legacy v1) topology 또는 가중치 길이 mismatch 영역 stale cache
+  //   reject path 영역 진입 시점 발화. 사용자 영역 직전 학습 가중치 영역 폐기
+  //   silent catch path 0 — caller (root-local-snn.ts) 영역 toast 발화.
+  //   reason: 'schema-mismatch' (schema:1 reject) | 'weight-length-mismatch'
+  //   (synapse 수 불일치). silent fail 회피 단일 path.
+  //   layering 보존 — snn-runtime 영역 backend events / UI 영역 import 0
+  //   (callback 영역 caller injection).
+  onStaleCacheReset?: (reason: 'schema-mismatch' | 'weight-length-mismatch') => void;
 }
 
 export interface LocalSNNStatus {
@@ -77,9 +86,22 @@ export class LocalSNN {
         this.lastSavedAt = persistedWeights.savedAt;
       } else {
         // 가중치 길이 mismatch — 토폴로지/가중치 schema 불일치. fresh build.
+        // PR #189 polish UX-1: stale cache reject 영역 silent catch 회피 — caller 영역 toast 발화.
+        this.opts.onStaleCacheReset?.('weight-length-mismatch');
         await this.persistFreshBuild();
       }
     } else {
+      // PR #189 polish UX-1: schema:1 (legacy v1) topology + 가중치 동시 보존
+      //   path 영역 진입 — fresh build 강제 직전 caller 영역 toast 발화.
+      //   topology 미보존 (첫 진입 path) 또는 가중치 미보존 영역 silent catch
+      //   정합 (사용자 가중치 폐기 0).
+      if (
+        persistedTopology
+        && persistedWeights
+        && persistedTopology.schema === 1
+      ) {
+        this.opts.onStaleCacheReset?.('schema-mismatch');
+      }
       const built = await client.build({
         preset: this.opts.preset ?? 'n13_orientation',
         vThreshold: this.opts.vThreshold,

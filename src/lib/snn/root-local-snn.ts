@@ -24,6 +24,7 @@ import {
   type LocalSNNStatus,
 } from '@/lib/snn-runtime';
 import { GESTURE_CLUSTER_ACTIVE_INPUTS } from '@/lib/mediapipe/feature-encoder';
+import { showToast } from '@/components/ui/Toast';
 
 export type SubstrateKind = 'orientation' | 'gesture';
 
@@ -102,6 +103,21 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     sink,
     seed: SEED,
     clusterActiveInputs: clusterActiveInputsFor(kind),
+    // PR #189 polish UX-1 (HIGH, 2026-05-10): stale cache reject 영역 silent
+    // catch 회피 — 사용자 영역 직전 학습 가중치 폐기 영역 명시 catch path.
+    //   schema-mismatch: schema:1 (legacy v1) topology 영역 reject (Fix B path).
+    //   weight-length-mismatch: synapse 수 불일치 영역 fresh build (drift 정정).
+    onStaleCacheReset: (reason) => {
+      const label = kind === 'gesture' ? '제스처' : '방향';
+      const why = reason === 'schema-mismatch'
+        ? '회로 schema 정정'
+        : '가중치 길이 불일치';
+      showToast({
+        kind: 'warning',
+        message: `${label} 회로: ${why} 영역 학습 가중치 reset — 재학습 필요`,
+        duration: 6000,
+      });
+    },
   });
   entry.client = client;
   entry.lab = lab;

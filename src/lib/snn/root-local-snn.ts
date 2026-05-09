@@ -16,10 +16,11 @@
 // SSR 안전 (window 가드).
 
 import {
+  IndexedDBSink,
   LocalSNN,
-  LocalStorageSink,
   MainThreadTransport,
   SNNWorkerClient,
+  migrateLocalStorageToIndexedDB,
   type LocalSNNStatus,
 } from '@/lib/snn-runtime';
 import { GESTURE_CLUSTER_ACTIVE_INPUTS } from '@/lib/mediapipe/feature-encoder';
@@ -87,9 +88,14 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     return { client: entry.client!, lab: entry.lab!, status: s, kind };
   }
   // 신규 초기화.
+  // 사용자 catch 2026-05-09 (CRITICAL — quota 잔존 정정):
+  //   LocalStorageSink 영역 5-10MB quota 영역 n13 substrate 2개 (~6MB) +
+  //   delta 영역 초과. IndexedDB 영역 50MB+ quota 영역 swap.
+  //   1회 legacy localStorage cleanup — idempotent (MIGRATION_KEY mark).
+  migrateLocalStorageToIndexedDB();
   const transport = new MainThreadTransport();
   const client = new SNNWorkerClient(transport);
-  const sink = new LocalStorageSink();
+  const sink = new IndexedDBSink();
   const lab = new LocalSNN({
     netId: netIdFor(kind),
     client,

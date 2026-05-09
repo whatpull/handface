@@ -87,3 +87,8 @@ export {
   type HFDatasetSinkOptions,
   type HealthStatus,
 } from './sinks/hf-dataset-sink';
+export {
+  IndexedDBSink,
+  migrateLocalStorageToIndexedDB,
+  type IndexedDBSinkOptions,
+} from './sinks/indexeddb-sink';

@@ -199,6 +199,57 @@ describe('snn-worker — clusterFiringRates', () => {
   });
 });
 
+describe('snn-worker — clusterTrainRStdp (R-STDP 감독 학습)', () => {
+  it('정답 cluster pattern 학습 시 trained / accuracy 반환', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 57 });
+    const pattern = new Array(16).fill(0);
+    [4, 5, 6, 7].forEach((i) => (pattern[i] = 1));
+    const r = await client.clusterTrainRStdp({
+      patterns: [pattern, pattern, pattern],
+      targetCluster: 0,
+      observeMs: 30,
+      stimulusDurationMs: 20,
+    });
+    expect(r.trained).toBe(3);
+    expect(r.targetCluster).toBe(0);
+    expect(r.clusterRatesHistory).toHaveLength(3);
+    expect(r.winnerHistory).toHaveLength(3);
+    expect(r.accuracy).toBeGreaterThanOrEqual(0);
+    expect(r.accuracy).toBeLessThanOrEqual(1);
+  });
+
+  it('build 전 호출 시 명시적 에러', async () => {
+    const { client } = makeClient();
+    await expect(
+      client.clusterTrainRStdp({
+        patterns: [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+        targetCluster: 0,
+      }),
+    ).rejects.toThrow(/build/);
+  });
+
+  it('targetCluster 범위 밖이면 거부', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await expect(
+      client.clusterTrainRStdp({
+        patterns: [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+        targetCluster: 99,
+      }),
+    ).rejects.toThrow(/targetCluster/);
+  });
+
+  it('pattern 비어있어도 trained=0 / accuracy=0 반환', async () => {
+    const { client } = makeClient();
+    await client.build({ preset: 'n13_orientation', seed: 1 });
+    const r = await client.clusterTrainRStdp({ patterns: [], targetCluster: 0 });
+    expect(r.trained).toBe(0);
+    expect(r.correct).toBe(0);
+    expect(r.accuracy).toBe(0);
+  });
+});
+
 describe('snn-worker — restoreSnapshot 토폴로지 복원', () => {
   it('snapshot → restoreSnapshot 은 위상 + 가중치 + cluster 슬롯 보존', async () => {
     const a = makeClient();

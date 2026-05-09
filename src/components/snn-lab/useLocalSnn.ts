@@ -15,6 +15,8 @@ import {
   SNNWorkerClient,
   type ClusterFiringRatesPayload,
   type ClusterFiringRatesResult,
+  type ClusterTrainRStdpPayload,
+  type ClusterTrainRStdpResult,
   type ExpandClusterPayload,
   type ExpandClusterResult,
   type FiringRatesPayload,
@@ -55,6 +57,7 @@ export interface UseLocalSnnApi {
   run(payload: { durationMs: number; dtMs?: number; stdpEnabled?: boolean; stdpGain?: number }): Promise<void>;
   firingRates(payload: FiringRatesPayload): Promise<FiringRatesResult>;
   clusterFiringRates(payload: ClusterFiringRatesPayload): Promise<ClusterFiringRatesResult>;
+  clusterTrainRStdp(payload: ClusterTrainRStdpPayload): Promise<ClusterTrainRStdpResult | null>;
   expandCluster(payload: ExpandClusterPayload): Promise<ExpandClusterResult | null>;
   save(): Promise<void>;
   reset(): Promise<void>;
@@ -188,6 +191,15 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     [],
   );
 
+  const clusterTrainRStdp = useCallback(
+    async (p: ClusterTrainRStdpPayload): Promise<ClusterTrainRStdpResult | null> => {
+      const c = clientRef.current;
+      if (!c) return null;
+      return c.clusterTrainRStdp(p);
+    },
+    [],
+  );
+
   const save = useCallback(async () => {
     const lab = labRef.current;
     if (!lab) return;
@@ -213,6 +225,7 @@ export function useLocalSnn(opts: UseLocalSnnOptions): UseLocalSnnApi {
     run,
     firingRates,
     clusterFiringRates,
+    clusterTrainRStdp,
     expandCluster,
     save,
     reset,

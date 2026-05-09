@@ -72,6 +72,8 @@ export {
   type ExpandClusterResult,
   type ClusterFiringRatesPayload,
   type ClusterFiringRatesResult,
+  type ClusterTrainRStdpPayload,
+  type ClusterTrainRStdpResult,
   type RestoreSnapshotPayload,
   type RestoreSnapshotResult,
 } from './worker-protocol';

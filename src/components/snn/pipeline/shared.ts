@@ -9,14 +9,14 @@ export const CLUSTER_TARGET = 30;
 // path Y (2026-05-07) — orientation 4종 정합 (자세 라벨 폐기).
 // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster 의미가 다름.
 // 직전 hardcoded 'orientation' 라벨 → mode-aware 함수로 정정.
-export const CLUSTER_LABELS_GRID = ['─ horizontal', '│ vertical', '╲ diag-back', '╱ diag-fore'] as const;
+// 사용자 catch 2026-05-09 (2 신규 catch): INPUT/INFER/OUT 영역 cluster N 앞 glyph
+// 영역 본격 제거 — visual minimalism 정합. 직전 ─│╲╱ prefix + space 영역 제거,
+// 텍스트 only label 영역 유지.
+export const CLUSTER_LABELS_GRID = ['horizontal', 'vertical', 'diag-back', 'diag-fore'] as const;
 
 // CAMERA mode (제스처) — feature-encoder.ts 의 cluster slot 정합.
 //   0 = Pointing, 1 = Open Palm, 2 = Closed Fist, 3 = Victory.
-// 사용자 catch 2026-05-09 — cluster 0 영역 ☝︎ (U+261D Dingbat) 영역 platform 별 colored emoji
-// fallback rendering catch (다른 ✋︎/✊︎/✌︎ 영역 visual 차이). VS-15 (U+FE0E) text 강제 무력.
-// CameraInput.tsx 영역 GESTURE_GLYPHS = ['─','│','╲','╱'] 영역 동일 monochrome glyph 정합 swap.
-export const CLUSTER_LABELS_CAMERA = ['─ Pointing', '│ Open Palm', '╲ Closed Fist', '╱ Victory'] as const;
+export const CLUSTER_LABELS_CAMERA = ['Pointing', 'Open Palm', 'Closed Fist', 'Victory'] as const;
 
 export type InputModeKind = 'grid' | 'camera';
 

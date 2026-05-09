@@ -359,7 +359,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
               disabled
               title={label}
             >
-              <span className="snn-grid-preset-glyph">{GESTURE_GLYPHS[i]}</span>
+              {/* 사용자 catch 2026-05-09 (2 신규 catch): cluster N 앞 glyph 본격 제거. */}
               <span className="snn-grid-preset-label">cluster {i}</span>
             </button>
             <button

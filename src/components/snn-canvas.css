@@ -208,10 +208,24 @@
 .snn-pipeline-learn-region-active { color: rgb(var(--pipe-tone-infer)); font-weight: 600; }
 .snn-pipeline-learn-region-sep { color: rgba(255, 255, 255, 0.3); }
 .snn-pipeline-learn-region-total { color: rgba(255, 255, 255, 0.5); font-size: 10px; }
-.snn-pipeline-learn-region-box--v1 { border-color: rgba(var(--pipe-tone-llm), var(--pipe-tone-alpha-border)); }
-.snn-pipeline-learn-region-box--v1 .snn-pipeline-learn-region-label { color: rgba(var(--pipe-tone-cyan-light), 0.85); }
-.snn-pipeline-learn-region-box--v2 { border-color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-border)); }
-.snn-pipeline-learn-region-box--v2 .snn-pipeline-learn-region-label { color: rgb(var(--pipe-tone-infer)); }
+/* UX Polish PR2 Fix 8 (LOW [L3], 2026-05-09): V1/V2 영역 lightness 차별 — 직전
+   monochrome cyan-light 영역 두 박스 동일 색감 (시각 catch 약). V1 영역 dim
+   (entry — feature 입력) / V2 영역 strong (cluster 분리 substrate) 영역 정합. */
+.snn-pipeline-learn-region-box--v1 {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 24, 0.65);
+}
+.snn-pipeline-learn-region-box--v1 .snn-pipeline-learn-region-label {
+  color: rgba(var(--pipe-tone-cyan-light), 0.55);
+}
+.snn-pipeline-learn-region-box--v2 {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(28, 28, 34, 0.92);
+}
+.snn-pipeline-learn-region-box--v2 .snn-pipeline-learn-region-label {
+  color: rgba(var(--pipe-tone-cyan-light), 0.95);
+  font-weight: 700;
+}
 @media (max-width: 600px) {
   .snn-pipeline-learn-region-box { padding: 3px 6px; }
   .snn-pipeline-learn-region-arrow svg { width: 20px; height: 8px; }
@@ -583,7 +597,23 @@
 .snn-pipeline-node--learn .snn-pipeline-node-title,
 .snn-pipeline-node--infer .snn-pipeline-node-title,
 .snn-pipeline-node--out   .snn-pipeline-node-title,
-.snn-pipeline-node--llm   .snn-pipeline-node-title { color: rgb(var(--pipe-tone-cyan-light)); }
+.snn-pipeline-node--llm   .snn-pipeline-node-title {
+  color: rgb(var(--pipe-tone-cyan-light));
+  /* UX Polish PR2 Fix 3 (MEDIUM [M3]) — idle title 영역 dim 정합 (직전 모두 동일 — visual hierarchy 0). */
+  opacity: 0.65;
+  transition: opacity 200ms ease, color 200ms ease, text-shadow 200ms ease;
+}
+/* UX Polish PR2 Fix 3 (MEDIUM [M3], 2026-05-09): 활성 노드 title 색감 강조.
+   wrapper class (is-learn-active / is-infer-active / is-out-active) 영역
+   cascade — 단계별 (LEARN / INFER / OUT) 활성 노드 한정 강조.
+   기존 wrapper border glow 영역 보존, title 영역 hierarchy 영역 보강. */
+.snn-pipeline-node-wrap.is-learn-active .snn-pipeline-node-title,
+.snn-pipeline-node-wrap.is-infer-active .snn-pipeline-node-title,
+.snn-pipeline-node-wrap.is-out-active   .snn-pipeline-node-title {
+  color: #ffffff;
+  opacity: 1;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+}
 .snn-pipeline-node-sub {
   flex: 1;
   font-size: var(--pipe-font-xs);
@@ -790,7 +820,11 @@
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255,255,255,0.08);
+  /* UX Polish PR2 Fix 4 (MEDIUM [M4], 2026-05-09): empty track 영역 alpha bump
+     0.08 → 0.14 + dashed inner border. untrained 4 cluster 모두 0/30 영역
+     사용자 catch 0 정정 — bar 자체가 보이도록 가시성 확보. */
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;
   position: relative;
 }

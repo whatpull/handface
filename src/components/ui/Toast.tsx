@@ -73,6 +73,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return () => { if (globalPush === push) globalPush = null; };
   }, [push]);
 
+  // UX Polish PR2 Fix 7 (LOW [L1], 2026-05-09): Esc 키 영역 가장 최근 toast dismiss.
+  //   직전 toast 영역 visual only — 키보드 사용자 dismiss path 0 (auto 5s 정합 단
+  //   명시 dismiss 0). ToastView 영역 ✕ 버튼 영역 보조 — 키보드 우선 사용자 정합.
+  //   focus catch 영역 input/textarea 입력 영역 영역 정합 — 입력 element focus 시점 skip.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      setItems((prev) => prev.length === 0 ? prev : prev.slice(0, -1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <ToastContext.Provider value={{ push, dismiss }}>
       {children}

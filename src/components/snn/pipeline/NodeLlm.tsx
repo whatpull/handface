@@ -157,13 +157,20 @@ export default function NodeLlm({
           onChange={(e) => updateCfg({ apiKey: e.target.value })}
         />
       </label>
-      <label className="snn-pipeline-toggle">
+      {/* UX Polish PR2 Fix 6 (MEDIUM [M6], 2026-05-09): endpoint 빈 시점 영역
+          auto stream 영역 silent fail (line 104 `if (!cfg.endpoint) return`).
+          checkbox 영역 disable + hint 안내 — 사용자 catch path 정합. */}
+      <label className={`snn-pipeline-toggle ${cfg.endpoint === '' ? 'opacity-50 cursor-not-allowed' : ''}`}>
         <input
           type="checkbox"
           checked={cfg.auto}
+          disabled={cfg.endpoint === ''}
           onChange={(e) => updateCfg({ auto: e.target.checked })}
         />
         <span>auto stream (winner 변경 시 POST)</span>
+        {cfg.endpoint === '' && (
+          <span className="text-xs text-white/50">— 엔드포인트 입력 후 활성</span>
+        )}
       </label>
       <details className="snn-pipeline-details">
         <summary>payload preview</summary>

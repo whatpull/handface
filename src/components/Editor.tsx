@@ -7,11 +7,23 @@ import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import HandTrackerHost from '@/components/snn/HandTrackerHost';
-import { onBackendEvent } from '@/lib/backend/events';
+import { onBackendEvent, type TrainingPhaseDetail } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapshot';
+import { useEngineMode } from '@/lib/snn/engine-mode';
 import { ToastProvider, showToast } from '@/components/ui/Toast';
 import './snn-canvas.css';
+
+// UX Polish PR2 Fix 2 (MEDIUM [M2], 2026-05-09): header mini status — engine + phase.
+//   직전 header 단순 라벨만 노출 — 글로벌 상태 (engine: live/backend, phase 요약) catch 0.
+//   useEngineMode + 'training-phase' event 구독 — 학습 진행 한눈에 catch.
+const PHASE_KO: Record<TrainingPhaseDetail['phase'], string> = {
+  untrained: '미학습',
+  learning: '학습 중',
+  partial: '일부 학습',
+  trained: '학습 완료',
+  inference: '추론 중',
+};
 
 export default function Editor() {
   const [cameraConnected, setCameraConnected] = useState(false);
@@ -23,6 +35,9 @@ export default function Editor() {
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<string | null>(null);
   const [canvasNonce, setCanvasNonce] = useState(0);
+  // UX Polish PR2 Fix 2: header mini status — engine mode + 학습 phase.
+  const [engineMode] = useEngineMode();
+  const [phase, setPhase] = useState<TrainingPhaseDetail['phase']>('untrained');
 
   // 모바일 bottom-bar 가 사용할 액션 (Toolbar 와 동일).
   // useMemo — busy / status setter 영역 stable 영역 dep 변경 영역만 재산출.
@@ -41,6 +56,7 @@ export default function Editor() {
     // canvasNonce 자동 증가 폐기 — 'training-cleared' 영역 명시 reset 영역만 trigger.
     const off = onBackendEvent('training-cleared', () => {
       setCanvasNonce((n) => n + 1);
+      setPhase('untrained');
     });
     // 자동 학습 weight 저장 — 1회 install (training-changed → debounced save).
     installAutoSnapshot();
@@ -48,6 +64,13 @@ export default function Editor() {
     // 사용자 학습 weight 영역 reload 영역 보존 catch (silent UX regression 정정).
     void restoreSnapshotOnce();
     return off;
+  }, []);
+
+  // UX Polish PR2 Fix 2: training-phase 구독 — header phase badge 갱신.
+  useEffect(() => {
+    return onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
+      setPhase(d.phase);
+    });
   }, []);
 
   // UX Polish PR1 Fix 3 (HIGH [H2], 2026-05-09): 첫 방문자 Live 모드 onboarding.
@@ -110,9 +133,42 @@ export default function Editor() {
   return (
     <ToastProvider>
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
-      <header className="flex items-center justify-between border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
+      <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
         <span className="text-sm font-semibold tracking-wider">HandFace</span>
-        <span className="text-[11px] text-white/40">Neural Network Editor</span>
+        <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
+        <div className="ml-auto flex items-center gap-2 text-[11px]">
+          <span
+            className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-black/30 px-2 py-0.5"
+            aria-label={`엔진: ${engineMode === 'live' ? 'Live' : 'Backend'}`}
+          >
+            {engineMode === 'live' ? (
+              <>
+                <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-red-500" />
+                <span className="text-white/85">Live</span>
+              </>
+            ) : (
+              <>
+                <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-violet-400" />
+                <span className="text-white/85">Backend</span>
+              </>
+            )}
+          </span>
+          <span
+            className="hidden sm:inline-flex items-center gap-1.5 rounded border border-white/10 bg-black/30 px-2 py-0.5 text-white/70"
+            aria-label={`학습 단계: ${PHASE_KO[phase]}`}
+          >
+            <span
+              aria-hidden
+              className={
+                phase === 'trained' ? 'inline-block h-2 w-2 rounded-full bg-emerald-400'
+                : phase === 'inference' ? 'inline-block h-2 w-2 rounded-full bg-sky-400'
+                : phase === 'learning' || phase === 'partial' ? 'inline-block h-2 w-2 rounded-full bg-amber-400'
+                : 'inline-block h-2 w-2 rounded-full bg-white/30'
+              }
+            />
+            {PHASE_KO[phase]}
+          </span>
+        </div>
       </header>
       <div className="flex flex-1 min-h-0">
         <Sidebar
@@ -147,6 +203,9 @@ export default function Editor() {
           <MobileBottomBar
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
+            cameraConnected={cameraConnected}
+            onToggleCamera={() => setCameraConnected((v) => !v)}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         </main>
       </div>

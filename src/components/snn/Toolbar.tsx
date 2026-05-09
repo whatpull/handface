@@ -56,8 +56,12 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
   );
 }
 
-const segBaseCls = 'px-2 py-1 text-[11px] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60';
-const segOnCls = 'bg-violet-500/30 text-white border border-violet-400/40';
+const segBaseCls = 'inline-flex items-center gap-1.5 px-2 py-1 text-[11px] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60';
+// UX Polish PR2 Fix 5 (MEDIUM [M5], 2026-05-09): Live/Backend mode 별 색감 차별.
+//   직전 두 mode 모두 violet — 시각 차별 0. Live 영역 red tint (실시간 신호) +
+//   Backend 영역 violet tint (rev15 검증 path) — 색감 의미 정합.
+const segOnLiveCls = 'bg-red-500/25 text-white border border-red-400/45';
+const segOnBackendCls = 'bg-violet-500/30 text-white border border-violet-400/40';
 const segOffCls = 'text-white/55 hover:text-white hover:bg-white/10 border border-transparent';
 
 // Fix 1 (CRITICAL [C1]): MobileBottomBar 에서 동일 토글 재사용 위해 export.
@@ -74,19 +78,21 @@ export function EngineSegmented({ value, onChange }: { value: EngineMode; onChan
       <button
         type="button"
         aria-pressed={isLive ? 'true' : 'false'}
-        className={`${segBaseCls} ${isLive ? segOnCls : segOffCls}`}
+        className={`${segBaseCls} ${isLive ? segOnLiveCls : segOffCls}`}
         onClick={() => onChange('live')}
         title="항상 동작 SNN — 즉시 학습 + 추론 (Hebbian, R-STDP). SNN 본질 정합 (default)."
       >
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
         Live
       </button>
       <button
         type="button"
         aria-pressed={isBackend ? 'true' : 'false'}
-        className={`${segBaseCls} ${isBackend ? segOnCls : segOffCls}`}
+        className={`${segBaseCls} ${isBackend ? segOnBackendCls : segOffCls}`}
         onClick={() => onChange('backend')}
         title="HF Spaces 백엔드 batch (rev15 검증된 path — 학술 검증)"
       >
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-violet-400" />
         Backend
       </button>
     </div>

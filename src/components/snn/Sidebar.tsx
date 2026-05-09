@@ -4,6 +4,11 @@
 // 직전 validation / evolve 버튼 폐기 (사용자 명시 — "사이드 메뉴 불필요").
 //   validation: ValidationPanel 자체 폐기.
 //   evolve: EVOLVING phase 자체 폐기 — lifelong learning 진입점 회수.
+//
+// UX Polish PR2 Fix 1 (HIGH [H3], 2026-05-09): 모바일 좌측 48px 항상 visible 정정.
+//   PipelineCanvas 모바일 vertical flex (snn-canvas.css:138 @media max-width 900px)
+//   대비 — Sidebar 만 좌측 고정 catch. `hidden md:flex` swap — 모바일 카메라/Settings
+//   버튼은 MobileBottomBar 가 흡수.
 
 interface SidebarProps {
   cameraConnected: boolean;
@@ -19,7 +24,7 @@ export default function Sidebar({
     `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 ` +
     (active ? 'bg-violet-500/25 text-violet-200 ring-1 ring-violet-400/40' : '');
   return (
-    <aside className="flex w-12 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-[#0d0d10]/95 py-3">
+    <aside className="hidden md:flex w-12 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-[#0d0d10]/95 py-3">
       <button
         type="button"
         title={cameraConnected ? 'Disable camera' : 'Enable camera'}

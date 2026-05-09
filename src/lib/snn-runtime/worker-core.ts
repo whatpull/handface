@@ -216,14 +216,23 @@ export class SNNWorkerCore {
     //   'OUT'     → out_*
     //   'V1_L23'  → V1_L23_E_* (cluster firing 정합)
     //   'V2_L5'   → V2_L5_E_* (cluster firing 정합 — sub-cluster aware)
+    // FINDING-1 fix 2026-05-10: substrate neuron 명 영역 lowercase prefix
+    // (`v1_L4_E_*`, `v2_L5_E_*` etc — n13-orientation.ts 정합) — 기존 대문자
+    // prefix 영역 case-sensitive `startsWith` mismatch → 매 호출 count=0/hz=0
+    // → fallback proxy 영역 silent failure (Fix 5 무력화).
     const prefixes: Record<typeof payload.region, string[]> = {
-      V1: ['V1_L4_E_', 'V1_L23_E_'],
-      V2: ['V2_L4_E_', 'V2_L23_E_', 'V2_L5_E_'],
+      V1: ['v1_L4_E_', 'v1_L23_E_'],
+      V2: ['v2_L4_E_', 'v2_L23_E_', 'v2_L5_E_'],
       OUT: ['out_'],
-      V1_L23: ['V1_L23_E_'],
-      V2_L5: ['V2_L5_E_'],
+      V1_L23: ['v1_L23_E_'],
+      V2_L5: ['v2_L5_E_'],
     };
     const prefList = prefixes[payload.region];
+    // SEC-8 defensive guard — hostile/unknown region 영역 silent { hz: 0 }
+    // 응답 (throw 영역 worker crash 회피).
+    if (!prefList) {
+      return { region: payload.region, hz: 0, neuronCount: 0 };
+    }
     let sum = 0;
     let count = 0;
     for (const n of net.neurons) {

@@ -27,6 +27,7 @@ import type {
   GetNetworkTimeResult,
   RegionFiringRatesPayload,
   RegionFiringRatesResult,
+  ResetClusterWeightsResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
@@ -119,6 +120,29 @@ export class SNNWorkerCore {
             n.thresholdOffset = 0;
           }
           return { id: req.id, ok: true, result: null };
+        }
+        case 'resetClusterWeights': {
+          // PR-A architecture pivot (사용자 catch 2026-05-09 — Step 4):
+          // 학습 가중치 영역 fresh build default 영역 restore. 직전 buildClusterActiveInputs
+          // 영역 catch (build / restoreSnapshot 영역 set) 영역 n13 builder 영역
+          // 새로 build → net + monitor + registry 영역 swap. 학술 정합:
+          // Diehl & Cook 2015 §3.2 batch reset 영역 confluent path — saturation
+          // escape mandatory.
+          const result = buildN13OrientationPreset({
+            clusterActiveInputs: this.buildClusterActiveInputs,
+            // seed 영역 build payload 영역 catch 미보존 — buildN13OrientationPreset
+            // 영역 default seed 영역 정합 (root-local-snn SEED=57 영역 별도 sync).
+          });
+          this.net = result.net;
+          this.monitor = new SpikeMonitor();
+          this.monitor.attachAll(this.net.neurons);
+          this.registry = buildClusterRegistryFromN13(this.buildClusterActiveInputs);
+          const out: ResetClusterWeightsResult = {
+            neurons: result.neuronsAdded,
+            synapses: result.synapsesAdded,
+            preset: result.preset,
+          };
+          return { id: req.id, ok: true, result: out };
         }
         case 'reset':
           this.net = null;

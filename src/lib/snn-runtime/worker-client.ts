@@ -17,6 +17,7 @@ import type {
   GetNetworkTimeResult,
   RegionFiringRatesPayload,
   RegionFiringRatesResult,
+  ResetClusterWeightsResult,
   RestoreSnapshotPayload,
   RestoreSnapshotResult,
   RunPayload,
@@ -149,6 +150,16 @@ export class SNNWorkerClient {
    */
   resetHomeostatic(): Promise<null> {
     return this.send<null>({ type: 'resetHomeostatic' });
+  }
+
+  /**
+   * PR-A architecture pivot (사용자 catch 2026-05-09 — Step 4):
+   * 학습 가중치 영역 fresh build default 영역 restore. saturation escape
+   * mandatory path — horizontal lock-in 영역 IndexedDB 영속 영역 새로고침
+   * 영역 escape 0 영역 catch 회피.
+   */
+  resetClusterWeights(): Promise<ResetClusterWeightsResult> {
+    return this.send<ResetClusterWeightsResult>({ type: 'resetClusterWeights' });
   }
 
   reset(): Promise<null> {

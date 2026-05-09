@@ -315,16 +315,93 @@ export class LiveSnn {
   }
 
   /**
-   * 사용자 명시 R-STDP reward — "이 패턴은 cluster X 가 맞다".
-   * triggerOnce({ stdpGain: gain, repeats: 3, force: true }) 영역 thin alias.
-   * targetCluster 영역 backend supervised 신호 0 — 현재 회로 정합 영역 in-place
-   * Hebbian + R-STDP gain 영역 winner cluster 영역 강화 (학술: Florian 2007 /
-   * Izhikevich 2007 R-STDP 정합 — 단 Live runtime 영역 cluster-specific
-   * gradient 영역 직접 0, gain ↑ 영역 fired pattern 영역 boosting).
+   * PR-A architecture pivot (사용자 catch 2026-05-09 A2 — PRIMARY HIGH 70%):
+   * 사용자 명시 R-STDP supervised reward — "이 패턴은 cluster X 가 맞다".
+   *
+   * 직전 (PR #189): triggerOnce({ stdpGain: gain }) 영역 thin alias —
+   * targetCluster 영역 void → STDP unsupervised self-reinforcing loop →
+   * 첫 trigger 영역 horizontal 우연 winner 영역 STDP saturate → lock-in
+   * 영역 root cause catch.
+   *
+   * 정정 (본 PR): clusterTrainRStdp RPC 영역 1-pattern batch 영역 reuse
+   * (worker-core.ts:343-416 본격 R-STDP supervised 구현 정합). 학술 정합:
+   * Florian 2007 / Izhikevich 2007 R-STDP supervised — measure 영역 winner !=
+   * targetCluster 일 시 punishGain (LTD), winner == targetCluster 일 시
+   * rewardGain (LTP). cluster-specific gradient 영역 backend 영역 catch.
+   *
+   * 정직 한계: clusterTrainRStdp 영역 단일 pattern 영역 1-pattern batch (직전
+   * triggerOnce repeats 3 영역 동질 patterns 영역 batch 정합 — observeMs ×
+   * 1 frame ≈ 50ms simulation). saveDebounced (force=true) 영역 즉시 영속.
    */
   async reinforce(targetCluster: number, gain: number = 2.0): Promise<{ saveFailed: boolean }> {
-    void targetCluster;
-    return await this.triggerOnce({ stdpGain: gain, repeats: 3, force: true });
+    while (this.tickInFlight) await new Promise((r) => setTimeout(r, 5));
+    this.tickInFlight = true;
+    let saveFailed = false;
+    let root: RootLocalSnn | null = null;
+    try {
+      root = await getRootLocalSnnFor(this.substrateKind);
+      // homeostatic thresholdOffset reset — 직전 trigger 누적 V_th saturation
+      // 영역 회피 (Diehl & Cook 2015 §3.2 batch frame reset 정합).
+      await root.client.resetHomeostatic();
+      // R-STDP supervised — 1-pattern batch + targetCluster 영역 명시 wire.
+      // rewardGain 영역 사용자 영역 명시 gain (default 2.0).
+      // punishGain 영역 gain × 0.25 (학술 정합 — reward dominance).
+      await root.client.clusterTrainRStdp({
+        patterns: [this.patternRef.slice()],
+        targetCluster,
+        rewardGain: gain,
+        punishGain: gain * 0.25,
+        observeMs: this.opts.observeMs,
+        stimulusDurationMs: this.opts.stimulusDurationMs,
+        intensity: this.opts.intensity,
+      });
+      this.trialCount += 1;
+      // cluster firing rates — supervised batch 영역 끝난 직후 영역 winner
+      // 영역 catch (UI 영역 NodeLearn cluster bar / NodeInfer winner 영역 sync).
+      const cfr = await root.client.clusterFiringRates({
+        windowMs: this.opts.observeMs,
+        layer: 'OUT',
+      });
+      // V1/V2 region rates 영역 catch (NodeLearn cascade strip 영역 정합).
+      let v1Hz = 0;
+      let v2Hz = 0;
+      try {
+        const [v1, v2] = await Promise.all([
+          root.client.regionFiringRates({ region: 'V1', windowMs: this.opts.observeMs }),
+          root.client.regionFiringRates({ region: 'V2', windowMs: this.opts.observeMs }),
+        ]);
+        v1Hz = v1.hz;
+        v2Hz = v2.hz;
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[LiveSnn] reinforce regionFiringRates fallback to 0Hz:', e);
+        }
+      }
+      this.emitTick(cfr, v1Hz, v2Hz);
+    } catch (e) {
+      console.warn('[LiveSnn] reinforce failed:', e);
+    } finally {
+      this.tickInFlight = false;
+    }
+    if (root) {
+      // force=true — supervised reward 영역 즉시 영속 (saveDebounced throttle bypass).
+      saveFailed = await this.saveDebounced(root, true);
+    }
+    return { saveFailed };
+  }
+
+  /**
+   * PR-A architecture pivot (사용자 catch 2026-05-09 A1): 명시 추론 trigger.
+   * triggerOnce({ stdpGain: 0 }) 영역 thin wrapper — STDP off (학습 0) +
+   * cluster firing rates 측정 only. semantic clarity 영역 별도 method 분리
+   * (호출자 영역 의도 catch — '추론' button 영역 학습 trigger 0 보장).
+   *
+   * 학술 정합: STDP off — Hebbian 0, network 영역 가중치 변경 0 (read-only).
+   * lab.save 영역 throttle 영역 조건부 — 가중치 변경 0 영역 immediate save 영역
+   * skip 영역 정합 (saveDebounced 영역 force=false).
+   */
+  async inferOnce(): Promise<{ saveFailed: boolean }> {
+    return await this.triggerOnce({ stdpGain: 0 });
   }
 
   private buildInjectEvents(currentT: number): Array<{

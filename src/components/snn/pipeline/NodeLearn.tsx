@@ -482,15 +482,15 @@ export default function NodeLearn() {
       subtitle={
         isLiveMode ? (
           <>
-            {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap.
-                event-driven 1-shot pivot (2026-05-09 B): '항상 STDP on' 영역
-                폐기 — INPUT trigger 영역 1회 학습 영역 정합 표현 swap. */}
+            {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1+A2):
+                pixel/preset click 영역 STDP off + 명시 추론/학습 button trigger
+                영역 정합. 직전 'INPUT 1회 학습' 영역 stale (auto-on-click). */}
             <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-            LIVE — INPUT 1회 학습
+            LIVE — 명시 supervised R-STDP
           </>
         ) : '진행상황'
       }
-      subtitleAria={isLiveMode ? 'LIVE — INPUT 1회 학습' : '진행상황'}
+      subtitleAria={isLiveMode ? 'LIVE — 명시 supervised R-STDP' : '진행상황'}
       tone="learn"
     >
 
@@ -627,7 +627,10 @@ function LiveLearnPanel({
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
         <div className="snn-pipeline-hint">
-          클릭 또는 자세를 인식하면 1회 학습 + 추론. 현재 패턴 보강 버튼은 R-STDP 보강.
+          {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1+A2):
+              직전 hint 영역 'click → 1회 학습 + 추론' 영역 stale.
+              정정: 패턴 그림 → 추론 button → 학습 button (cluster 별 supervised). */}
+          패턴을 그린 뒤 추론 버튼을 누르세요. 학습 버튼 = cluster supervised R-STDP.
         </div>
       </>
     );

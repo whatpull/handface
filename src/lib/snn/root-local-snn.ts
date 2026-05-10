@@ -194,10 +194,14 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     // catch 회피 — 사용자 영역 직전 학습 가중치 폐기 영역 명시 catch path.
     //   schema-mismatch: schema:1 (legacy v1) topology 영역 reject (Fix B path).
     //   weight-length-mismatch: synapse 수 불일치 영역 fresh build (drift 정정).
+    //   fix-baseline-mismatch (PR-I, 2026-05-10): 직전 학습 weight 영역 fix
+    //     직전 영역 stale lock-in 영역 reset (n13 mitigation 정합).
     onStaleCacheReset: (reason) => {
       const label = kind === 'gesture' ? '제스처' : '방향';
       const why = reason === 'schema-mismatch'
         ? '회로 schema 정정'
+        : reason === 'fix-baseline-mismatch'
+        ? '직전 학습 weight 영역 fix 직전 영역 reset'
         : '가중치 길이 불일치';
       showToast({
         kind: 'warning',

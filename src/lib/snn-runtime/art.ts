@@ -446,11 +446,14 @@ export function expandCluster(
   }
 
   // ── 기존 cluster 들과 OUT 간 상호 inhibition (WTA 확장) ──
+  // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+  // 2026-05-10): n13-orientation 정합 -4.0 → -8.0 영역 강화 (Diehl & Cook 2015
+  // strong inhibitory pool). expansion path 영역 동일 inhibition 강도 정합.
   for (const existing of registry.slots) {
     for (const s of out) {
       for (const t of existing.out) {
-        net.connect(s, t, -4.0, 0.5);
-        net.connect(t, s, -4.0, 0.5);
+        net.connect(s, t, -8.0, 0.5);
+        net.connect(t, s, -8.0, 0.5);
       }
     }
   }

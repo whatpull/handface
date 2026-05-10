@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FIX_REV_BASELINE,
   LocalSNN,
   LocalStorageSink,
   SNNWorkerClient,
@@ -108,8 +109,9 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     const lab = new LocalSNN({ netId, client, sink, seed: 57 });
     const status = await lab.init();
 
-    // fresh build catch — rev=0 (rev=42 보존 폐기), neurons=n13 substrate.
-    expect(status.rev).toBe(0);
+    // fresh build catch — PR-I (2026-05-10) 영역 rev: FIX_REV_BASELINE 영역
+    // 시작 (rev=42 보존 폐기), neurons=n13 substrate.
+    expect(status.rev).toBe(FIX_REV_BASELINE);
     expect(status.neurons).toBeGreaterThan(800);
     expect(status.synapses).toBeGreaterThan(0);
 
@@ -126,15 +128,16 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     const lab1 = new LocalSNN({ netId, client, sink, seed: 57 });
     await lab1.init();
     const rev1 = await lab1.save();
-    expect(rev1).toBe(1);
+    // PR-I: fresh build 영역 anchor 시작 → 첫 save 영역 anchor+1.
+    expect(rev1).toBe(FIX_REV_BASELINE + 1);
 
     // 새 stack 영역 같은 sink → schema:2 영역 restore catch.
     const core2 = new SNNWorkerCore();
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
     const lab2 = new LocalSNN({ netId, client: client2, sink, seed: 57 });
     const status = await lab2.init();
-    // 보존 가중치 영역 rev=1 정합.
-    expect(status.rev).toBe(1);
+    // PR-I: 보존 가중치 영역 rev=anchor+1 정합.
+    expect(status.rev).toBe(FIX_REV_BASELINE + 1);
   });
 
   it('T3: schema:1 + empty neurons → fresh build (sanity)', async () => {
@@ -162,7 +165,8 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     const lab = new LocalSNN({ netId, client, sink, seed: 57 });
     const status = await lab.init();
     // empty + schema:1 → 둘 다 fresh build trigger.
-    expect(status.rev).toBe(0);
+    // PR-I (2026-05-10): fresh build 영역 rev: FIX_REV_BASELINE 영역 시작.
+    expect(status.rev).toBe(FIX_REV_BASELINE);
     expect(status.neurons).toBeGreaterThan(800);
   });
 });

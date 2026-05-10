@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FIX_REV_BASELINE,
   LocalSNN,
   LocalStorageSink,
   N13Pools,
@@ -80,7 +81,10 @@ describe('LocalSNN — end-to-end lifecycle', () => {
     });
 
     const status0 = await lab1.init();
-    expect(status0.rev).toBe(0);
+    // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+    // 2026-05-10): fresh build 영역 rev: FIX_REV_BASELINE 영역 시작 — anchor
+    // 미달 reject loop 회피.
+    expect(status0.rev).toBe(FIX_REV_BASELINE);
     expect(status0.neurons).toBeGreaterThan(800);
     expect(status0.synapses).toBeGreaterThan(0);
 
@@ -97,7 +101,9 @@ describe('LocalSNN — end-to-end lifecycle', () => {
     await s1.client.run({ durationMs: 50, dtMs: 0.1, stdpEnabled: true });
 
     const rev1 = await lab1.save();
-    expect(rev1).toBe(1);
+    // PR-I: save() → rev+1 영역 누적 정합 보존 — fresh build 영역 anchor 시작
+    // 영역 첫 save 영역 anchor+1.
+    expect(rev1).toBe(FIX_REV_BASELINE + 1);
 
     const wAfter = await lab1.currentWeights();
 
@@ -121,7 +127,8 @@ describe('LocalSNN — end-to-end lifecycle', () => {
     });
 
     const restored = await lab2.init();
-    expect(restored.rev).toBe(1); // 보존된 rev 적용.
+    // PR-I: 보존된 rev (FIX_REV_BASELINE+1) 적용.
+    expect(restored.rev).toBe(FIX_REV_BASELINE + 1);
 
     const wRestored = await lab2.currentWeights();
     // 핵심: 보존된 가중치가 그대로 새 net 에 적용됐어야 함.

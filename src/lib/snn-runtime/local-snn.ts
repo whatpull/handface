@@ -14,6 +14,15 @@ import { diffWeightSnapshots, type SnapshotSink, type WeightSnapshot } from './p
 import type { NetworkSnapshot } from './network';
 import type { SNNWorkerClient } from './worker-client';
 
+// PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+// 2026-05-10): n13 mitigation (WTA inhibition -8.0 + STDP cap 25 + sqrt
+// normalize) 적용 직전 학습 weight 영역 stale lock-in 영역 reset 강제 anchor.
+//   본 anchor 영역 미만 rev 영역 schema:2 weight 영역 reject (fresh build
+//   강제) → caller 영역 toast 'fix-baseline-mismatch' 발화. 신규 fresh
+//   build 영역 rev: FIX_REV_BASELINE 영역 시작 → 다음 init 영역 통과.
+//   active learning 영역 rev 영역 일반적 dozens 단위 — 100 영역 충분 안전 anchor.
+export const FIX_REV_BASELINE = 100 as const;
+
 export interface LocalSNNOptions {
   netId: string;
   client: SNNWorkerClient;
@@ -35,7 +44,14 @@ export interface LocalSNNOptions {
   //   (synapse 수 불일치). silent fail 회피 단일 path.
   //   layering 보존 — snn-runtime 영역 backend events / UI 영역 import 0
   //   (callback 영역 caller injection).
-  onStaleCacheReset?: (reason: 'schema-mismatch' | 'weight-length-mismatch') => void;
+  // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+  // 2026-05-10): 'fix-baseline-mismatch' 추가 — n13 mitigation (WTA -8.0 +
+  // STDP cap 25 + sqrt normalize) 적용 직전 학습 weight 영역 stale lock-in
+  // 영역 reset 강제. rev < FIX_REV_BASELINE 영역 reject path 영역 caller 영역
+  // toast 발화.
+  onStaleCacheReset?: (
+    reason: 'schema-mismatch' | 'weight-length-mismatch' | 'fix-baseline-mismatch',
+  ) => void;
   // 사용자 catch 2026-05-09 [2] (Fix 4 — MEDIUM): DB hydrate state visibility
   //   — fresh build vs hydrate 영역 시각 catch 0 영역 사용자 catch — "기존에
   //   학습된 데이터가 DB에 존재하는지, 학습이 제로인 상태에서 추론을 하게 되는건지
@@ -76,7 +92,22 @@ export class LocalSNN {
     const persistedTopology = await sink.loadTopology(netId);
     const persistedWeights = await sink.loadWeights(netId);
 
-    if (persistedTopology && persistedWeights && this.topologyMatchesPreset(persistedTopology)) {
+    // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+    // 2026-05-10): schema:2 + rev < FIX_REV_BASELINE 영역 reject path —
+    // n13 mitigation 적용 직전 학습 weight 영역 stale lock-in 영역 catch.
+    // schema-mismatch 영역 별도 path (schema:1 영역 legacy v1) — 본 path 영역
+    // schema:2 weight 영역 fix anchor 미달 영역 reject 정합 (defense-in-depth).
+    const isFixBaselineStale = persistedTopology
+      && persistedWeights
+      && persistedTopology.schema === 2
+      && persistedWeights.rev < FIX_REV_BASELINE;
+
+    if (
+      persistedTopology
+      && persistedWeights
+      && this.topologyMatchesPreset(persistedTopology)
+      && !isFixBaselineStale
+    ) {
       // 토폴로지 그대로 restore — expansion 까지 round-trip.
       const restored = await client.restoreSnapshot({
         snapshot: persistedTopology,
@@ -109,12 +140,17 @@ export class LocalSNN {
       //   path 영역 진입 — fresh build 강제 직전 caller 영역 toast 발화.
       //   topology 미보존 (첫 진입 path) 또는 가중치 미보존 영역 silent catch
       //   정합 (사용자 가중치 폐기 0).
+      // PR-I (2026-05-10): schema:2 + rev < FIX_REV_BASELINE 영역 reject path
+      //   영역 'fix-baseline-mismatch' 영역 emit (caller 영역 toast 영역 reset
+      //   사유 명시). schema-mismatch 영역 우선 (schema:1 영역 legacy v1 별도).
       if (
         persistedTopology
         && persistedWeights
         && persistedTopology.schema === 1
       ) {
         this.opts.onStaleCacheReset?.('schema-mismatch');
+      } else if (isFixBaselineStale) {
+        this.opts.onStaleCacheReset?.('fix-baseline-mismatch');
       }
       const built = await client.build({
         preset: this.opts.preset ?? 'n13_orientation',
@@ -179,16 +215,20 @@ export class LocalSNN {
     const { snapshot } = await client.snapshot();
     await sink.saveTopology(netId, snapshot);
     const weights = await client.extractWeights();
+    // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+    // 2026-05-10): fresh build 영역 rev: FIX_REV_BASELINE 영역 시작 — 다음 init
+    // 영역 fix-baseline-mismatch reject 영역 통과 정합 (rev=0 영역 시작 영역 매
+    // init 영역 reject loop 회피). save() 영역 rev+1 영역 누적 정합 보존.
     const initial: WeightSnapshot = {
       schema: 1,
       netId,
-      rev: 0,
+      rev: FIX_REV_BASELINE,
       t: snapshot.t,
       savedAt: Date.now(),
       weights,
     };
     await sink.saveWeights(initial);
-    this.rev = 0;
+    this.rev = FIX_REV_BASELINE;
     this.prevWeights = initial;
     this.lastSavedAt = initial.savedAt;
   }

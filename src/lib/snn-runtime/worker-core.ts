@@ -470,8 +470,15 @@ export class SNNWorkerCore {
       for (const ai of slot.activeInputs) {
         if (activeIdx.has(ai)) overlap += 1;
       }
-      // overlap=0 영역 raw 영역 fallback (silent cluster — divisor 영역 1 floor 회피).
-      return overlap > 0 ? raw / overlap : raw;
+      // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner
+      // 정정, 2026-05-10): 직전 divisor=overlap (linear) 영역 horizontal
+      // pattern (cluster 0 overlap=4) 영역 raw firing 4× penalty → other
+      // cluster (overlap=1) 영역 winner 영역 정정. divisor=sqrt(overlap)
+      // 영역 swap 영역 horizontal pattern 영역 divisor=2 (vs 1) 영역 4-cell
+      // active mass 영역 winner 보장. 학술 정합 — Wiesel 1981 receptive field
+      // cardinality fairness 영역 sub-linear normalization (sqrt) 영역
+      // 정합. overlap=0 영역 raw fallback (silent cluster — divisor floor 회피).
+      return overlap > 0 ? raw / Math.max(1, Math.sqrt(overlap)) : raw;
     });
     let max = 0;
     let second = 0;
@@ -719,8 +726,11 @@ export class SNNWorkerCore {
       for (const ai of slot.activeInputs) {
         if (activeIdx.has(ai)) overlap += 1;
       }
-      // overlap=0 영역 raw 영역 fallback (silent cluster — divisor 영역 1 floor 회피).
-      return overlap > 0 ? raw / overlap : raw;
+      // PR-I (사용자 catch 2026-05-09, 2026-05-10): divisor=sqrt(overlap)
+      // 영역 swap — handleClusterFiringRates 정합 (Wiesel 1981 receptive
+      // field cardinality fairness sub-linear normalization).
+      // overlap=0 영역 raw 영역 fallback (silent cluster — divisor floor 회피).
+      return overlap > 0 ? raw / Math.max(1, Math.sqrt(overlap)) : raw;
     });
     let max = 0;
     let winner = -1;

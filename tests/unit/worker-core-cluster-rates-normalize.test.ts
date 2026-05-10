@@ -8,8 +8,12 @@
 //
 // 학술 정합 (Wiesel 1981 receptive field cardinality fairness): raw firing rate
 // argmax 영역 input cardinality 영역 unequal (overlap) 영역 fairness mandatory.
-// normalized = rate / overlap_count — overlap_count 영역 pattern active idx ∩
-// cluster.activeInputs (hard-wired sub-pool).
+// PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+// 2026-05-10): 직전 divisor=overlap (linear) 영역 horizontal 4× penalty →
+// other cluster winner 영역 정정. divisor=sqrt(overlap) 영역 swap 영역 sub-linear
+// fairness 영역 4-cell active mass 영역 winner 보장.
+// normalized = rate / max(1, sqrt(overlap_count)) — overlap_count 영역 pattern
+// active idx ∩ cluster.activeInputs (hard-wired sub-pool).
 //
 // N1: handleClusterFiringRates(pattern=horizontal) 영역 cluster 0 (overlap=4) 영역
 //     winner — raw rate 영역 cluster 3 (overlap=1) winner 영역 정정.
@@ -94,10 +98,12 @@ describe('SNNWorkerCore — clusterFiringRates input cardinality normalize (QA H
     // cluster 1 (vertical: 1,5,9,13) overlap=1 (idx 5).
     // cluster 2 (diag-back: 0,5,10,15) overlap=1 (idx 5).
     // cluster 3 (diag-fore: 3,6,9,12) overlap=1 (idx 6).
-    // 정규화 후 cluster 0 영역 dominance — raw rate 영역 cluster 3 winner 영역 catch
-    // 단 normalize 영역 cluster 0 winner 영역 정합.
+    // PR-I (2026-05-10): divisor=sqrt(overlap) 영역 swap — cluster 0 영역
+    // divisor=2 (sqrt(4)) vs other cluster divisor=1 (sqrt(1)). 4-cell active
+    // mass (V1_L4_E sub-pool 4× hard-wired weight 11.0 fire) 영역 raw rate
+    // 영역 충분 dominant → normalize 후 cluster 0 winner 영역 정합 보장.
     expect(cfr.winner).toBe(0);
-    // rates[0] 영역 가장 큰 값 — normalize divide=4 vs 다른 cluster divide=1.
+    // rates[0] 영역 가장 큰 값 — normalize divide=2 (sqrt(4)) vs 다른 cluster divide=1.
     expect(cfr.rates[0]).toBeGreaterThan(0);
   });
 
@@ -156,5 +162,27 @@ describe('SNNWorkerCore — clusterFiringRates input cardinality normalize (QA H
     expect(result.layer).toBe('V1_L23');
     // V1_L23 layer 영역 raw rate path — pattern 영역 normalize 미적용 (OUT only).
     expect(result.rates).toHaveLength(4);
+  });
+
+  // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+  // 2026-05-10): sqrt fairness ratio 직접 산술 검증 — overlap=4 영역 divisor=2
+  // / overlap=1 영역 divisor=1 → ratio 4:1 raw 영역 2:1 normalized.
+  it('N5: sqrt divisor 영역 fairness ratio 직접 산술 검증 — overlap=4 vs overlap=1 ratio 4:1 → 2:1', () => {
+    // direct math test — runtime 의존 0, sqrt divisor 형식 영역 검증.
+    const overlap4 = 4;
+    const overlap1 = 1;
+    const divisor4 = Math.max(1, Math.sqrt(overlap4)); // 2
+    const divisor1 = Math.max(1, Math.sqrt(overlap1)); // 1
+    expect(divisor4).toBe(2);
+    expect(divisor1).toBe(1);
+    // raw rate 영역 동일 단위 영역 가정 시 (예: cluster 영역 4 cell active mass
+    // 영역 4× rate, single cell active 영역 1× rate) 영역 raw ratio 4:1 → divisor
+    // 영역 normalize 영역 (4/2):(1/1) = 2:1 영역 cluster 4-cell active 영역 winner 정합.
+    const rawHorizontal = 4.0; // 4-cell active mass.
+    const rawSingle = 1.0; // overlap=1 cluster 영역 single cell sub-pool fire.
+    const normHorizontal = rawHorizontal / divisor4; // 2.0
+    const normSingle = rawSingle / divisor1; // 1.0
+    expect(normHorizontal).toBeGreaterThan(normSingle);
+    expect(normHorizontal / normSingle).toBe(2);
   });
 });

@@ -733,6 +733,16 @@ function LiveLearnPanel({
             </span>
           )}
         </div>
+        {/* PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner
+            정정, 2026-05-10): n13 substrate 영역 idx overlap (mathematical
+            impossible) 영역 mitigation only — STDP 누적 영역 winner 수렴 path
+            영역 사용자 명시. follow-up PR (Option A — 32-dim disjoint feature
+            engineering) 영역 본격 root fix. */}
+        {tick.trial > 0 && tick.trial < 10 && (
+          <div className="snn-pipeline-phase-sub snn-pipeline-phase-sub--dim">
+            10-20회 보강 후 winner 안정 — 같은 자세 반복 보강 권장
+          </div>
+        )}
       </div>
       <div className="snn-pipeline-cluster-list">
         {tick.rates.map((rate, i) => (

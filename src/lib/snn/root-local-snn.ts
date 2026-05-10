@@ -218,6 +218,16 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
       // 회피. 학술 정합: fresh substrate (cluster 0개) 영역 OUT 영역 fire count
       // 영역 0 시작 — exemplar count 영역 sync 정합 catch.
       clearExemplars(kind);
+      // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): fresh build path
+      // 영역 trialCount localStorage 영역 wipe — exemplars 영역 정합 (학술
+      // 영역 fresh substrate 영역 학습 횟수 0 영역 정합). LiveSnn singleton
+      // 영역 substrate 일치 시점 영역 in-memory trialCount 영역 reset path 영역
+      // setSubstrate 영역 hydrate (loadTrialCount → 0) 영역 정합.
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(`handface.live-snn.trial-count.v1.${kind}`);
+        }
+      } catch { /* noop */ }
       const state: LocalSnnInitState = { kind, phase: 'fresh' };
       _lastInitState.set(kind, state);
       emitLocalSnnInitState(state);

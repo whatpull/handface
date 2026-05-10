@@ -47,6 +47,35 @@ import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './roo
 import { incrementCount } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 
+// 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역 substrate
+// 별 localStorage persist — page reload 영역 학습 상황 정합 보존 mandatory.
+// substrate 별 별도 KEY — orientation/gesture 분리 (out-exemplars 영역 정합).
+const TRIAL_COUNT_KEY_PREFIX = 'handface.live-snn.trial-count.v1';
+function trialCountKey(kind: SubstrateKind): string {
+  return `${TRIAL_COUNT_KEY_PREFIX}.${kind}`;
+}
+function loadTrialCount(kind: SubstrateKind): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = window.localStorage.getItem(trialCountKey(kind));
+    if (!raw) return 0;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch { return 0; }
+}
+function saveTrialCount(kind: SubstrateKind, n: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(trialCountKey(kind), String(n));
+  } catch { /* quota — silent */ }
+}
+function clearTrialCount(kind: SubstrateKind): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(trialCountKey(kind));
+  } catch { /* noop */ }
+}
+
 export interface LiveTickDetail {
   rates: number[];
   winner: number; // -1 = silent
@@ -112,6 +141,14 @@ export class LiveSnn {
   private opts: Required<LiveSnnOptions>;
   private patternRef: number[] = new Array(16).fill(0);
   private tickInFlight = false;
+  // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix):
+  //   "새로고침시 학습 상황이 초기화 되는데, 이는 유지되었으면 좋겠습니다".
+  //   root cause — trialCount 영역 in-memory only (singleton field) →
+  //   page reload 영역 fresh init 영역 0 reset → NodeLearn '학습 #N' counter
+  //   영역 0 표시 → 사용자 mental model "학습 상황 초기화". 정정: substrate
+  //   별 localStorage persist + reload hydrate. exemplars 영역 이미 localStorage
+  //   영역 persist 정합 — 본 path 영역 trialCount 영역만 보강 (학습 횟수
+  //   누적 visibility mandatory).
   private trialCount = 0;
   // 사용자 catch 2026-05-09 (Live 모드 broken state — fix/live-mode-substrate-init):
   // OUT count 영역 직전 use-hand-control (camera path) 영역만 trigger → Live grid
@@ -158,6 +195,11 @@ export class LiveSnn {
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
+    // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역
+    // localStorage hydrate — page reload 영역 학습 횟수 보존 정합. default
+    // substrate ('orientation') 영역 hydrate — input-mode event 영역 substrate
+    // 변경 시점 영역 별도 hydrate (setSubstrate 영역 swap path).
+    this.trialCount = loadTrialCount(this.substrateKind);
     // input-mode event listener — NodeInput tab change 영역 emit 영역 정합.
     //   mode='camera' → substrate='gesture'
     //   mode='grid'   → substrate='orientation'
@@ -223,7 +265,11 @@ export class LiveSnn {
     // trialCounts: Record 영역 swap 영역 가능 path 단 본 정정 영역 단순 reset
     // 영역 catch path (사용자 영역 substrate switch 영역 trial 누적 영역 mental
     // model 영역 0 영역 정합).
-    this.trialCount = 0;
+    //
+    // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): substrate switch 시
+    // 영역 신규 substrate 영역 trialCount 영역 localStorage hydrate — substrate
+    // 별 학습 횟수 영역 별도 보존 (orientation/gesture isolation 정합).
+    this.trialCount = loadTrialCount(kind);
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(16).fill(0);
   }
@@ -251,6 +297,9 @@ export class LiveSnn {
    */
   resetTrigger(): void {
     this.trialCount = 0;
+    // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): 학습 reset 영역
+    // localStorage trialCount 영역 wipe — fresh trial counter mandatory.
+    clearTrialCount(this.substrateKind);
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(16).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
@@ -977,8 +1026,38 @@ export class LiveSnn {
       // MEDIUM #11 (2026-05-11): race-gate remove — 진행 종료 (성공/실패 무관)
       // 영역 cluster id 영역 unregister. emitTick incrementCount 영역 다음 frame
       // 영역 정상 갱신.
+      //
+      // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix):
+      //   "갑작스럽게 패턴4 학습이 완료되었는데 사라짐 (다른 패턴 추론시 사라졌음)".
+      //   root cause — 30회 reinforce 진행 중 _autoLearnInFlight gate 영역
+      //   incrementCount skip → 학습 완료 시점 영역 신규 cluster 영역 영구
+      //   incrementCount fire 영역 0 → exemplars 영역 신규 cluster 영역 store
+      //   영역 영역 → 다음 winner 변경 시점 영역 신규 cluster row 영역 cluster
+      //   row source (exemplars + winner.cluster floor) 영역 derive 영역 0
+      //   → cluster row 영역 사라짐. 정정: 학습 완료 시점 영역 신규 cluster
+      //   영역 explicit incrementCount fire — exemplars 영역 신규 cluster 영역
+      //   영구 commit (학습 완료 commit semantic 정합). lastWinnerCluster 영역
+      //   신규 cluster 영역 set — 다음 emitTick 영역 동일 cluster winner 영역
+      //   double-increment 회피 (idempotent gate 정합).
+      //
+      // 정직 한계: success path 영역만 commit — fail path (catch) 영역 신규
+      // cluster 영역 worker registry 영역 spawn 영역 정합 단 weight 영역 미수렴
+      // 영역 fresh build path 영역 stale exemplar 회피 정합 (registeredClusterId
+      // null check 영역 success path catch).
       if (registeredClusterId !== null) {
         this._autoLearnInFlight.delete(registeredClusterId);
+        // 학습 완료 commit — 신규 cluster 영역 exemplars 영역 영구 fire (race-gate
+        // skip 영역 missing commit 영역 정정). featSnap 영역 학습 영역 사용된
+        // pattern 영역 보존 (legacy export JSON path 호환).
+        try {
+          const featSnap = this.patternRef.slice();
+          incrementCount(`out_${registeredClusterId}_0`, this.substrateKind, featSnap);
+          // 다음 emitTick 영역 동일 cluster winner 영역 idempotent skip 정합 —
+          // lastWinnerCluster 영역 신규 cluster 영역 set (double-increment 회피).
+          this.lastWinnerCluster = registeredClusterId;
+        } catch (e) {
+          console.warn('[LiveSnn] auto-learn commit incrementCount failed:', e);
+        }
       }
     }
   }
@@ -1039,6 +1118,11 @@ export class LiveSnn {
     v2FireCount = 0,
   ): void {
     if (typeof window === 'undefined') return;
+    // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역
+    // localStorage persist — page reload 영역 학습 횟수 정합 보존. emitTick
+    // 영역 trialCount++ 직후 영역 single-source persist path (4개 trialCount++
+    // 호출 path 영역 모두 emitTick 영역 도달 정합 — 중복 path 회피).
+    saveTrialCount(this.substrateKind, this.trialCount);
     const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
       rates: cfr.rates,

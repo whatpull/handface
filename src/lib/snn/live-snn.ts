@@ -782,6 +782,9 @@ export class LiveSnn {
       winner: -1,
       share: 0,
       margin: 0,
+      // Fix #22 (사용자 catch 2026-05-10): silent path → inputMatch=0 정합
+      // (silent / no winner — vigilance miss path 영역 spawn 자연 catch).
+      inputMatch: 0,
       layer: 'OUT',
     };
     this.emitTick(silentCfr, 0, 0, {
@@ -814,8 +817,23 @@ export class LiveSnn {
       const { pattern, vigilance } = pending;
       const margin = payload.cfr.margin;
       const winner = payload.cfr.winner;
-      // novel pattern 영역 catch — winner -1 (silent) 또는 margin < vigilance.
-      if (winner < 0 || margin < vigilance) {
+      // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이
+      // 학습이 안됨): Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 —
+      // |I ∩ T| / |I| (input ∩ winner template / input). 직전 margin (rate-based
+      // (max-second)/max) 영역 단일 cluster 영역 항상 1.0 (max=max, second=0)
+      // → vigilance 영역 영원히 pass → 신규 input pattern 영역 spawn 0 영역
+      // root cause. inputMatch (worker-core 영역 산출) 영역 신규 input pattern
+      // 영역 winner cluster 영역 activeInputs 영역 영역 영역 영역 0.0 → vigilance
+      // miss → expandClusterAsync (cluster 2 spawn) → 30회 reinforce → 패턴 2 winner.
+      // 정직 한계: 직전 margin path 영역 다중 cluster 영역 ambiguous winner
+      // discrimination 영역 영역 — inputMatch 영역 input vs template 영역 직접
+      // 매칭 영역 catch 영역 ART canonical 정합 영역 입력 pattern novelty 영역
+      // 정확 catch 영역 우선 (margin path 영역 fallback 0 — 단일 정의).
+      const inputMatch = payload.cfr.inputMatch;
+      // novel pattern 영역 catch — winner -1 (silent) 또는 inputMatch < vigilance.
+      // (margin reference retain — debug / future fallback path 영역 0 mutation).
+      void margin;
+      if (winner < 0 || inputMatch < vigilance) {
         // active inputs 영역 pattern 영역 v > 0.5 binary catch.
         const activeInputs: number[] = [];
         for (let i = 0; i < pattern.length; i += 1) {

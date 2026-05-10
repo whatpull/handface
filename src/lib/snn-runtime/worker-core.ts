@@ -505,11 +505,34 @@ export class SNNWorkerCore {
         second = rates[i];
       }
     }
+    // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이 학습이 안됨):
+    // Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 — |I ∩ T| / |I|.
+    // winner cluster 영역 activeInputs (학습 영역 hard-wired sub-pool) 영역 영역
+    // input pattern (active cells) 영역 overlap 영역 normalize. 신규 input pattern
+    // 영역 winner template 영역 0.0 → live-snn vigilance miss → expandCluster spawn.
+    // pattern 미동봉 (legacy path) 영역 1.0 fallback (vigilance pass — backward compat).
+    let inputMatch = 1.0;
+    if (activeIdx && winner >= 0 && total > 0) {
+      const winnerSlot = registry.slots[winner];
+      const inputSize = activeIdx.size;
+      if (inputSize > 0) {
+        let intersection = 0;
+        for (const ai of winnerSlot.activeInputs) {
+          if (activeIdx.has(ai)) intersection += 1;
+        }
+        inputMatch = intersection / inputSize;
+      } else {
+        inputMatch = 0;
+      }
+    } else if (winner < 0 || total <= 0) {
+      inputMatch = 0;
+    }
     return {
       rates,
       winner: total > 0 ? winner : -1,
       share: total > 0 ? max / total : 0,
       margin: max > 0 ? (max - second) / max : 0,
+      inputMatch,
       layer,
     };
   }
@@ -917,11 +940,33 @@ export class SNNWorkerCore {
           measureSecond = measureRates[i];
         }
       }
+      // Fix #22 (사용자 catch 2026-05-10): inputMatch 영역 reinforce path 영역
+      // 동일 산출 — winner template 영역 input pattern overlap ratio. reinforce
+      // 영역 supervised target 영역 catch 영역 vigilance 영역 직접 적용 0 단
+      // protocol 정합 catch 영역 동일 field 영역 emit (caller 영역 inspect 가능).
+      const reinforceRegistry = this.requireRegistry();
+      const reinforceActiveIdx = new Set(
+        payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
+      );
+      let reinforceInputMatch = 1.0;
+      if (measureWinner >= 0 && reinforceActiveIdx.size > 0) {
+        const winnerSlot = reinforceRegistry.slots[measureWinner];
+        if (winnerSlot) {
+          let intersection = 0;
+          for (const ai of winnerSlot.activeInputs) {
+            if (reinforceActiveIdx.has(ai)) intersection += 1;
+          }
+          reinforceInputMatch = intersection / reinforceActiveIdx.size;
+        }
+      } else if (measureWinner < 0 || reinforceActiveIdx.size === 0) {
+        reinforceInputMatch = 0;
+      }
       const cfr: ClusterFiringRatesResult = {
         rates: measureRates,
         winner: measureWinner,
         share: measureTotal > 0 ? measureMax / measureTotal : 0,
         margin: measureMax > 0 ? (measureMax - measureSecond) / measureMax : 0,
+        inputMatch: reinforceInputMatch,
         layer: 'OUT',
       };
       const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });

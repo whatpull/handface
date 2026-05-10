@@ -41,8 +41,24 @@ export default function NodeInfer() {
     setExemplars(loadExemplars(substrate));
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
+
+  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
+  // 학습 진행 중 catch — INFER 노드 상단 영역 visible "학습 중 — 추론 대기"
+  // hint mandatory (NodeOut "처리 중" 영역 동일 패턴).
+  // 사용자 catch 2026-05-11 (cluster-source-unify): hoist 영역 — winner 영역
+  // clusterLabels 영역 dependency catch (TDZ 회피).
+  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
+
   // Fix #19 (사용자 catch 2026-05-10): zero-init — 학습된 cluster 영역만 표시.
   // 직전 base 4 영역 무학습 시점 영역 stale '패턴 1..4' 영역 표시.
+  //
+  // 사용자 catch 2026-05-11 (cluster-source-unify): winner.cluster floor — OUT
+  // 노드 영역 winner fallback 정합 path. PipelineEventContext 영역 winner 영역 fire
+  // 영역 영역 cluster row 영역 표시 (winner.cluster + 1 floor) — exemplars 영역
+  // incrementCount 영역 미fire 영역 영역 (학습 0회 정합) 영역 영역 winner derive
+  // 영역 fire 영역 영역 영역 cluster bar 영역 표시.
+  const winnerCluster = winner.cluster;
   const clusterLabels = useMemo(() => {
     let n = 0;
     for (const k of Object.keys(exemplars)) {
@@ -52,8 +68,9 @@ export default function NodeInfer() {
         if (ci > n) n = ci;
       }
     }
+    if (winnerCluster !== null && winnerCluster + 1 > n) n = winnerCluster + 1;
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode]);
+  }, [exemplars, inputMode, winnerCluster]);
 
   // PR-K (Phase 5, 사용자 catch 2026-05-09 catch 3): fresh state init —
   // trial=0 + initState='fresh' 영역 winner card hide. NodeLearn LiveLearnPanel
@@ -93,11 +110,8 @@ export default function NodeInfer() {
     };
   }, []);
 
-  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
-  // 학습 진행 중 catch — INFER 노드 상단 영역 visible "학습 중 — 추론 대기"
-  // hint mandatory (NodeOut "처리 중" 영역 동일 패턴).
-  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
+  // 사용자 catch 2026-05-11 (cluster-source-unify): winner 영역 hoist 영역 위 —
+  // 본 위치 영역 saturated 영역만 catch 정합.
   const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
 
   // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
@@ -147,10 +161,14 @@ export default function NodeInfer() {
   // 다른 gate (LEARN: tick.trial===0 / INFER: phase 영역 추가 gate) 영역 모순
   // path 영역 단일 source. isLiveMode 영역 INFER 영역 별도 outer gate (Live 모드
   // 영역만 fresh state 영역 catch 영역 정합).
+  // 사용자 catch 2026-05-11 (cluster-source-unify): winnerCluster 영역 untrustworthy
+  // gate 영역 추가 — NodeOut winner fallback 영역 정합. winner.cluster !== null 영역
+  // → fresh banner 영역 hide → winner card 영역 표시 (OUT 영역 동일 표시 정합).
   const isFreshUntrained = isLiveMode && isUntrustworthy({
     initPhase: initState?.phase,
     phaseName: phase === null ? null : pname,
     clusterLabelCount: clusterLabels.length,
+    winnerCluster: winner.cluster,
   });
 
   return (

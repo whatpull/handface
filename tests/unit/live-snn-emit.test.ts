@@ -324,7 +324,8 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     // trigger 1: winner=0 (mock default) → out_0_0 영역 1회 increment.
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', expect.any(Array));
+    // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation', expect.any(Array));
 
     // trigger 2: winner 동일 (0) — idempotent (call count 1 유지).
     await snn.triggerOnce({ force: true });
@@ -342,7 +343,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     });
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2); // 1 + 1
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
     snn.dispose();
   });
 

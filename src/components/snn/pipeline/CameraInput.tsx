@@ -37,6 +37,8 @@ import {
   sharpenForGesture,
 } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
+import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
+import { clearExemplars } from '@/lib/snn/out-exemplars';
 import {
   GESTURE_LABEL_TO_CLUSTER,
   GESTURE_CONFIDENCE_MIN,
@@ -355,6 +357,30 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     });
   }, [engineMode]);
 
+  // 사용자 catch 2026-05-09 [2] (Fix 5): mirror — CAMERA path 영역 substrate-aware
+  // reset ('gesture'). GridInput 영역 'orientation' 정합. clearExemplars 영역 UI
+  // count 영역 동시 0 (substrate isolation 정합 — 다른 substrate 영역 보존).
+  const resetLearningLive = useCallback(async () => {
+    if (engineMode !== 'live') return;
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        '학습 가중치 + 학습 횟수 영역 fresh build default 영역 restore 하시겠습니까?\n\n현재 학습 영역 모두 폐기 — 사용자 catch 영역 saturation escape 영역 mandatory.',
+      );
+      if (!confirmed) return;
+    }
+    setStatus({ kind: 'building' });
+    try {
+      const root = await getRootLocalSnnFor('gesture');
+      await root.client.resetClusterWeights();
+      await root.lab.save();
+      clearExemplars('gesture');
+      setStatus({ kind: 'ok', message: '학습 가중치 + 학습 횟수 영역 reset 완료' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });
+    }
+  }, [engineMode]);
+
   const runInfer = useCallback(async () => {
     if (lastFeatureRef.current === null) {
       setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
@@ -497,6 +523,23 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
             }
           >
             추론
+          </button>
+        </div>
+      )}
+      {/* 사용자 catch 2026-05-09 [2] (Fix 5): Live 모드 영역 학습 reset button —
+          GridInput 영역 mirror. substrate='gesture' 영역 catch (CAMERA path).
+          GRID(orientation) 영역 별도 보존 — substrate isolation. */}
+      {isLiveMode && (
+        <div className="snn-grid-actions">
+          <button
+            type="button"
+            className="snn-grid-reset-btn snn-grid-reset-btn--danger"
+            onClick={resetLearningLive}
+            disabled={isBusy}
+            aria-label="학습 가중치 reset — fresh build restore (gesture)"
+            title="학습 가중치 + 학습 횟수 영역 fresh build default 영역 restore — saturation escape mandatory"
+          >
+            학습 reset
           </button>
         </div>
       )}

@@ -36,6 +36,13 @@ export interface LocalSNNOptions {
   //   layering 보존 — snn-runtime 영역 backend events / UI 영역 import 0
   //   (callback 영역 caller injection).
   onStaleCacheReset?: (reason: 'schema-mismatch' | 'weight-length-mismatch') => void;
+  // 사용자 catch 2026-05-09 [2] (Fix 4 — MEDIUM): DB hydrate state visibility
+  //   — fresh build vs hydrate 영역 시각 catch 0 영역 사용자 catch — "기존에
+  //   학습된 데이터가 DB에 존재하는지, 학습이 제로인 상태에서 추론을 하게 되는건지
+  //   궁금" — 정직 path. caller 영역 NodeLearn footer status row 영역 fresh /
+  //   hydrate (마지막 학습 시점) 영역 표시. layering 보존.
+  onFreshBuild?: () => void;
+  onHydrateLoaded?: (info: { savedAt: number; rev: number }) => void;
 }
 
 export interface LocalSNNStatus {
@@ -84,11 +91,18 @@ export class LocalSNN {
         this.rev = persistedWeights.rev;
         this.prevWeights = persistedWeights;
         this.lastSavedAt = persistedWeights.savedAt;
+        // 사용자 catch 2026-05-09 [2] (Fix 4): hydrate 영역 catch — caller 영역
+        // NodeLearn footer 영역 마지막 학습 시점 영역 표시 (학습 진행 visibility).
+        this.opts.onHydrateLoaded?.({
+          savedAt: persistedWeights.savedAt,
+          rev: persistedWeights.rev,
+        });
       } else {
         // 가중치 길이 mismatch — 토폴로지/가중치 schema 불일치. fresh build.
         // PR #189 polish UX-1: stale cache reject 영역 silent catch 회피 — caller 영역 toast 발화.
         this.opts.onStaleCacheReset?.('weight-length-mismatch');
         await this.persistFreshBuild();
+        this.opts.onFreshBuild?.();
       }
     } else {
       // PR #189 polish UX-1: schema:1 (legacy v1) topology + 가중치 동시 보존
@@ -111,6 +125,10 @@ export class LocalSNN {
       this.neuronsCount = built.neuronsAdded;
       this.synapsesCount = built.synapsesAdded;
       await this.persistFreshBuild();
+      // 사용자 catch 2026-05-09 [2] (Fix 4): fresh build 영역 catch — caller 영역
+      // NodeLearn footer 영역 '학습 0회 — fresh' 영역 정직 표시 (사용자 영역
+      // "학습이 제로인 상태에서 추론" 영역 mental model 영역 직접 정합 path).
+      this.opts.onFreshBuild?.();
     }
     return this.status();
   }

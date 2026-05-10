@@ -18,6 +18,7 @@ import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInf
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
+import { clearExemplars } from '@/lib/snn/out-exemplars';
 
 // 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
 // only 영역 일관 정합. 직전 '─ horizontal' / '│ vertical' / '╲ diag-back' /
@@ -121,11 +122,16 @@ export default function GridInput() {
   // horizontal lock-in 영역 IndexedDB 영속 영역 새로고침 영역 escape 0 영역
   // mandatory escape path. Backend 모드 영역 본 path 영역 호출 0 (backend net
   // 영역 별도 lifecycle).
+  // 사용자 catch 2026-05-09 [2] (Fix 5): substrate-aware reset — 직전 'orientation'
+  // hard-code 영역 GRID 영역 정합 단 GridInput 영역 GRID 전용 영역 정합 보존.
+  // CameraInput 영역 별도 mirror reset 영역 'gesture' 영역 정합. clearExemplars
+  // 영역 UI count 영역 동시 0 (사용자 catch — backend reset 후 UI 영역 stale count
+  // 영역 carry-over 회피).
   const resetLearningLive = useCallback(async () => {
     if (engineMode !== 'live') return;
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(
-        '학습 가중치 영역 fresh build default 영역 restore 하시겠습니까?\n\n현재 학습 영역 모두 폐기 — 사용자 catch 영역 saturation escape 영역 mandatory.',
+        '학습 가중치 + 학습 횟수 영역 fresh build default 영역 restore 하시겠습니까?\n\n현재 학습 영역 모두 폐기 — 사용자 catch 영역 saturation escape 영역 mandatory.',
       );
       if (!confirmed) return;
     }
@@ -135,7 +141,9 @@ export default function GridInput() {
       await root.client.resetClusterWeights();
       // saveDebounced 영역 우회 — 직접 lab.save 영역 fresh weight 영속.
       await root.lab.save();
-      setStatus({ kind: 'ok', message: '학습 가중치 영역 reset 완료 — 4 cluster 영역 fresh' });
+      // UI count 영역 substrate-aware clear — backend reset 영역 정합 path.
+      clearExemplars('orientation');
+      setStatus({ kind: 'ok', message: '학습 가중치 + 학습 횟수 영역 reset 완료' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });

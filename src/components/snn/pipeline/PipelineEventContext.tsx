@@ -34,6 +34,7 @@ import {
 import {
   onBackendEvent,
   type NeuronFiringDetail,
+  type InputModeDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
@@ -102,10 +103,21 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
       setDetail(null);
       setTs(null);
     });
+    // 사용자 catch 2026-05-09 (Fix 3 — HIGH): input-mode swap (GRID ↔ CAMERA)
+    // 시점 영역 lastDetail / ts 영역 reset — 직전 GRID 추론 winner 영역 CAMERA
+    // mode 영역 stale 표시 catch 회피. PipelineEventContext 영역 모든 자손
+    // (NodeOut / NodeInfer / NodeLearn) 영역 winner reset 영역 정합 path.
+    // 학술 정합: substrate isolation — substrate 영역 별도 회로 영역 winner
+    // 영역 substrate switch 영역 무관.
+    const offInputMode = onBackendEvent<InputModeDetail>('input-mode', () => {
+      setDetail(null);
+      setTs(null);
+    });
     return () => {
       off();
       offHand();
       offCleared();
+      offInputMode();
       mountedRef.current = false;
     };
   }, []);

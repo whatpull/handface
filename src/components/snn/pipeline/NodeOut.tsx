@@ -88,6 +88,10 @@ export default function NodeOut() {
   // 잔여 firing) 영역 stale '패턴 1..4' 영역 표시 → 사용자 catch "학습되지
   // 않았는데 자동으로 패턴1, 패턴2, 패턴3, 패턴4가 추론" 영역 root cause.
   // 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기.
+  // 사용자 catch 2026-05-11 (cluster-source-unify): winner.cluster 영역 floor —
+  // exemplars 영역 incrementCount 영역 fire 0 영역 영역 winner 영역 fire 영역
+  // 영역 cluster row 영역 표시 (winner cluster id + 1 floor). LEARN/INFER 영역
+  // 동일 source 정합 — 3 노드 영역 동일 cluster row 표시.
   const clusterCount = useMemo(() => {
     let n = 0;
     for (const k of Object.keys(exemplars)) {
@@ -97,8 +101,9 @@ export default function NodeOut() {
         if (ci > n) n = ci;
       }
     }
+    if (winner.cluster !== null && winner.cluster + 1 > n) n = winner.cluster + 1;
     return n;
-  }, [exemplars]);
+  }, [exemplars, winner.cluster]);
 
   return (
     <NodeShell

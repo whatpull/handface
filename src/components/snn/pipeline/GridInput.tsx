@@ -127,23 +127,39 @@ export default function GridInput() {
   // CameraInput 영역 별도 mirror reset 영역 'gesture' 영역 정합. clearExemplars
   // 영역 UI count 영역 동시 0 (사용자 catch — backend reset 후 UI 영역 stale count
   // 영역 carry-over 회피).
+  // PR-J (사용자 catch 2026-05-09 [2]): 양 substrate 영역 완벽 isolated reset.
+  // sequence:
+  //   1. resetClusterWeights — worker 영역 fresh build (net.t=0, weights 0,
+  //      thresholds 0, monitor clear).
+  //   2. live.resetTrigger() — trial/lastWinnerCluster/patternRef 영역 0.
+  //   3. clearExemplars(substrate) — UI count 영역 substrate-aware clear.
+  //   4. lab.save() — fresh weights 영역 영속 (다음 reload 영역 stale lock-in 0).
+  // substrate isolation — 'orientation' 영역만 reset (PR-G 영역 정합) — 'gesture'
+  // 영역 별도 LocalSNN + 별도 IndexedDB store 영역 보존.
   const resetLearningLive = useCallback(async () => {
     if (engineMode !== 'live') return;
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(
-        '학습 가중치 + 학습 횟수 영역 fresh build default 영역 restore 하시겠습니까?\n\n현재 학습 영역 모두 폐기 — 사용자 catch 영역 saturation escape 영역 mandatory.',
+        '학습 가중치 + 학습 횟수 + 추론 결과 영역 모두 reset 하시겠습니까?\n\n양 substrate (GRID/CAMERA) 영역 별도 학습 weight 영역 완벽 분리 — reset 영역 현재 GRID(orientation) substrate 영역만 적용. CAMERA(gesture) 학습 영역 보존.',
       );
       if (!confirmed) return;
     }
     setStatus({ kind: 'building' });
     try {
       const root = await getRootLocalSnnFor('orientation');
+      // Step 1: worker fresh build — net.t / synapses / thresholds / monitor 모두 0.
       await root.client.resetClusterWeights();
-      // saveDebounced 영역 우회 — 직접 lab.save 영역 fresh weight 영속.
-      await root.lab.save();
-      // UI count 영역 substrate-aware clear — backend reset 영역 정합 path.
+      // Step 2: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+      try {
+        getLiveSnn().resetTrigger();
+      } catch {
+        // SSR / 미초기화 — 무시.
+      }
+      // Step 3: UI count 영역 substrate-aware clear (PR-G 영역 보존).
       clearExemplars('orientation');
-      setStatus({ kind: 'ok', message: '학습 가중치 + 학습 횟수 영역 reset 완료' });
+      // Step 4: fresh weights 영역 영속 — saveDebounced 우회 직접 lab.save.
+      await root.lab.save();
+      setStatus({ kind: 'ok', message: '학습 가중치 · trial · 추론 결과 모두 reset 완료' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });
@@ -576,59 +592,58 @@ export default function GridInput() {
         ))}
       </div>
 
+      {/* PR-J (사용자 catch 2026-05-09 [1]): 패턴 보강 button 영역 본격 폐기 —
+          학습 button (cluster 별) 영역 click 영역 setPattern + reinforce 자동 통합.
+          직전 영역 cluster row 영역 [preset cluster N] [현재 패턴 보강] 영역 2 button
+          → 단일 [학습 N] button 영역 통합 (cluster 별 1 button). 사용자 catch:
+          "클러스터의 별도 패턴 보강 불필요(학습시 자동 패턴 보강 수행)".
+          live mode: applyPreset 영역 setPattern + reinforceAsync(clusterIdx, 0.8)
+                     영역 자동 호출.
+          backend mode: 직전 trainPreset path 영역 보존 — applyPreset + train. */}
       <div className="snn-grid-presets">
         {ORIENTATION_LABELS.map((label, i) => (
           <div key={i} className="snn-grid-preset-row">
             <button
               type="button"
-              className="snn-grid-preset-btn"
-              onClick={() => applyPreset(i)}
-              disabled={isBusy && !isLiveMode}
-              title={label}
-            >
-              {/* 사용자 catch 2026-05-09 (2 신규 catch): cluster N 앞 glyph 본격 제거. */}
-              <span className="snn-grid-preset-label">cluster {i}</span>
-            </button>
-            <button
-              type="button"
-              className="snn-grid-train-btn"
+              className="snn-grid-train-btn snn-grid-train-btn--unified"
               onClick={
                 isLiveMode
-                  ? () => reinforceLive(i as 0 | 1 | 2 | 3)
-                  : () => trainPreset(i as 0 | 1 | 2 | 3)
+                  ? () => {
+                      // PR-J: applyPreset (setPattern) + reinforceAsync 통합 —
+                      // 사용자 1-click 영역 패턴 set + 학습 trigger 동시.
+                      applyPreset(i);
+                      reinforceLive(i as 0 | 1 | 2 | 3);
+                    }
+                  : () => {
+                      applyPreset(i);
+                      void trainPreset(i as 0 | 1 | 2 | 3);
+                    }
               }
               disabled={
                 (isBusy && !isLiveMode) ||
                 (isLiveMode && reinforcingCluster !== null)
               }
               aria-busy={isLiveMode && reinforcingCluster === i}
-              /* UX-6 (PR #191 polish, 2026-05-10): aria-label 0 catch —
-                 screen reader 영역 cluster-specific intent 명시 (live: 보강
-                 supervised R-STDP / batch: 학습). */
               aria-label={
                 isLiveMode
-                  ? `${label} 현재 패턴 보강 — supervised R-STDP`
+                  ? `${label} 학습 — supervised R-STDP (패턴 자동 보강)`
                   : `${label} 학습 — R-STDP batch`
               }
               title={
                 isLiveMode
                   ? reinforcingCluster === i
-                    ? `${label} 패턴 보강 진행 중…`
+                    ? `${label} 학습 진행 중…`
                     : reinforcingCluster !== null
-                      ? '다른 cluster 패턴 보강 진행 중 — 잠시 대기'
-                      : `${label} 현재 패턴 보강 (R-STDP gain ↑ — winner cluster boosting)`
+                      ? '다른 cluster 학습 진행 중 — 잠시 대기'
+                      : `${label} 학습 — preset 영역 set + R-STDP supervised 자동 보강`
                   : `${label} 학습 (R-STDP, batch)`
               }
             >
-              {/* 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 R-STDP cluster-
-                  specific gradient 0 영역 정직 라벨 swap — '현재 패턴 보강' (winner
-                  cluster boosting only, Florian 2007 / Izhikevich 2007 R-STDP 정합
-                  영역 정직 한계 — README 명시). */}
-              {isLiveMode
-                ? reinforcingCluster === i
-                  ? '보강 중…'
-                  : '현재 패턴 보강'
-                : '학습'}
+              {/* PR-J: 단일 button label — cluster 정합 + '학습 N' 영역 사용자
+                  명시 catch (보강 별도 button 폐기 + 학습 영역 자동 reinforce). */}
+              {isLiveMode && reinforcingCluster === i
+                ? `학습 ${i} 진행 중…`
+                : `학습 ${i} (${label})`}
             </button>
           </div>
         ))}

@@ -360,21 +360,34 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // 사용자 catch 2026-05-09 [2] (Fix 5): mirror — CAMERA path 영역 substrate-aware
   // reset ('gesture'). GridInput 영역 'orientation' 정합. clearExemplars 영역 UI
   // count 영역 동시 0 (substrate isolation 정합 — 다른 substrate 영역 보존).
+  // PR-J (사용자 catch 2026-05-09 [2]): 양 substrate 영역 완벽 isolated reset
+  // mirror — GridInput 영역 정합. substrate='gesture' 영역만 reset — orientation
+  // 영역 별도 LocalSNN + 별도 IndexedDB store 영역 보존 (PR-G isolation 정합).
+  // sequence: resetClusterWeights → live.resetTrigger → clearExemplars → lab.save.
   const resetLearningLive = useCallback(async () => {
     if (engineMode !== 'live') return;
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(
-        '학습 가중치 + 학습 횟수 영역 fresh build default 영역 restore 하시겠습니까?\n\n현재 학습 영역 모두 폐기 — 사용자 catch 영역 saturation escape 영역 mandatory.',
+        '학습 가중치 + 학습 횟수 + 추론 결과 영역 모두 reset 하시겠습니까?\n\n양 substrate (GRID/CAMERA) 영역 별도 학습 weight 영역 완벽 분리 — reset 영역 현재 CAMERA(gesture) substrate 영역만 적용. GRID(orientation) 학습 영역 보존.',
       );
       if (!confirmed) return;
     }
     setStatus({ kind: 'building' });
     try {
       const root = await getRootLocalSnnFor('gesture');
+      // Step 1: worker fresh build — net.t / synapses / thresholds / monitor 모두 0.
       await root.client.resetClusterWeights();
-      await root.lab.save();
+      // Step 2: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+      try {
+        getLiveSnn().resetTrigger();
+      } catch {
+        // SSR / 미초기화 — 무시.
+      }
+      // Step 3: UI count 영역 substrate-aware clear.
       clearExemplars('gesture');
-      setStatus({ kind: 'ok', message: '학습 가중치 + 학습 횟수 영역 reset 완료' });
+      // Step 4: fresh weights 영역 영속.
+      await root.lab.save();
+      setStatus({ kind: 'ok', message: '학습 가중치 · trial · 추론 결과 모두 reset 완료' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });
@@ -458,12 +471,14 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         </div>
       </div>
 
+      {/* PR-J (사용자 catch 2026-05-09 [1]): 패턴 보강 button 영역 본격 폐기 —
+          학습 button (cluster 별 단일) 영역 click 영역 자동 reinforce 통합 (직전
+          live 모드 영역 reinforceLive 영역 동일 path 영역 'reinforce 자동' semantic
+          영역 정합 label swap). cluster preset 영역 static span 보존 (CAMERA path
+          영역 hand-feature 영역 setPattern 영역 별도 — preset apply path 0). */}
       <div className="snn-grid-presets">
         {GESTURE_LABELS.map((label, i) => (
           <div key={i} className="snn-grid-preset-row">
-            {/* 사용자 catch 2026-05-09 [1]: gesture cluster preset button 영역
-                disabled button 영역 noise (interactive disabled) → static span swap.
-                gesture preset 영역 클릭 의미 0 (cluster slot label 영역만). */}
             <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
               <span className="snn-grid-preset-label">cluster {i}</span>
             </span>
@@ -481,6 +496,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                 (isLiveMode && reinforcingCluster !== null)
               }
               aria-busy={isLiveMode && reinforcingCluster === i}
+              aria-label={
+                isLiveMode
+                  ? `${label} 학습 — supervised R-STDP (패턴 자동 보강)`
+                  : `${label} 학습 — R-STDP`
+              }
               title={
                 !cameraConnected
                   ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
@@ -488,20 +508,18 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
                     ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
                     : isLiveMode
                       ? reinforcingCluster === i
-                        ? `${label} 패턴 보강 진행 중…`
+                        ? `${label} 학습 진행 중…`
                         : reinforcingCluster !== null
-                          ? '다른 cluster 패턴 보강 진행 중 — 잠시 대기'
-                          : `${label} 현재 패턴 보강 (R-STDP gain ↑ — winner cluster boosting)`
+                          ? '다른 cluster 학습 진행 중 — 잠시 대기'
+                          : `${label} 학습 — R-STDP supervised 자동 보강 (현재 자세)`
                       : `${label} 학습 (R-STDP)`
               }
             >
-              {/* 사용자 catch 2026-05-09 (QA HIGH-1): '강화' 영역 R-STDP cluster-
-                  specific gradient 0 영역 정직 라벨 swap — '현재 패턴 보강'. */}
-              {isLiveMode
-                ? reinforcingCluster === i
-                  ? '보강 중…'
-                  : '현재 패턴 보강'
-                : '학습'}
+              {/* PR-J: '현재 패턴 보강' 영역 '학습 N' 영역 swap — 사용자 catch
+                  '학습시 자동 패턴 보강 수행' 영역 정합 (보강 자동 catch). */}
+              {isLiveMode && reinforcingCluster === i
+                ? `학습 ${i} 진행 중…`
+                : `학습 ${i} (${label})`}
             </button>
           </div>
         ))}

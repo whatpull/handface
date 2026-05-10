@@ -1865,15 +1865,25 @@
    novelty mode toggle. backend mode (engineMode='backend') 영역만 노출 —
    collapse default 영역 '고급 옵션' 영역 펼침 시 노출. WCAG touch target
    ≥ 44px (min-height 44 + slider/toggle 영역 32px+). */
+/* 사용자 catch 2026-05-10 (Request A): 고급 옵션 panel 영역 INPUT 노드
+   영역 width 영역 overflow 정정 — box-sizing border-box + width 100% +
+   max-width 100% + min-width 0 영역 cascade 정합 (slider/number-input 영역
+   flex-basis 영역 차지 영역 wrap 회피). */
 .snn-grid-vigilance-panel {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-toggle {
   font-size: 11px;
   opacity: 0.85;
   min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-body {
   display: flex;
@@ -1884,29 +1894,49 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   background: var(--pipe-surface);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .snn-grid-vigilance-mode-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 11px;
   color: var(--pipe-text-dim);
   min-height: 32px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.snn-grid-vigilance-mode-row > span {
+  flex: 1 1 0;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .snn-grid-vigilance-mode-checkbox {
   width: 18px;
   height: 18px;
   cursor: pointer;
+  flex: 0 0 auto;
 }
 .snn-grid-vigilance-mode-hint {
   display: block;
   opacity: 0.7;
   font-size: 10px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .snn-grid-vigilance-slider-wrap {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-slider-label {
   display: flex;
@@ -1918,13 +1948,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-slider-input {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 32px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-number-input {
-  width: 60px;
+  flex: 0 0 56px;
+  width: 56px;
+  max-width: 56px;
   min-height: 32px;
   padding: 4px 6px;
   font-size: 11px;
@@ -1933,6 +1971,7 @@
   border-radius: 3px;
   color: var(--pipe-text);
   font-family: monospace;
+  box-sizing: border-box;
 }
 .snn-grid-vigilance-foot-hint {
   font-size: 10px;

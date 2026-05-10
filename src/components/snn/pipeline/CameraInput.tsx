@@ -38,7 +38,7 @@ import {
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { sharpenForGesture } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
-import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
+import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
 import {
   GESTURE_LABEL_TO_CLUSTER,
@@ -230,33 +230,46 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // mirror — GridInput 영역 정합. substrate='gesture' 영역만 reset — orientation
   // 영역 별도 LocalSNN + 별도 IndexedDB store 영역 보존 (PR-G isolation 정합).
   // sequence: resetClusterWeights → live.resetTrigger → clearExemplars → lab.save.
+  // 사용자 catch 2026-05-10 (Request C): GridInput 영역 정합 — purgeAllLearningData
+  // 영역 단일 path (양 substrate IndexedDB + cache + localStorage wipe + reload).
   const resetLearningLive = useCallback(async () => {
     if (engineMode !== 'live') return;
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(
-        '학습 가중치 + 학습 횟수 + 추론 결과 영역 모두 reset 하시겠습니까?\n\n양 substrate (GRID/CAMERA) 영역 별도 학습 weight 영역 완벽 분리 — reset 영역 현재 CAMERA(gesture) substrate 영역만 적용. GRID(orientation) 학습 영역 보존.',
+        '학습 데이터 전체 삭제\n\n양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
       );
       if (!confirmed) return;
     }
     setStatus({ kind: 'building' });
     try {
-      const root = await getRootLocalSnnFor('gesture');
-      // Step 1: worker fresh build — net.t / synapses / thresholds / monitor 모두 0.
-      await root.client.resetClusterWeights();
-      // Step 2: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+      // Step 1: LiveSnn state-clear.
       try {
         getLiveSnn().resetTrigger();
       } catch {
         // SSR / 미초기화 — 무시.
       }
-      // Step 3: UI count 영역 substrate-aware clear.
+      // Step 2: 영속 + cache + localStorage 영역 wipe.
+      await purgeAllLearningData();
+      // Step 3: UI count 양 substrate clear.
+      clearExemplars('orientation');
       clearExemplars('gesture');
-      // Step 4: fresh weights 영역 영속.
-      await root.lab.save();
-      setStatus({ kind: 'ok', message: '학습 가중치 · trial · 추론 결과 모두 reset 완료' });
+      setStatus({
+        kind: 'ok',
+        message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
+      });
+      // Step 4: page reload 영역 fresh build (1500ms delay 영역 status 영역 visible).
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          try {
+            window.location.reload();
+          } catch {
+            // ignore
+          }
+        }, 1500);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
     }
   }, [engineMode]);
 

@@ -649,6 +649,90 @@ export class NeuronFaceClient {
     return r;
   }
 
+  // Fix #19 (사용자 catch 2026-05-10): auto train-or-spawn — vigilance-aware
+  // 단일 trigger. backend endpoint 기대 spec (별도 agent 영역 정합):
+  //   POST /networks/{id}/cluster/auto_train_or_spawn
+  //   body: { pattern: 16-vector, vigilance_threshold: 0..1, train_iterations: int }
+  //   response: { ok, cluster_idx, action: 'spawned' | 'trained',
+  //               train_iterations, top_share, n_cluster_after, ... }
+  // 사용자 명시 "추론시 자동 학습" + "동일 패턴 자동 강화" — 단일 path 영역
+  // vigilance miss → spawn + N회 R-STDP, vigilance pass → 동일 cluster N회
+  // R-STDP. INITIAL n_cluster=0 정합 path (backend agent 영역 default 0 갱신).
+  async clusterAutoTrainOrSpawn(
+    pattern: number[],
+    opts: {
+      vigilanceThreshold?: number;
+      trainIterations?: number;
+    } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    cluster_idx: number;
+    action: 'spawned' | 'trained';
+    train_iterations: number;
+    top_share: number;
+    n_cluster_after: number;
+    rates?: Record<string, number>;
+    rates_by_region?: Record<string, number>;
+    active_neurons_by_region?: Record<string, string[]>;
+    cluster_rates?: number[];
+    out_rates?: Record<string, number>;
+    reason?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const p16 = new Array<number>(16).fill(0);
+    for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+      const v = pattern[i];
+      p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+    }
+    const r = await this.request<{
+      ok: boolean;
+      cluster_idx: number;
+      action: 'spawned' | 'trained';
+      train_iterations: number;
+      top_share: number;
+      n_cluster_after: number;
+      rates?: Record<string, number>;
+      rates_by_region?: Record<string, number>;
+      active_neurons_by_region?: Record<string, string[]>;
+      cluster_rates?: number[];
+      out_rates?: Record<string, number>;
+      reason?: string;
+    }>(`/networks/${net.data}/cluster/auto_train_or_spawn`, {
+      method: 'POST',
+      body: {
+        pattern: p16,
+        vigilance_threshold: opts.vigilanceThreshold ?? 0.7,
+        train_iterations: opts.trainIterations ?? 30,
+      },
+    });
+    if (r.ok) {
+      const d = r.data;
+      // forward firing detail — neuron-firing 영역 V1/V2 cascade strip 정합.
+      if (d.rates || d.rates_by_region || d.cluster_rates) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          rates: d.rates,
+          rates_by_region: d.rates_by_region,
+          active_neurons_by_region: d.active_neurons_by_region,
+          out_rates: d.out_rates,
+          cluster_rates: d.cluster_rates,
+          winner_cluster: d.cluster_idx,
+        } as NeuronFiringDetail);
+      }
+      // spawn 영역 toast trigger — UI cluster row 영역 amber pulse 정합.
+      if (d.action === 'spawned') {
+        emitBackendEvent('cluster-spawned', {
+          clusterIdx: d.cluster_idx,
+          topShare: d.top_share,
+          margin: 0,
+        });
+      }
+      // training-changed 영역 NodeLearn 영역 weight delta refresh 정합.
+      emitBackendEvent('training-changed', { trained: d.train_iterations });
+    }
+    return r;
+  }
+
   // N4 cluster lock — incoming 시냅스 STDP 영구 off (backend ddb220e 정합).
   // backend endpoint: POST /networks/{id}/cluster_lock
   // body: {cluster_id: 0..15, lock: bool}

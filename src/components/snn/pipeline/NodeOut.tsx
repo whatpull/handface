@@ -75,13 +75,19 @@ export default function NodeOut() {
     ? (winnerEx?.label || getClusterLabel(winner.cluster, inputMode))
     : null;
 
-  // PR-K (사용자 catch 2026-05-09 catch 1 + Phase 4): cluster count 영역 dynamic
-  // length — ART expansion 시점 영역 신규 cluster 영역 표시. source priority:
-  //   1. winner.clusterRates.length (현재 firing 영역 cluster 수 — runtime 정합)
-  //   2. exemplars 영역 키 영역 max cluster id ↑ (영속 영역 학습 cluster 영역 catch)
-  //   3. fallback 4 (base n13 substrate 영역 default).
+  // Fix #19 (사용자 catch 2026-05-10): UI zero-init — 학습된 cluster 영역만
+  // 표시. 직전 floor=4 영역 base n13 substrate 영역 default 영역 무학습 시점
+  // 영역 stale '패턴 1..4' 영역 표시 → 사용자 mental model "cluster 0개 시작"
+  // 영역 mismatch.
+  //
+  // Request C (2026-05-10): firing fallback 영역 폐기 — exemplars 영역 영역
+  // 학습된 cluster 영역만 표시. 직전 firingMax fallback 영역 base n13 substrate
+  // 영역 default 영역 baseline noise (winner.clusterRates 영역 inhibition 영역
+  // 잔여 firing) 영역 stale '패턴 1..4' 영역 표시 → 사용자 catch "학습되지
+  // 않았는데 자동으로 패턴1, 패턴2, 패턴3, 패턴4가 추론" 영역 root cause.
+  // 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기.
   const clusterCount = useMemo(() => {
-    let n = winner.clusterRates.length;
+    let n = 0;
     for (const k of Object.keys(exemplars)) {
       const m = /^out_(\d+)_\d+$/.exec(k);
       if (m) {
@@ -89,8 +95,8 @@ export default function NodeOut() {
         if (ci > n) n = ci;
       }
     }
-    return Math.max(n, 4);
-  }, [winner.clusterRates.length, exemplars]);
+    return n;
+  }, [exemplars]);
 
   return (
     <NodeShell title="OUT" subtitle="결과값" tone="out">
@@ -108,16 +114,23 @@ export default function NodeOut() {
         )}
       </div>
       <div className="snn-pipeline-out-counts">
-        {Array.from({ length: clusterCount }, (_, ci) => ci).map((ci) => {
-          const count = sumClusterCount(exemplars, ci);
-          const label = resolveClusterLabel(exemplars, ci, inputMode);
-          return (
-            <div key={ci} className="snn-pipeline-out-count-row">
-              <span className="snn-pipeline-out-count-label">{label}</span>
-              <span className="snn-pipeline-out-count-value">{count}</span>
-            </div>
-          );
-        })}
+        {clusterCount === 0 ? (
+          <div className="snn-pipeline-out-count-row snn-pipeline-out-count-row--empty">
+            <span className="snn-pipeline-out-count-label">아직 학습된 패턴 0</span>
+            <span className="snn-pipeline-out-count-value">—</span>
+          </div>
+        ) : (
+          Array.from({ length: clusterCount }, (_, ci) => ci).map((ci) => {
+            const count = sumClusterCount(exemplars, ci);
+            const label = resolveClusterLabel(exemplars, ci, inputMode);
+            return (
+              <div key={ci} className="snn-pipeline-out-count-row">
+                <span className="snn-pipeline-out-count-label">{label}</span>
+                <span className="snn-pipeline-out-count-value">{count}</span>
+              </div>
+            );
+          })
+        )}
       </div>
     </NodeShell>
   );

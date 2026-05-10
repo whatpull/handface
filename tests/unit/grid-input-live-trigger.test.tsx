@@ -165,9 +165,10 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
     const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);
     await Promise.resolve();
-    // PR-K: triggerWithVigilance 영역 단일 trigger (default vigilance 0.15).
+    // Fix #19 (사용자 catch 2026-05-10): vigilance 0.15 → 0.7 — zero-init +
+    // 동일 패턴 자동 강화 + 신규 패턴 자동 형성 paradigm 정합 (backend default).
     expect(mockTriggerWithVigilance).toHaveBeenCalledTimes(1);
-    expect(mockTriggerWithVigilance).toHaveBeenCalledWith(expect.any(Array), 0.15);
+    expect(mockTriggerWithVigilance).toHaveBeenCalledWith(expect.any(Array), 0.7);
     // 직전 inferAsync 영역 caller 폐기 — main path 영역 triggerWithVigilance 영역 단일.
     expect(mockInferAsync).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();

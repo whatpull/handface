@@ -51,8 +51,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/lib/snn/root-local-snn', () => ({
   getRootLocalSnnFor: vi.fn(async () => ({
-    client: mocks.mockClient,
-    lab: { save: mocks.mockSave },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client: mocks.mockClient as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lab: { save: mocks.mockSave } as any,
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
     kind: 'orientation' as const,
   })),
@@ -305,7 +307,8 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // restore default mock (다른 test 영역 stale resolve 회피).
       getRootMock.mockReset();
       getRootMock.mockImplementation(async () => ({
-        client: mocks.mockClient,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        client: mocks.mockClient as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         lab: { save: mocks.mockSave } as any,
         status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },

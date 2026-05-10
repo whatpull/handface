@@ -37,6 +37,7 @@ interface CfrResult {
   winner: number;
   share: number;
   margin: number;
+  inputMatch: number;
   layer: string;
 }
 

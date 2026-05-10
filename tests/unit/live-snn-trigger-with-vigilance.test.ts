@@ -110,7 +110,10 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       rates: [0.5, 0.5, 0.5, 0.5],
       winner: 0,
       share: 0.25,
-      margin: 0.05, // < 0.15 → vigilance miss.
+      margin: 0.05, // (legacy field, no longer drives vigilance path).
+      // Fix #22 (사용자 catch 2026-05-10): inputMatch 영역 vigilance primary —
+      // 0.05 < 0.15 → vigilance miss → expandCluster + reinforce loop.
+      inputMatch: 0.05,
       layer: 'OUT' as const,
     };
     // private method 영역 access 영역 reflection — handleTriggerComplete 영역
@@ -152,12 +155,13 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     const pattern = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
-    // vigilance pass — margin 0.5 >= 0.15.
+    // Fix #22 (사용자 catch 2026-05-10): inputMatch 0.9 >= 0.15 → vigilance pass.
     const cfr = {
       rates: [10, 1, 1, 1],
       winner: 0,
       share: 0.77,
       margin: 0.9,
+      inputMatch: 0.9,
       layer: 'OUT' as const,
     };
     const liveAny = live as unknown as {
@@ -188,6 +192,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       winner: -1,
       share: 0,
       margin: 0,
+      inputMatch: 0,
       layer: 'OUT' as const,
     };
     const liveAny = live as unknown as {
@@ -242,7 +247,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       if (capturedTriggerCallback) {
         capturedTriggerCallback({
           trialToken: payload.trialToken,
-          cfr: { rates: [], winner: -1, share: 0, margin: 0, layer: 'OUT' },
+          cfr: { rates: [], winner: -1, share: 0, margin: 0, inputMatch: 0, layer: 'OUT' },
           v1Hz: 0,
           v2Hz: 0,
           netTime: 100,

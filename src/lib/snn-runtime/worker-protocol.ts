@@ -252,6 +252,15 @@ export interface ClusterFiringRatesResult {
   winner: number; // argmax. -1 이면 모두 0.
   share: number; // rates[winner] / sum(rates). silent → 0.
   margin: number; // (max - second) / max. silent → 0.
+  // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이 학습이 안됨):
+  // Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 — |I ∩ T| / |I|
+  // (input ∩ winner template / input). 직전 share/margin 영역 단일 cluster 영역
+  // 항상 1.0 영역 vigilance 영역 영원히 pass → 신규 input pattern 영역 spawn 0
+  // 영역 root cause. inputMatch 영역 input pattern (active cells) 영역 winner
+  // cluster 영역 activeInputs (학습 영역 hard-wired sub-pool) 영역 overlap ratio —
+  // 신규 input 영역 cluster template 영역 영역 영역 영역 0.0 → vigilance miss → spawn.
+  // winner=-1 (silent) 또는 |I|=0 (empty pattern) → 0.
+  inputMatch: number;
   layer: 'OUT' | 'V1_L23' | 'V2_L5';
 }
 

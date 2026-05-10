@@ -217,6 +217,11 @@ export interface MatchScore {
   winner: number; // argmax. -1 이면 모두 0 (silent).
   share: number; // rates[winner] / sum(rates). silent → 0.
   margin: number; // (max - second) / max. silent → 0.
+  // Fix #22 (사용자 catch 2026-05-10): Carpenter-Grossberg 1987 ART vigilance ρ
+  // canonical 정합 — |I ∩ T| / |I| (input pattern ∩ winner template / input).
+  // computeMatchScore 영역 pattern 영역 catch 영역 0 (legacy compat) — production
+  // 영역 worker-core 영역 ClusterFiringRatesResult.inputMatch 영역 직접 산출.
+  inputMatch?: number;
 }
 
 export interface VigilanceResult extends MatchScore {

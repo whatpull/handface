@@ -22,6 +22,7 @@ import {
   type SubstrateKind,
   type LocalSnnInitState,
 } from '@/lib/snn/root-local-snn';
+import { isUntrustworthy } from '@/lib/snn/untrustworthy';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
@@ -141,17 +142,16 @@ export default function NodeInfer() {
   // winner cluster name 영역 dim + history hide. n13 INPUT→V1_L4_E weight
   // 11.0 base activation 영역 학술 정합 단 misleading 회피.
   //
-  // 사용자 catch 2026-05-11 (infer-winner-display-fix): initState 영역 INIT 시점
-  // 1회 emit (fresh build vs hydrate) → 학습 진행 영역 phase='fresh' 영역 stale 잔존.
-  // 학습 #33 영역 winner 패턴 1 진행 영역 영역 NodeInfer 영역 "FRESH CIRCUIT — 학습
-  // 0회" stale 표시 root cause. clusterLabels.length === 0 영역 추가 gate — 학습된
-  // exemplar 영역 0 영역 한정 (incrementCount 영역 winner 변경 시점 영역 fire 영역
-  // 첫 cluster spawn 영역 length>=1 → fresh hint 영역 자동 hide). NodeLearn LiveLearnPanel
-  // 영역 isUntrustworthy === tick.trial===0 정합 path — exemplar 영역 동일 source.
-  const isFreshUntrained = isLiveMode
-    && initState?.phase === 'fresh'
-    && (phase === null || pname === 'untrained')
-    && clusterLabels.length === 0;
+  // HIGH #5 (사용자 catch 2026-05-11): isUntrustworthy 영역 단일 helper hoist —
+  // NodeLearn LiveLearnPanel 정합 path (untrustworthy.ts). 직전 두 노드 영역
+  // 다른 gate (LEARN: tick.trial===0 / INFER: phase 영역 추가 gate) 영역 모순
+  // path 영역 단일 source. isLiveMode 영역 INFER 영역 별도 outer gate (Live 모드
+  // 영역만 fresh state 영역 catch 영역 정합).
+  const isFreshUntrained = isLiveMode && isUntrustworthy({
+    initPhase: initState?.phase,
+    phaseName: phase === null ? null : pname,
+    clusterLabelCount: clusterLabels.length,
+  });
 
   return (
     <NodeShell
@@ -196,8 +196,9 @@ export default function NodeInfer() {
       )}
       {trained && isFreshUntrained && (
         <div className="snn-pipeline-current snn-pipeline-current--fresh">
+          {/* MEDIUM #8 (사용자 catch 2026-05-11): fresh wording 통일 — LEARN 정합. */}
           <div className="snn-pipeline-current-label">
-            fresh circuit — 학습 0회
+            FRESH CIRCUIT — 학습 0회 / 입력 대기
           </div>
           <div className="snn-pipeline-current-hint">
             tap 추론 → 자동 30회 학습 후 winner 표시
@@ -216,7 +217,12 @@ export default function NodeInfer() {
             key={`winner-${winnerKey}`}
             className="snn-pipeline-current-value snn-pipeline-winner-fade"
           >
-            {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
+            {/* MEDIUM #10 (사용자 catch 2026-05-11): metric 통일 — LEARN 정합 path
+                (정확도 confidence + 안정도 margin 영역 명시 label). 직전 conf only
+                영역 LEARN margin 영역 다른 metric 영역 mismatch. */}
+            {winnerLabel
+              ? `${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`
+              : '—'}
           </div>
           {/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement): consecutive
               winner streak indicator — Diehl & Cook 2015 winner stability
@@ -303,7 +309,9 @@ function RateBar({ label, rate, max, isWinner, isSaturated }:
           className={`snn-mode-progress-fill ${isSaturated ? 'snn-pipeline-fill-saturated' : 'snn-pipeline-fill-cyan'}`}
         />
       </div>
-      <span className="snn-pipeline-rate-value">{rate.toFixed(0)}</span>
+      {/* HIGH #2 (사용자 catch 2026-05-11): Hz suffix — NodeLearn LiveRateRow
+          정합 (단위 통일). 직전 number-only 영역 LEARN 영역 'Hz' suffix 영역 mismatch. */}
+      <span className="snn-pipeline-rate-value">{rate.toFixed(0)}Hz</span>
     </div>
   );
 }
@@ -353,25 +361,35 @@ function MarginMeter({ margin, threshold, hasWinner }:
     if (lineRef.current) lineRef.current.style.setProperty('--w', `${thrPct}%`);
   }, [pct, thrPct]);
   return (
-    <div className="snn-pipeline-row">
-      <span className="snn-pipeline-row-label">margin</span>
-      <div
-        className={`snn-pipeline-margin-meter ${hasWinner ? 'is-winner' : 'is-tie'}`}
-        aria-label={`margin ${pct.toFixed(0)}% (threshold ${thrPct.toFixed(0)}%)`}
-      >
+    <>
+      <div className="snn-pipeline-row">
+        {/* MEDIUM #7 (사용자 catch 2026-05-11): aria-label 영역 winner 안정도 영역
+            의미 명시 + threshold 영역 사용자 mental model 영역 직접 표시. */}
+        <span className="snn-pipeline-row-label">안정도</span>
         <div
-          ref={fillRef}
-          className="snn-mode-progress-fill snn-pipeline-margin-fill"
-        />
-        <div
-          ref={lineRef}
-          className="snn-pipeline-margin-threshold"
-          aria-hidden
-        />
+          className={`snn-pipeline-margin-meter ${hasWinner ? 'is-winner' : 'is-tie'}`}
+          aria-label={`winner 안정도 ${pct.toFixed(0)}% — ${thrPct.toFixed(0)}% 미만 영역 동률 (WTA tie)`}
+        >
+          <div
+            ref={fillRef}
+            className="snn-mode-progress-fill snn-pipeline-margin-fill"
+          />
+          <div
+            ref={lineRef}
+            className="snn-pipeline-margin-threshold"
+            aria-hidden
+          />
+        </div>
+        <span className="snn-pipeline-row-value snn-pipeline-mono">
+          {pct.toFixed(0)}%
+        </span>
       </div>
-      <span className="snn-pipeline-row-value snn-pipeline-mono">
-        {pct.toFixed(0)}%
-      </span>
-    </div>
+      {/* MEDIUM #7: inline hint — 사용자 영역 WTA tie 영역 직접 catch path. */}
+      {!hasWinner && (
+        <div className="snn-pipeline-current-hint">
+          안정도 {thrPct.toFixed(0)}% 미만 영역 동률 (WTA tie) — winner 미결정
+        </div>
+      )}
+    </>
   );
 }

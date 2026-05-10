@@ -28,6 +28,13 @@
 //    !=4 영역 / 모두 0 시점 영역 fallback 자체 산출.
 
 export const WINNER_MARGIN_DEFAULT = 0.10;
+/**
+ * @deprecated HIGH #4 (사용자 catch 2026-05-11): hardcoded base 4 영역 ART
+ *   unsupervised expansion (4+ cluster dynamic) 영역 정합 안 됨. fallback 산출
+ *   영역 out_rates 영역 max ci+1 영역 dynamic derive 영역 정합. 본 export 영역
+ *   backward-compat 단순 보존 — 신규 caller 영역 사용 금지. 기존 test 영역
+ *   default 4 path 영역 호환 영역 보존 (regression 회피).
+ */
 export const CLUSTER_COUNT = 4;
 
 export interface WinnerResult {
@@ -80,24 +87,43 @@ export function deriveWinner(
   const o: DeriveWinnerOptions = typeof opts === 'number' ? { marginThreshold: opts } : opts;
   const marginThreshold = o.marginThreshold ?? WINNER_MARGIN_DEFAULT;
 
+  // HIGH #4 (사용자 catch 2026-05-11): cluster count 영역 dynamic derive — 직전
+  // CLUSTER_COUNT (4) hardcode 영역 ART 4+ expansion 영역 정합 안 됨. 우선 backend
+  // cluster_rates.length, 미동봉 영역 out_rates 영역 max ci+1 영역 derive. 둘 다 0
+  // 영역 default CLUSTER_COUNT (legacy backward compat — 빈 응답 영역 base 4).
+  let dynamicCount = 0;
+  if (Array.isArray(o.clusterRates) && o.clusterRates.length > 0) {
+    dynamicCount = o.clusterRates.length;
+  } else {
+    for (const k of Object.keys(rates)) {
+      const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
+      if (m) {
+        const ci = Number(m[1]);
+        if (ci + 1 > dynamicCount) dynamicCount = ci + 1;
+      }
+    }
+  }
+  const N = dynamicCount > 0 ? dynamicCount : CLUSTER_COUNT;
+
   // ── Backend 영역 우선 영역 ────────────────────────────────────────────────
-  // backend cluster_rates 영역 length 4 영역 / 영역 정합 (number array) 영역 / 모두 0 영역
+  // backend cluster_rates 영역 length 영역 / 영역 정합 (number array) 영역 / 모두 0 영역
   // 일부 시점 영역 그것 영역 그대로 활용 — frontend 영역 자체 산출 회피.
   const backendRates = o.clusterRates;
   if (
     Array.isArray(backendRates)
-    && backendRates.length === CLUSTER_COUNT
+    && backendRates.length > 0
     && backendRates.every((v) => Number.isFinite(v))
     && backendRates.some((v) => v > 0)
   ) {
     const mean = backendRates.slice();
+    const N_b = mean.length;
     // clusterCounts 영역 fallback 산출 동일 regex 일부 — 정합 사실 증명용.
-    const cnt = new Array<number>(CLUSTER_COUNT).fill(0);
+    const cnt = new Array<number>(N_b).fill(0);
     for (const k of Object.keys(rates)) {
       const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
       if (!m) continue;
       const ci = Number(m[1]);
-      if (ci >= 0 && ci < CLUSTER_COUNT) cnt[ci] += 1;
+      if (ci >= 0 && ci < N_b) cnt[ci] += 1;
     }
     const sorted = mean
       .map((rate, ci) => ({ rate, ci }))
@@ -117,7 +143,7 @@ export function deriveWinner(
       cluster = null;
     } else if (typeof o.winnerCluster === 'number'
       && o.winnerCluster >= 0
-      && o.winnerCluster < CLUSTER_COUNT) {
+      && o.winnerCluster < N_b) {
       cluster = o.winnerCluster;
     } else {
       cluster = max > 0 && margin >= marginThreshold ? sorted[0].ci : null;
@@ -135,13 +161,13 @@ export function deriveWinner(
   }
 
   // ── Fallback: frontend 자체 산출 (legacy backend 영역 backward compat) ─────
-  const sum = new Array<number>(CLUSTER_COUNT).fill(0);
-  const cnt = new Array<number>(CLUSTER_COUNT).fill(0);
+  const sum = new Array<number>(N).fill(0);
+  const cnt = new Array<number>(N).fill(0);
   for (const [k, v] of Object.entries(rates)) {
     const m = /^out_(\d+)(?:_\d+)?$/.exec(k);
     if (!m) continue;
     const ci = Number(m[1]);
-    if (ci >= 0 && ci < CLUSTER_COUNT) {
+    if (ci >= 0 && ci < N) {
       sum[ci] += v;
       cnt[ci] += 1;
     }

@@ -117,6 +117,13 @@ export class LiveSnn {
   // OUT count 영역 직전 use-hand-control (camera path) 영역만 trigger → Live grid
   // 영역 0 잔존 catch. winner 변경 시점 영역 idempotent incrementCount.
   private lastWinnerCluster: number = -1;
+  // MEDIUM #11 (사용자 catch 2026-05-11): autoLearnProgress vs incrementCount race —
+  // runAutoLearnLoop 영역 30회 R-STDP 진행 중 영역 emitTick 영역 winner 영역
+  // 신규 cluster 영역 fluctuate (weight 미수렴) → incrementCount 영역 stale count
+  // 누적 catch 회피. _autoLearnInFlight 영역 size > 0 영역 incrementCount skip
+  // (count 갱신 대기 — NodeOut amber row 영역 사용자 mental model 영역 정합).
+  // Set 영역 cluster id catch — 동시 다중 cluster 영역 mid-train 시점 정합.
+  private _autoLearnInFlight: Set<number> = new Set();
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
   private substrateKind: SubstrateKind = 'orientation';
@@ -887,8 +894,13 @@ export class LiveSnn {
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
+    let registeredClusterId: number | null = null;
     try {
       const { newClusterId } = await this.expandClusterAsync(activeInputs);
+      // MEDIUM #11 (2026-05-11): race-gate add — 진행 중 cluster id 영역 add.
+      // emitTick incrementCount 영역 본 Set 영역 size>0 시점 영역 skip.
+      this._autoLearnInFlight.add(newClusterId);
+      registeredClusterId = newClusterId;
       const ROUNDS = 6;
       const CHUNK = 5;
       const TOTAL = ROUNDS * CHUNK;
@@ -942,6 +954,13 @@ export class LiveSnn {
         message: `runAutoLearnLoop failed: ${msg}`,
         context: { trialToken: originalToken, activeInputs },
       });
+    } finally {
+      // MEDIUM #11 (2026-05-11): race-gate remove — 진행 종료 (성공/실패 무관)
+      // 영역 cluster id 영역 unregister. emitTick incrementCount 영역 다음 frame
+      // 영역 정상 갱신.
+      if (registeredClusterId !== null) {
+        this._autoLearnInFlight.delete(registeredClusterId);
+      }
     }
   }
 
@@ -1052,11 +1071,20 @@ export class LiveSnn {
     // — 본 정정 영역 UI exemplar count 영역 단일 path 영역 별도 catch.
     if (cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
       this.lastWinnerCluster = cfr.winner;
-      const featSnap = this.patternRef.slice();
-      // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
-      // 사용자 catch 2026-05-09 (Fix 1): substrate 영역 명시 — orientation/gesture
-      // 별도 store 영역 GRID/CAMERA carry-over 회피.
-      incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
+      // MEDIUM #11 (사용자 catch 2026-05-11): autoLearnProgress race gate —
+      // runAutoLearnLoop 영역 30회 R-STDP 진행 중 영역 winner 영역 weight 미수렴
+      // 영역 fluctuate → incrementCount 영역 stale count 누적 회피. 진행 중
+      // cluster 영역 set size > 0 영역 skip — NodeOut amber row 영역 사용자
+      // mental model 정합 (count 갱신 대기).
+      if (this._autoLearnInFlight.size > 0) {
+        // 진행 중 — count 갱신 대기. NodeOut isAutoLearning amber row 영역 visible.
+      } else {
+        const featSnap = this.patternRef.slice();
+        // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
+        // 사용자 catch 2026-05-09 (Fix 1): substrate 영역 명시 — orientation/gesture
+        // 별도 store 영역 GRID/CAMERA carry-over 회피.
+        incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
+      }
     } else if (cfr.winner < 0) {
       this.lastWinnerCluster = -1;
     }

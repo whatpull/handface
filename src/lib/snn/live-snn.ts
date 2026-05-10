@@ -45,6 +45,7 @@ import type {
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { incrementCount } from './out-exemplars';
+import { showToast } from '@/components/ui/Toast';
 
 export interface LiveTickDetail {
   rates: number[];
@@ -871,7 +872,21 @@ export class LiveSnn {
         }
       }
     } catch (e) {
+      // Fix #20 Part C (2026-05-10): silent failure 영역 visible toast 영역
+      // 격상. 직전 console.warn 영역 사용자 catch 0 — auto-learn 영역 fail 영역
+      // 사용자 영역 silent (winner -1 / 패턴 미생성). Hebbian spike-pair 0 영역
+      // weight unchanged 영역 root cause 영역 visible 영역 (사용자 명시 "기존
+      // 로직 신경쓰지말고" — silent fail 폐기 권한).
+      const msg = e instanceof Error ? e.message : String(e);
       console.warn('[LiveSnn] runAutoLearnLoop failed:', e);
+      showToast({ kind: 'error', message: `학습 실패 — ${msg}` });
+      // PR #192 polish parity (SEC-3): error event 영역 telemetry 영역 emit —
+      // dev panel 영역 hook 가능 (현재 listener 0 silent fan-out).
+      emitBackendEvent('snn-error', {
+        source: 'rpc',
+        message: `runAutoLearnLoop failed: ${msg}`,
+        context: { trialToken: originalToken, activeInputs },
+      });
     }
   }
 

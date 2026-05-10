@@ -62,6 +62,14 @@ class InProcessTransport implements WorkerLike {
   }
 }
 
+// Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 function makeStack() {
   const core = new SNNWorkerCore();
   const client = new SNNWorkerClient(new InProcessTransport(core));
@@ -106,7 +114,7 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     await sink.saveWeights(v1Weights);
 
     // init — Fix B 영역 schema:1 reject → fresh n13 build.
-    const lab = new LocalSNN({ netId, client, sink, seed: 57 });
+    const lab = new LocalSNN({ netId, client, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const status = await lab.init();
 
     // fresh build catch — PR-I (2026-05-10) 영역 rev: FIX_REV_BASELINE 영역
@@ -125,7 +133,7 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     const netId = 'fresh_v2';
 
     // 첫 init — fresh n13 build → schema:2 topology 보존.
-    const lab1 = new LocalSNN({ netId, client, sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId, client, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
     const rev1 = await lab1.save();
     // PR-I: fresh build 영역 anchor 시작 → 첫 save 영역 anchor+1.
@@ -134,7 +142,7 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     // 새 stack 영역 같은 sink → schema:2 영역 restore catch.
     const core2 = new SNNWorkerCore();
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
-    const lab2 = new LocalSNN({ netId, client: client2, sink, seed: 57 });
+    const lab2 = new LocalSNN({ netId, client: client2, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const status = await lab2.init();
     // PR-I: 보존 가중치 영역 rev=anchor+1 정합.
     expect(status.rev).toBe(FIX_REV_BASELINE + 1);
@@ -162,7 +170,7 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     await sink.saveTopology(netId, empty);
     await sink.saveWeights(emptyWeights);
 
-    const lab = new LocalSNN({ netId, client, sink, seed: 57 });
+    const lab = new LocalSNN({ netId, client, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const status = await lab.init();
     // empty + schema:1 → 둘 다 fresh build trigger.
     // PR-I (2026-05-10): fresh build 영역 rev: FIX_REV_BASELINE 영역 시작.

@@ -275,12 +275,27 @@ export default function NodeLearn() {
   // mount-time prebuild trigger (getRootLocalSnnFor 영역 lazy build 영역 첫 호출 시점
   // 영역 build). NodeLearn 영역 본 effect 영역 가장 먼저 substrate build 영역 trigger
   // 영역 첫 tick 영역 200ms 대기 영역 wait 0.
+  // Fix #20 (2026-05-10): zero-init dynamic — base 4 cluster 영역 폐기 영역
+  // V1/V2 total 영역 dynamic 영역 — clusterCount × per-sub. clusterCount 영역
+  // cluster-spawned event 영역 즉시 catch (exemplar update 영역 latency 회피).
+  // exemplar 영역 추출 영역 별도 effect 영역 hoist (exemplars 영역 declared 영역
+  // 후에 추가 — file 영역 ordering 정합).
+  const [clusterCount, setClusterCount] = useState<number>(0);
+  useEffect(() => {
+    return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
+      setClusterCount((cur) => Math.max(cur, d.clusterIdx + 1));
+    });
+  }, []);
+
   useEffect(() => {
     if (engineMode === 'live') {
-      // V1 = V1_L4E + V1_L4I + V1_L23E (excitatory + inhibitory pool 모두 표시).
-      // V2 = V2_L4E + V2_L23E + V2_L5E.
-      const v1Total = N13Pools.V1_L4E + N13Pools.V1_L4I + N13Pools.V1_L23E;
-      const v2Total = N13Pools.V2_L4E + N13Pools.V2_L23E + N13Pools.V2_L5E;
+      // Fix #20 (2026-05-10): V1/V2 total 영역 N_CLUSTER × per-sub 영역 dynamic.
+      // V1 = (V1_L4E + V1_L4I + V1_L23E) × clusterCount.
+      // V2 = (V2_L4E + V2_L23E + V2_L5E) × clusterCount.
+      const v1PerCluster = N13Pools.V1_L4_PER_SUB + N13Pools.V1_L4I_PER_SUB + N13Pools.V1_L23_PER_SUB;
+      const v2PerCluster = N13Pools.V2_L4_PER_SUB + N13Pools.V2_L23_PER_SUB + N13Pools.V2_L5_PER_SUB;
+      const v1Total = v1PerCluster * clusterCount;
+      const v2Total = v2PerCluster * clusterCount;
       setRegionTotals({ V1: v1Total, V2: v2Total });
 
       // mount-time prebuild — input-mode default 'grid' = orientation substrate.
@@ -315,7 +330,7 @@ export default function NodeLearn() {
       cancelled = true;
       off();
     };
-  }, [engineMode, inputMode]);
+  }, [engineMode, inputMode, clusterCount]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
   // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
@@ -464,6 +479,20 @@ export default function NodeLearn() {
     setExemplars(loadExemplars(substrate));
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
+  // Fix #20 (2026-05-10): zero-init dynamic — exemplars 영역 cluster count
+  // 영역 추출 (NodeOut 정합). cluster-spawned event 영역 unmount 영역 stale
+  // 회피 catch + persistent path (page reload 영역 hydrate 영역 정합).
+  useEffect(() => {
+    let max = 0;
+    for (const k of Object.keys(exemplars)) {
+      const m = /^out_(\d+)_\d+$/.exec(k);
+      if (m) {
+        const ci = Number(m[1]) + 1;
+        if (ci > max) max = ci;
+      }
+    }
+    setClusterCount((cur) => Math.max(cur, max));
+  }, [exemplars]);
   const clusterLabels = useMemo(() => {
     // Fix #19 (사용자 catch 2026-05-10): zero-init — base 4 floor 폐기.
     // Request C (2026-05-10): firing fallback 영역 폐기 — exemplars 영역 영역

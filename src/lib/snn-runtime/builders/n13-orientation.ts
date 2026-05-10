@@ -1,9 +1,18 @@
 // n13 orientation substrate — neuronface modules/network.py rev15 정합 TS 포팅.
 //
-// 4 cluster slot 아키텍처 (─│╲╱ orientation 기본, cluster_active_inputs 명시
-// 시 제스처 등 다른 task 정합):
-//   INPUT (16) → V1_L4_E (128, 4 sub × 32) → V1_L23_E (128) → V2_L4_E (128) →
-//   V2_L23_E (96) → V2_L5_E (64) → OUT (32, 4 cluster × 8).
+// Fix #20 (2026-05-10): zero-init dynamic cluster — 직전 fixed N_CLUSTER=4 영역
+// 사용자 mental model "1 입력 = 1 cluster" 위배 (vigilance miss 영역 cluster
+// 영역 spawn 영역 직전 영역 base 4 cluster 영역 잔여 firing 영역 stale '패턴
+// 1..4' 영역 표시). 영역 zero-init 영역 — clusterActive 영역 length 영역 dynamic
+// 영역 cluster slot 영역 빌드. zero-init 영역 INPUT 16 영역만 base 영역 — 모든
+// cluster 영역 expandCluster 영역 c{N}_ prefix 영역 spawn (사용자 명시 "기존
+// 로직 신경쓰지말고" — backward compat 폐기 권한).
+//
+// 가변 cluster slot 아키텍처 (clusterActive=[] 영역 zero-init, clusterActive 영역
+// 길이 N 영역 N cluster):
+//   INPUT (16) → V1_L4_E (32×N) → V1_L23_E (32×N) → V2_L4_E (32×N) →
+//   V2_L23_E (24×N) → V2_L5_E (16×N) → OUT (8×N).
+//   N==0 영역 INPUT 16 영역만 base — V1_L4_I lateral 폐기 (no v1L4e target).
 //
 // rev15 핵심:
 //   - cluster-local cascade dense + cross-cluster broadcast strict 격리
@@ -24,7 +33,9 @@ import { SeededRandom } from '../prng';
 
 export interface N13PresetOptions {
   vThreshold?: number;
-  // [N_CLUSTER][active_input_idx] — 미지정 시 4×4 grid orientation default.
+  // [N_CLUSTER][active_input_idx] — 미지정 시 zero-init (cluster 0개, INPUT 16
+  // 영역만). Fix #20 (2026-05-10): 직전 default 4 cluster 영역 폐기 — 사용자
+  // mental model "vigilance miss → cluster spawn 1, 2, 3, ..." 영역 정합.
   clusterActiveInputs?: number[][];
   seed?: number;
   // 빌드 결과 detach 가능한 net 인스턴스 — 미지정 시 새 NeuralNetwork 생성.
@@ -37,29 +48,30 @@ export interface N13PresetResult {
   synapsesAdded: number;
   vThreshold: number;
   inputDim: 16;
-  outClusters: 4;
-  outTotal: 32;
+  // dynamic — clusterActiveInputs.length (0 if zero-init).
+  outClusters: number;
+  outTotal: number;
   homeostaticNeurons: number;
   preset: 'n13_orientation';
 }
 
-const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [
+// 4-cluster orientation 기본 매핑 — test / explicit caller 영역만 사용.
+// runtime 영역 zero-init (clusterActiveInputs=[]) 영역 default.
+export const LEGACY_FOUR_CLUSTER_INPUTS: number[][] = [
   [4, 5, 6, 7], //   ─ horizontal: row 1
   [1, 5, 9, 13], //  │ vertical: col 1
   [0, 5, 10, 15], // ╲ diag-back
   [3, 6, 9, 12], //  ╱ diag-fore
 ];
 
-const N_CLUSTER = 4 as const;
+// per-cluster pool size (expandCluster 영역 신규 cluster spawn 영역 정합).
 const OUT_PER_CLUSTER = 8 as const;
-const OUT_TOTAL = 32 as const;
-
-const V1_L4E = 128;
-const V1_L4I = 256;
-const V1_L23E = 128;
-const V2_L4E = 128;
-const V2_L23E = 96;
-const V2_L5E = 64;
+const V1_L4_PER_SUB = 32;
+const V1_L4I_PER_SUB = 64; // base lateral inhibitory — N=0 영역 폐기.
+const V1_L23_PER_SUB = 32;
+const V2_L4_PER_SUB = 32;
+const V2_L23_PER_SUB = 24;
+const V2_L5_PER_SUB = 16;
 
 export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13PresetResult {
   const vThreshold = opts.vThreshold ?? -55.0;
@@ -67,12 +79,19 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
   const net = opts.net ?? new NeuralNetwork();
   const beforeSyn = net.synapses.length;
 
-  if (opts.clusterActiveInputs && opts.clusterActiveInputs.length !== N_CLUSTER) {
-    throw new Error(
-      `clusterActiveInputs 길이 ${opts.clusterActiveInputs.length} != N_CLUSTER ${N_CLUSTER}`,
-    );
-  }
-  const clusterActive = opts.clusterActiveInputs ?? DEFAULT_CLUSTER_ACTIVE_INPUTS;
+  // Fix #20 (2026-05-10): zero-init default — clusterActiveInputs 미지정 시 [].
+  // 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기.
+  const clusterActive = opts.clusterActiveInputs ?? [];
+  const N_CLUSTER = clusterActive.length;
+
+  // 동적 pool size — N==0 영역 모든 base cluster pool 영역 0.
+  const V1_L4E = V1_L4_PER_SUB * N_CLUSTER;
+  const V1_L4I = V1_L4I_PER_SUB * N_CLUSTER;
+  const V1_L23E = V1_L23_PER_SUB * N_CLUSTER;
+  const V2_L4E = V2_L4_PER_SUB * N_CLUSTER;
+  const V2_L23E = V2_L23_PER_SUB * N_CLUSTER;
+  const V2_L5E = V2_L5_PER_SUB * N_CLUSTER;
+  const OUT_TOTAL = OUT_PER_CLUSTER * N_CLUSTER;
 
   const rng = new SeededRandom(seed);
 
@@ -138,7 +157,7 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
   };
 
   // ── INPUT → V1_L4_E (cluster sub-pool 정확 매핑, rev14) ──
-  const V1_L4_PER_SUB = V1_L4E / N_CLUSTER; // 32
+  // Fix #20 (2026-05-10): N==0 영역 본 loop 영역 자연 skip — INPUT 영역만 base.
   for (let ci = 0; ci < N_CLUSTER; ci += 1) {
     const localV1 = v1L4e.slice(V1_L4_PER_SUB * ci, V1_L4_PER_SUB * (ci + 1));
     const activeIdx = clusterActive[ci];
@@ -162,16 +181,11 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
     }
   }
 
-  // V1_L4 lateral inhibition.
+  // V1_L4 lateral inhibition — N==0 영역 v1L4i / v1L4e 영역 빈 array 영역
+  // proj 영역 zero iteration 영역 자연 skip.
   proj(v1L4i, v1L4e, 0.20, -6.0);
   proj(v1L4e, v1L4i, 0.15, 5.0);
   proj(v1L4e, v1L4e, 0.08, -3.0);
-
-  // ── cluster-local cascade ──
-  const V1_L23_PER_SUB = V1_L23E / N_CLUSTER; // 32
-  const V2_L4_PER_SUB = V2_L4E / N_CLUSTER; // 32
-  const V2_L23_PER_SUB = V2_L23E / N_CLUSTER; // 24
-  const V2_L5_PER_SUB = V2_L5E / N_CLUSTER; // 16
 
   const cascadeLocal = (
     srcs: string[],
@@ -321,19 +335,16 @@ export const N13Names = {
   out: (clusterId: number, neuronIdx: number) => `out_${clusterId}_${neuronIdx}`,
 } as const;
 
+// per-cluster pool size 영역 expandCluster (art.ts) 영역 신규 cluster 영역 spawn
+// 영역 정합. Fix #20 (2026-05-10): zero-init 영역 N_CLUSTER 영역 dynamic 영역 —
+// 본 N13Pools 영역 "per-cluster" 상수 영역만 노출 (총 base pool 영역 폐기 —
+// caller 영역 N_CLUSTER × per-sub 영역 의미 영역 stale).
 export const N13Pools = {
-  V1_L4E,
-  V1_L4I,
-  V1_L23E,
-  V2_L4E,
-  V2_L23E,
-  V2_L5E,
-  N_CLUSTER,
   OUT_PER_CLUSTER,
-  OUT_TOTAL,
-  V1_L4_PER_SUB: V1_L4E / N_CLUSTER,
-  V1_L23_PER_SUB: V1_L23E / N_CLUSTER,
-  V2_L4_PER_SUB: V2_L4E / N_CLUSTER,
-  V2_L23_PER_SUB: V2_L23E / N_CLUSTER,
-  V2_L5_PER_SUB: V2_L5E / N_CLUSTER,
+  V1_L4_PER_SUB,
+  V1_L4I_PER_SUB,
+  V1_L23_PER_SUB,
+  V2_L4_PER_SUB,
+  V2_L23_PER_SUB,
+  V2_L5_PER_SUB,
 } as const;

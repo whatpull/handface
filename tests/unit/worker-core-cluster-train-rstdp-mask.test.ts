@@ -26,9 +26,21 @@ import { SNNWorkerCore } from '@/lib/snn-runtime';
 
 const VERTICAL_PATTERN = [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0];
 
+// Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 function makeCore(seed = 57): SNNWorkerCore {
   const core = new SNNWorkerCore();
-  const buildRes = core.handle({ id: 1, type: 'build', payload: { preset: 'n13_orientation', seed } });
+  const buildRes = core.handle({
+    id: 1,
+    type: 'build',
+    payload: { preset: 'n13_orientation', seed, clusterActiveInputs: LEGACY_FOUR },
+  });
   expect(buildRes.ok).toBe(true);
   return core;
 }

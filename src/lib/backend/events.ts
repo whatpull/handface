@@ -9,7 +9,7 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress';
 
 // PR #192 polish (SEC-3): worker push handler / RPC layer 영역 error telemetry.
 // 직전 console.warn silent path 영역 정합 catch 영역 본 event 영역 별도 emit —
@@ -25,6 +25,18 @@ export interface SnnErrorDetail {
 }
 
 export interface InputModeDetail { mode: 'camera' | 'grid'; }
+
+// PR #203 polish (UX HIGH 2026-05-10): ART unsupervised auto-learn 영역 chunk
+// 단위 progress event — runAutoLearnLoop 영역 5-trial chunk × 6 round 영역
+// 매 chunk 영역 emit. NodeLearn 영역 신규 ART expansion cluster 영역 amber bar
+// 영역 진행 visibility 정합 (직전 effectiveClusterFrames 영역 base 4 only —
+// 신규 cluster 영역 progress 0 영역 misleading 정정).
+export interface AutoLearnProgressDetail {
+  trialToken: number;
+  clusterId: number;
+  progress: number; // 1..total
+  total: number;    // 30 (5 × 6)
+}
 export interface GridTrainingDetail {
   kind: 'started' | 'progress' | 'finished' | 'error';
   cluster: 0 | 1 | 2 | 3;

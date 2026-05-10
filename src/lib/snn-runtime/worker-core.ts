@@ -420,6 +420,13 @@ export class SNNWorkerCore {
     const registry = this.requireRegistry();
     const monitor = this.monitor;
     if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
+    // PR #203 polish (LOW SEC 2026-05-10): activeInputs invariant —
+    //   - length > 0 (empty 영역 throw, 본 path 영역).
+    //   - length <= inputDim (16 for n13) — caller (live-snn.runAutoLearnLoop)
+    //     영역 16-vec pattern 영역 v > 0.5 binary catch 영역 자연 정합 (Set
+    //     영역 unique + bounded). out-of-range 영역 expandCluster 영역 신뢰
+    //     (caller 영역 trusted in-process — worker RPC 영역 외부 unsanitized
+    //     input 영역 0). 본 invariant 영역 caller 영역 책임 명시 catch.
     if (payload.activeInputs.length === 0) {
       throw new Error('activeInputs 비어있음');
     }

@@ -10,19 +10,58 @@ import {
   type InputModeDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
-import { CLUSTER_TO_LABEL } from '@/lib/snn/use-hand-control';
 import { useEngineMode } from '@/lib/snn/engine-mode';
+import {
+  loadExemplars,
+  subscribeExemplars,
+  type OutExemplars,
+} from '@/lib/snn/out-exemplars';
+import {
+  subscribeLocalSnnInitState,
+  getLastLocalSnnInitState,
+  type SubstrateKind,
+  type LocalSnnInitState,
+} from '@/lib/snn/root-local-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { SATURATION_HZ, WINNER_MARGIN, getClusterLabels } from './shared';
+import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
 
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
-  // 사용자 catch 2026-05-09: input mode 별 cluster label (GRID: orientation
-  // / CAMERA: gesture). NodeInput 의 input-mode event 영역 listen.
   const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
-  const clusterLabels = useMemo(() => getClusterLabels(inputMode), [inputMode]);
+
+  // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 사용자 명명
+  // 우선 + fallback '패턴 N' (resolveClusterLabel 정합). substrate-aware
+  // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
+  const substrate: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+  const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
+  useEffect(() => {
+    setExemplars(loadExemplars(substrate));
+    return subscribeExemplars(substrate, setExemplars);
+  }, [substrate]);
+  const clusterLabels = useMemo(() => {
+    let n = 4;
+    for (const k of Object.keys(exemplars)) {
+      const m = /^out_(\d+)_\d+$/.exec(k);
+      if (m) {
+        const ci = Number(m[1]) + 1;
+        if (ci > n) n = ci;
+      }
+    }
+    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
+  }, [exemplars, inputMode]);
+
+  // PR-K (Phase 5, 사용자 catch 2026-05-09 catch 3): fresh state init —
+  // trial=0 + initState='fresh' 영역 winner card hide. NodeLearn LiveLearnPanel
+  // 영역 동일 source.
+  const [initState, setInitState] = useState<LocalSnnInitState | null>(null);
+  useEffect(() => {
+    setInitState(getLastLocalSnnInitState(substrate));
+    return subscribeLocalSnnInitState((state) => {
+      if (state.kind === substrate) setInitState(state);
+    });
+  }, [substrate]);
 
   // PR3 (사용자 catch 2026-05-09): Live 모드 badge — batch infer 영역 구분.
   // Live tick 영역 PipelineEventContext 영역 자동 반영 (live-snn.ts emitTick
@@ -84,12 +123,17 @@ export default function NodeInfer() {
   // catch 2026-05-09: Live 영역 winner 표시 영역 phase 와 무관).
   const trained = isLiveMode || pname === 'trained' || pname === 'inference';
   const max = Math.max(...winner.clusterRates, 1);
-  // mode-aware winner label — GRID: orientation / CAMERA: gesture
-  // (사용자 catch 2026-05-09). 사용자 rename 영역 OUT exemplar 영역 별도 path.
+  // PR-K (사용자 catch 2026-05-09 catch 2): generic '패턴 N' label + 사용자
+  // 명명 우선 (resolveClusterLabel 영역 clusterLabels 영역 derive 정합).
   const winnerLabel = winner.cluster !== null
-    ? (clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`)
+    ? (clusterLabels[winner.cluster] ?? `패턴 ${winner.cluster + 1}`)
     : null;
   const confPct = (winner.confidence * 100).toFixed(0);
+  // PR-K (Phase 5, 사용자 catch 2026-05-09 catch 3): fresh state winner hide —
+  // trial=0 + initState='fresh' 영역 winner card 영역 amber pill 영역 강화 +
+  // winner cluster name 영역 dim + history hide. n13 INPUT→V1_L4_E weight
+  // 11.0 base activation 영역 학술 정합 단 misleading 회피.
+  const isFreshUntrained = isLiveMode && initState?.phase === 'fresh' && (phase === null || pname === 'untrained');
 
   return (
     <NodeShell
@@ -122,7 +166,17 @@ export default function NodeInfer() {
           LIVE 모드 — INPUT 1회 학습 + 추론 → winner 즉시 갱신
         </div>
       )}
-      {trained && (
+      {trained && isFreshUntrained && (
+        <div className="snn-pipeline-current snn-pipeline-current--fresh">
+          <div className="snn-pipeline-current-label">
+            fresh circuit — 학습 0회
+          </div>
+          <div className="snn-pipeline-current-hint">
+            tap 추론 → 자동 30회 학습 후 winner 표시
+          </div>
+        </div>
+      )}
+      {trained && !isFreshUntrained && (
         <div className={`snn-pipeline-current ${winnerLabel ? 'is-active' : ''}`}>
           <div className="snn-pipeline-current-label">
             현재 winner
@@ -154,32 +208,38 @@ export default function NodeInfer() {
           )}
         </div>
       )}
-      {/* PR #187 polish — UX LOW-5 (audit 2026-05-10): margin 영역 MarginMeter
-          영역 단일 source — winner row 영역 cluster name 영역만 (중복 제거). */}
-      <div className="snn-pipeline-row">
-        <span className="snn-pipeline-row-label">winner</span>
-        <span className="snn-pipeline-row-value">
-          {winner.cluster !== null
-            ? (clusterLabels[winner.cluster] ?? CLUSTER_TO_LABEL[winner.cluster] ?? `cluster ${winner.cluster}`)
-            : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
-        </span>
-      </div>
-      {/* 사용자 catch 2026-05-09 [3]: margin meter — Diehl & Cook 2015 winner
-          stability indicator. (max - second) / max ≥ WINNER_MARGIN (default 0.10)
-          영역 winner 인정 영역 dotted line 영역 시각 catch. */}
-      <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null} />
-      <div className="snn-pipeline-rate-grid">
-        {winner.clusterRates.map((r, i) => (
-          <RateBar key={i} label={clusterLabels[i]} rate={r} max={max}
-            isWinner={winner.cluster === i} isSaturated={r >= SATURATION_HZ} />
-        ))}
-      </div>
-      <div className="snn-pipeline-row">
-        <span className="snn-pipeline-row-label">recent</span>
-        <span className="snn-pipeline-row-value snn-pipeline-mono">
-          {history.length === 0 ? '—' : history.map(spark).join('')}
-        </span>
-      </div>
+      {/* PR-K (Phase 5): fresh state 영역 winner row + margin + cluster bars
+          영역 hide — winner emerge misleading 회피 (사용자 catch 3). */}
+      {!isFreshUntrained && (
+        <>
+          <div className="snn-pipeline-row">
+            <span className="snn-pipeline-row-label">winner</span>
+            <span className="snn-pipeline-row-value">
+              {winner.cluster !== null
+                ? (clusterLabels[winner.cluster] ?? `패턴 ${winner.cluster + 1}`)
+                : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
+            </span>
+          </div>
+          {/* 사용자 catch 2026-05-09 [3]: margin meter — Diehl & Cook 2015 winner
+              stability indicator. (max - second) / max ≥ WINNER_MARGIN (default 0.10)
+              영역 winner 인정 영역 dotted line 영역 시각 catch. */}
+          <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null} />
+          <div className="snn-pipeline-rate-grid">
+            {/* PR-K (Phase 4): dynamic cluster length — winner.clusterRates
+                영역 ART expansion 시점 영역 신규 cluster 영역 표시. */}
+            {winner.clusterRates.map((r, i) => (
+              <RateBar key={i} label={clusterLabels[i] ?? `패턴 ${i + 1}`} rate={r} max={max}
+                isWinner={winner.cluster === i} isSaturated={r >= SATURATION_HZ} />
+            ))}
+          </div>
+          <div className="snn-pipeline-row">
+            <span className="snn-pipeline-row-label">recent</span>
+            <span className="snn-pipeline-row-value snn-pipeline-mono">
+              {history.length === 0 ? '—' : history.map(spark).join('')}
+            </span>
+          </div>
+        </>
+      )}
       {saturated && (
         <div className="snn-pipeline-warn">⚠ saturation — 모든 OUT ≥ {SATURATION_HZ}Hz</div>
       )}

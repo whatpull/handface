@@ -44,6 +44,9 @@ import {
   GESTURE_CONFIDENCE_MIN,
   GESTURE_STABLE_FRAMES,
 } from '@/lib/snn/use-hand-control';
+// PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — GridInput
+// 영역 동일 정합 (Carpenter & Grossberg 1987).
+const ART_VIGILANCE_THRESHOLD = 0.15;
 
 const GESTURE_LABELS = [
   'Pointing',
@@ -75,11 +78,8 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
   const isLiveMode = engineMode === 'live';
-  // PR audit fix (Fix 4 — LOW): Live reinforce in-flight 영역 visual gate —
-  // 동일 cluster 영역 즉시 multi-click 영역 race 회피 + spinner-like feedback.
-  // LiveSnn.reinforce 영역 internal serialize 영역 race 0 단 visual feedback
-  // 영역 사용자 명시 catch.
-  const [reinforcingCluster, setReinforcingCluster] = useState<number | null>(null);
+  // PR-K (사용자 catch 2026-05-09 catch 1): reinforcingCluster state 영역 본격
+  // 폐기 — cluster 별 학습 button 영역 폐기 영역 in-flight gate 영역 caller 0.
   // engineMode 영역 useEffect listener closure 영역 stale catch — ref 영역
   // 동기화 후 listener 영역 ref.current 영역 read 사실.
   const engineModeRef = useRef(engineMode);
@@ -137,11 +137,13 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         ) {
           lastStableClusterRef.current = mappedCluster;
           try {
-            // PR-B (Web Worker background offload, 2026-05-10): triggerAsync swap.
-            // 사용자 catch 2026-05-09 [2]: stable-pose 영역 추론 trigger 영역 main
-            // thread block 0 — hand-feature event loop 영역 즉시 unblock 영역
-            // 다음 frame 영역 lag 0. 결과 영역 worker push event 영역 별도 emit.
-            getLiveSnn().triggerAsync();
+            // PR-K (사용자 catch 2026-05-09 catch 1): stable-pose 자동 trigger
+            // 영역 ART path 영역 wrap — 직전 triggerAsync (STDP off) → vigilance
+            // 영역 자동 비교 + novel pattern 영역 30 trial auto-learn.
+            // gestureName 영역 supervised label 영역 0 (사용자 catch 1: cluster
+            // identity 영역 자율 형성) — 단 mediapipe 영역 stable-pose 영역
+            // novel 영역 trigger 영역 충분 (vigilance 영역 worker 측정).
+            getLiveSnn().triggerWithVigilance(sharpened, ART_VIGILANCE_THRESHOLD);
           } catch {
             // SSR / 미초기화 — 무시.
           }
@@ -269,58 +271,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     });
   }, []);
 
-  // PR4 — Live 전용 R-STDP positive reward (사용자 명시 라벨 신호).
-  // 현재 lastFeature 영역 setPattern + reinforce(gain=2.0) — 즉시 1 회 inject
-  // + run + lab.save (가중치 영속). 학술 정합: Hebbian + reward modulation
-  // (Florian 2007, Izhikevich 2007 R-STDP 정합).
-  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): pending reinforce
-  // trialToken 영역 ref 영역 push event listener 영역 match catch — 직전
-  // setTimeout 100ms race 영역 회피.
-  const pendingReinforceTokenRef = useRef<number | null>(null);
-
-  const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
-    if (lastFeatureRef.current === null) {
-      setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
-      return;
-    }
-    setStatus({ kind: 'training', cluster: clusterIdx });
-    setReinforcingCluster(clusterIdx);
-    try {
-      const live = getLiveSnn();
-      // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode
-      // event 영역 LiveSnn 자체 substrate kind 영역 derive.
-      live.setPattern(lastFeatureRef.current);
-      // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
-      // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
-      // event 영역 별도 emit (NodeLearn / NodeInfer 영역 자동 sync).
-      // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') swap.
-      // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken capture + listener.
-      // QA CAUSE D fix (2026-05-10): rewardGain 2.0 → 0.8 — saturation overshoot
-      // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
-      const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
-      pendingReinforceTokenRef.current = trialToken;
-      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
-      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
-      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
-      // MainThreadTransport fallback 영역 main thread block 영역 catch.
-      setTimeout(() => {
-        if (pendingReinforceTokenRef.current === trialToken) {
-          pendingReinforceTokenRef.current = null;
-          setReinforcingCluster(null);
-          // PR #196 polish (UX LOW-1): hint 영역 secondary line split — 모바일
-          // 320px wrap 정합.
-          setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${GESTURE_LABELS[clusterIdx]} 보강 완료 *`, hint: '(timeout — 새로고침 권장)' }
-            : s);
-        }
-      }, 8000);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
-      setReinforcingCluster(null);
-      pendingReinforceTokenRef.current = null;
-    }
-  }, []);
+  // PR-K (사용자 catch 2026-05-09 catch 1): reinforceLive callback 영역 본격
+  // 폐기 — cluster 별 supervised reinforce button 영역 모두 제거 + stable-pose
+  // 자동 trigger (triggerWithVigilance) 영역 단일 path. backend mode 영역
+  // trainGesture 영역 보존 (학술 검증 — 명시 supervised label 영역 신호).
 
   // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
   // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
@@ -328,15 +282,18 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     if (engineMode !== 'live') return;
     return onLiveTick((d) => {
       if (d.source === 'reinforce' && d.trialToken !== undefined) {
-        if (pendingReinforceTokenRef.current === d.trialToken) {
-          pendingReinforceTokenRef.current = null;
-          setReinforcingCluster(null);
-          const tc = d.targetCluster;
-          const label = (tc !== undefined && tc >= 0 && tc < GESTURE_LABELS.length)
-            ? GESTURE_LABELS[tc]
-            : '패턴';
-          setStatus({ kind: 'ok', message: `${label} 보강 완료` });
-        }
+        // PR-K (사용자 catch 2026-05-09 catch 1): auto-learn loop 영역 final
+        // chunk 영역 status 영역 'auto-learn 완료' 영역 swap. 직전 cluster 별
+        // 학습 button 영역 폐기 영역 별도 reinforcingCluster 영역 unused.
+        const tc = d.targetCluster;
+        const label = tc !== undefined && tc >= 0
+          ? `패턴 ${tc + 1}`
+          : '패턴';
+        setStatus({
+          kind: 'ok',
+          message: `${label} 자동 학습 완료`,
+          hint: 'ART vigilance 영역 신규 cluster 영역 자동 형성',
+        });
       } else if (d.source === 'trigger') {
         // PR #196 polish (QA LOW-1, 2026-05-10): GridInput 영역 정합 — stable-
         // pose 자동 trigger 영역 push event 영역 winner < 0 || margin < 0.10
@@ -349,7 +306,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         if (lowConf) {
           setStatus({
             kind: 'warning',
-            message: '추론 (낮은 confidence)',
+            message: '추론 완료 (신뢰도 낮음)',
             hint: '자세 안정화 권장',
           });
         }
@@ -471,59 +428,51 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         </div>
       </div>
 
-      {/* PR-J (사용자 catch 2026-05-09 [1]): 패턴 보강 button 영역 본격 폐기 —
-          학습 button (cluster 별 단일) 영역 click 영역 자동 reinforce 통합 (직전
-          live 모드 영역 reinforceLive 영역 동일 path 영역 'reinforce 자동' semantic
-          영역 정합 label swap). cluster preset 영역 static span 보존 (CAMERA path
-          영역 hand-feature 영역 setPattern 영역 별도 — preset apply path 0). */}
-      <div className="snn-grid-presets">
-        {GESTURE_LABELS.map((label, i) => (
-          <div key={i} className="snn-grid-preset-row">
-            <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
-              <span className="snn-grid-preset-label">cluster {i}</span>
-            </span>
-            <button
-              type="button"
-              className="snn-grid-train-btn"
-              onClick={
-                isLiveMode
-                  ? () => reinforceLive(i as 0 | 1 | 2 | 3)
-                  : () => trainGesture(i as 0 | 1 | 2 | 3)
-              }
-              disabled={
-                (isBusy && !isLiveMode) ||
-                !cameraConnected ||
-                (isLiveMode && reinforcingCluster !== null)
-              }
-              aria-busy={isLiveMode && reinforcingCluster === i}
-              aria-label={
-                isLiveMode
-                  ? `${label} 학습 — supervised R-STDP (패턴 자동 보강)`
-                  : `${label} 학습 — R-STDP`
-              }
-              title={
-                !cameraConnected
-                  ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
-                  : lastFeatureRef.current === null
-                    ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
-                    : isLiveMode
-                      ? reinforcingCluster === i
-                        ? `${label} 학습 진행 중…`
-                        : reinforcingCluster !== null
-                          ? '다른 cluster 학습 진행 중 — 잠시 대기'
-                          : `${label} 학습 — R-STDP supervised 자동 보강 (현재 자세)`
-                      : `${label} 학습 (R-STDP)`
-              }
-            >
-              {/* PR-J: '현재 패턴 보강' 영역 '학습 N' 영역 swap — 사용자 catch
-                  '학습시 자동 패턴 보강 수행' 영역 정합 (보강 자동 catch). */}
-              {isLiveMode && reinforcingCluster === i
-                ? `학습 ${i} 진행 중…`
-                : `학습 ${i} (${label})`}
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* PR-K (사용자 catch 2026-05-09 catch 1): cluster 별 학습 button × 4
+          본격 폐기 — Live 모드 영역 stable-pose 자동 trigger (ART vigilance)
+          영역 단일 path. backend mode 영역 trainGesture button 영역 보존
+          (legacy supervised path — 학술 검증 영역 별도). cluster preset 영역
+          static span 영역 cluster mapping 영역 시각 catch 영역 보존. */}
+      {!isLiveMode && (
+        <div className="snn-grid-presets">
+          {GESTURE_LABELS.map((label, i) => (
+            <div key={i} className="snn-grid-preset-row">
+              <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
+                <span className="snn-grid-preset-label">cluster {i}</span>
+              </span>
+              <button
+                type="button"
+                className="snn-grid-train-btn"
+                onClick={() => trainGesture(i as 0 | 1 | 2 | 3)}
+                disabled={(isBusy && !isLiveMode) || !cameraConnected}
+                aria-label={`${label} 학습 — R-STDP (backend mode)`}
+                title={
+                  !cameraConnected
+                    ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
+                    : lastFeatureRef.current === null
+                      ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
+                      : `${label} 학습 (R-STDP, backend)`
+                }
+              >
+                {`학습 ${i} (${label})`}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Live 모드 영역 cluster mapping 영역 시각 catch 영역 static — stable-pose
+          영역 자동 trigger 영역 ART vigilance path 영역 사용자 액션 0. */}
+      {isLiveMode && (
+        <div className="snn-grid-presets">
+          {GESTURE_LABELS.map((label, i) => (
+            <div key={i} className="snn-grid-preset-row">
+              <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
+                <span className="snn-grid-preset-label">{`패턴 ${i + 1} (${label})`}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!isLiveMode && (
         <div className="snn-grid-actions">

@@ -36,9 +36,14 @@ import {
   type LocalSnnInitState,
 } from '@/lib/snn/root-local-snn';
 import { N13Pools } from '@/lib/snn-runtime';
+import {
+  loadExemplars,
+  subscribeExemplars,
+  type OutExemplars,
+} from '@/lib/snn/out-exemplars';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { CLUSTER_TARGET, getClusterLabel, getClusterLabels } from './shared';
+import { CLUSTER_TARGET, getClusterLabel, resolveClusterLabel } from './shared';
 
 // path Y (2026-05-07): grid 학습 진행 — GridInput 가 broadcast 하는
 // grid-training event 의 누적 state. cluster 별 학습 완료 여부 + 마지막
@@ -294,7 +299,10 @@ export default function NodeLearn() {
   }, [engineMode, inputMode]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
-  const { lastDetail } = usePipelineEvents();
+  // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
+  // expansion cluster 영역 amber bar 영역 진행 visibility 정합 (NodeOut 영역
+  // winner.clusterRates 정합 — clusterLabels.length 영역 dynamic catch).
+  const { lastDetail, clusterRates: liveClusterRates, autoLearnProgress } = usePipelineEvents();
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -427,9 +435,33 @@ export default function NodeLearn() {
     [inputMode, gridClusterFrames, phase?.clusterFrames],
   );
 
-  // mode 별 cluster label — GRID: orientation / CAMERA: gesture (사용자 catch
-  // 2026-05-09). hardcoded 'CLUSTER_LABELS' (orientation only) → mode-aware.
-  const clusterLabels = useMemo(() => getClusterLabels(inputMode), [inputMode]);
+  // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 OUT exemplar
+  // 영역 사용자 명명 영역 우선 + fallback '패턴 N' (resolveClusterLabel 정합).
+  // substrate-aware exemplar subscribe (NodeOut mirror) — 사용자 RenameButton
+  // 영역 명명 영역 NodeLearn 영역 즉시 sync.
+  const substrate: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+  const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
+  useEffect(() => {
+    setExemplars(loadExemplars(substrate));
+    return subscribeExemplars(substrate, setExemplars);
+  }, [substrate]);
+  const clusterLabels = useMemo(() => {
+    // PR #203 polish (MEDIUM QA 2026-05-10): clusterLabels.length 영역 NodeOut
+    // 영역 정합 — Math.max(winner.clusterRates.length, exemplarMax+1, 4).
+    // 직전 exemplar max only — runtime 영역 신규 ART expansion cluster 영역
+    // exemplar 미생성 시점 영역 NodeLearn ↔ NodeOut length divergence 영역
+    // catch (NodeOut 영역 표시되는 cluster 영역 NodeLearn 영역 누락 회피).
+    let exemplarMax = -1;
+    for (const k of Object.keys(exemplars)) {
+      const m = /^out_(\d+)_\d+$/.exec(k);
+      if (m) {
+        const ci = Number(m[1]);
+        if (ci > exemplarMax) exemplarMax = ci;
+      }
+    }
+    const n = Math.max(liveClusterRates.length, exemplarMax + 1, 4);
+    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
+  }, [exemplars, inputMode, liveClusterRates.length]);
 
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
@@ -566,14 +598,26 @@ export default function NodeLearn() {
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
           <div className="snn-pipeline-cluster-list">
-            {[0, 1, 2, 3].map((i) => {
-              const count = effectiveClusterFrames[i as 0|1|2|3];
+            {Array.from({ length: clusterLabels.length }, (_, i) => i).map((i) => {
+              // PR-K (Phase 4, 2026-05-09): dynamic cluster length —
+              // effectiveClusterFrames 영역 base 4 cluster (n13 default) 영역
+              // catch 영역 신규 ART expansion cluster 영역 frame=0 fallback.
+              // PR #203 polish (UX HIGH 2026-05-10): 신규 ART cluster (i >= 4)
+              // 영역 autoLearnProgress Map 영역 read — runAutoLearnLoop 영역
+              // chunk 단위 progress 영역 amber bar 영역 진행 visibility 정합.
+              const count = i < 4
+                ? effectiveClusterFrames[i as 0|1|2|3]
+                : (autoLearnProgress.get(i) ?? 0);
               const done = count >= CLUSTER_TARGET;
-              const active = i === activeCluster && isLearning;
+              // 신규 ART cluster (i >= 4) 영역 amber bar 영역 진행 시각 catch —
+              // autoLearnProgress 영역 0 < count < TOTAL 영역 active.
+              const active = i < 4
+                ? (i === activeCluster && isLearning)
+                : (count > 0 && count < CLUSTER_TARGET);
               return (
                 <ClusterRow
                   key={i}
-                  label={clusterLabels[i]}
+                  label={clusterLabels[i] ?? `패턴 ${i + 1}`}
                   count={count}
                   done={done}
                   active={active}
@@ -671,7 +715,7 @@ function LiveLearnPanel({
             }`}
           >
             {initState?.phase === 'fresh'
-              ? 'LIVE — fresh circuit (학습 0회)'
+              ? 'LIVE — awaiting first input (학습 0회)'
               : initState?.phase === 'hydrated'
                 ? 'LIVE — hydrated (이전 학습 복원됨)'
                 : 'LIVE — awaiting'}
@@ -679,10 +723,9 @@ function LiveLearnPanel({
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
         <div className="snn-pipeline-hint">
-          {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1+A2):
-              직전 hint 영역 'click → 1회 학습 + 추론' 영역 stale.
-              정정: 패턴 그림 → 추론 button → 학습 button (cluster 별 supervised). */}
-          패턴을 그린 뒤 추론 버튼을 누르세요. 학습 버튼 = cluster supervised R-STDP.
+          {/* PR-K (사용자 catch 2026-05-09 catch 1): hint copy 영역 ART
+              auto-learn path 영역 정합 — 추론 button 영역 자동 학습. */}
+          패턴을 그린 뒤 추론 버튼을 누르세요. 처음 보는 패턴은 30회 자동 학습.
         </div>
         {/* 사용자 catch 2026-05-09 [2] (Fix 4): DB visibility footer status row. */}
         {dbHint && (
@@ -699,11 +742,14 @@ function LiveLearnPanel({
     ? clusterLabels[tick.winner]
     : null;
   const phaseTone = tick.patternActive ? 'amber' : 'idle';
-  // 사용자 catch 2026-05-09 [2] (Fix 6): trial=0 영역 추론 영역 hint —
-  // fresh build 영역 첫 추론 영역 신뢰 0 영역 정직 catch (amber suffix).
-  // PR #199 polish — QA LOW Fix 6 (사용자 catch 2026-05-10): redundant
-  // clause (`trial < 1` 영역 `trial === 0` 영역 동일 — int domain 정합) 영역 합집.
+  // PR-K (사용자 catch 2026-05-09 catch 3): fresh state winner emerge misleading
+  // 정정 — fresh build (trial=0 영역 trained_clusters 0) 시점 영역 winner card
+  // 영역 hide. n13 INPUT→V1_L4_E weight 11.0 base activation 영역 학술 정합 단
+  // UI 영역 winner emerge misleading (사용자 mental model 영역 학습 0 영역
+  // winner 영역 표시 영역 noise). Phase block 영역 'awaiting first input' 영역
+  // 명시 + winner cluster 영역 hide.
   const isUntrustworthy = initState?.phase === 'fresh' && tick.trial === 0;
+  const hideWinner = isUntrustworthy;
   return (
     <>
       <div
@@ -711,8 +757,10 @@ function LiveLearnPanel({
         className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
       >
         <div className="snn-pipeline-phase-label">
-          {tick.patternActive ? 'LIVE — STDP active' : 'LIVE — silent'}
-          {stdpPulseKey > 0 && (
+          {hideWinner
+            ? 'LIVE — awaiting first input (fresh, 학습 0회)'
+            : tick.patternActive ? 'LIVE — STDP active' : 'LIVE — silent'}
+          {stdpPulseKey > 0 && !hideWinner && (
             <span
               key={`stdp-${stdpPulseKey}`}
               className="snn-pipeline-stdp-led"
@@ -721,17 +769,15 @@ function LiveLearnPanel({
           )}
         </div>
         <div className="snn-pipeline-phase-sub">
-          학습 #{tick.trial} · {winnerLabel
-            ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
-            : 'no winner — WTA 대기'}
-          {isUntrustworthy && winnerLabel && (
-            <span
-              className="snn-pipeline-row-warning-badge"
-              aria-label="미학습 영역 비신뢰 추론"
-            >
-              미학습 — 비신뢰
-            </span>
-          )}
+          {hideWinner
+            ? 'tap 추론 → 자동 30회 학습 후 winner 표시'
+            : (
+              <>
+                학습 #{tick.trial} · {winnerLabel
+                  ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
+                  : 'no winner — WTA 대기'}
+              </>
+            )}
         </div>
         {/* PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner
             정정, 2026-05-10): n13 substrate 영역 idx overlap (mathematical
@@ -745,10 +791,13 @@ function LiveLearnPanel({
         )}
       </div>
       <div className="snn-pipeline-cluster-list">
-        {tick.rates.map((rate, i) => (
+        {/* PR-K (Phase 4 + Phase 5): dynamic cluster bar — tick.rates length
+            영역 ART expansion 시점 영역 신규 cluster 표시. fresh state 영역
+            cluster bar 영역 hide (winner emerge misleading 회피). */}
+        {!hideWinner && tick.rates.map((rate, i) => (
           <LiveRateRow
             key={i}
-            label={clusterLabels[i] ?? `cluster ${i}`}
+            label={clusterLabels[i] ?? `패턴 ${i + 1}`}
             rate={rate}
             max={max}
             isWinner={tick.winner === i}

@@ -19,6 +19,12 @@ import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
+// PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — 추론
+// 영역 winner margin < threshold 시점 영역 자동 expansion + 30 trial chunked
+// reinforce. Carpenter & Grossberg 1987 ART vigilance 영역 정합 — 0.15 영역
+// 보수적 threshold (margin meter 영역 0.10 영역 별도 — 본 영역 unsupervised
+// auto-learn trigger 영역 보다 높은 신뢰 영역 catch).
+const ART_VIGILANCE_THRESHOLD = 0.15;
 
 // 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
 // only 영역 일관 정합. 직전 '─ horizontal' / '│ vertical' / '╲ diag-back' /
@@ -70,9 +76,10 @@ export default function GridInput() {
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
-  // PR audit fix (Fix 4 — LOW): Live reinforce in-flight 영역 visual gate —
-  // 동일 cluster 영역 즉시 multi-click 영역 race 회피 + spinner-like feedback.
-  const [reinforcingCluster, setReinforcingCluster] = useState<number | null>(null);
+  // PR-K (사용자 catch 2026-05-09 catch 1): reinforcingCluster state 영역 본격
+  // 폐기 — cluster 별 학습 button 영역 폐기 영역 in-flight gate 영역 caller 0.
+  // Live 모드 영역 추론 button (runInferAuto) 영역 단일 trigger — pendingInferTokenRef
+  // 영역 별도 in-flight gate.
 
   // PR-A architecture pivot (사용자 catch 2026-05-09 A1): pixel/preset click
   // 영역 즉시 STDP/추론 trigger 영역 본격 폐기 — 직전 path 영역 4×4 그리드
@@ -398,40 +405,45 @@ export default function GridInput() {
   // ref 영역 callback closure 영역 stale 회피.
   const pendingInferTokenRef = useRef<number | null>(null);
 
-  // PR-A architecture pivot (사용자 catch 2026-05-09 A1): Live 모드 영역
-  // 명시 추론 trigger — pixel/preset click 영역 STDP off (togglePixel/applyPreset
-  // 영역 setPattern only) 영역 정합. 본 button 영역 click 영역 inferOnce
-  // (stdpGain=0) 영역 호출 — STDP 0 (학습 0) + cluster firing rates 측정 only.
-  const runInferLive = useCallback(async () => {
+  // PR-K (사용자 catch 2026-05-09 catch 1): ART unsupervised auto-learn —
+  // "추론 버튼이 곧 학습 적용(자동) = 처음 만나는 패턴일 경우 30회 자동 학습
+  // 후, 패턴 기억". 직전 inferAsync (STDP off) path 영역 wrap — winner margin
+  // 영역 vigilance threshold 영역 비교 영역:
+  //   - margin >= threshold (0.15): 단순 winner 표시 (familiar pattern).
+  //   - margin <  threshold (0.15): novel pattern → triggerWithVigilance 영역
+  //     auto-learn (ART expansion + 30 trial chunked reinforce).
+  //
+  // 학술 정합: Carpenter & Grossberg 1987 ART vigilance — match score < ρ →
+  // reset → 새 cluster 슬롯 할당 + 30 trial supervised reinforce 영역 weight
+  // 수렴. 본 path 영역 사용자 supervised label 영역 0 영역 unsupervised
+  // 자율 cluster 형성 — fallback '패턴 N' label (RenameButton 영역 사용자
+  // 명명 path 영역 별도).
+  //
+  // 정직 한계: 본격 ART expansion (worker.expandCluster RPC) 영역 production
+  // wire — registry length ↑ 후 신규 cluster 영역 30 trial reinforce. 30 trial
+  // 영역 5-trial chunk × 6 round 영역 progress emit (NodeLearn 영역 auto-learn
+  // visibility). 사용자 supervised 명시 신호 0 영역 cluster identity 영역 자율
+  // 형성 — RenameButton 영역 사용자 명명 path 영역 mandatory (의미 부여).
+  const runInferAuto = useCallback(async () => {
     setStatus({ kind: 'inferring' });
     try {
       const live = getLiveSnn();
       live.setPattern(grid);
-      // PR-B (Web Worker background offload, 2026-05-10): inferAsync 영역 swap.
-      // 사용자 catch 2026-05-09 [2]: "버벅이고 유저 액션 지연발생" 영역 정정 —
-      // 즉시 return + 결과 영역 worker push event 영역 별도 emit (NodeInfer 영역
-      // neuron-firing event listen 영역 자동 sync).
-      // PR #192 polish (UX-2): status 영역 진행형 ('추론 중…') 영역 swap —
-      // 직전 '추론 요청 완료 (백그라운드 처리)' 영역 misleading catch (사용자
-      // 영역 완료 인지 단 worker 영역 inline 영역 진행 中). 완료 영역 push
-      // event listener 영역 swap '추론 완료'.
-      const { trialToken } = live.inferAsync();
+      // triggerWithVigilance 영역 fire-and-forget — 즉시 return + 결과 영역
+      // worker push event 영역 별도 emit. 본 method 영역 vigilance 영역 비교
+      // 영역 winner margin < threshold 시점 영역 ART expansion + 30 trial
+      // chunked reinforce 영역 auto-trigger.
+      const { trialToken } = live.triggerWithVigilance(grid, ART_VIGILANCE_THRESHOLD);
       pendingInferTokenRef.current = trialToken;
       setStatus({ kind: 'inferring' });
-      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
-      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats
-      // = 1.272M neuron-steps) 영역 throttled CPU (mobile / tab inactive) 영역
-      // 2s 도달 가능 + worker bundle fail (gh-pages MIME) 영역 MainThreadTransport
-      // fallback 영역 main thread block 영역 catch. status copy 영역 worker
-      // bundle / 회로 build 영역 점검 영역 hint.
+      // QA FINDING-2 fix (2026-05-10): safety-net 8000ms — worker simulation
+      // throttled CPU 영역 ≥2s 가능 + auto-learn 영역 30 trial × ~150ms ≈ 4.5s
+      // 영역 timeout 회피 mandatory (8s 영역 보수적 catch).
       setTimeout(() => {
         if (pendingInferTokenRef.current === trialToken) {
           pendingInferTokenRef.current = null;
-          // PR #196 polish (UX LOW-1): 긴 'timeout — 회로 build 또는 worker
-          // bundle 점검' 영역 hint 영역 secondary line 영역 split — 모바일
-          // 320px wrap 정합 + ellipsis 영역 main message 보존.
           setStatus((s) => s.kind === 'inferring'
-            ? { kind: 'ok', message: '추론 완료 *', hint: '(timeout — 새로고침 권장)' }
+            ? { kind: 'ok', message: '추론 완료 *', hint: '(처리 지연 — 잠시 후 재시도)' }
             : s);
         }
       }, 8000);
@@ -441,62 +453,11 @@ export default function GridInput() {
     }
   }, [grid]);
 
-  // Live 모드 전용 — R-STDP positive reward 즉시 (사용자 명시 라벨 신호).
-  // PR #171 audit fix (Fix 2): setSubstrate 호출 영역 제거 — input-mode event
-  // 영역 LiveSnn 자체 substrate kind 영역 derive 영역 race 회피.
-  // PR audit fix (Fix 1 — MEDIUM): saveFailed flag 영역 read 영역 user-visible
-  // warning 표시 — 직전 silent fail catch.
-  // PR audit fix (Fix 3 — MEDIUM): 'reinforced' 영역 한국어 swap.
-  // PR audit fix (Fix 4 — LOW): reinforcingCluster 영역 in-flight gate.
-  // PR-A architecture pivot (사용자 catch 2026-05-09 A2 — PRIMARY): reinforce
-  // 영역 R-STDP supervised path 영역 정합 — direct backend (clusterTrainRStdp)
-  // 1-pattern batch 영역 호출 (worker-core.ts:343-416 R-STDP 본격 구현 정합).
-  // 직전 reinforce 영역 void targetCluster + STDP unsupervised self-reinforcing
-  // loop 영역 horizontal 우연 winner 영역 lock-in 사실 영역 root cause 정정.
-  // PR #192 polish (UX-3 + QA FINDING-1/2 token-aware reset): pending reinforce
-  // trialToken 영역 ref 영역 push event listener 영역 match catch.
-  const pendingReinforceTokenRef = useRef<number | null>(null);
-
-  const reinforceLive = useCallback((clusterIdx: 0 | 1 | 2 | 3) => {
-    setStatus({ kind: 'training', cluster: clusterIdx });
-    setReinforcingCluster(clusterIdx);
-    try {
-      const live = getLiveSnn();
-      live.setPattern(grid);
-      // PR-B (Web Worker background offload, 2026-05-10): reinforceAsync swap.
-      // 사용자 catch 2026-05-09 [2] 정정 — 즉시 return + 결과 영역 worker push
-      // event 영역 별도 emit. UI 영역 click 영역 latency 영역 main thread block
-      // 0 (R-STDP supervised batch 영역 worker thread 영역 처리).
-      // PR #192 polish (UX-2): status 영역 진행형 ('보강 중…') 영역 swap —
-      // 직전 '보강 요청 완료 (백그라운드 처리)' 영역 misleading catch.
-      // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken 영역 capture 영역
-      // push event listener 영역 정확 reset path 영역 정합 (직전 setTimeout
-      // 100ms race 영역 회피).
-      // QA CAUSE D fix (2026-05-10): rewardGain 2.0 → 0.8 — saturation overshoot
-      // 회피 (1회 reinforce 영역 W_MAX 도달 영역 saturation 영역 root cause).
-      const { trialToken } = live.reinforceAsync(clusterIdx, 0.8);
-      pendingReinforceTokenRef.current = trialToken;
-      // QA FINDING-2 fix (2026-05-10): safety-net 2000ms → 8000ms — worker
-      // simulation (n13 ~848 neurons + ~100k synapses × 1500 steps × 3 repeats)
-      // 영역 throttled CPU (mobile) 영역 ≥2s 가능 + worker bundle fail 영역
-      // MainThreadTransport fallback 영역 main thread block 영역 catch.
-      setTimeout(() => {
-        if (pendingReinforceTokenRef.current === trialToken) {
-          pendingReinforceTokenRef.current = null;
-          setReinforcingCluster(null);
-          // PR #196 polish (UX LOW-1): hint 영역 secondary line split.
-          setStatus((s) => s.kind === 'training'
-            ? { kind: 'ok', message: `${ORIENTATION_LABELS[clusterIdx]} 보강 완료 *`, hint: '(timeout — 새로고침 권장)' }
-            : s);
-        }
-      }, 8000);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `보강 실패: ${msg}` });
-      setReinforcingCluster(null);
-      pendingReinforceTokenRef.current = null;
-    }
-  }, [grid]);
+  // PR-K (사용자 catch 2026-05-09 catch 1): reinforceLive callback 영역 본격
+  // 폐기 — cluster 별 supervised reinforce button 영역 모두 제거 + 추론 button
+  // (runInferAuto) 영역 ART unsupervised auto-learn 영역 단일 trigger.
+  // 직전 R-STDP supervised path 영역 backend mode 영역 trainPreset 영역 보존
+  // (학술 검증 — 명시 supervised label 영역 신호).
 
   // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
   // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
@@ -521,21 +482,30 @@ export default function GridInput() {
             setStatus({
               kind: 'warning',
               message: '추론 완료',
-              hint: '낮은 confidence — 자세 안정화 권장',
+              hint: '신뢰도 낮음 — 자세 안정화 권장',
             });
           } else {
             setStatus({ kind: 'ok', message: '추론 완료' });
           }
         }
       } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
-        if (pendingReinforceTokenRef.current === d.trialToken) {
-          pendingReinforceTokenRef.current = null;
-          setReinforcingCluster(null);
+        // PR-K (사용자 catch 2026-05-09 catch 1): auto-learn 30 trial chunked
+        // reinforce 영역 progress emit — pendingInferTokenRef 영역 동일 token
+        // 영역 catch + final status 영역 'auto-learn 완료' 영역 swap. 직전
+        // pendingReinforceTokenRef 영역 폐기 (cluster 별 학습 button 영역 폐기).
+        if (pendingInferTokenRef.current === d.trialToken) {
+          // 본 reinforce push 영역 last chunk 시점 영역 token reset (caller
+          // 영역 worker 영역 final reinforce 영역 emit 시점 영역 catch).
+          pendingInferTokenRef.current = null;
           const tc = d.targetCluster;
-          const label = (tc !== undefined && tc >= 0 && tc < ORIENTATION_LABELS.length)
-            ? ORIENTATION_LABELS[tc]
+          const label = tc !== undefined && tc >= 0
+            ? `패턴 ${tc + 1}`
             : '패턴';
-          setStatus({ kind: 'ok', message: `${label} 보강 완료` });
+          setStatus({
+            kind: 'ok',
+            message: `${label} 자동 학습 완료 (30 trial)`,
+            hint: 'ART vigilance 영역 신규 cluster 영역 자동 형성',
+          });
         }
       }
     });
@@ -573,9 +543,9 @@ export default function GridInput() {
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          {/* UX-7 (PR #191 polish, 2026-05-10): 영문 hint copy + 어색 한국어
-              catch — 자연 한국어 + 사용자 액션 명확화. */}
-          LIVE — 패턴을 그리고 추론 버튼을 누르세요. 학습 버튼 = 사용자 지정 정답 학습.
+          {/* PR-K (사용자 catch 2026-05-09 catch 1): hint copy 영역 ART
+              auto-learn path 영역 정합 — "추론 버튼이 곧 학습 적용(자동)". */}
+          LIVE — 패턴을 그리고 추론 버튼을 누르세요. 처음 보는 패턴은 30회 자동 학습.
         </div>
       )}
 
@@ -592,62 +562,56 @@ export default function GridInput() {
         ))}
       </div>
 
-      {/* PR-J (사용자 catch 2026-05-09 [1]): 패턴 보강 button 영역 본격 폐기 —
-          학습 button (cluster 별) 영역 click 영역 setPattern + reinforce 자동 통합.
-          직전 영역 cluster row 영역 [preset cluster N] [현재 패턴 보강] 영역 2 button
-          → 단일 [학습 N] button 영역 통합 (cluster 별 1 button). 사용자 catch:
-          "클러스터의 별도 패턴 보강 불필요(학습시 자동 패턴 보강 수행)".
-          live mode: applyPreset 영역 setPattern + reinforceAsync(clusterIdx, 0.8)
-                     영역 자동 호출.
-          backend mode: 직전 trainPreset path 영역 보존 — applyPreset + train. */}
-      <div className="snn-grid-presets">
-        {ORIENTATION_LABELS.map((label, i) => (
-          <div key={i} className="snn-grid-preset-row">
-            <button
-              type="button"
-              className="snn-grid-train-btn snn-grid-train-btn--unified"
-              onClick={
-                isLiveMode
-                  ? () => {
-                      // PR-J: applyPreset (setPattern) + reinforceAsync 통합 —
-                      // 사용자 1-click 영역 패턴 set + 학습 trigger 동시.
-                      applyPreset(i);
-                      reinforceLive(i as 0 | 1 | 2 | 3);
-                    }
-                  : () => {
-                      applyPreset(i);
-                      void trainPreset(i as 0 | 1 | 2 | 3);
-                    }
-              }
-              disabled={
-                (isBusy && !isLiveMode) ||
-                (isLiveMode && reinforcingCluster !== null)
-              }
-              aria-busy={isLiveMode && reinforcingCluster === i}
-              aria-label={
-                isLiveMode
-                  ? `${label} 학습 — supervised R-STDP (패턴 자동 보강)`
-                  : `${label} 학습 — R-STDP batch`
-              }
-              title={
-                isLiveMode
-                  ? reinforcingCluster === i
-                    ? `${label} 학습 진행 중…`
-                    : reinforcingCluster !== null
-                      ? '다른 cluster 학습 진행 중 — 잠시 대기'
-                      : `${label} 학습 — preset 영역 set + R-STDP supervised 자동 보강`
-                  : `${label} 학습 (R-STDP, batch)`
-              }
-            >
-              {/* PR-J: 단일 button label — cluster 정합 + '학습 N' 영역 사용자
-                  명시 catch (보강 별도 button 폐기 + 학습 영역 자동 reinforce). */}
-              {isLiveMode && reinforcingCluster === i
-                ? `학습 ${i} 진행 중…`
-                : `학습 ${i} (${label})`}
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* PR-K (사용자 catch 2026-05-09 catch 1): 학습 button × 4 본격 폐기 —
+          "추론 버튼이 곧 학습 적용(자동) = 처음 만나는 패턴일 경우 30회 자동
+          학습 후, 패턴 기억". cluster row 영역 학습/보강 button 영역 ART
+          unsupervised auto-learn 영역 wrap 영역 mandatory 폐기. backend mode
+          영역 preset apply button 영역 보존 (legacy supervised path — 학술
+          검증 영역 별도 단 신규 architecture 영역 auto-learn 영역 단일 path).
+          Live 모드 영역 preset button 영역 setPattern only — 추론 button
+          (runInferAuto) 영역 vigilance 영역 자동 학습 trigger. */}
+      {!isLiveMode && (
+        <div className="snn-grid-presets">
+          {ORIENTATION_LABELS.map((label, i) => (
+            <div key={i} className="snn-grid-preset-row">
+              <button
+                type="button"
+                className="snn-grid-train-btn snn-grid-train-btn--unified"
+                onClick={() => {
+                  applyPreset(i);
+                  void trainPreset(i as 0 | 1 | 2 | 3);
+                }}
+                disabled={isBusy && !isLiveMode}
+                aria-label={`${label} 학습 — R-STDP batch (backend mode)`}
+                title={`${label} 학습 (R-STDP, batch)`}
+              >
+                {`학습 ${i} (${label})`}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Live 모드 영역 preset apply button 영역 setPattern only — 사용자
+          영역 4-cell preset 영역 빠른 입력 path 영역 보존 (학습 trigger 0,
+          추론 button 영역 명시 trigger). */}
+      {isLiveMode && (
+        <div className="snn-grid-presets">
+          {ORIENTATION_LABELS.map((label, i) => (
+            <div key={i} className="snn-grid-preset-row">
+              <button
+                type="button"
+                className="snn-grid-train-btn snn-grid-train-btn--preset-only"
+                onClick={() => applyPreset(i)}
+                disabled={false}
+                aria-label={`${label} preset apply — 패턴 set only`}
+                title={`${label} preset 영역 패턴 set (학습 0 — 추론 button 영역 자동 학습)`}
+              >
+                {`${i} 패턴 (${label})`}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1): Live 영역
           추론 button 영역 visible — pixel/preset click 영역 STDP off (setPattern
@@ -660,7 +624,7 @@ export default function GridInput() {
         <button
           type="button"
           className="snn-grid-infer-btn snn-grid-infer-btn--primary"
-          onClick={isLiveMode ? runInferLive : runInfer}
+          onClick={isLiveMode ? runInferAuto : runInfer}
           disabled={isBusy}
           aria-label={isLiveMode ? '추론 — STDP off, 가중치 변경 0' : '추론'}
           title={

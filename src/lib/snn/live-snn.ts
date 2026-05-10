@@ -34,6 +34,7 @@ import {
   onBackendEvent,
   type NeuronFiringDetail,
   type InputModeDetail,
+  type AutoLearnProgressDetail,
 } from '@/lib/backend/events';
 
 import type {
@@ -135,6 +136,11 @@ export class LiveSnn {
   // 사용자 catch 2026-05-09 [2] (SEC-1 mitigation): push handler 영역 매 emit
   // 영역 fresh root fetch 영역 substrate switch stale 회피 — root 영역 reuse 0.
   private _pushBoundForKind: SubstrateKind | null = null;
+  // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance auto-learn 영역 inline
+  // state — triggerWithVigilance 영역 trial token 영역 pattern + vigilance
+  // catch + handleTriggerComplete 영역 winner.margin 영역 비교 + auto-learn
+  // dispatch (worker sequential serial 영역 자연 정합 단 token-keyed catch).
+  private _vigilancePending: Map<number, { pattern: number[]; vigilance: number }> = new Map();
 
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
@@ -240,6 +246,11 @@ export class LiveSnn {
       clearTimeout(this._saveTrailingTimer);
       this._saveTrailingTimer = null;
     }
+    // PR-K (사용자 catch 2026-05-09 catch 4): vigilancePending state 영역 clear —
+    // 학습 reset 영역 직전 inferAsync 영역 dispatch 영역 stale auto-learn loop
+    // 영역 catch 회피 (worker fresh build 후 영역 stale token 영역 reinforce
+    // 영역 새 cluster 영역 weight pollution 영역 root cause 회피).
+    this._vigilancePending.clear();
     // _pushBoundForKind 영역 보존 — push handler substrate 영역 active 정합
     // (다음 trigger 영역 ensurePushHandler 영역 정합 path 영역 reuse).
   }
@@ -573,6 +584,98 @@ export class LiveSnn {
   }
 
   /**
+   * PR-K (사용자 catch 2026-05-09 catch 1): ART unsupervised auto-learn —
+   * "추론 버튼이 곧 학습 적용(자동) = 처음 만나는 패턴일 경우 30회 자동 학습
+   * 후, 패턴 기억".
+   *
+   * 학술 정합: Carpenter & Grossberg 1987 ART vigilance — bottom-up match
+   * score < ρ → reset → 새 cluster 슬롯 할당 + supervised reinforce 영역 weight
+   * 수렴. 본 method 영역 vigilance threshold (default 0.15) 영역 비교 →
+   *   - winner.margin >= ρ: familiar pattern → triggerAsync (STDP off, 단순
+   *     winner 표시) 영역 fallback.
+   *   - winner.margin <  ρ: novel pattern → expandClusterAsync (worker
+   *     RPC 영역 신규 cluster 슬롯 할당) + 30 trial chunked reinforce
+   *     (5-trial chunk × 6 round, supervised target = 신규 cluster id).
+   *
+   * 정직 한계:
+   *  - 본 method 영역 fire-and-forget — 즉시 trialToken return + 결과 영역
+   *    push event 영역 emit. 30 trial 영역 worker 영역 sequential serialize
+   *    영역 자연 정합 (main thread block 0).
+   *  - first inferAsync (STDP off) 영역 winner margin 측정 → vigilance 비교
+   *    영역 ART expansion + reinforce loop 영역 inline. 사용자 input event
+   *    loop 영역 unblock (worker 영역 background 처리).
+   *  - cluster identity 영역 사용자 supervised label 영역 0 영역 자율 형성 —
+   *    OUT 노드 RenameButton 영역 사용자 명시 명명 path 영역 mandatory (의미
+   *    부여). fallback label 영역 '패턴 N' (shared.ts getClusterLabel 정합).
+   *
+   * @param pattern   현재 16-dim 입력 영역 snapshot (caller 영역 setPattern
+   *                  영역 동기 sync 보장 영역 정합 catch).
+   * @param vigilance match score threshold (0..1, default 0.15). 높을수록
+   *                  strict — 자주 novel 판정 + cluster 영역 풍부.
+   */
+  triggerWithVigilance(pattern: number[], vigilance: number = 0.15): { trialToken: number } {
+    // PR #203 polish (LOW SEC 2026-05-10): vigilance defensive clamp [0,1] —
+    // caller (UI slider) 영역 out-of-range 영역 winner.margin 비교 영역 항상
+    // novel (vig<0) 또는 항상 familiar (vig>1) 영역 misuse 회피.
+    vigilance = Math.max(0, Math.min(1, vigilance));
+    this.setPattern(pattern);
+    const trialToken = ++this._trialTokenSeq;
+    void (async () => {
+      try {
+        const root = await getRootLocalSnnFor(this.substrateKind);
+        await this.ensurePushHandler(root);
+        // 1. inferAsync (STDP off) 영역 winner margin 측정 — worker 영역 inline.
+        //    triggerBackground RPC 영역 stdpGain=0 영역 정합 — STDP 0 + cluster
+        //    firing rates 측정 only.
+        await root.client.triggerBackground({
+          pattern: this.patternRef.slice(),
+          intensity: this.opts.intensity,
+          observeMs: this.opts.observeMs,
+          stimulusDurationMs: this.opts.stimulusDurationMs,
+          stdpGain: 0,
+          repeats: 3,
+          resetThreshold: true,
+          trialToken,
+        });
+        // 2. 결과 영역 main thread 영역 push event listener 영역 catch —
+        //    handleTriggerComplete 영역 trialToken match 영역 winner.margin
+        //    영역 vigilance 영역 비교 + ART expansion + reinforce loop 영역
+        //    pending dispatch (별도 path — handleVigilanceFollowup).
+        //    본 push 영역 이미 ensurePushHandler 영역 등록 단 본 method 영역
+        //    별도 vigilance state 영역 track — vigilance pending map 영역
+        //    별도 catch (latest token-wins 영역 worker sequential serial 영역
+        //    자연 정합 단 token mismatch 회피 catch 영역 explicit).
+        this._vigilancePending.set(trialToken, { pattern: pattern.slice(), vigilance });
+      } catch (e) {
+        console.warn('[LiveSnn] triggerWithVigilance dispatch failed:', e);
+        this._vigilancePending.delete(trialToken);
+      }
+    })();
+    return { trialToken };
+  }
+
+  /**
+   * PR-K (사용자 catch 2026-05-09 catch 1): ART expansion 영역 worker RPC 영역
+   * 호출 + cluster registry length ↑ 영역 caller 영역 catch.
+   *
+   * worker.expandCluster 영역 production wire — 직전 caller 0 (dead path) 영역
+   * triggerWithVigilance 영역 vigilance miss 시점 영역 호출. activeInputs 영역
+   * pattern 영역 v > 0.5 영역 binary 영역 catch (sharpenForGesture 정합).
+   *
+   * @returns newClusterId  worker 영역 할당 영역 신규 cluster id (registry
+   *                        length 직전 영역 ↑ 영역 정합).
+   * @returns totalClusters worker 영역 registry 영역 신규 length.
+   */
+  async expandClusterAsync(activeInputs: number[]): Promise<{
+    newClusterId: number;
+    totalClusters: number;
+  }> {
+    const root = await getRootLocalSnnFor(this.substrateKind);
+    const r = await root.client.expandCluster({ activeInputs });
+    return { newClusterId: r.newClusterId, totalClusters: r.totalClusters };
+  }
+
+  /**
    * 즉시 return — R-STDP supervised reward 영역 worker 영역 inline 처리.
    * push event ('reinforceComplete') 영역 emitTick + lab.save force fire-and-forget.
    */
@@ -683,6 +786,93 @@ export class LiveSnn {
     // 영역 wait 0. force=false (throttle 정합 — supervised path 영역 reinforce
     // 별도 force=true).
     void this.saveDebounced(root, false);
+    // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance follow-up — winner
+    // margin 영역 vigilance 영역 비교 + novel pattern 영역 auto-learn dispatch.
+    const pending = this._vigilancePending.get(payload.trialToken);
+    if (pending !== undefined) {
+      this._vigilancePending.delete(payload.trialToken);
+      const { pattern, vigilance } = pending;
+      const margin = payload.cfr.margin;
+      const winner = payload.cfr.winner;
+      // novel pattern 영역 catch — winner -1 (silent) 또는 margin < vigilance.
+      if (winner < 0 || margin < vigilance) {
+        // active inputs 영역 pattern 영역 v > 0.5 binary catch.
+        const activeInputs: number[] = [];
+        for (let i = 0; i < pattern.length; i += 1) {
+          if (pattern[i] > 0.5) activeInputs.push(i);
+        }
+        // activeInputs 영역 0 영역 silent pattern (사용자 영역 빈 grid 영역
+        // 추론 button click) — auto-learn skip + emit dummy reinforce push
+        // 영역 caller 영역 token reset 정합 (NodeInfer status 영역 사용자
+        // 영역 catch 0 — '추론 완료' fallback).
+        if (activeInputs.length === 0) return;
+        // fire-and-forget 30 trial chunked reinforce — 5 trial chunk × 6 round.
+        void this.runAutoLearnLoop(payload.trialToken, activeInputs);
+      }
+    }
+  }
+
+  /**
+   * PR-K (사용자 catch 2026-05-09 catch 1): ART expansion + 30 trial chunked
+   * reinforce loop — triggerWithVigilance 영역 vigilance miss 시점 영역
+   * handleTriggerComplete 영역 dispatch.
+   *
+   * sequence:
+   *   1. expandClusterAsync(activeInputs) — worker.expandCluster RPC 영역
+   *      신규 cluster 슬롯 할당 (registry length ↑).
+   *   2. 30 trial 영역 5-trial chunk × 6 round — reinforceBackground RPC 영역
+   *      newClusterId 영역 supervised target. 각 chunk 영역 push event 영역
+   *      별도 emit (NodeLearn 영역 progress visibility).
+   *   3. final chunk 영역 trialToken 영역 caller (GridInput) 영역 token match
+   *      영역 status reset 영역 정합.
+   *
+   * 정직 한계: 5 trial × 6 round = 30 frame — Diehl & Cook 2015 supervised
+   * batch 영역 frame count 정합 (단일 cluster 영역 weight 수렴 영역 충분).
+   * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
+   */
+  private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
+    try {
+      const { newClusterId } = await this.expandClusterAsync(activeInputs);
+      const ROUNDS = 6;
+      const CHUNK = 5;
+      const TOTAL = ROUNDS * CHUNK;
+      let progress = 0;
+      for (let round = 0; round < ROUNDS; round += 1) {
+        for (let i = 0; i < CHUNK; i += 1) {
+          // 마지막 chunk 영역 originalToken 영역 reuse — caller 영역 token
+          // match 영역 status reset 정합 (final emit). 중간 chunk 영역 fresh
+          // token (reinforce push 영역 NodeLearn cluster bar 영역 갱신만).
+          const isFinal = round === ROUNDS - 1 && i === CHUNK - 1;
+          const trialToken = isFinal ? originalToken : ++this._trialTokenSeq;
+          const root = await getRootLocalSnnFor(this.substrateKind);
+          await this.ensurePushHandler(root);
+          await root.client.reinforceBackground({
+            pattern: this.patternRef.slice(),
+            targetCluster: newClusterId,
+            rewardGain: 0.8,
+            punishGain: 0.2,
+            intensity: this.opts.intensity,
+            observeMs: this.opts.observeMs,
+            stimulusDurationMs: this.opts.stimulusDurationMs,
+            trialToken,
+          });
+          // PR #203 polish (UX HIGH 2026-05-10): chunk 단위 progress emit —
+          // NodeLearn 영역 신규 ART expansion cluster 영역 amber bar 영역
+          // 진행 visibility (직전 effectiveClusterFrames base 4 only — 신규
+          // cluster 영역 progress 0 영역 misleading). PipelineEventContext
+          // 영역 framesDone Map 영역 update.
+          progress += 1;
+          emitBackendEvent<AutoLearnProgressDetail>('auto-learn-progress', {
+            trialToken: originalToken,
+            clusterId: newClusterId,
+            progress,
+            total: TOTAL,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[LiveSnn] runAutoLearnLoop failed:', e);
+    }
   }
 
   private handleReinforceComplete(root: RootLocalSnn, payload: ReinforceCompletePayload): void {

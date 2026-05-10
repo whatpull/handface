@@ -3,47 +3,82 @@
 // WINNER_MARGIN 은 winner-derivation 의 default 를 그대로 위임 (HIGH #3 정합).
 
 import { WINNER_MARGIN_DEFAULT } from '@/lib/snn/winner-derivation';
+import type { OutExemplars } from '@/lib/snn/out-exemplars';
 
 export const CLUSTER_TARGET = 30;
 
-// path Y (2026-05-07) — orientation 4종 정합 (자세 라벨 폐기).
-// 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster 의미가 다름.
-// 직전 hardcoded 'orientation' 라벨 → mode-aware 함수로 정정.
-// 사용자 catch 2026-05-09 (2 신규 catch): INPUT/INFER/OUT 영역 cluster N 앞 glyph
-// 영역 본격 제거 — visual minimalism 정합. 직전 ─│╲╱ prefix + space 영역 제거,
-// 텍스트 only label 영역 유지.
-export const CLUSTER_LABELS_GRID = ['horizontal', 'vertical', 'diag-back', 'diag-fore'] as const;
-
-// CAMERA mode (제스처) — feature-encoder.ts 의 cluster slot 정합.
-//   0 = Pointing, 1 = Open Palm, 2 = Closed Fist, 3 = Victory.
-export const CLUSTER_LABELS_CAMERA = ['Pointing', 'Open Palm', 'Closed Fist', 'Victory'] as const;
+// PR-K (사용자 catch 2026-05-09 catch 2): generic '패턴 N' label —
+// 직전 orientation hardcode (horizontal / vertical / diag-back / diag-fore) +
+// gesture hardcode (Pointing / Open Palm / Closed Fist / Victory) 영역 본격
+// 폐기. 사용자 catch: "learn, infer, out 노드의 경우 horizontal 대신 사용자
+// 네이밍(임시 패턴1, 패턴2)". ART unsupervised expansion path 영역 정합 —
+// cluster 영역 사용자 자유 명명 (RenameButton via NodeOut) + fallback '패턴 N'.
+//
+// 학술 정합: Carpenter & Grossberg 1987 ART vigilance — cluster identity 영역
+// 사용자 명시 supervised 신호 0 영역 자율 형성 영역 정합. 본 generic label
+// 영역 fallback 시점 catch — 사용자 영역 OUT 노드 영역 RenameButton 영역 명시
+// 명명 시점 영역 OUT exemplar label 영역 우선.
+export const CLUSTER_LABELS_GRID = ['패턴 1', '패턴 2', '패턴 3', '패턴 4'] as const;
+export const CLUSTER_LABELS_CAMERA = ['패턴 1', '패턴 2', '패턴 3', '패턴 4'] as const;
 
 export type InputModeKind = 'grid' | 'camera';
 
+// 8 OUT per cluster — N3 cluster broadcast supervisor 정합 (out_{ci}_0..7).
+// NodeOut 영역 sumClusterCount / resolveClusterLabel 영역 정합 catch.
+export const OUT_PER_CLUSTER = 8;
+
 /**
- * mode 별 cluster label.
- *  - 'grid'   → orientation (─ │ ╲ ╱)
- *  - 'camera' → gesture (Pointing / Open Palm / Closed Fist / Victory)
+ * mode 별 cluster label — generic '패턴 N' fallback (PR-K 2026-05-09 catch 2).
  *
- * cluster id 0..3 외 (예: ART expansion 으로 생성된 5+) → `cluster N` fallback.
+ * 학술 정합: ART unsupervised expansion 영역 cluster identity 영역 사용자
+ * supervised 신호 0 영역 자율 형성 영역 — hardcode orientation/gesture 라벨
+ * 영역 strict supervised path 영역 misleading. generic '패턴 N' 영역 정직.
  */
-export function getClusterLabel(cluster: number, mode: InputModeKind = 'grid'): string {
-  const table = mode === 'camera' ? CLUSTER_LABELS_CAMERA : CLUSTER_LABELS_GRID;
-  if (cluster >= 0 && cluster < table.length) return table[cluster];
-  return `cluster ${cluster}`;
+export function getClusterLabel(cluster: number, _mode: InputModeKind = 'grid'): string {
+  void _mode; // mode 영역 호환 path 영역 보존 (caller 영역 호환 catch).
+  // PR #203 polish (LOW QA 2026-05-10): negative cluster 영역 defensive — 직전
+  // '패턴 -1' / '패턴 0' 영역 misleading (cluster id 영역 1-based 사용자 표시).
+  // negative 영역 'no winner' 영역 의미 — '—' fallback 정합 (caller 영역
+  // winnerLabel ?? null 영역 정합 path 영역 호환 보존).
+  if (cluster < 0) return '—';
+  return `패턴 ${cluster + 1}`;
 }
 
 /**
- * mode 별 4-cluster label 배열 — 기존 CLUSTER_LABELS 호환 path.
- * NodeLearn / NodeInfer / NodeOut 가 inputMode 받아 사용.
+ * mode 별 N-cluster label 배열 — 기존 4-cluster 호환 path. 직전 CLUSTER_LABELS
+ * 호환 보존 단 caller 영역 length 영역 dynamic catch 권장 (PR-K Phase 4 정합).
  */
-export function getClusterLabels(mode: InputModeKind = 'grid'): readonly string[] {
-  return mode === 'camera' ? CLUSTER_LABELS_CAMERA : CLUSTER_LABELS_GRID;
+export function getClusterLabels(_mode: InputModeKind = 'grid'): readonly string[] {
+  void _mode;
+  return CLUSTER_LABELS_GRID;
+}
+
+/**
+ * cluster ci 영역 label resolve — 8-OUT (out_{ci}_0..7) 영역 첫 비-null label
+ * 우선, fallback out_{ci} (legacy single-OUT exemplar), fallback generic '패턴 N'.
+ *
+ * NodeOut / NodeLearn / NodeInfer 영역 단일 source — 사용자 RenameButton 영역
+ * 명시 명명 시점 영역 모든 노드 영역 동일 label 영역 표시 (PR-K catch 2 정합).
+ *
+ * 정직 한계: 본 helper 영역 outPerCluster 영역 OUT_PER_CLUSTER (8) 영역 정합 —
+ * ART expansion path 영역 outPerCluster 영역 동일 사실 (registry 정합).
+ */
+export function resolveClusterLabel(
+  exemplars: OutExemplars,
+  ci: number,
+  inputMode: InputModeKind = 'grid',
+): string {
+  for (let n = 0; n < OUT_PER_CLUSTER; n += 1) {
+    const lbl = exemplars[`out_${ci}_${n}`]?.label;
+    if (lbl) return lbl;
+  }
+  const legacy = exemplars[`out_${ci}`]?.label;
+  if (legacy) return legacy;
+  return getClusterLabel(ci, inputMode);
 }
 
 /**
  * @deprecated 호환용 — mode-aware getClusterLabel(idx, mode) 사용 권장.
- * 기존 path Y orientation default 유지. 새 코드는 mode 인자 명시.
  */
 export const CLUSTER_LABELS = CLUSTER_LABELS_GRID;
 

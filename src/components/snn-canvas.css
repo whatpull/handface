@@ -556,6 +556,15 @@
     height: auto;
   }
   .snn-pipeline-node--input { max-height: none; }
+  /* PR-H 사용자 catch 2026-05-09: "모바일에서 아웃풋 노드의 아래 여백이 없음
+     풋터메뉴랑 붙음(스크롤 최하단시)" — vertical stack 마지막 OUT 노드 영역
+     scroll bottom 영역 MobileBottomBar 영역 시각 충돌 catch.
+     last-child 영역 visual breathing room 영역 24px (.snn-pipeline padding 48px
+     영역 누적 ≈ 72px ≥ MobileBottomBar (~64px) 영역 충분 여백). */
+  .snn-pipeline-flow > .snn-pipeline-node-wrap:last-child,
+  .snn-pipeline-flow > .snn-pipeline-node:last-child {
+    margin-bottom: 24px;
+  }
   .snn-pipeline-node-body {
     /* 사용자 명시: 노드 내부 스크롤 폐기 — 자체 height fit. */
     overflow: visible;
@@ -941,6 +950,50 @@
   line-height: 1.2;
 }
 .snn-pipeline-current.is-active .snn-pipeline-current-value { color: rgb(var(--pipe-tone-infer)); }
+
+/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement, 2026-05-10): consecutive
+   winner streak pill — Diehl & Cook 2015 winner stability indicator 정합.
+   - 1-2 frame: amber ('학습 중') / >= 3 frame: emerald ('stable').
+   - WCAG AA contrast — text on tinted bg.
+   - prefers-reduced-motion 영역 transition only (animation 영역 미사용 영역
+     별도 fallback 불필요). */
+.snn-pipeline-streak-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  transition: background 220ms ease, border-color 220ms ease, color 220ms ease;
+}
+.snn-pipeline-streak-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snn-pipeline-streak-status {
+  flex-shrink: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.snn-pipeline-streak-pill--learning {
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+.snn-pipeline-streak-pill--stable {
+  background: rgba(16, 185, 129, 0.10);
+  border-color: rgba(16, 185, 129, 0.50);
+  color: #34d399;
+}
 
 .snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .snn-pipeline-rate-row {

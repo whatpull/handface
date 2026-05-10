@@ -53,6 +53,17 @@ export interface PipelineEventState {
   margin: number;
   /** active_neurons_by_region — NodeLearn 영역 V1/V2 cascade strip 영역 사용. */
   activeByRegion: Record<string, string[]>;
+  /**
+   * PR-H 사용자 catch 2026-05-09 (catch 1 enhancement): consecutive winner
+   * streak — 동일 winner cluster 연속 출현 frame count.
+   * - winner === null 영역 0 reset.
+   * - winner cluster 변경 영역 1 reset (신규 winner 첫 frame).
+   * - 동일 winner 연속 frame 영역 ++.
+   * - Diehl & Cook 2015 winner stability indicator 정합 — frame-by-frame
+   *   stability 영역 catch 1 (horizontal pattern 영역 다른 winner) 영역
+   *   추가 mitigation. >= 3 영역 'stable' (green pill), < 3 영역 'learning' (amber pill).
+   */
+  consecutiveWinnerCount: number;
 }
 
 const EMPTY_WINNER: WinnerResult = {
@@ -74,6 +85,7 @@ const PipelineEventContext = createContext<PipelineEventState>({
   clusterRates: [0, 0, 0, 0],
   margin: 0,
   activeByRegion: {},
+  consecutiveWinnerCount: 0,
 });
 
 export function PipelineEventProvider({ children }: { children: ReactNode }) {
@@ -121,6 +133,30 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     });
   }, [detail]);
 
+  // PR-H catch 1 enhancement (2026-05-10): consecutive winner streak.
+  // ts 변경 = neuron-firing frame 도달 — frame 단위 winner 변경 catch.
+  // useMemo + ref pattern — 동일 winner 연속 ++, 변경 시 1 reset, null 시 0.
+  // ts 의존 — frame 단위 1회 갱신 보장 (winner 객체 reference 변경 0 영역 누적 방지).
+  const winnerStreakRef = useRef<{ cluster: number | null; count: number }>({
+    cluster: null,
+    count: 0,
+  });
+  const consecutiveWinnerCount = useMemo(() => {
+    const cur = winner.cluster;
+    if (cur === null) {
+      winnerStreakRef.current = { cluster: null, count: 0 };
+      return 0;
+    }
+    if (cur !== winnerStreakRef.current.cluster) {
+      winnerStreakRef.current = { cluster: cur, count: 1 };
+      return 1;
+    }
+    winnerStreakRef.current.count += 1;
+    return winnerStreakRef.current.count;
+  // ts 영역 frame 단위 trigger source — winner 객체 referential equality 영역 무관.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ts, winner.cluster]);
+
   const value = useMemo<PipelineEventState>(() => ({
     lastDetail: detail,
     lastFiringTimestamp: ts,
@@ -129,7 +165,8 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     clusterRates: winner.clusterRates,
     margin: winner.margin,
     activeByRegion: detail?.active_neurons_by_region || {},
-  }), [detail, ts, winner]);
+    consecutiveWinnerCount,
+  }), [detail, ts, winner, consecutiveWinnerCount]);
 
   return (
     <PipelineEventContext.Provider value={value}>

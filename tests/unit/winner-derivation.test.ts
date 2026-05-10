@@ -65,12 +65,15 @@ describe('deriveWinner — frontend fallback (legacy backend, no cluster_rates)'
     expect(WINNER_MARGIN_DEFAULT).toBe(0.10);
   });
 
-  it('clusterCounts tracks OUT neuron count per cluster', () => {
+  it('clusterCounts tracks OUT neuron count per cluster (dynamic length)', () => {
+    // HIGH #4 (사용자 catch 2026-05-11): cluster count 영역 dynamic — out_rates
+    // 영역 max ci+1 영역 derive. rates 영역 cluster 0/1 영역만 영역 length 2 정합
+    // (직전 base 4 hardcode 영역 ART 4+ expansion 영역 mismatch).
     const rates = { out_0_0: 1, out_0_1: 1, out_0_2: 1, out_1_0: 1 };
     const r = deriveWinner(rates);
     expect(r.clusterCounts[0]).toBe(3);
     expect(r.clusterCounts[1]).toBe(1);
-    expect(r.clusterCounts[2]).toBe(0);
+    expect(r.clusterCounts).toHaveLength(2);
   });
 
   it('ignores keys outside out_* pattern', () => {
@@ -105,12 +108,16 @@ describe('deriveWinner — backend priority (cluster_rates 직접 활용)', () =
     expect(r.cluster).toBeNull();
   });
 
-  it('backend cluster_rates (length wrong) → falls back to frontend', () => {
+  it('backend cluster_rates (length 3) → uses dynamic length (HIGH #4)', () => {
+    // HIGH #4 (사용자 catch 2026-05-11): cluster count 영역 dynamic — backend
+    // length !== 4 영역 폐기 (CLUSTER_COUNT hardcode). length > 0 + nonzero 영역
+    // 그것 영역 그대로 활용. ART expansion 영역 4+ cluster 정합.
     const r = deriveWinner({ out_0_0: 50 }, {
-      clusterRates: [10, 20, 30],  // length 3, length !== 4
+      clusterRates: [10, 20, 30],  // length 3 — ART expansion 정합 path.
     });
-    expect(r.source).toBe('fallback');
-    expect(r.clusterRates[0]).toBeCloseTo(50, 6);
+    expect(r.source).toBe('backend');
+    expect(r.clusterRates).toEqual([10, 20, 30]);
+    expect(r.cluster).toBe(2);  // max=30 영역 cluster 2 영역 winner.
   });
 
   it('backend cluster_rates (all zero) → falls back', () => {

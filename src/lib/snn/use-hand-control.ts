@@ -303,9 +303,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             confidence: cluster !== null ? gScore : 0,
           });
           // 사용자 명시 2026-05-06: offline fallback 영역 winner 변경 시점도 OUT count ↑.
+          // 사용자 catch 2026-05-09 (Fix 1): camera path 영역 'gesture' substrate
+          // 영역 명시 — GRID(orientation) carry-over 회피.
           if (cluster !== null && cluster !== lastInferenceWinnerRef.current) {
             lastInferenceWinnerRef.current = cluster;
-            incrementCount(`out_${cluster}_0`, pattern);
+            incrementCount(`out_${cluster}_0`, 'gesture', pattern);
           }
           setTrainStatus('Offline — MediaPipe-only fallback (SNN 영역 0)');
           if (!cancelled) setTimeout(tick, TICK_MS);
@@ -346,9 +348,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           }
           // 사용자 명시 2026-05-06: INFERENCE winner 변경 시점 1회 OUT count ↑.
           // 동일 cluster 연속 winner 영역 1회 (변경 trigger). WTA tie (cluster=null) 영역 무시.
+          // 사용자 catch 2026-05-09 (Fix 1): camera path 영역 'gesture' substrate.
           if (w.cluster !== null && w.cluster !== lastInferenceWinnerRef.current) {
             lastInferenceWinnerRef.current = w.cluster;
-            incrementCount(`out_${w.cluster}_0`, pattern);
+            incrementCount(`out_${w.cluster}_0`, 'gesture', pattern);
           }
         }
         if (!cancelled) setTimeout(tick, TICK_MS);

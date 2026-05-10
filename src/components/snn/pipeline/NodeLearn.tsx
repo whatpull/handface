@@ -28,7 +28,13 @@ import {
 } from '@/lib/snn/use-hand-control';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
-import { getRootLocalSnnFor, type SubstrateKind } from '@/lib/snn/root-local-snn';
+import {
+  getRootLocalSnnFor,
+  subscribeLocalSnnInitState,
+  getLastLocalSnnInitState,
+  type SubstrateKind,
+  type LocalSnnInitState,
+} from '@/lib/snn/root-local-snn';
 import { N13Pools } from '@/lib/snn-runtime';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
@@ -84,11 +90,31 @@ export default function NodeLearn() {
   }, [engineMode]);
   const isLiveMode = engineMode === 'live';
 
+  // 사용자 catch 2026-05-09 [2] (Fix 4): Live 모드 영역 substrate init state —
+  // fresh build vs hydrate (마지막 학습 시점) 영역 표시. inputMode 영역 substrate
+  // kind derive 정합 (substrate-aware DB visibility).
+  const [initState, setInitState] = useState<LocalSnnInitState | null>(null);
+
   // path Y: 입력 모드 + grid 학습 진행. NodeInput / GridInput 가 broadcast.
   const [inputMode, setInputMode] = useState<'camera' | 'grid'>('grid');
   const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
 
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
+
+  // 사용자 catch 2026-05-09 [2] (Fix 4): substrate-aware init state subscribe —
+  // engineMode='live' + inputMode 영역 substrate kind 영역 sync. mount 영역 cache
+  // fallback (event miss 회피) + ongoing init event subscribe.
+  useEffect(() => {
+    if (!isLiveMode) {
+      setInitState(null);
+      return;
+    }
+    const kind: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+    setInitState(getLastLocalSnnInitState(kind));
+    return subscribeLocalSnnInitState((state) => {
+      if (state.kind === kind) setInitState(state);
+    });
+  }, [isLiveMode, inputMode]);
   // circuit-changed event — backend network 이 새로 만들어진 시점.
   //
   // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역
@@ -521,7 +547,7 @@ export default function NodeLearn() {
       </div>
 
       {isLiveMode ? (
-        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} />
+        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} initState={initState} />
       ) : (
         <>
           {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
@@ -606,9 +632,11 @@ export default function NodeLearn() {
 function LiveLearnPanel({
   tick,
   clusterLabels,
+  initState,
 }: {
   tick: LiveTickDetail | null;
   clusterLabels: readonly string[];
+  initState: LocalSnnInitState | null;
 }) {
   // STDP pulse LED — trial 변경 시 mount key ↑ 영역 animation 1회 재생.
   // tick === null 영역 0 — 첫 trial 도달 시점부터 pulse.
@@ -619,11 +647,35 @@ function LiveLearnPanel({
     }
   }, [tick?.trial, tick]);
 
+  // 사용자 catch 2026-05-09 [2] (Fix 4): DB hydrate state 영역 사용자-readable
+  // hint copy. fresh build 영역 '학습 0회' 영역 정직 catch / hydrated 영역 마지막
+  // 학습 시점 영역 표시. tick=null (첫 trial 도달 직전) 영역 mental model 영역
+  // 직접 정합 path — "기존에 학습된 데이터가 DB에 존재하는지" 사용자 catch 영역.
+  const dbHint = useMemo(() => {
+    if (!initState) return null;
+    if (initState.phase === 'fresh') {
+      return 'fresh circuit — 학습 가중치 0 (추론 결과 unreliable)';
+    }
+    const ageMs = Date.now() - initState.savedAt;
+    const ageStr = formatAge(ageMs);
+    return `hydrated — 마지막 학습 ${ageStr} 전 (rev ${initState.rev})`;
+  }, [initState]);
+
   if (!tick) {
     return (
       <>
         <div className="snn-pipeline-phase snn-pipeline-phase--idle snn-pipeline-phase-transition">
-          <div className="snn-pipeline-phase-label">LIVE — awaiting</div>
+          <div
+            className={`snn-pipeline-phase-label${
+              initState?.phase === 'fresh' ? ' snn-pipeline-phase-label--fresh' : ''
+            }`}
+          >
+            {initState?.phase === 'fresh'
+              ? 'LIVE — fresh circuit (학습 0회)'
+              : initState?.phase === 'hydrated'
+                ? 'LIVE — hydrated (이전 학습 복원됨)'
+                : 'LIVE — awaiting'}
+          </div>
           <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
         </div>
         <div className="snn-pipeline-hint">
@@ -632,6 +684,13 @@ function LiveLearnPanel({
               정정: 패턴 그림 → 추론 button → 학습 button (cluster 별 supervised). */}
           패턴을 그린 뒤 추론 버튼을 누르세요. 학습 버튼 = cluster supervised R-STDP.
         </div>
+        {/* 사용자 catch 2026-05-09 [2] (Fix 4): DB visibility footer status row. */}
+        {dbHint && (
+          <div className="snn-pipeline-row snn-pipeline-row--wrap">
+            <span className="snn-pipeline-row-label">회로 상태</span>
+            <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">{dbHint}</span>
+          </div>
+        )}
       </>
     );
   }
@@ -640,6 +699,11 @@ function LiveLearnPanel({
     ? clusterLabels[tick.winner]
     : null;
   const phaseTone = tick.patternActive ? 'amber' : 'idle';
+  // 사용자 catch 2026-05-09 [2] (Fix 6): trial=0 영역 추론 영역 hint —
+  // fresh build 영역 첫 추론 영역 신뢰 0 영역 정직 catch (amber suffix).
+  // PR #199 polish — QA LOW Fix 6 (사용자 catch 2026-05-10): redundant
+  // clause (`trial < 1` 영역 `trial === 0` 영역 동일 — int domain 정합) 영역 합집.
+  const isUntrustworthy = initState?.phase === 'fresh' && tick.trial === 0;
   return (
     <>
       <div
@@ -660,6 +724,14 @@ function LiveLearnPanel({
           학습 #{tick.trial} · {winnerLabel
             ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
             : 'no winner — WTA 대기'}
+          {isUntrustworthy && winnerLabel && (
+            <span
+              className="snn-pipeline-row-warning-badge"
+              aria-label="미학습 영역 비신뢰 추론"
+            >
+              미학습 — 비신뢰
+            </span>
+          )}
         </div>
       </div>
       <div className="snn-pipeline-cluster-list">
@@ -673,8 +745,25 @@ function LiveLearnPanel({
           />
         ))}
       </div>
+      {/* 사용자 catch 2026-05-09 [2] (Fix 4): DB visibility footer status row —
+          fresh / hydrated 영역 정직 표시 (사용자 mental model 영역 직접 정합). */}
+      {dbHint && (
+        <div className="snn-pipeline-row snn-pipeline-row--wrap">
+          <span className="snn-pipeline-row-label">DB</span>
+          <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">{dbHint}</span>
+        </div>
+      )}
     </>
   );
+}
+
+// 사용자 catch 2026-05-09 [2] (Fix 4): hydrate 영역 마지막 학습 시점 영역 사용자-
+// readable 영역 format. < 1m → 'just now', < 1h → 'Nm', < 1d → 'Nh', else 'Nd'.
+function formatAge(ms: number): string {
+  if (ms < 60_000) return '방금';
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}분`;
+  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}시간`;
+  return `${Math.floor(ms / 86_400_000)}일`;
 }
 
 function LiveRateRow({ label, rate, max, isWinner }:

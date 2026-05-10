@@ -195,6 +195,17 @@ export class LiveSnn {
     this._unsubscribePush = [];
     this._pushBoundForKind = null;
     this.substrateKind = kind;
+    // 사용자 catch 2026-05-09 (Fix 2 — HIGH): substrate switch 영역 trial /
+    // lastWinner / patternRef 영역 reset — 직전 GRID winner 영역 CAMERA tick
+    // 영역 carry-over (UI 영역 winner badge 영역 stale orientation cluster
+    // 영역 표시) 영역 root cause 정정. 학술 정합: substrate 영역 별도 회로
+    // 영역 — 이전 회로 영역 trial / winner state 영역 무관.
+    // trialCounts: Record 영역 swap 영역 가능 path 단 본 정정 영역 단순 reset
+    // 영역 catch path (사용자 영역 substrate switch 영역 trial 누적 영역 mental
+    // model 영역 0 영역 정합).
+    this.trialCount = 0;
+    this.lastWinnerCluster = -1;
+    this.patternRef = new Array(16).fill(0);
   }
 
   getSubstrate(): SubstrateKind {
@@ -751,7 +762,9 @@ export class LiveSnn {
       this.lastWinnerCluster = cfr.winner;
       const featSnap = this.patternRef.slice();
       // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
-      incrementCount(`out_${cfr.winner}_0`, featSnap);
+      // 사용자 catch 2026-05-09 (Fix 1): substrate 영역 명시 — orientation/gesture
+      // 별도 store 영역 GRID/CAMERA carry-over 회피.
+      incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
     } else if (cfr.winner < 0) {
       this.lastWinnerCluster = -1;
     }

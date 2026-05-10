@@ -30,6 +30,38 @@ import { showToast } from '@/components/ui/Toast';
 
 export type SubstrateKind = 'orientation' | 'gesture';
 
+// 사용자 catch 2026-05-09 [2] (Fix 4 — MEDIUM): DB hydrate visibility event —
+// LocalSNN.init 영역 fresh build vs hydrate 영역 catch 영역 emit. NodeLearn
+// 영역 footer status row 영역 표시 (substrate isolation 보존 — kind 동봉).
+export type LocalSnnInitState =
+  | { kind: SubstrateKind; phase: 'fresh' }
+  | { kind: SubstrateKind; phase: 'hydrated'; savedAt: number; rev: number };
+
+const LOCAL_SNN_INIT_STATE_EVENT = 'handface.local-snn.init-state';
+
+export function emitLocalSnnInitState(state: LocalSnnInitState): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<LocalSnnInitState>(LOCAL_SNN_INIT_STATE_EVENT, { detail: state }));
+}
+
+export function subscribeLocalSnnInitState(
+  cb: (state: LocalSnnInitState) => void,
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => cb((e as CustomEvent<LocalSnnInitState>).detail);
+  window.addEventListener(LOCAL_SNN_INIT_STATE_EVENT, handler);
+  return () => window.removeEventListener(LOCAL_SNN_INIT_STATE_EVENT, handler);
+}
+
+// substrate 영역 마지막 init 영역 cache — NodeLearn 영역 mount 시점 영역 sync.
+// init 영역 promise complete 시점 영역 1회 emit + cache 영역 update — listener
+// 영역 mount 영역 감사 (event miss 영역 cache fallback).
+const _lastInitState = new Map<SubstrateKind, LocalSnnInitState>();
+
+export function getLastLocalSnnInitState(kind: SubstrateKind): LocalSnnInitState | null {
+  return _lastInitState.get(kind) ?? null;
+}
+
 const SEED = 57;
 
 // orientation default — n13 builder default 와 동일 (4×4 row/col/diag).
@@ -173,6 +205,18 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
         duration: 6000,
       });
     },
+    // 사용자 catch 2026-05-09 [2] (Fix 4): DB hydrate state visibility —
+    // NodeLearn footer status row 영역 emit + cache (mount 영역 race 회피).
+    onFreshBuild: () => {
+      const state: LocalSnnInitState = { kind, phase: 'fresh' };
+      _lastInitState.set(kind, state);
+      emitLocalSnnInitState(state);
+    },
+    onHydrateLoaded: ({ savedAt, rev }) => {
+      const state: LocalSnnInitState = { kind, phase: 'hydrated', savedAt, rev };
+      _lastInitState.set(kind, state);
+      emitLocalSnnInitState(state);
+    },
   });
   entry.client = client;
   entry.lab = lab;
@@ -202,6 +246,7 @@ export function disposeRootLocalSnn(kind?: SubstrateKind): void {
       if (entry.client) entry.client.dispose();
     }
     _cache.clear();
+    _lastInitState.clear();
     return;
   }
   const entry = _cache.get(kind);
@@ -209,4 +254,5 @@ export function disposeRootLocalSnn(kind?: SubstrateKind): void {
     if (entry.client) entry.client.dispose();
     _cache.delete(kind);
   }
+  _lastInitState.delete(kind);
 }

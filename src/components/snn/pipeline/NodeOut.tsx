@@ -10,7 +10,7 @@
 //   - cluster count 영역 8-OUT 합산 (out_{ci}_0 ~ out_{ci}_7) — cluster broadcast
 //     supervisor 정합 (QA MEDIUM-3, N3 cluster_train_supervised path).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { onBackendEvent, type InputModeDetail } from '@/lib/backend/events';
 import {
   loadExemplars,
@@ -18,9 +18,17 @@ import {
   setExemplarLabel,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
+import type { SubstrateKind } from '@/lib/snn/root-local-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { getClusterLabel } from './shared';
+
+// 사용자 catch 2026-05-09 (Fix 1): inputMode 영역 substrate kind mapping —
+// GRID = orientation, CAMERA = gesture. out-exemplars store 영역 segregation
+// 정합 (substrate isolation root cause 정정).
+function substrateForInputMode(mode: 'grid' | 'camera'): SubstrateKind {
+  return mode === 'camera' ? 'gesture' : 'orientation';
+}
 
 // 8 OUT per cluster — N3 cluster broadcast supervisor 정합 (out_{ci}_0 ~ out_{ci}_7).
 const OUT_PER_CLUSTER = 8;
@@ -61,11 +69,18 @@ function resolveClusterLabel(
 }
 
 export default function NodeOut() {
-  const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars());
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
   const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
+  // 사용자 catch 2026-05-09 (Fix 1): substrate-aware exemplar load —
+  // GRID(orientation) / CAMERA(gesture) 영역 별도 store. inputMode swap 영역
+  // store 영역 reload 영역 carry-over 회피.
+  const substrate = useMemo<SubstrateKind>(() => substrateForInputMode(inputMode), [inputMode]);
+  const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
 
-  useEffect(() => subscribeExemplars(setExemplars), []);
+  useEffect(() => {
+    setExemplars(loadExemplars(substrate));
+    return subscribeExemplars(substrate, setExemplars);
+  }, [substrate]);
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
@@ -82,7 +97,12 @@ export default function NodeOut() {
 
       <div className="snn-pipeline-out-winner">
         {winnerLabel ? (
-          <RenameButton outKey={winnerKey!} label={winnerLabel} hasLabel={!!winnerEx?.label} />
+          <RenameButton
+            outKey={winnerKey!}
+            substrate={substrate}
+            label={winnerLabel}
+            hasLabel={!!winnerEx?.label}
+          />
         ) : (
           <span className="snn-pipeline-out-winner-empty">—</span>
         )}
@@ -103,8 +123,8 @@ export default function NodeOut() {
   );
 }
 
-function RenameButton({ outKey, label, hasLabel }:
-  { outKey: string; label: string; hasLabel: boolean }) {
+function RenameButton({ outKey, substrate, label, hasLabel }:
+  { outKey: string; substrate: SubstrateKind; label: string; hasLabel: boolean }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -118,7 +138,7 @@ function RenameButton({ outKey, label, hasLabel }:
 
   const commit = () => {
     const t = draft.trim();
-    setExemplarLabel(outKey, t.length === 0 ? null : t);
+    setExemplarLabel(outKey, substrate, t.length === 0 ? null : t);
     setEditing(false);
   };
 

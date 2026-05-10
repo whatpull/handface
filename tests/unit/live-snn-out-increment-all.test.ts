@@ -117,7 +117,8 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', expect.any(Array));
+    // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation', expect.any(Array));
     snn.dispose();
   });
 
@@ -149,7 +150,7 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     });
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
     snn.dispose();
   });
 
@@ -179,7 +180,9 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     snn.setPattern(pattern);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
-    const [, feature] = mocks.mockIncrementCount.mock.calls[0];
+    // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature —
+    // call 영역 (outKey, substrate, feature) 영역 [2] 영역 feature.
+    const [, , feature] = mocks.mockIncrementCount.mock.calls[0];
     expect(feature).toEqual(pattern);
     snn.dispose();
   });

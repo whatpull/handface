@@ -9,7 +9,16 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned';
+
+// Backend v0.2.1-dynamic-cluster (audit fix #4) — POST /networks/{id}/cluster/vigilance
+// 응답 영역 is_novel===true && action==='spawned' 시점 영역 emit. NodeLearn 영역
+// amber pulse + toast trigger 정합.
+export interface ClusterSpawnedDetail {
+  clusterIdx: number;
+  topShare: number;
+  margin: number;
+}
 
 // PR #192 polish (SEC-3): worker push handler / RPC layer 영역 error telemetry.
 // 직전 console.warn silent path 영역 정합 catch 영역 본 event 영역 별도 emit —
@@ -50,7 +59,10 @@ export interface GridTrainingDetail {
 }
 export interface GridInferDetail {
   kind: 'started' | 'finished' | 'error';
-  winnerCluster?: 0 | 1 | 2 | 3 | null;
+  // Audit Fix #8 (2026-05-10): backend ART vigilance spawn 영역 cluster_idx 0..63
+  // 영역 정합 — 직전 `0|1|2|3|null` cap 영역 silent drop (winner 0 거짓 idle).
+  // dynamic cluster cap 약속 영역 frontend 영역 number 영역 forward.
+  winnerCluster?: number | null;
   message?: string;
 }
 

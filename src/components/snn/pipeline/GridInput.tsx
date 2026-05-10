@@ -14,11 +14,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
-import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail, type InputModeDetail } from '@/lib/backend/events';
+import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail, type InputModeDetail, type ClusterSpawnedDetail } from '@/lib/backend/events';
+import { showToast } from '@/components/ui/Toast';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
-import { clearExemplars } from '@/lib/snn/out-exemplars';
+import { clearExemplars, loadExemplars } from '@/lib/snn/out-exemplars';
+import { resolveClusterLabel } from './shared';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — 추론
 // 영역 winner margin < threshold 시점 영역 자동 expansion + 30 trial chunked
 // reinforce. Carpenter & Grossberg 1987 ART vigilance 영역 정합 — 0.15 영역
@@ -70,12 +72,91 @@ function emptyGrid(): number[] {
   return new Array<number>(16).fill(0);
 }
 
+// Backend audit fix #4 (UX-designer 권고): vigilance slider + novelty mode toggle.
+// Carpenter-Grossberg 1987 ART vigilance ρ — 0.05~0.95 범위 (보수적 0.95 / 관대
+// 0.05). default 0.7 영역 backend `app.py:3163` (vigilance_threshold default
+// Field 정합) 영역 sync. 본 값 영역 POST /networks/{id}/cluster/vigilance body
+// 영역 vigilance_threshold field 영역 직접 전송.
+const VIGILANCE_MIN = 0.05;
+const VIGILANCE_MAX = 0.95;
+const VIGILANCE_DEFAULT = 0.7;
+const VIGILANCE_STEP = 0.05;
+// localStorage persist key — 사용자 직전 조정 값 영역 새로고침 후에도 유지.
+const VIGILANCE_STORAGE_KEY = 'handface.vigilance.threshold';
+const NOVELTY_MODE_STORAGE_KEY = 'handface.vigilance.novelty-mode';
+
+function readStoredVigilance(): number {
+  if (typeof window === 'undefined') return VIGILANCE_DEFAULT;
+  try {
+    const v = window.localStorage.getItem(VIGILANCE_STORAGE_KEY);
+    if (!v) return VIGILANCE_DEFAULT;
+    const parsed = Number(v);
+    if (!Number.isFinite(parsed)) return VIGILANCE_DEFAULT;
+    return Math.max(VIGILANCE_MIN, Math.min(VIGILANCE_MAX, parsed));
+  } catch {
+    return VIGILANCE_DEFAULT;
+  }
+}
+
+function readStoredNoveltyMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(NOVELTY_MODE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default function GridInput() {
   const [grid, setGrid] = useState<number[]>(() => emptyGrid());
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
+
+  // Backend audit fix #4 (UX-designer 권고 Part A+B): vigilance slider + novelty
+  // 모드 토글. backend mode (engineMode='backend') 영역만 노출 — Live mode
+  // 영역 별도 ART_VIGILANCE_THRESHOLD (0.15) 영역 LiveSnn worker 영역 정합.
+  // collapse default — '고급 옵션' 영역 펼침 시 노출 (UX noise 회피).
+  const [vigilance, setVigilance] = useState<number>(() => readStoredVigilance());
+  const [noveltyMode, setNoveltyMode] = useState<boolean>(() => readStoredNoveltyMode());
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(VIGILANCE_STORAGE_KEY, String(vigilance));
+    } catch {
+      // ignore storage quota / private mode.
+    }
+  }, [vigilance]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(NOVELTY_MODE_STORAGE_KEY, noveltyMode ? '1' : '0');
+    } catch {
+      // ignore.
+    }
+  }, [noveltyMode]);
+
+  // cluster-spawned event listener — toast (UX-designer Part C 권고).
+  // 'cluster N' label 영역 OUT exemplar 영역 사용자 명명 영역 우선 (resolveClusterLabel),
+  // fallback '패턴 N+1' (shared.ts getClusterLabel 정합).
+  // 사용자 즉시 명명 affordance — toast 영역 일부 사용자 영역 OUT 노드 영역
+  // RenameButton 영역 명시 명명 path 영역 진입 (강제 modal 회피 — UX 권고).
+  useEffect(() => {
+    return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
+      const exemplars = loadExemplars('orientation');
+      const label = resolveClusterLabel(exemplars, d.clusterIdx, 'grid');
+      // shared.ts getClusterLabel 정합 — '패턴 {idx+1}' 한국어.
+      showToast({
+        kind: 'success',
+        message: `${label} 자동 형성됨 (top share ${(d.topShare * 100).toFixed(0)}%)`,
+        duration: 5000,
+      });
+    });
+  }, []);
   // PR-K (사용자 catch 2026-05-09 catch 1): reinforcingCluster state 영역 본격
   // 폐기 — cluster 별 학습 button 영역 폐기 영역 in-flight gate 영역 caller 0.
   // Live 모드 영역 추론 button (runInferAuto) 영역 단일 trigger — pendingInferTokenRef
@@ -354,17 +435,51 @@ export default function GridInput() {
 
   // 추론 trigger — 결과 표시는 INFER 노드만 (PipelineEventContext 가
   // 'neuron-firing' event 의 cluster_rates / winner_cluster 영역 listen).
+  // Backend audit fix #4 (UX-designer Part B): noveltyMode on 영역 vigilance
+  // endpoint (POST /networks/{id}/cluster/vigilance) 영역 사용 — 응답 영역
+  // is_novel===true && action==='spawned' 시점 영역 toast 자동 trigger
+  // (clusterVigilance method 영역 emit 영역 정합).
   const runInfer = useCallback(async () => {
     setStatus({ kind: 'inferring' });
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
+
+    if (noveltyMode) {
+      // ART vigilance path — _grow_cluster auto spawn (backend max_clusters cap 64).
+      const r = await getClient().clusterVigilance(grid, {
+        vigilanceThreshold: vigilance,
+      });
+      if (r.ok) {
+        const cluster = r.data.cluster_idx;
+        // Audit Fix #8 (2026-05-10): backend vigilance 영역 cluster_idx 0..63
+        // (max_clusters cap) 영역 정합 — 직전 `0..3` cap 영역 silent drop 영역
+        // 신규 cluster spawn (cluster_idx ≥ 4) 영역 winnerCluster=null 영역 거짓
+        // idle. dynamic cap — Number.isInteger + non-negative 영역 forward.
+        const winnerCluster = Number.isInteger(cluster) && cluster >= 0
+          ? cluster
+          : null;
+        const action = r.data.action;
+        const novelLabel = r.data.is_novel ? ` · 신규 cluster ${cluster + 1}` : '';
+        setStatus({
+          kind: 'ok',
+          message: `추론 완료 (${action}${novelLabel})`,
+        });
+        emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
+      } else {
+        setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
+        emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
+      }
+      return;
+    }
 
     // ── Backend mode (engineMode='backend' — 학술 검증된 path) ────
     // Live 5차 (사용자 catch 2026-05-09): 'local' batch path 폐기.
     const r = await getClient().injectPattern(grid, { stdp: false });
     if (r.ok) {
       const cluster = r.data.winner_cluster ?? null;
-      const winnerCluster = cluster !== null && cluster >= 0 && cluster <= 3
-        ? (cluster as 0 | 1 | 2 | 3)
+      // Audit Fix #8 (2026-05-10): backend dynamic cluster cap (max_clusters=64)
+      // 영역 정합 — 0..3 cap 폐기, non-negative integer 영역 그대로 forward.
+      const winnerCluster = cluster !== null && Number.isInteger(cluster) && cluster >= 0
+        ? cluster
         : null;
       setStatus({ kind: 'ok', message: '추론 완료' });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
@@ -372,7 +487,7 @@ export default function GridInput() {
       setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
     }
-  }, [grid]);
+  }, [grid, noveltyMode, vigilance]);
 
   const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
 
@@ -426,6 +541,10 @@ export default function GridInput() {
   // 형성 — RenameButton 영역 사용자 명명 path 영역 mandatory (의미 부여).
   const runInferAuto = useCallback(async () => {
     setStatus({ kind: 'inferring' });
+    // QA round 4 fix #13 (2026-05-10): Live mode 영역 'grid-infer' started
+    // emit 영역 mandatory — PipelineEventContext 영역 reset trigger 영역
+    // 직전 winner stale carry-over 회피 (backend mode runInfer 영역 정합).
+    emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
     try {
       const live = getLiveSnn();
       live.setPattern(grid);
@@ -450,6 +569,7 @@ export default function GridInput() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
+      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: msg });
     }
   }, [grid]);
 
@@ -599,6 +719,111 @@ export default function GridInput() {
           ART unsupervised auto-learn 영역 단일 trigger. ORIENTATION_PRESETS /
           applyPreset 영역 backend mode 영역 trainPreset/trainAllRoundRobin
           영역 보존 (학술 supervised path 영역 별도). */}
+
+      {/* Backend audit fix #4 (UX-designer Part A+B): vigilance slider + novelty
+          mode toggle. backend mode 영역만 노출 (Live 영역 LiveSnn worker 영역
+          별도 ART_VIGILANCE_THRESHOLD=0.15). collapse default — '고급 옵션'
+          영역 펼침 시 노출 (UX noise 회피, WCAG touch target ≥ 44px). */}
+      {!isLiveMode && (
+        <div className="snn-grid-vigilance-panel">
+          <button
+            type="button"
+            className="snn-grid-train-all-btn snn-grid-vigilance-toggle"
+            onClick={() => setAdvancedOpen((v) => !v)}
+            aria-expanded={advancedOpen}
+            aria-controls="snn-grid-vigilance-body"
+            title="ART vigilance threshold + novelty 모드"
+          >
+            {advancedOpen ? '▾ 고급 옵션 (ART vigilance)' : '▸ 고급 옵션 (ART vigilance)'}
+          </button>
+          {advancedOpen && (
+            <div id="snn-grid-vigilance-body" className="snn-grid-vigilance-body">
+              <label className="snn-grid-vigilance-mode-row">
+                <input
+                  type="checkbox"
+                  className="snn-grid-vigilance-mode-checkbox"
+                  checked={noveltyMode}
+                  onChange={(e) => setNoveltyMode(e.target.checked)}
+                  aria-label="novelty 판정 모드 — vigilance endpoint 사용"
+                />
+                <span>
+                  novelty 모드 — 추론 시 자동 spawn 판정
+                  <small className="snn-grid-vigilance-mode-hint">
+                    (POST /networks/&#123;id&#125;/cluster/vigilance)
+                  </small>
+                  {/* Audit Fix #10 (2026-05-10, UX-designer Catch B):
+                      noveltyMode=on 영역 toast 미발생 confusion 회피 영역
+                      정직 disclosure — 신규 패턴 영역 한정 trigger. */}
+                  {noveltyMode && (
+                    <small className="snn-grid-vigilance-mode-hint">
+                      신규 패턴 감지 시 자동 ★ + toast — 기존 학습된 패턴은 표시 안 됨
+                    </small>
+                  )}
+                </span>
+              </label>
+              <div className="snn-grid-vigilance-slider-wrap">
+                <label
+                  htmlFor="snn-grid-vigilance-slider"
+                  className="snn-grid-vigilance-slider-label"
+                >
+                  <span>vigilance threshold ρ</span>
+                  <span className="snn-pipeline-mono">{vigilance.toFixed(2)}</span>
+                </label>
+                <div className="snn-grid-vigilance-slider-row">
+                  <input
+                    id="snn-grid-vigilance-slider"
+                    type="range"
+                    className="snn-grid-vigilance-slider-input"
+                    min={VIGILANCE_MIN}
+                    max={VIGILANCE_MAX}
+                    step={VIGILANCE_STEP}
+                    value={vigilance}
+                    onChange={(e) => setVigilance(Number(e.target.value))}
+                    aria-label={`vigilance threshold ${vigilance.toFixed(2)}`}
+                    disabled={isBusy}
+                  />
+                  <input
+                    type="number"
+                    className="snn-grid-vigilance-number-input snn-pipeline-mono"
+                    min={VIGILANCE_MIN}
+                    max={VIGILANCE_MAX}
+                    step={VIGILANCE_STEP}
+                    value={vigilance.toFixed(2)}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (Number.isFinite(v)) {
+                        setVigilance(Math.max(VIGILANCE_MIN, Math.min(VIGILANCE_MAX, v)));
+                      }
+                    }}
+                    aria-label="vigilance numeric input"
+                  />
+                </div>
+                {/* Audit Fix #9 (2026-05-10, UX-designer Catch A): 극단 ρ
+                    영역 reactive hint — ρ ≥ 0.9 폭증 위험 (amber), ρ ≤ 0.1
+                    신규 형성 거의 0 (gray), 0.1 < ρ < 0.9 일반 설명. aria-live
+                    polite 영역 slider 영역 변화 announce. inline style 영역
+                    회피 영역 className modifier (--danger / --muted) 영역 swap. */}
+                <small
+                  className={
+                    vigilance >= 0.9
+                      ? 'snn-grid-vigilance-foot-hint snn-grid-vigilance-foot-hint--danger'
+                      : vigilance <= 0.1
+                        ? 'snn-grid-vigilance-foot-hint snn-grid-vigilance-foot-hint--muted'
+                        : 'snn-grid-vigilance-foot-hint'
+                  }
+                  aria-live="polite"
+                >
+                  {vigilance >= 0.9
+                    ? '거의 모든 입력을 신규 cluster 로 분류 — 폭증 위험'
+                    : vigilance <= 0.1
+                      ? '신규 cluster 형성 거의 0 — 기존 cluster 만 매치'
+                      : '높을수록 새 패턴으로 더 자주 분류 — Carpenter-Grossberg 1987 ART ρ'}
+                </small>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1): Live 영역
           추론 button 영역 visible — pixel/preset click 영역 STDP off (setPattern

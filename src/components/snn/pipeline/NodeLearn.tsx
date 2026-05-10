@@ -19,6 +19,7 @@ import {
   type TrainingPhaseDetail,
   type InputModeDetail,
   type GridTrainingDetail,
+  type ClusterSpawnedDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import {
@@ -193,6 +194,24 @@ export default function NodeLearn() {
   // 사용자 catch: 학습 진행 사실 영역 시각 catch 강화 — capturing 도중 활성 cluster bar 강 pulse.
   const [capturingPulse, setCapturingPulse] = useState<number>(0); // increment counter (key change for re-trigger).
   const prevClusterFramesRef = useRef<{ 0: number; 1: number; 2: number; 3: number } | null>(null);
+
+  // Backend audit fix #4 (UX-designer Part C): cluster-spawned event 영역 amber
+  // pulse trigger — 신규 cluster row 영역 1회 amber glow (Live mode 영역
+  // auto-learn-progress amber bar 영역 시각 일관성 정합). spawnPulseFor 영역
+  // 신규 cluster id, spawnPulseKey 영역 increment counter (re-trigger key).
+  // 1500ms 후 자동 clear — animation 1회 재생 영역 정합.
+  const [spawnPulseFor, setSpawnPulseFor] = useState<number | null>(null);
+  const [spawnPulseKey, setSpawnPulseKey] = useState<number>(0);
+  useEffect(() => {
+    return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
+      setSpawnPulseFor(d.clusterIdx);
+      setSpawnPulseKey((k) => k + 1);
+      // 1500ms 후 자동 clear — pulse 영역 1회 재생 후 row 영역 일반 상태 복귀.
+      setTimeout(() => {
+        setSpawnPulseFor((cur) => (cur === d.clusterIdx ? null : cur));
+      }, 1500);
+    });
+  }, []);
 
   // V1/V2 region strip — totals (1회 fetch) + active count + fired flag (1.5s decay).
   // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 추가 — Felleman & Van Essen 1991
@@ -614,14 +633,16 @@ export default function NodeLearn() {
               const active = i < 4
                 ? (i === activeCluster && isLearning)
                 : (count > 0 && count < CLUSTER_TARGET);
+              const spawnActive = spawnPulseFor === i;
               return (
                 <ClusterRow
                   key={i}
                   label={clusterLabels[i] ?? `패턴 ${i + 1}`}
                   count={count}
                   done={done}
-                  active={active}
+                  active={active || spawnActive}
                   capturingPulse={active ? capturingPulse : 0}
+                  spawnPulse={spawnActive ? spawnPulseKey : 0}
                 />
               );
             })}
@@ -894,8 +915,8 @@ function RegionStripBox({ region, total, active, rateHz, fired, isProxy = false 
   );
 }
 
-function ClusterRow({ label, count, done, active = false, capturingPulse = 0 }:
-  { label: string; count: number; done: boolean; active?: boolean; capturingPulse?: number }) {
+function ClusterRow({ label, count, done, active = false, capturingPulse = 0, spawnPulse = 0 }:
+  { label: string; count: number; done: boolean; active?: boolean; capturingPulse?: number; spawnPulse?: number }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
   // capturingPulse 변경 시점 — bar 옆 pulse dot 재생 (frame 1개 capture 시각 신호).
   // 사용자 catch 2026-05-07: 학습 중 batch supervised pulse 시각 catch 강화.
@@ -909,10 +930,18 @@ function ClusterRow({ label, count, done, active = false, capturingPulse = 0 }:
       fillRef.current.style.setProperty('--w', `${pct}%`);
     }
   }, [count]);
+  // Backend audit fix #4 (UX-designer Part C): spawn pulse — 신규 ART expansion
+  // cluster row 영역 1회 amber glow (Live mode 영역 auto-learn-progress amber
+  // bar 영역 시각 일관성). spawnPulse > 0 영역 row 영역 'is-spawn-pulse' class
+  // 영역 1500ms catch (parent 영역 setTimeout 영역 자동 clear).
+  const isSpawning = spawnPulse > 0;
   return (
-    <div className={`snn-pipeline-cluster-row ${active ? 'is-active' : ''} ${done ? 'is-done-row' : ''}`}>
+    <div className={`snn-pipeline-cluster-row ${active ? 'is-active' : ''} ${done ? 'is-done-row' : ''} ${isSpawning ? 'is-spawn-pulse' : ''}`}>
       <span className={`snn-pipeline-cluster-label ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}>
         {done ? '✓ ' : (active ? '▸ ' : '')}{label}
+        {isSpawning && (
+          <span className="ml-1 text-amber-300" aria-label="신규 cluster 자동 형성됨">★</span>
+        )}
       </span>
       <div className={`snn-pipeline-cluster-bar ${active ? 'is-capturing' : ''}`}>
         <div

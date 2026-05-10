@@ -849,6 +849,37 @@
 .snn-pipeline-cluster-row.is-done-row {
   background: rgba(34, 197, 94, 0.05);
 }
+/* Backend audit fix #4 (UX-designer Part C, 2026-05-10): spawn pulse — 신규
+   ART expansion cluster row 영역 1500ms amber glow (auto-learn-progress amber
+   bar 영역 시각 일관성 정합). 1회 재생 후 parent 영역 setTimeout 영역 class
+   영역 자동 clear. prefers-reduced-motion 영역 animation 영역 disable.
+   composite-only animation — pseudo-element 영역 amber overlay 영역 opacity
+   only (Paint/Composite trigger 회피 catch — lint hint 정합). */
+.snn-pipeline-cluster-row.is-spawn-pulse {
+  position: relative;
+  outline: 1px solid rgba(251, 191, 36, 0.7);
+}
+.snn-pipeline-cluster-row.is-spawn-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(251, 191, 36, 0.45);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: snn-spawn-pulse 1500ms ease-out 1 forwards;
+  will-change: opacity;
+}
+@keyframes snn-spawn-pulse {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-cluster-row.is-spawn-pulse::before {
+    animation: none;
+    opacity: 0.3;
+  }
+}
 .snn-pipeline-cluster-label {
   width: 64px;
   font-size: var(--pipe-font-xs);
@@ -1780,6 +1811,103 @@
   }
   .snn-grid-preset-row {
     min-height: 40px;
+  }
+}
+
+/* Backend audit fix #4 (UX-designer Part A+B, 2026-05-10): vigilance slider +
+   novelty mode toggle. backend mode (engineMode='backend') 영역만 노출 —
+   collapse default 영역 '고급 옵션' 영역 펼침 시 노출. WCAG touch target
+   ≥ 44px (min-height 44 + slider/toggle 영역 32px+). */
+.snn-grid-vigilance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snn-grid-vigilance-toggle {
+  font-size: 11px;
+  opacity: 0.85;
+  min-height: 44px;
+}
+.snn-grid-vigilance-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
+  background: var(--pipe-surface);
+}
+.snn-grid-vigilance-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--pipe-text-dim);
+  min-height: 32px;
+}
+.snn-grid-vigilance-mode-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.snn-grid-vigilance-mode-hint {
+  display: block;
+  opacity: 0.7;
+  font-size: 10px;
+}
+.snn-grid-vigilance-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snn-grid-vigilance-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--pipe-text-dim);
+}
+.snn-grid-vigilance-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.snn-grid-vigilance-slider-input {
+  flex: 1;
+  min-height: 32px;
+}
+.snn-grid-vigilance-number-input {
+  width: 60px;
+  min-height: 32px;
+  padding: 4px 6px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--pipe-border-strong);
+  border-radius: 3px;
+  color: var(--pipe-text);
+  font-family: monospace;
+}
+.snn-grid-vigilance-foot-hint {
+  font-size: 10px;
+  opacity: 0.6;
+}
+/* Audit Fix #9 (2026-05-10, UX-designer Catch A): 극단 ρ 영역 reactive
+   color modifier — amber-300 (≥0.9 폭증 위험) / gray-500 (≤0.1 신규 형성
+   거의 0). opacity 영역 base 0.6 영역 escalate (≥0.9 영역 0.95) 영역 시각
+   강조 — 위험 catch 영역 정합. */
+.snn-grid-vigilance-foot-hint--danger {
+  color: #fcd34d;
+  opacity: 0.95;
+}
+.snn-grid-vigilance-foot-hint--muted {
+  color: #6b7280;
+  opacity: 0.7;
+}
+@media (pointer: coarse) {
+  .snn-grid-vigilance-toggle,
+  .snn-grid-vigilance-slider-input,
+  .snn-grid-vigilance-number-input {
+    min-height: 44px;
   }
 }
 

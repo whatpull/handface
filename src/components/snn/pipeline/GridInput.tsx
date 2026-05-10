@@ -650,10 +650,12 @@ export default function GridInput() {
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          {/* PR-L (사용자 catch 2026-05-10): hint copy 정정 — "자율 학습"
-              영역 본질 영역 명시. 직전 path 영역 '패턴' 단순 단어 영역 preset
-              잔여 catch 회피 + dynamic cluster 추가 path 영역 visible 강조. */}
-          LIVE — 4×4 그리드를 자율로 그리고 추론 버튼을 누르세요. 처음 보는 패턴은 자동 30회 학습 + 새 cluster 추가.
+          {/* PR (manual-trigger-paradigm, 사용자 catch 2026-05-10): copy 정합
+              유지 — "추론 버튼을 누르세요" 영역 사용자 명시 paradigm (click
+              영역만 학습 + 추론 trigger) 영역 정합. 처음 보는 패턴 영역 30회
+              학습 + 새 cluster 추가 영역 vigilance miss path 영역 정합 — 본
+              조건 영역 추론 button click 영역만 trigger. */}
+          LIVE — 4×4 그리드를 그린 후 추론 버튼을 누르세요. 처음 보는 패턴은 30회 학습 + 새 cluster 추가.
         </div>
       )}
 

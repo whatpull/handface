@@ -400,8 +400,10 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     }
   }, []);
 
-  // wheel zoom — 사용자 catch 2026-05-06 + 사용자 catch 2026-05-10 (Request D):
-  //  [1] delta 0.0015 → 0.0004 (4배 milder, Figma/Miro 정합).
+  // wheel zoom — 사용자 catch 2026-05-06 + 사용자 catch 2026-05-10 (Request B):
+  //  [1] delta 0.0015 → 0.0004 → 0.00015 (사용자 catch 2026-05-10 Request B:
+  //      1회 +- jump 너무 큼 → fine grain. typical wheel deltaY=100 영역 1.5%
+  //      per scroll — 사용자 정밀 조정 가능).
   //  [2] Ctrl/Cmd + wheel 영역만 zoom — 일반 wheel 영역 native scroll 보존.
   //  [3] zoom range 0.5~2.0 → 0.7~1.5 — 사용자 사용성 catch (너무 멀리 zoom out
   //      / 너무 크게 zoom in 영역 사용 difficulty). PC ctrl+scroll 영역만 영향
@@ -417,8 +419,8 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       const rect = stage.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
-      // delta — 0.0015 → 0.0004 (사용자 catch: 너무 극단).
-      const delta = -e.deltaY * 0.0004;
+      // delta — 0.0004 → 0.00015 (사용자 catch 2026-05-10 Request B: 너무 큼).
+      const delta = -e.deltaY * 0.00015;
       setZoom((prevZoom) => {
         const nextZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prevZoom * (1 + delta)));
         if (nextZoom === prevZoom) return prevZoom;

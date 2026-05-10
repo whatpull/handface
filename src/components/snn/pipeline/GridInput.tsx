@@ -66,7 +66,8 @@ type Status =
   | { kind: 'error'; message: string };
 
 const TRAIN_FRAMES = 30;
-const TRAIN_CHUNK = 5;  // 5 frame × 6 chunk = 30 frame — 진행 중 progress 갱신.
+// 사용자 catch 2026-05-10 (Request C): TRAIN_CHUNK 영역 trainPreset (4 button)
+// 영역 폐기 영역 caller 0 — constant 폐기.
 
 function emptyGrid(): number[] {
   return new Array<number>(16).fill(0);
@@ -186,19 +187,9 @@ export default function GridInput() {
     });
   }, [engineMode]);
 
-  const applyPreset = useCallback((idx: number) => {
-    const next = ORIENTATION_PRESETS[idx].slice();
-    setGrid(next);
-    if (engineMode === 'live') {
-      try {
-        // setPattern only — preset apply 영역 학습 trigger 0.
-        // 사용자 catch 2026-05-09 A1 영역 정합 — 명시 추론 button 영역 trigger.
-        getLiveSnn().setPattern(next);
-      } catch {
-        // SSR / 미초기화 — 무시.
-      }
-    }
-  }, [engineMode]);
+  // 사용자 catch 2026-05-10 (Request C): applyPreset callback 영역 폐기 —
+  // backend mode "학습 0~3" 4 button 영역 본격 폐기 영역 caller 0. ORIENTATION_PRESETS
+  // 영역 trainAllRoundRobin (round-robin) 영역 직접 참조 영역 보존.
 
   const reset = useCallback(() => {
     setGrid(emptyGrid());
@@ -292,77 +283,15 @@ export default function GridInput() {
   // (substrateBuiltRef gate) 영역 정합. 'building' status kind 영역 보존 — 자동 빌드
   // 진행 중 status 영역 정합 (statusLine '회로 빌드 중…').
 
-  const trainPreset = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
-    const pattern = ORIENTATION_PRESETS[clusterIdx];
-    setStatus({ kind: 'training', cluster: clusterIdx });
-    emitBackendEvent<GridTrainingDetail>('grid-training', {
-      kind: 'started', cluster: clusterIdx,
-      framesDone: 0, framesTotal: TRAIN_FRAMES,
-    });
-
-    // ── Backend mode (engineMode='backend' — 학술 검증된 batch path) ──
-    // Live 5차 (사용자 catch 2026-05-09): 'local' batch path 폐기 — Live 모드
-    // 영역 일상 사용 / Backend 영역 학술 검증 path 영역 단일 batch 분기.
-    // 본 trainPreset 함수 영역 isLiveMode 시점 영역 호출 0 — Live 모드 button
-    // 영역 'reinforceLive' 영역 swap (cell click 시점 즉시 Live runtime 강화),
-    // Backend 모드 시점에만 본 함수 영역 호출.
-    const client = getClient();
-    if (!substrateBuiltRef.current) {
-      const built = await client.presetOrientation({ overwrite: true });
-      if (!built.ok) {
-        setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
-        emitBackendEvent<GridTrainingDetail>('grid-training', {
-          kind: 'error', cluster: clusterIdx, message: built.reason,
-        });
-        return;
-      }
-      substrateBuiltRef.current = true;
-    }
-    // chunk 단위 (5 × 6 회) — chunk 끝마다 progress + V1/V2 firing broadcast.
-    let totalCorrect = 0;
-    let totalTrained = 0;
-    for (let chunk = 0; chunk < TRAIN_FRAMES; chunk += TRAIN_CHUNK) {
-      const size = Math.min(TRAIN_CHUNK, TRAIN_FRAMES - chunk);
-      const patterns = Array.from({ length: size }, () => pattern.slice());
-      const r = await client.clusterTrainRStdp(patterns, clusterIdx);
-      if (!r.ok) {
-        setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
-        emitBackendEvent<GridTrainingDetail>('grid-training', {
-          kind: 'error', cluster: clusterIdx, message: r.reason,
-        });
-        return;
-      }
-      totalCorrect += r.data.correct;
-      totalTrained += r.data.trained;
-      const framesDone = chunk + size;
-      emitBackendEvent<GridTrainingDetail>('grid-training', {
-        kind: 'progress', cluster: clusterIdx,
-        framesDone, framesTotal: TRAIN_FRAMES,
-      });
-      // V1/V2 갱신 — cluster_rates / winner_cluster strip 후 emit.
-      if (r.data.rates_by_region || r.data.active_neurons_by_region) {
-        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
-          rates_by_region: r.data.rates_by_region,
-          active_neurons_by_region: r.data.active_neurons_by_region,
-        });
-      }
-    }
-    const accuracy = totalTrained > 0 ? totalCorrect / totalTrained : 0;
-    const accPct = (accuracy * 100).toFixed(0);
-    setStatus({
-      kind: 'ok',
-      message: `${ORIENTATION_LABELS[clusterIdx]} ${accPct}% (${totalCorrect}/${totalTrained})`,
-    });
-    emitBackendEvent<GridTrainingDetail>('grid-training', {
-      kind: 'finished',
-      cluster: clusterIdx,
-      accuracy,
-      correct: totalCorrect,
-      trained: totalTrained,
-      framesDone: TRAIN_FRAMES,
-      framesTotal: TRAIN_FRAMES,
-    });
-  }, []);
+  // 사용자 catch 2026-05-10 (Request C): trainPreset (4 cluster 별 30-frame
+  // R-STDP supervised batch) 영역 callback 영역 본격 폐기 — 본 path 영역
+  // "학습 0~3" 4 button 영역 단일 caller 영역 button 폐기 영역 정합. ART
+  // unsupervised auto-learn 영역 noveltyMode toggle (vigilance endpoint) 영역
+  // 동일 paradigm 영역 backend mode 영역 path 영역 단일화. trainAllRoundRobin
+  // (round-robin 4 cluster 균등 학습) 영역 별도 의미 영역 보존.
+  // TRAIN_FRAMES / TRAIN_CHUNK 상수 영역 trainAllRoundRobin 영역 직접 미사용 단
+  // ORIENTATION_LABELS 영역 status copy 영역 보존 — 향후 supervised path 부활
+  // 가능 영역 stub 영역 catch.
 
   // 사용자 catch 2026-05-07: round-robin 학습 — 4 cluster 균등 학습.
   // cluster 별 sequential 30 frame 영역 마지막 cluster dominance catch.
@@ -683,35 +612,14 @@ export default function GridInput() {
         ))}
       </div>
 
-      {/* PR-K (사용자 catch 2026-05-09 catch 1): 학습 button × 4 본격 폐기 —
-          "추론 버튼이 곧 학습 적용(자동) = 처음 만나는 패턴일 경우 30회 자동
-          학습 후, 패턴 기억". cluster row 영역 학습/보강 button 영역 ART
-          unsupervised auto-learn 영역 wrap 영역 mandatory 폐기. backend mode
-          영역 preset apply button 영역 보존 (legacy supervised path — 학술
-          검증 영역 별도 단 신규 architecture 영역 auto-learn 영역 단일 path).
-          Live 모드 영역 preset button 영역 setPattern only — 추론 button
-          (runInferAuto) 영역 vigilance 영역 자동 학습 trigger. */}
-      {!isLiveMode && (
-        <div className="snn-grid-presets">
-          {ORIENTATION_LABELS.map((label, i) => (
-            <div key={i} className="snn-grid-preset-row">
-              <button
-                type="button"
-                className="snn-grid-train-btn snn-grid-train-btn--unified"
-                onClick={() => {
-                  applyPreset(i);
-                  void trainPreset(i as 0 | 1 | 2 | 3);
-                }}
-                disabled={isBusy && !isLiveMode}
-                aria-label={`${label} 학습 — R-STDP batch (backend mode)`}
-                title={`${label} 학습 (R-STDP, batch)`}
-              >
-                {`학습 ${i} (${label})`}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* 사용자 catch 2026-05-10 (Request C): backend mode 영역 "학습 0~3" 4
+          preset 버튼 영역 본격 폐기 — "추론시 자동 학습" 영역 vigilance 영역
+          art.ts 영역 production wire 완료 영역 noveltyMode toggle 영역 vigilance
+          endpoint 영역 동일 paradigm 영역 정합. backend mode 영역 trainPreset /
+          applyPreset 영역 callback 영역 보존 — 외부 trigger (legacy supervised
+          path 영역 학술 검증 영역 별도 호출 가능) catch. 본 UI 영역 noise — 명시
+          폐기. '전체 학습 (round-robin)' 영역 보존 (사용자 명시 — 동일 paradigm
+          단 round-robin 영역 4 cluster 균등 학습 path 영역 별도 의미). */}
       {/* PR-L (사용자 catch 2026-05-10): Live 모드 영역 preset apply button × 4
           본격 폐기 — "INPUT node의 패턴 선택은 없어져도 괜찮을것 같아요(자율
           학습)". 사용자 영역 4×4 grid 영역 직접 그림 영역 자율 학습 path 영역

@@ -70,6 +70,13 @@ const INITIAL_POS: PositionMap = {
   out: { x: 748, y: 16 },
 };
 
+// 사용자 catch 2026-05-10 (Request D): zoom range 축소 — 직전 0.5~2.0 영역
+// 너무 멀리 zoom out / 너무 크게 zoom in 영역 사용 difficulty catch. 0.7~1.5
+// 영역 사용성 정합 (Figma minimap 영역 fit 영역 정합 + 노드 가독성 보존).
+// PC ctrl+scroll + mobile pinch 동일 range 적용 (일관 정합). reset → 1.0.
+const ZOOM_MIN = 0.7;
+const ZOOM_MAX = 1.5;
+
 // segment edge — 3 connector (4 노드 chain). 직전 LLM connector 영역 폐기.
 const EDGES: Array<[NodeId, NodeId]> = [
   ['input', 'learn'],
@@ -393,10 +400,12 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     }
   }, []);
 
-  // wheel zoom — 사용자 catch 2026-05-06:
-  //  [1] delta 0.0015 영역 너무 극단 → 0.0004 (4배 milder, Figma/Miro 정합).
-  //  [2] Ctrl/Cmd + wheel 영역만 zoom — 일반 wheel 영역 native scroll 보존
-  //      (모바일 vertical scroll 차단 catch).
+  // wheel zoom — 사용자 catch 2026-05-06 + 사용자 catch 2026-05-10 (Request D):
+  //  [1] delta 0.0015 → 0.0004 (4배 milder, Figma/Miro 정합).
+  //  [2] Ctrl/Cmd + wheel 영역만 zoom — 일반 wheel 영역 native scroll 보존.
+  //  [3] zoom range 0.5~2.0 → 0.7~1.5 — 사용자 사용성 catch (너무 멀리 zoom out
+  //      / 너무 크게 zoom in 영역 사용 difficulty). PC ctrl+scroll 영역만 영향
+  //      — pinch zoom (mobile touch) 영역 동일 range 적용 (일관 정합).
   // zoom anchor: stage 영역 mouse position 영역 — pan 보정 영역 stage 영역 fixed.
   useEffect(() => {
     const stage = stageRef.current;
@@ -411,7 +420,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
       // delta — 0.0015 → 0.0004 (사용자 catch: 너무 극단).
       const delta = -e.deltaY * 0.0004;
       setZoom((prevZoom) => {
-        const nextZoom = Math.max(0.5, Math.min(2.0, prevZoom * (1 + delta)));
+        const nextZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prevZoom * (1 + delta)));
         if (nextZoom === prevZoom) return prevZoom;
         setPan((prevPan) => {
           const stageX = (mouseX - prevPan.x) / prevZoom;
@@ -447,7 +456,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
         e.preventDefault();
         const dist = distance(e.touches);
         const ratio = dist / pinchRef.current.initialDist;
-        const nextZoom = Math.max(0.5, Math.min(2.0, pinchRef.current.initialZoom * ratio));
+        const nextZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchRef.current.initialZoom * ratio));
         setZoom(nextZoom);
       }
     };
@@ -603,6 +612,23 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
           })}
         </div>
       </div>
+      {/* 사용자 catch 2026-05-10 (Request D): zoom level indicator — PC
+          ctrl+scroll 영역 zoom in/out 시점 영역 visual feedback 영역 mandatory.
+          zoom !== 1.0 시점 영역만 표시 (default 100% 영역 noise 회피). click
+          영역 reset to 1.0 + pan reset (Reset Layout 영역 동일 path 영역 동일).
+          Mobile (pointer: coarse) 영역 pinch zoom 영역 별도 — 본 indicator
+          영역 hidden (data-mobile-hidden CSS modifier 영역 정합). */}
+      {zoom !== 1 && (
+        <button
+          type="button"
+          className="snn-pipeline-zoom-indicator"
+          onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          aria-label={`zoom ${Math.round(zoom * 100)}% — click to reset to 100%`}
+          title="100% 영역 reset"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+      )}
       {statusVisible && (
         <div className="snn-pipeline-toast" role="status" aria-live="polite">
           {statusVisible}

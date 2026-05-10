@@ -297,15 +297,17 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   return (
     <div className="snn-grid-input">
-      {/* PR-M (사용자 catch 2026-05-10): Live hint copy 강화 — '자율 학습' +
-          '새 cluster 자동 추가' 명시. GridInput PR-L hint 정합 (4×4 그리드 →
-          카메라 자세 swap). 직전 'LIVE — 자세를 보여주면 즉시 학습 + 추론' 영역
-          단순 copy → 자율 학습 본질 + ART vigilance 신규 cluster 추가 path 명시. */}
+      {/* 사용자 catch 2026-05-10 (CAMERA tab LIVE info parity + font-size
+          escalate): className 영역 GridInput LIVE 박스 영역 정합 swap —
+          .snn-grid-train-all-btn + --static modifier (직전 .snn-grid-build-btn
+          영역 GRID 영역 다른 styling catch). 빨간 dot + dashed border + 정합
+          padding 영역 GRID 영역 동일. font-size 영역 11px → 14px escalate
+          (CSS .snn-grid-train-all-btn--static override) 영역 가독 정합. */}
       {isLiveMode && (
-        <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
+        <div className="snn-grid-train-all-btn snn-grid-train-all-btn--static pointer-events-none text-center">
           {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          LIVE — 카메라 자세를 보여주세요. 처음 보는 자세는 자동 30회 학습 + 새 cluster 추가.
+          LIVE — 카메라로 손 자세를 자동 추적. 처음 보는 자세는 자동 30회 학습 + 새 cluster 추가.
         </div>
       )}
 

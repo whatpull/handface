@@ -36,6 +36,7 @@ import {
   type NeuronFiringDetail,
   type InputModeDetail,
   type AutoLearnProgressDetail,
+  type GridInferDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
@@ -156,12 +157,28 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
         return next;
       });
     });
+    // 사용자 catch 2026-05-10 (OUT 결과값 초기화): inject/infer trigger 시점 영역
+    // 직전 winner row 영역 stale 표시 catch 회피. grid-infer started kind 영역
+    // GridInput 영역 runInfer / runInferAuto / clusterVigilance 호출 직전 emit
+    // 영역 정합 — backend 응답 도달 전 영역 null reset → 새 응답 영역 fresh
+    // cluster_rates 영역 즉시 갱신. 학술 정합: substrate 영역 추론 1 cycle 영역
+    // 별도 sample — 직전 winner 영역 carry-over 영역 false display 회피.
+    // (finished kind 영역 reset 0 — 새 neuron-firing event 영역 detail 영역 순서
+    // race 회피. error kind 영역 detail 영역 그대로 — 직전 응답 영역 보존 vs
+    // null reset 영역 양자 — null reset 영역 정직 catch 영역 정합.)
+    const offGridInfer = onBackendEvent<GridInferDetail>('grid-infer', (d) => {
+      if (d.kind === 'started' || d.kind === 'error') {
+        setDetail(null);
+        setTs(null);
+      }
+    });
     return () => {
       off();
       offHand();
       offCleared();
       offInputMode();
       offAutoLearn();
+      offGridInfer();
       mountedRef.current = false;
     };
   }, []);

@@ -97,6 +97,30 @@ interface FireResponse {
   winner_margin?: number;
 }
 
+// Backend v0.2.1-dynamic-cluster (audit fix #4) — POST /networks/{id}/cluster/vigilance
+// Carpenter-Grossberg ART vigilance — match score < threshold 영역 자동 신규
+// cluster spawn (max_clusters cap 64). action: 'spawned' | 'matched'.
+//   - share metric: cluster_rates / sum(cluster_rates) (art.ts parity).
+//   - top_share: winner cluster share value.
+//   - margin: top - second (share-space).
+//   - cluster_idx: novel 영역 신규 spawned id, 영역 best-match cluster id.
+export interface ClusterVigilanceResponse {
+  ok: boolean;
+  is_novel: boolean;
+  cluster_idx: number;
+  top_share: number;
+  cluster_shares: number[];
+  margin: number;
+  action: 'spawned' | 'matched';
+  // optional firing detail — backend 영역 동봉 시 neuron-firing event 영역 forward.
+  rates?: Record<string, number>;
+  rates_by_region?: Record<string, number>;
+  active_neurons_by_region?: Record<string, string[]>;
+  cluster_rates?: number[];
+  out_rates?: Record<string, number>;
+  reason?: string;
+}
+
 export class NeuronFaceClient {
   endpoint: string;
   apiKey: string;
@@ -558,6 +582,70 @@ export class NeuronFaceClient {
       },
     });
     if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    return r;
+  }
+
+  // Backend v0.2.1-dynamic-cluster — POST /networks/{id}/cluster/vigilance.
+  // Carpenter-Grossberg ART vigilance — match score < threshold 영역 자동
+  // _grow_cluster spawn (max_clusters cap 64). 응답 영역 cluster_shares 영역
+  // share metric (rates / sum) — frontend 영역 cluster bar 영역 직접 사용.
+  //
+  // 정직 한계: backend baseline 학습 영역 fresh circuit 영역 trivial-true (모두
+  // novel) — selectivity 0/4 (session 53 root cause) 영역 별도 fix path. 본 method
+  // 영역 wire 자체 영역 selectivity 영역 무관 영역 진행 가능.
+  async clusterVigilance(
+    pattern: number[],
+    opts: {
+      vigilanceThreshold?: number;
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+    } = {},
+  ): Promise<Result<ClusterVigilanceResponse>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const p16 = new Array<number>(16).fill(0);
+    for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+      const v = pattern[i];
+      p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+    }
+    const r = await this.request<ClusterVigilanceResponse>(
+      `/networks/${net.data}/cluster/vigilance`,
+      {
+        method: 'POST',
+        body: {
+          pattern: p16,
+          // backend default 0.7 (app.py:3163) 정합.
+          vigilance_threshold: opts.vigilanceThreshold ?? 0.7,
+          intensity: opts.intensity ?? 2.0,
+          observe_ms: opts.observeMs ?? 30,
+          stimulus_duration_ms: opts.stimulusDurationMs ?? 15,
+        },
+      },
+    );
+    if (r.ok) {
+      // forward firing detail — neuron-firing 영역 V1/V2 cascade strip 영역 정합.
+      const d = r.data;
+      if (d.rates || d.rates_by_region || d.cluster_rates) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          rates: d.rates,
+          rates_by_region: d.rates_by_region,
+          active_neurons_by_region: d.active_neurons_by_region,
+          out_rates: d.out_rates,
+          cluster_rates: d.cluster_rates,
+          winner_cluster: d.cluster_idx,
+          winner_margin: d.margin,
+        } as NeuronFiringDetail);
+      }
+      // spawn 알림 — frontend 영역 toast / amber pulse 영역 trigger.
+      if (d.is_novel && d.action === 'spawned') {
+        emitBackendEvent('cluster-spawned', {
+          clusterIdx: d.cluster_idx,
+          topShare: d.top_share,
+          margin: d.margin,
+        });
+      }
+    }
     return r;
   }
 

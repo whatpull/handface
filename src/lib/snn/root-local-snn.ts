@@ -198,14 +198,14 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     //     직전 영역 stale lock-in 영역 reset (n13 mitigation 정합).
     onStaleCacheReset: (reason) => {
       const label = kind === 'gesture' ? '제스처' : '방향';
-      const why = reason === 'schema-mismatch'
-        ? '회로 schema 정정'
+      const message = reason === 'schema-mismatch'
+        ? `${label} 회로: 회로 schema 정정 위해 학습 가중치 reset — 재학습 필요`
         : reason === 'fix-baseline-mismatch'
-        ? '직전 학습 weight 영역 fix 직전 영역 reset'
-        : '가중치 길이 불일치';
+        ? `${label} 회로: 직전 학습 가중치를 정정 적용 위해 reset — 재학습 필요`
+        : `${label} 회로: 가중치 길이 불일치로 학습 가중치 reset — 재학습 필요`;
       showToast({
         kind: 'warning',
-        message: `${label} 회로: ${why} 영역 학습 가중치 reset — 재학습 필요`,
+        message,
         duration: 6000,
       });
     },

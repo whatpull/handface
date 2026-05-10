@@ -740,7 +740,7 @@ function LiveLearnPanel({
             engineering) 영역 본격 root fix. */}
         {tick.trial > 0 && tick.trial < 10 && (
           <div className="snn-pipeline-phase-sub snn-pipeline-phase-sub--dim">
-            10-20회 보강 후 winner 안정 — 같은 자세 반복 보강 권장
+            10-20회 반복하면 winner 안정 — 같은 자세 권장
           </div>
         )}
       </div>

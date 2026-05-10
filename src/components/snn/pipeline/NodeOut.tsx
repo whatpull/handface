@@ -67,7 +67,9 @@ export default function NodeOut() {
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  const { winner } = usePipelineEvents();
+  // HIGH #6 (사용자 catch 2026-05-11): isAutoLearning 영역 LEARN/INFER 영역
+  // 동일 amber row 일관성 — "학습 중 — count 갱신 대기" 영역 hint visible.
+  const { winner, isAutoLearning } = usePipelineEvents();
 
   const winnerKey = winner.cluster !== null ? `out_${winner.cluster}_0` : null;
   const winnerEx = winnerKey ? exemplars[winnerKey] : undefined;
@@ -99,8 +101,20 @@ export default function NodeOut() {
   }, [exemplars]);
 
   return (
-    <NodeShell title="OUT" subtitle="결과값" tone="out">
-
+    <NodeShell
+      title="OUT"
+      subtitle="winner 누적 (winner cluster 변경 시점 +1)"
+      subtitleAria="winner cluster 누적 횟수"
+      tone="out"
+    >
+      {/* HIGH #6 (사용자 catch 2026-05-11): isAutoLearning 영역 amber row —
+          LEARN/INFER 영역 "학습 중" hint 영역 동일 amber 일관성 (count 갱신
+          대기 path 영역 사용자 mental model 영역 직접 catch). */}
+      {isAutoLearning && (
+        <div className="snn-pipeline-note" role="status" aria-live="polite">
+          학습 중 — count 갱신 대기 (신규 패턴 30회 학습 진행 중)
+        </div>
+      )}
       <div className="snn-pipeline-out-winner">
         {winnerLabel ? (
           <RenameButton

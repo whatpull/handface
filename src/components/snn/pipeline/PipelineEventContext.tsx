@@ -94,10 +94,14 @@ export interface PipelineEventState {
   isAutoLearning: boolean;
 }
 
+// HIGH #3 (사용자 catch 2026-05-11): EMPTY_WINNER zero-init — 직전 [0,0,0,0]
+// base 4 영역 Fix #19 영역 dynamic clusterLabels.length 영역 mismatch (학습 0
+// 영역 cluster bar 영역 4 row 영역 stale 표시 catch). clusterRates / clusterCounts
+// 영역 빈 배열 영역 정합 — caller 영역 length === 0 영역 empty placeholder.
 const EMPTY_WINNER: WinnerResult = {
   cluster: null,
-  clusterRates: [0, 0, 0, 0],
-  clusterCounts: [0, 0, 0, 0],
+  clusterRates: [],
+  clusterCounts: [],
   confidence: 0,
   margin: 0,
   max: 0,
@@ -110,7 +114,7 @@ const PipelineEventContext = createContext<PipelineEventState>({
   lastFiringTimestamp: null,
   winner: EMPTY_WINNER,
   winnerCluster: null,
-  clusterRates: [0, 0, 0, 0],
+  clusterRates: [],
   margin: 0,
   activeByRegion: {},
   consecutiveWinnerCount: 0,

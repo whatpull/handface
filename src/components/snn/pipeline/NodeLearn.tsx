@@ -42,6 +42,7 @@ import {
   subscribeExemplars,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
+import { isUntrustworthy } from '@/lib/snn/untrustworthy';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { CLUSTER_TARGET, getClusterLabel, resolveClusterLabel } from './shared';
@@ -336,7 +337,11 @@ export default function NodeLearn() {
   // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
   // expansion cluster 영역 amber bar 영역 진행 visibility 정합 (NodeOut 영역
   // winner.clusterRates 정합 — clusterLabels.length 영역 dynamic catch).
-  const { lastDetail, autoLearnProgress } = usePipelineEvents();
+  // HIGH #1 (사용자 catch 2026-05-11): winner 영역 단일 source — INFER 정합 path.
+  // 직전 LiveLearnPanel 영역 tick.winner (live-snn 영역 별도 산출) 영역 INFER 영역
+  // PipelineEventContext.winner 영역 dual source 영역 mismatch 회피 — context winner
+  // 영역 LiveLearnPanel 영역 prop 영역 통합.
+  const { lastDetail, autoLearnProgress, winner } = usePipelineEvents();
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -627,7 +632,7 @@ export default function NodeLearn() {
       </div>
 
       {isLiveMode ? (
-        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} initState={initState} />
+        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} initState={initState} winner={winner} />
       ) : (
         <>
           {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
@@ -735,10 +740,15 @@ function LiveLearnPanel({
   tick,
   clusterLabels,
   initState,
+  winner,
 }: {
   tick: LiveTickDetail | null;
   clusterLabels: readonly string[];
   initState: LocalSnnInitState | null;
+  // HIGH #1 (사용자 catch 2026-05-11): winner 영역 PipelineEventContext 영역 단일
+  // source — INFER 정합 path. 직전 tick.winner (live-snn 영역 별도 cfr.winner) 영역
+  // dual source mismatch 회피.
+  winner: { cluster: number | null; confidence: number; margin: number; clusterRates: number[] };
 }) {
   // STDP pulse LED — trial 변경 시 mount key ↑ 영역 animation 1회 재생.
   // tick === null 영역 0 — 첫 trial 도달 시점부터 pulse.
@@ -782,8 +792,9 @@ function LiveLearnPanel({
               initState?.phase === 'fresh' ? ' snn-pipeline-phase-label--fresh' : ''
             }`}
           >
+            {/* MEDIUM #8 (사용자 catch 2026-05-11): fresh wording 통일 — INFER 정합. */}
             {initState?.phase === 'fresh'
-              ? 'LIVE — awaiting first input (학습 0회)'
+              ? 'FRESH CIRCUIT — 학습 0회 / 입력 대기'
               : initState?.phase === 'hydrated'
                 ? 'LIVE — hydrated (이전 학습 복원됨)'
                 : 'LIVE — awaiting'}
@@ -806,20 +817,29 @@ function LiveLearnPanel({
     );
   }
   const max = Math.max(...tick.rates, 1);
-  // Fix #19 (2026-05-10): winner stale 회피 — winner idx 영역 clusterLabels
-  // 영역 안 영역 cluster (학습 안 된 base 4) 영역 표시 안 영역 — null fallback.
-  const winnerLabel = tick.winner >= 0 && tick.winner < clusterLabels.length
-    ? clusterLabels[tick.winner]
+  // HIGH #1 (사용자 catch 2026-05-11): winner 영역 PipelineEventContext.winner
+  // 영역 단일 source — INFER 정합 path. tick.winner (live-snn cfr.winner) 영역
+  // 폐기. winner.cluster === null 영역 'no winner' fallback.
+  const winnerCluster = winner.cluster;
+  const winnerLabel = winnerCluster !== null && winnerCluster < clusterLabels.length
+    ? clusterLabels[winnerCluster]
     : null;
   const phaseTone = tick.patternActive ? 'amber' : 'idle';
-  // PR-K (사용자 catch 2026-05-09 catch 3): fresh state winner emerge misleading
-  // 정정 — fresh build (trial=0 영역 trained_clusters 0) 시점 영역 winner card
-  // 영역 hide. n13 INPUT→V1_L4_E weight 11.0 base activation 영역 학술 정합 단
-  // UI 영역 winner emerge misleading (사용자 mental model 영역 학습 0 영역
-  // winner 영역 표시 영역 noise). Phase block 영역 'awaiting first input' 영역
-  // 명시 + winner cluster 영역 hide.
-  const isUntrustworthy = initState?.phase === 'fresh' && tick.trial === 0;
-  const hideWinner = isUntrustworthy;
+  // HIGH #5 (사용자 catch 2026-05-11): isUntrustworthy 영역 단일 helper hoist —
+  // NodeInfer 정합 path. 직전 LEARN: `phase==='fresh' && tick.trial===0` /
+  // INFER: `phase==='fresh' && (phase===null || pname==='untrained') &&
+  // clusterLabels.length===0` 영역 다른 gate 영역 모순 path 영역 단일 source.
+  const untrustworthy = isUntrustworthy({
+    initPhase: initState?.phase,
+    phaseName: null, // Live 모드 영역 batch phase 미사용 — null 정합.
+    clusterLabelCount: clusterLabels.length,
+  });
+  const hideWinner = untrustworthy;
+  // MEDIUM #10 (사용자 catch 2026-05-11): metric 통일 — INFER 영역 winner.confidence
+  // (max/total) 영역 동일 source. 직전 tick.margin (max-second/max) 영역 INFER 영역
+  // confidence 영역 다른 metric 영역 사용자 mental model 영역 mismatch.
+  const confPct = (winner.confidence * 100).toFixed(0);
+  const marginPct = (winner.margin * 100).toFixed(0);
   return (
     <>
       <div
@@ -827,8 +847,9 @@ function LiveLearnPanel({
         className={`snn-pipeline-phase snn-pipeline-phase--${phaseTone} snn-pipeline-phase-transition`}
       >
         <div className="snn-pipeline-phase-label">
+          {/* MEDIUM #8 (사용자 catch 2026-05-11): fresh wording 통일 — INFER 정합. */}
           {hideWinner
-            ? 'LIVE — awaiting first input (fresh, 학습 0회)'
+            ? 'FRESH CIRCUIT — 학습 0회 / 입력 대기'
             : tick.patternActive ? 'LIVE — STDP active' : 'LIVE — silent'}
           {stdpPulseKey > 0 && !hideWinner && (
             <span
@@ -839,12 +860,15 @@ function LiveLearnPanel({
           )}
         </div>
         <div className="snn-pipeline-phase-sub">
+          {/* HIGH #1 + MEDIUM #10: tick.trial 영역 학습 #N counter 영역만 사용 +
+              winner 영역 PipelineEventContext.winner 영역 단일 source. metric 영역
+              INFER 정합 영역 정확도 (confidence) + 안정도 (margin) 영역 명시 label. */}
           {hideWinner
             ? 'tap 추론 → 자동 30회 학습 후 winner 표시'
             : (
               <>
                 학습 #{tick.trial} · {winnerLabel
-                  ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
+                  ? `winner ${winnerLabel} · 정확도 ${confPct}% · 안정도 ${marginPct}%`
                   : 'no winner — WTA 대기'}
               </>
             )}
@@ -870,13 +894,15 @@ function LiveLearnPanel({
             <span className="snn-pipeline-cluster-count snn-pipeline-mono">—</span>
           </div>
         )}
+        {/* HIGH #1 (2026-05-11): isWinner 영역 PipelineEventContext.winner.cluster
+            영역 단일 source — INFER 정합. */}
         {!hideWinner && clusterLabels.map((label, i) => (
           <LiveRateRow
             key={i}
             label={label}
             rate={tick.rates[i] ?? 0}
             max={max}
-            isWinner={tick.winner === i}
+            isWinner={winnerCluster === i}
           />
         ))}
       </div>

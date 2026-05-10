@@ -33,6 +33,12 @@ export const OUT_PER_CLUSTER = 8;
  * 학술 정합: ART unsupervised expansion 영역 cluster identity 영역 사용자
  * supervised 신호 0 영역 자율 형성 영역 — hardcode orientation/gesture 라벨
  * 영역 strict supervised path 영역 misleading. generic '패턴 N' 영역 정직.
+ *
+ * MEDIUM #9 (사용자 catch 2026-05-11): cluster id mapping spec —
+ *   - UI 표시 영역 1-based ('패턴 1', '패턴 2', ...) — 사용자 mental model 정합.
+ *   - code (cluster_id, exemplar key 'out_${ci}_*', winner.cluster) 영역 0-based.
+ *   - 본 helper 영역 0-based cluster id 영역 input → 1-based label string 영역 output
+ *     (`패턴 ${cluster + 1}`).
  */
 export function getClusterLabel(cluster: number, _mode: InputModeKind = 'grid'): string {
   void _mode; // mode 영역 호환 path 영역 보존 (caller 영역 호환 catch).

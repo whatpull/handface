@@ -52,7 +52,7 @@ export default function NodeInfer() {
   }, []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  const { winner, lastFiringTimestamp } = usePipelineEvents();
+  const { winner, lastFiringTimestamp, consecutiveWinnerCount } = usePipelineEvents();
   const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
 
   // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
@@ -136,6 +136,16 @@ export default function NodeInfer() {
           >
             {winnerLabel ? `${winnerLabel} (${confPct}%)` : '—'}
           </div>
+          {/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement): consecutive
+              winner streak indicator — Diehl & Cook 2015 winner stability
+              정합. >= 3 영역 'stable' (green pill), < 3 영역 'learning' (amber).
+              winner !== null 일부 표시 — null 영역 hint 영역 정합. */}
+          {winnerLabel && consecutiveWinnerCount > 0 && (
+            <WinnerStreakPill
+              label={winnerLabel}
+              count={consecutiveWinnerCount}
+            />
+          )}
           {!winnerLabel && winner.clusterRates.every((v) => v <= 0) && (
             <div className="snn-pipeline-current-hint">입력 신호 대기 — cluster_rates 활성 미정</div>
           )}
@@ -203,6 +213,32 @@ function RateBar({ label, rate, max, isWinner, isSaturated }:
 function spark(ci: number): string {
   const chars = ['▁', '▃', '▅', '▇'];
   return chars[ci] || '?';
+}
+
+// PR-H catch 1 enhancement (2026-05-10): WinnerStreakPill — consecutive
+// winner streak count + amber/green stability pill (Diehl & Cook 2015).
+// >= 3 frame 영역 'stable' (green), < 3 영역 'learning' (amber).
+// horizontal pattern 영역 다른 winner 영역 추가 mitigation 영역 trial=0 path
+// 영역 학습 미숙 시각 catch 영역 정합.
+function WinnerStreakPill({ label, count }: { label: string; count: number }) {
+  const stable = count >= 3;
+  const cls = stable
+    ? 'snn-pipeline-streak-pill snn-pipeline-streak-pill--stable'
+    : 'snn-pipeline-streak-pill snn-pipeline-streak-pill--learning';
+  const status = stable ? 'stable' : '학습 중';
+  return (
+    <div
+      className={cls}
+      role="status"
+      aria-live="polite"
+      aria-label={`winner stability: ${label} ${count} consecutive — ${status}`}
+    >
+      <span className="snn-pipeline-streak-text">
+        winner: {label} × {count} consecutive
+      </span>
+      <span className="snn-pipeline-streak-status">{status}</span>
+    </div>
+  );
 }
 
 // MarginMeter — winner stability indicator (Diehl & Cook 2015 정합).

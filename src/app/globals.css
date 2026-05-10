@@ -78,3 +78,31 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─────────────────── HandFace logo wave animation (PR-H, 2026-05-10) ──────
+   사용자 catch — "혹시 추가로 재미를 위해, 인사하는 애니메이션이 추가되면
+   좋겠어요. (물론 파비콘은 제외)" → header inline logo hover trigger wave.
+   - hand `<g>` 영역 hover 시 ±20deg 흔들림 ~1s ease-in-out infinite.
+   - transform-origin 손목 영역 (32×32 viewBox 영역 ≈ (16, 28)).
+   - prefers-reduced-motion 영역 mandatory fallback.
+   - favicon (src/app/icon.svg) 영역 static 보존 — animation 영역 inline only. */
+.hf-logo-hand {
+  transform-origin: 16px 28px;
+  transform-box: view-box;
+}
+.hf-logo-svg:hover .hf-logo-hand,
+.hf-logo-svg:focus-visible .hf-logo-hand {
+  animation: hf-logo-wave 1s ease-in-out infinite;
+}
+@keyframes hf-logo-wave {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-20deg); }
+  75%  { transform: rotate(20deg); }
+  100% { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hf-logo-svg:hover .hf-logo-hand,
+  .hf-logo-svg:focus-visible .hf-logo-hand {
+    animation: none;
+  }
+}

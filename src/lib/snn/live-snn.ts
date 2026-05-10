@@ -45,6 +45,7 @@ import type {
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { incrementCount } from './out-exemplars';
+import { showToast } from '@/components/ui/Toast';
 
 export interface LiveTickDetail {
   rates: number[];
@@ -127,6 +128,12 @@ export class LiveSnn {
   // (Number.NEGATIVE_INFINITY 영역 sinceLast >> SAVE_THROTTLE_MS 보장).
   private _lastSaveAtMs = Number.NEGATIVE_INFINITY;
   private _saveTrailingTimer: ReturnType<typeof setTimeout> | null = null;
+  // 사용자 catch 2026-05-10 (CRITICAL — console spam 100+):
+  //   "콘솔 로그 처리해주세요 안나오게" — save fail 영역 매 frame 누적 spam
+  //   회피. Set 영역 message dedup — 같은 error message 영역 1회만 console.warn.
+  //   root cause fix (LocalSNN.save 영역 length drift catch) 영역 위 영역 safety
+  //   net — backend / sink 영역 신규 fail mode 영역 silent miss 회피 정합.
+  private _seenSaveErrors: Set<string> = new Set();
   // PR-B (Web Worker background offload, 2026-05-10): trial token + push handler.
   // trialToken 영역 monotonic seq — out-of-order push event 영역 latest-token-wins
   // discrimination. _unsubscribePush 영역 ensurePushHandler 영역 lazy bind 영역
@@ -394,7 +401,12 @@ export class LiveSnn {
         const trailingNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
         this._lastSaveAtMs = trailingNow;
         root.lab.save().catch((e) => {
-          console.warn('[LiveSnn] trailing save failed:', e);
+          // 사용자 catch 2026-05-10: console spam dedup (immediate path 정합).
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!this._seenSaveErrors.has(msg)) {
+            this._seenSaveErrors.add(msg);
+            console.warn('[LiveSnn] trailing save failed:', e);
+          }
         });
       }, remain);
       return false;
@@ -409,7 +421,14 @@ export class LiveSnn {
       await root.lab.save();
       return false;
     } catch (e) {
-      console.warn('[LiveSnn] save failed (in-memory weight 영역 update OK):', e);
+      // 사용자 catch 2026-05-10: console spam dedup — 같은 error message 영역
+      // 1회만 emit. root cause (LocalSNN.save 영역 length drift catch) 영역 본
+      // path 영역 0 도달 — 신규 fail mode 영역 silent miss 회피 영역 safety net.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!this._seenSaveErrors.has(msg)) {
+        this._seenSaveErrors.add(msg);
+        console.warn('[LiveSnn] save failed (in-memory weight 영역 update OK):', e);
+      }
       return true;
     }
   }
@@ -620,6 +639,30 @@ export class LiveSnn {
     vigilance = Math.max(0, Math.min(1, vigilance));
     this.setPattern(pattern);
     const trialToken = ++this._trialTokenSeq;
+    // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
+    // _vigilancePending.set 영역 triggerBackground await 직전 영역 옮김. 직전
+    // 영역 await 영역 후 set 영역 MainThreadTransport fallback path (Web Worker
+    // bundle fail 시 자동 fallback) 영역 race 영역 root cause.
+    //
+    // Race trace (MainThreadTransport):
+    //   1. caller awaits client.triggerBackground(req)
+    //   2. transport.postMessage(req) → core.handle(req) sync (inline simulation)
+    //      → handleTriggerBackground 영역 push emit (queueMicrotask 영역 enqueue,
+    //      먼저 enqueue) → handle 영역 ack 반환 → postMessage 영역 ack 영역
+    //      queueMicrotask 영역 enqueue (그 다음).
+    //   3. microtask drain — push 'triggerComplete' 영역 fire 먼저 →
+    //      handleTriggerComplete 영역 호출 → vigilancePending.has(token)=false →
+    //      runAutoLearnLoop 미호출 (silent).
+    //   4. ack microtask 영역 그 다음 fire → caller await resolve →
+    //      vigilancePending.set(token,...) 영역 stale (handler 이미 지나감).
+    //
+    // 결과: 사용자 catch 영역 "학습 #1 no winner — WTA 대기 / 빈 row / 학습
+    // 가중치 0" — vigilance follow-up 영역 fire 안 됨 → expandCluster 미호출 →
+    // cluster 영역 0 잔존.
+    //
+    // 정정: pending state 영역 dispatch 영역 직전 영역 set — push handler 영역
+    // fire 시점 영역 보장 catch. dispatch 영역 throw 영역 catch path 영역 cleanup.
+    this._vigilancePending.set(trialToken, { pattern: pattern.slice(), vigilance });
     void (async () => {
       try {
         const root = await getRootLocalSnnFor(this.substrateKind);
@@ -627,6 +670,10 @@ export class LiveSnn {
         // 1. inferAsync (STDP off) 영역 winner margin 측정 — worker 영역 inline.
         //    triggerBackground RPC 영역 stdpGain=0 영역 정합 — STDP 0 + cluster
         //    firing rates 측정 only.
+        // 2. 결과 영역 main thread 영역 push event listener 영역 catch —
+        //    handleTriggerComplete 영역 trialToken match 영역 winner.margin
+        //    영역 vigilance 영역 비교 + ART expansion + reinforce loop 영역
+        //    pending dispatch.
         await root.client.triggerBackground({
           pattern: this.patternRef.slice(),
           intensity: this.opts.intensity,
@@ -637,15 +684,6 @@ export class LiveSnn {
           resetThreshold: true,
           trialToken,
         });
-        // 2. 결과 영역 main thread 영역 push event listener 영역 catch —
-        //    handleTriggerComplete 영역 trialToken match 영역 winner.margin
-        //    영역 vigilance 영역 비교 + ART expansion + reinforce loop 영역
-        //    pending dispatch (별도 path — handleVigilanceFollowup).
-        //    본 push 영역 이미 ensurePushHandler 영역 등록 단 본 method 영역
-        //    별도 vigilance state 영역 track — vigilance pending map 영역
-        //    별도 catch (latest token-wins 영역 worker sequential serial 영역
-        //    자연 정합 단 token mismatch 회피 catch 영역 explicit).
-        this._vigilancePending.set(trialToken, { pattern: pattern.slice(), vigilance });
       } catch (e) {
         console.warn('[LiveSnn] triggerWithVigilance dispatch failed:', e);
         this._vigilancePending.delete(trialToken);
@@ -762,6 +800,9 @@ export class LiveSnn {
       winner: -1,
       share: 0,
       margin: 0,
+      // Fix #22 (사용자 catch 2026-05-10): silent path → inputMatch=0 정합
+      // (silent / no winner — vigilance miss path 영역 spawn 자연 catch).
+      inputMatch: 0,
       layer: 'OUT',
     };
     this.emitTick(silentCfr, 0, 0, {
@@ -794,8 +835,23 @@ export class LiveSnn {
       const { pattern, vigilance } = pending;
       const margin = payload.cfr.margin;
       const winner = payload.cfr.winner;
-      // novel pattern 영역 catch — winner -1 (silent) 또는 margin < vigilance.
-      if (winner < 0 || margin < vigilance) {
+      // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이
+      // 학습이 안됨): Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 —
+      // |I ∩ T| / |I| (input ∩ winner template / input). 직전 margin (rate-based
+      // (max-second)/max) 영역 단일 cluster 영역 항상 1.0 (max=max, second=0)
+      // → vigilance 영역 영원히 pass → 신규 input pattern 영역 spawn 0 영역
+      // root cause. inputMatch (worker-core 영역 산출) 영역 신규 input pattern
+      // 영역 winner cluster 영역 activeInputs 영역 영역 영역 영역 0.0 → vigilance
+      // miss → expandClusterAsync (cluster 2 spawn) → 30회 reinforce → 패턴 2 winner.
+      // 정직 한계: 직전 margin path 영역 다중 cluster 영역 ambiguous winner
+      // discrimination 영역 영역 — inputMatch 영역 input vs template 영역 직접
+      // 매칭 영역 catch 영역 ART canonical 정합 영역 입력 pattern novelty 영역
+      // 정확 catch 영역 우선 (margin path 영역 fallback 0 — 단일 정의).
+      const inputMatch = payload.cfr.inputMatch;
+      // novel pattern 영역 catch — winner -1 (silent) 또는 inputMatch < vigilance.
+      // (margin reference retain — debug / future fallback path 영역 0 mutation).
+      void margin;
+      if (winner < 0 || inputMatch < vigilance) {
         // active inputs 영역 pattern 영역 v > 0.5 binary catch.
         const activeInputs: number[] = [];
         for (let i = 0; i < pattern.length; i += 1) {
@@ -871,7 +927,21 @@ export class LiveSnn {
         }
       }
     } catch (e) {
+      // Fix #20 Part C (2026-05-10): silent failure 영역 visible toast 영역
+      // 격상. 직전 console.warn 영역 사용자 catch 0 — auto-learn 영역 fail 영역
+      // 사용자 영역 silent (winner -1 / 패턴 미생성). Hebbian spike-pair 0 영역
+      // weight unchanged 영역 root cause 영역 visible 영역 (사용자 명시 "기존
+      // 로직 신경쓰지말고" — silent fail 폐기 권한).
+      const msg = e instanceof Error ? e.message : String(e);
       console.warn('[LiveSnn] runAutoLearnLoop failed:', e);
+      showToast({ kind: 'error', message: `학습 실패 — ${msg}` });
+      // PR #192 polish parity (SEC-3): error event 영역 telemetry 영역 emit —
+      // dev panel 영역 hook 가능 (현재 listener 0 silent fan-out).
+      emitBackendEvent('snn-error', {
+        source: 'rpc',
+        message: `runAutoLearnLoop failed: ${msg}`,
+        context: { trialToken: originalToken, activeInputs },
+      });
     }
   }
 

@@ -67,6 +67,14 @@ function makeStack() {
   return { core, client, storage, sink };
 }
 
+// Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
   it('IC1: 첫 init (보존 0) → onFreshBuild 1회, onHydrateLoaded 0회', async () => {
     const { client, sink } = makeStack();
@@ -77,6 +85,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
       client,
       sink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
       onFreshBuild,
       onHydrateLoaded,
     });
@@ -91,7 +100,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
     const netId = 'hydrate-path';
 
     // 1차: fresh build + 1회 save → topology + 가중치 보존.
-    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
     await lab1.save();
 
@@ -108,6 +117,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
       client: client2,
       sink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
       onFreshBuild,
       onHydrateLoaded,
     });
@@ -162,6 +172,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
       client,
       sink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
       onStaleCacheReset,
       onFreshBuild,
       onHydrateLoaded,
@@ -178,7 +189,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
     const { client: client1, sink } = makeStack();
     const netId = 'mismatch-fresh';
 
-    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
 
     // 가중치 영역 강제 truncate.
@@ -201,6 +212,7 @@ describe('LocalSNN — onFreshBuild / onHydrateLoaded callback (Fix 4)', () => {
       client: client2,
       sink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
       onStaleCacheReset,
       onFreshBuild,
       onHydrateLoaded,

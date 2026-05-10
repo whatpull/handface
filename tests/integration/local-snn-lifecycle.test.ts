@@ -69,6 +69,14 @@ function makeStack() {
   return { core, client, storage, sink };
 }
 
+// Fix #20 (2026-05-10): zero-init default — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 describe('LocalSNN — end-to-end lifecycle', () => {
   it('init → run → save → 새 stack 으로 init 시 보존 가중치 복원', async () => {
     // ── stack 1 ── 처음 빌드 + 학습 + 저장.
@@ -78,6 +86,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
       client: s1.client,
       sink: s1.sink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
     });
 
     const status0 = await lab1.init();
@@ -124,6 +133,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
       client: stack2Client,
       sink: sharedSink,
       seed: 57, // 같은 seed → 같은 토폴로지 빌드.
+      clusterActiveInputs: LEGACY_FOUR,
     });
 
     const restored = await lab2.init();
@@ -145,6 +155,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
       client,
       sink,
       seed: 99,
+      clusterActiveInputs: LEGACY_FOUR,
     });
     await lab.init();
 
@@ -195,7 +206,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
 
   it('expansion → reload 시 토폴로지 + 가중치 round-trip (cluster 5개 보존)', async () => {
     const s1 = makeStack();
-    const lab1 = new LocalSNN({ netId: 'expand_demo', client: s1.client, sink: s1.sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId: 'expand_demo', client: s1.client, sink: s1.sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
 
     // expansion → 새 cluster 추가 (totalClusters=5).
@@ -228,6 +239,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
       client: newClient,
       sink: sharedSink,
       seed: 57,
+      clusterActiveInputs: LEGACY_FOUR,
     });
     const restored = await lab2.init();
 
@@ -252,6 +264,7 @@ describe('LocalSNN — end-to-end lifecycle', () => {
       client,
       sink,
       seed: 1,
+      clusterActiveInputs: LEGACY_FOUR,
     });
     await lab.init();
 

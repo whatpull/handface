@@ -93,7 +93,10 @@ export default function NodeInfer() {
   }, []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  const { winner, lastFiringTimestamp, consecutiveWinnerCount } = usePipelineEvents();
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
+  // 학습 진행 중 catch — INFER 노드 상단 영역 visible "학습 중 — 추론 대기"
+  // hint mandatory (NodeOut "처리 중" 영역 동일 패턴).
+  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
   const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
 
   // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
@@ -158,6 +161,16 @@ export default function NodeInfer() {
       {!online && (
         <div className="snn-pipeline-warn">
           ⚠ MediaPipe only — offline (SNN 영역 0, 학습 진행 0)
+        </div>
+      )}
+      {/* 사용자 catch 2026-05-10 (block-infer-during-learn): runAutoLearnLoop
+          영역 30회 R-STDP 진행 중 영역 visible 안내 — 추론 결과 unreliable
+          (학습 미완 weight 영역 winner 영역 noise) 영역 사용자 catch. NodeOut
+          "처리 중" 영역 동일 패턴. snn-pipeline-note class 영역 amber pill
+          (CSS 정합) — 추론 disable 영역 visible cue. */}
+      {isAutoLearning && (
+        <div className="snn-pipeline-note" role="status" aria-live="polite">
+          학습 중 — 추론 대기 (신규 패턴 30회 학습 진행 중)
         </div>
       )}
       {!trained && (

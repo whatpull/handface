@@ -3,6 +3,10 @@
 // 실제 Worker 없이 in-process mock transport 로 핸들러 ↔ 클라이언트 통신을
 // 검증. SNNWorkerCore 의 동작이 protocol 준수 + 에러 전파 + state mutation
 // 모두 정합한지 확인.
+//
+// Fix #20 (2026-05-10): zero-init dynamic — default build (clusterActiveInputs
+// 미지정) 영역 INPUT 16 영역만. 본 테스트 영역 LEGACY 4-cluster 영역 explicit
+// pass — 'build' helper 영역 catch.
 
 import { describe, expect, it } from 'vitest';
 
@@ -12,6 +16,13 @@ import {
   type WorkerLike,
   type WorkerRequest,
 } from '@/lib/snn-runtime';
+
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
 
 // in-process transport — postMessage 를 직접 core 에 전달하고 즉시 응답을
 // dispatch. async 흐름은 Promise resolve 시점이 microtask 로 옮겨지지만
@@ -52,7 +63,7 @@ function makeClient(): { client: SNNWorkerClient; core: SNNWorkerCore } {
 describe('snn-worker — build + 기본 RPC', () => {
   it('build 시 N13 토폴로지 결과 반환 + core 에 net 보유', async () => {
     const { client, core } = makeClient();
-    const r = await client.build({ preset: 'n13_orientation', seed: 57 });
+    const r = await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     expect(r.preset).toBe('n13_orientation');
     expect(r.outClusters).toBe(4);
     expect(r.outTotal).toBe(32);
@@ -78,7 +89,7 @@ describe('snn-worker — build + 기본 RPC', () => {
 describe('snn-worker — 가중치 / snapshot', () => {
   it('extract 후 applyWeights 는 round-trip', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const w = await client.extractWeights();
     const modified = w.map((x) => x + 0.001);
     await client.applyWeights(modified);
@@ -90,14 +101,14 @@ describe('snn-worker — 가중치 / snapshot', () => {
 
   it('길이 mismatch 시 applyWeights 거부', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await expect(client.applyWeights([1, 2, 3])).rejects.toThrow(/weight 수/);
   });
 
   // PR fix/live-mode-time-and-restore — Fix 2: schema 1 → 2 bump.
   it('snapshot 은 NetworkSnapshot schema=2 반환 (NMDA + homeostatic 보존)', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const { snapshot } = await client.snapshot();
     expect(snapshot.schema).toBe(2);
     expect(snapshot.neurons.length).toBeGreaterThan(800);
@@ -118,7 +129,7 @@ describe('snn-worker — 가중치 / snapshot', () => {
 describe('snn-worker — 시뮬레이션 + 발화율', () => {
   it('inject + run 후 firingRates prefix 로 cluster 별 fire 조회', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
 
     // cluster 0 active inputs (default = [4,5,6,7]) 에 강 자극.
     await client.inject(
@@ -145,10 +156,10 @@ describe('snn-worker — 시뮬레이션 + 발화율', () => {
 
   it('reset 후 build 재호출 가능', async () => {
     const { client, core } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     await client.reset();
     expect(core.getNetForTest()).toBeNull();
-    await client.build({ preset: 'n13_orientation', seed: 2 });
+    await client.build({ preset: 'n13_orientation', seed: 2, clusterActiveInputs: LEGACY_FOUR });
     expect(core.getNetForTest()).not.toBeNull();
   });
 });
@@ -156,7 +167,7 @@ describe('snn-worker — 시뮬레이션 + 발화율', () => {
 describe('snn-worker — ART 동적 cluster expansion', () => {
   it('expandCluster 는 새 cluster slot 추가 + total 증가', async () => {
     const { client, core } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const before = core.getRegistryForTest()!.slots.length;
     const r = await client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 100 });
     expect(r.totalClusters).toBe(before + 1);
@@ -169,7 +180,7 @@ describe('snn-worker — ART 동적 cluster expansion', () => {
 
   it('expandCluster 후 clusterFiringRates 가 새 cluster 도 포함', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 1 });
     const cfr = await client.clusterFiringRates({ windowMs: 50, layer: 'OUT' });
     expect(cfr.rates).toHaveLength(5);
@@ -183,7 +194,7 @@ describe('snn-worker — ART 동적 cluster expansion', () => {
 
   it('activeInputs 비어있으면 거부', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     await expect(client.expandCluster({ activeInputs: [] })).rejects.toThrow(/activeInputs/);
   });
 });
@@ -191,7 +202,7 @@ describe('snn-worker — ART 동적 cluster expansion', () => {
 describe('snn-worker — clusterFiringRates', () => {
   it('layer 별 평균 발화율 + winner / share / margin 산출', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const r = await client.clusterFiringRates({ windowMs: 50 });
     expect(r.rates).toHaveLength(4);
     expect(r.layer).toBe('OUT');
@@ -203,7 +214,7 @@ describe('snn-worker — clusterFiringRates', () => {
 
   it('V1_L23 layer 도 동일 형식 반환', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const r = await client.clusterFiringRates({ windowMs: 50, layer: 'V1_L23' });
     expect(r.rates).toHaveLength(4);
     expect(r.layer).toBe('V1_L23');
@@ -213,7 +224,7 @@ describe('snn-worker — clusterFiringRates', () => {
 describe('snn-worker — clusterTrainRStdp (R-STDP 감독 학습)', () => {
   it('정답 cluster pattern 학습 시 trained / accuracy 반환', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 57 });
+    await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const pattern = new Array(16).fill(0);
     [4, 5, 6, 7].forEach((i) => (pattern[i] = 1));
     const r = await client.clusterTrainRStdp({
@@ -242,7 +253,7 @@ describe('snn-worker — clusterTrainRStdp (R-STDP 감독 학습)', () => {
 
   it('targetCluster 범위 밖이면 거부', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     await expect(
       client.clusterTrainRStdp({
         patterns: [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
@@ -253,7 +264,7 @@ describe('snn-worker — clusterTrainRStdp (R-STDP 감독 학습)', () => {
 
   it('pattern 비어있어도 trained=0 / accuracy=0 반환', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     const r = await client.clusterTrainRStdp({ patterns: [], targetCluster: 0 });
     expect(r.trained).toBe(0);
     expect(r.correct).toBe(0);
@@ -264,7 +275,7 @@ describe('snn-worker — clusterTrainRStdp (R-STDP 감독 학습)', () => {
 describe('snn-worker — restoreSnapshot 토폴로지 복원', () => {
   it('snapshot → restoreSnapshot 은 위상 + 가중치 + cluster 슬롯 보존', async () => {
     const a = makeClient();
-    await a.client.build({ preset: 'n13_orientation', seed: 57 });
+    await a.client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await a.client.expandCluster({ activeInputs: [2, 6, 11, 14], seed: 1 });
     const beforeRegistry = a.core.getRegistryForTest()!;
     expect(beforeRegistry.slots).toHaveLength(5);
@@ -291,7 +302,7 @@ describe('snn-worker — restoreSnapshot 토폴로지 복원', () => {
 
   it('restoreSnapshot 후 clusterFiringRates 가 추론된 슬롯 수를 반영', async () => {
     const a = makeClient();
-    await a.client.build({ preset: 'n13_orientation', seed: 1 });
+    await a.client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     await a.client.expandCluster({ activeInputs: [0, 1, 2, 3], seed: 2 });
     await a.client.expandCluster({ activeInputs: [12, 13, 14, 15], seed: 3 });
     const { snapshot } = await a.client.snapshot();
@@ -306,7 +317,7 @@ describe('snn-worker — restoreSnapshot 토폴로지 복원', () => {
 describe('snn-worker — 전송 라이프사이클', () => {
   it('dispose 는 pending 을 reject 하고 listener 정리', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     // pending 만들기 위해 send 를 시작한 직후 dispose.
     const pending = client.run({ durationMs: 10 });
     client.dispose();
@@ -316,7 +327,7 @@ describe('snn-worker — 전송 라이프사이클', () => {
 
   it('id 는 단조증가, 응답 매칭 무결', async () => {
     const { client } = makeClient();
-    await client.build({ preset: 'n13_orientation', seed: 1 });
+    await client.build({ preset: 'n13_orientation', seed: 1, clusterActiveInputs: LEGACY_FOUR });
     const a = client.extractWeights();
     const b = client.extractWeights();
     const c = client.snapshot();

@@ -51,11 +51,19 @@ class InProcessTransport implements WorkerLike {
   }
 }
 
+// Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 async function makeBuiltClient(): Promise<SNNWorkerClient> {
   const core = new SNNWorkerCore();
   const transport = new InProcessTransport(core);
   const client = new SNNWorkerClient(transport);
-  await client.build({ preset: 'n13_orientation', seed: 57 });
+  await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
   return client;
 }
 
@@ -66,7 +74,7 @@ describe('regionFiringRates — substrate prefix 매칭 (FINDING-1 regression)',
     expect(r.region).toBe('V1');
     // n13-orientation.ts:83 (`v1_L4_E_${i}`) + line 87 (`v1_L23_E_${i}`)
     // 정합 — 대문자 prefix → 소문자 prefix mismatch fix 검증.
-    expect(r.neuronCount).toBe(N13Pools.V1_L4E + N13Pools.V1_L23E);
+    expect(r.neuronCount).toBe((N13Pools.V1_L4_PER_SUB + N13Pools.V1_L23_PER_SUB) * 4);
     expect(r.neuronCount).toBeGreaterThan(0);
     expect(Number.isFinite(r.hz)).toBe(true);
   });
@@ -75,28 +83,30 @@ describe('regionFiringRates — substrate prefix 매칭 (FINDING-1 regression)',
     const client = await makeBuiltClient();
     const r = await client.regionFiringRates({ region: 'V2', windowMs: 100 });
     expect(r.region).toBe('V2');
-    expect(r.neuronCount).toBe(N13Pools.V2_L4E + N13Pools.V2_L23E + N13Pools.V2_L5E);
+    expect(r.neuronCount).toBe(
+      (N13Pools.V2_L4_PER_SUB + N13Pools.V2_L23_PER_SUB + N13Pools.V2_L5_PER_SUB) * 4,
+    );
     expect(r.neuronCount).toBeGreaterThan(0);
   });
 
   it('T3: V1_L23 region 영역 V1_L23E neuron 매칭 (cluster firing 정합)', async () => {
     const client = await makeBuiltClient();
     const r = await client.regionFiringRates({ region: 'V1_L23', windowMs: 100 });
-    expect(r.neuronCount).toBe(N13Pools.V1_L23E);
+    expect(r.neuronCount).toBe(N13Pools.V1_L23_PER_SUB * 4);
     expect(r.neuronCount).toBeGreaterThan(0);
   });
 
   it('T4: V2_L5 region 영역 V2_L5E neuron 매칭 (cluster firing 정합)', async () => {
     const client = await makeBuiltClient();
     const r = await client.regionFiringRates({ region: 'V2_L5', windowMs: 100 });
-    expect(r.neuronCount).toBe(N13Pools.V2_L5E);
+    expect(r.neuronCount).toBe(N13Pools.V2_L5_PER_SUB * 4);
     expect(r.neuronCount).toBeGreaterThan(0);
   });
 
   it('T5: OUT region 영역 32 neuron 매칭 (sanity — out_ prefix 변경 0)', async () => {
     const client = await makeBuiltClient();
     const r = await client.regionFiringRates({ region: 'OUT', windowMs: 100 });
-    expect(r.neuronCount).toBe(N13Pools.OUT_TOTAL);
+    expect(r.neuronCount).toBe(N13Pools.OUT_PER_CLUSTER * 4);
     expect(r.neuronCount).toBe(32);
   });
 

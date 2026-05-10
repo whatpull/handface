@@ -49,8 +49,12 @@ export interface ClusterRegistry {
 }
 
 export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): ClusterRegistry {
+  // Fix #20 (2026-05-10): zero-init dynamic — N_CLUSTER 영역 activeInputsDefault.length
+  // 영역 derive (직전 N13Pools.N_CLUSTER=4 fixed 영역 폐기). zero-init (length=0) 영역
+  // 슬롯 0 영역 시작 — expandCluster 영역 c{N}_ prefix 영역 신규 cluster spawn.
   const slots: ClusterSlot[] = [];
-  for (let ci = 0; ci < N13Pools.N_CLUSTER; ci += 1) {
+  const nCluster = activeInputsDefault.length;
+  for (let ci = 0; ci < nCluster; ci += 1) {
     const v1L4E: string[] = [];
     for (let i = N13Pools.V1_L4_PER_SUB * ci; i < N13Pools.V1_L4_PER_SUB * (ci + 1); i += 1) {
       v1L4E.push(`v1_L4_E_${i}`);
@@ -213,6 +217,11 @@ export interface MatchScore {
   winner: number; // argmax. -1 이면 모두 0 (silent).
   share: number; // rates[winner] / sum(rates). silent → 0.
   margin: number; // (max - second) / max. silent → 0.
+  // Fix #22 (사용자 catch 2026-05-10): Carpenter-Grossberg 1987 ART vigilance ρ
+  // canonical 정합 — |I ∩ T| / |I| (input pattern ∩ winner template / input).
+  // computeMatchScore 영역 pattern 영역 catch 영역 0 (legacy compat) — production
+  // 영역 worker-core 영역 ClusterFiringRatesResult.inputMatch 영역 직접 산출.
+  inputMatch?: number;
 }
 
 export interface VigilanceResult extends MatchScore {

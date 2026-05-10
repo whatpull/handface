@@ -135,7 +135,17 @@ describe('SNNWorkerCore — resetHomeostatic RPC (Fix 3 — worker-core)', () =>
     const buildReq: WorkerRequest = {
       id: 1,
       type: 'build',
-      payload: { preset: 'n13_orientation', seed: 57 },
+      payload: {
+        preset: 'n13_orientation',
+        seed: 57,
+        // Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster explicit.
+        clusterActiveInputs: [
+          [4, 5, 6, 7],
+          [1, 5, 9, 13],
+          [0, 5, 10, 15],
+          [3, 6, 9, 12],
+        ],
+      },
     };
     const buildRes = core.handle(buildReq);
     expect(buildRes.ok).toBe(true);

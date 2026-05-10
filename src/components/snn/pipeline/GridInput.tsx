@@ -21,6 +21,7 @@ import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars, loadExemplars } from '@/lib/snn/out-exemplars';
 import { resolveClusterLabel } from './shared';
+import { usePipelineEvents } from './PipelineEventContext';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — 추론
 // 영역 winner margin < threshold 시점 영역 자동 expansion + 30 trial chunked
 // reinforce. Carpenter & Grossberg 1987 ART vigilance 영역 정합.
@@ -117,6 +118,11 @@ export default function GridInput() {
   // orientation 회로가 빌드되었는지 — 첫 학습 호출 시 자동 빌드 1회.
   const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): auto-learn 진행 중
+  // 영역 추론 block — runAutoLearnLoop 영역 30회 R-STDP 진행 중 영역 추론
+  // 결과 unreliable 영역 사용자 catch. PipelineEventContext 영역 single-source
+  // (auto-learn-progress event 영역 derived).
+  const { isAutoLearning } = usePipelineEvents();
 
   // Backend audit fix #4 (UX-designer 권고 Part A+B): vigilance slider + novelty
   // 모드 토글. backend mode (engineMode='backend') 영역만 노출 — Live mode
@@ -394,6 +400,18 @@ export default function GridInput() {
   // is_novel===true && action==='spawned' 시점 영역 toast 자동 trigger
   // (clusterVigilance method 영역 emit 영역 정합).
   const runInfer = useCallback(async () => {
+    // 사용자 catch 2026-05-10 (block-infer-during-learn): auto-learn 진행 중
+    // 영역 추론 차단 — 30회 R-STDP weight mutation 영역 미완료 영역 winner
+    // unreliable. status 영역 visible hint + grid-infer started emit 0
+    // (PipelineEventContext 영역 winner reset 영역 회피 — 직전 winner 보존).
+    if (isAutoLearning) {
+      setStatus({
+        kind: 'warning',
+        message: '학습 중 — 추론 대기',
+        hint: '신규 패턴 30회 학습 진행 중 — 완료 후 추론 사실',
+      });
+      return;
+    }
     setStatus({ kind: 'inferring' });
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
 
@@ -442,9 +460,12 @@ export default function GridInput() {
       setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
     }
-  }, [grid, noveltyMode, vigilance]);
+  }, [grid, noveltyMode, vigilance, isAutoLearning]);
 
-  const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
+  // isBusy 영역 합산 — 추론 button + 패턴 지우기 + 학습 reset 영역 동시 disable
+  // (학습 진행 중 영역 grid mutation 영역 race 회피).
+  const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring' || isAutoLearning;
 
   // PR #196 polish (UX LOW-1): hint 영역 secondary <small> line 영역 render —
   // ok/warning kind 영역 long detail 영역 wrap-friendly catch (모바일 320px
@@ -495,6 +516,17 @@ export default function GridInput() {
   // visibility). 사용자 supervised 명시 신호 0 영역 cluster identity 영역 자율
   // 형성 — RenameButton 영역 사용자 명명 path 영역 mandatory (의미 부여).
   const runInferAuto = useCallback(async () => {
+    // 사용자 catch 2026-05-10 (block-infer-during-learn): Live mode 영역
+    // auto-learn 30회 진행 중 영역 추론 차단 — winner unreliable 영역 사용자
+    // catch. status 영역 visible hint + LiveSnn.triggerWithVigilance 호출 0.
+    if (isAutoLearning) {
+      setStatus({
+        kind: 'warning',
+        message: '학습 중 — 추론 대기',
+        hint: '신규 패턴 30회 학습 진행 중 — 완료 후 추론 사실',
+      });
+      return;
+    }
     setStatus({ kind: 'inferring' });
     // QA round 4 fix #13 (2026-05-10): Live mode 영역 'grid-infer' started
     // emit 영역 mandatory — PipelineEventContext 영역 reset trigger 영역
@@ -526,7 +558,7 @@ export default function GridInput() {
       setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
       emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: msg });
     }
-  }, [grid]);
+  }, [grid, isAutoLearning]);
 
   // PR-K (사용자 catch 2026-05-09 catch 1): reinforceLive callback 영역 본격
   // 폐기 — cluster 별 supervised reinforce button 영역 모두 제거 + 추론 button
@@ -772,14 +804,20 @@ export default function GridInput() {
           className="snn-grid-infer-btn snn-grid-infer-btn--primary"
           onClick={isLiveMode ? runInferAuto : runInfer}
           disabled={isBusy}
-          aria-label={isLiveMode ? '추론 — STDP off, 가중치 변경 0' : '추론'}
+          aria-label={
+            isAutoLearning
+              ? '추론 — 학습 진행 중 영역 대기'
+              : isLiveMode ? '추론 — STDP off, 가중치 변경 0' : '추론'
+          }
           title={
-            isLiveMode
-              ? '4×4 패턴 영역 추론 (STDP off — 가중치 변경 0)'
-              : '4×4 패턴 영역 추론'
+            isAutoLearning
+              ? '학습 중 — 추론 대기 (신규 패턴 30회 학습 후 enable)'
+              : isLiveMode
+                ? '4×4 패턴 영역 추론 (STDP off — 가중치 변경 0)'
+                : '4×4 패턴 영역 추론'
           }
         >
-          추론
+          {isAutoLearning ? '학습 중…' : '추론'}
         </button>
         {/* UX-7 (PR #191 polish, 2026-05-10): 자연 한국어 hint copy 정정 —
             "가중치 영역 영향 0" 영역 어색 → "학습은 유지" 영역 사용자 의도 명확. */}

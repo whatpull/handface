@@ -1661,14 +1661,15 @@
 }
 /* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): LIVE 안내 span 영역 static
    variant — button 영역 일치 layout 영역 cursor / hover 영역 회피.
-   사용자 catch 2026-05-10 (font-size escalate): 11px (--pipe-font-xs) → 14px
-   영역 가독 정합 (안내 텍스트 영역 button 영역 다른 weight 영역 별도 escalate
-   안전 — --static modifier 영역 LIVE info 영역만 사용 사실 grep 정합). */
+   사용자 catch 2026-05-10 (font-size 2회 정정):
+     - 1차 escalate: 11px (--pipe-font-xs) → 14px — 너무 큼 (사용자 catch).
+     - 2차 정정: 14px → 12px — 가독 + 작게 (WCAG mobile 12px floor 정합).
+   --static modifier 영역 LIVE info 영역만 사용 사실 grep 정합. */
 .snn-grid-train-all-btn--static {
   cursor: default;
   border-style: dashed;
   opacity: 0.7;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.5;
   padding: 8px 12px;
 }
@@ -1972,6 +1973,16 @@
   color: var(--pipe-text);
   font-family: monospace;
   box-sizing: border-box;
+  /* Hide native spinner (up/down arrows) — vigilance input only.
+     User catch (2026-05-10): spinner 영역 hide, keyboard 입력 영역 유지. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.snn-grid-vigilance-number-input::-webkit-inner-spin-button,
+.snn-grid-vigilance-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
 .snn-grid-vigilance-foot-hint {
   font-size: 10px;

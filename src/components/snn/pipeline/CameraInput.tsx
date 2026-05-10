@@ -306,7 +306,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         if (lowConf) {
           setStatus({
             kind: 'warning',
-            message: '추론 (낮은 confidence)',
+            message: '추론 완료 (신뢰도 낮음)',
             hint: '자세 안정화 권장',
           });
         }

@@ -299,7 +299,10 @@ export default function NodeLearn() {
   }, [engineMode, inputMode]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
-  const { lastDetail } = usePipelineEvents();
+  // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
+  // expansion cluster 영역 amber bar 영역 진행 visibility 정합 (NodeOut 영역
+  // winner.clusterRates 정합 — clusterLabels.length 영역 dynamic catch).
+  const { lastDetail, clusterRates: liveClusterRates, autoLearnProgress } = usePipelineEvents();
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -443,17 +446,22 @@ export default function NodeLearn() {
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
   const clusterLabels = useMemo(() => {
-    // dynamic length — exemplars 영역 max cluster id ↑ + base 4 (n13 default).
-    let n = 4;
+    // PR #203 polish (MEDIUM QA 2026-05-10): clusterLabels.length 영역 NodeOut
+    // 영역 정합 — Math.max(winner.clusterRates.length, exemplarMax+1, 4).
+    // 직전 exemplar max only — runtime 영역 신규 ART expansion cluster 영역
+    // exemplar 미생성 시점 영역 NodeLearn ↔ NodeOut length divergence 영역
+    // catch (NodeOut 영역 표시되는 cluster 영역 NodeLearn 영역 누락 회피).
+    let exemplarMax = -1;
     for (const k of Object.keys(exemplars)) {
       const m = /^out_(\d+)_\d+$/.exec(k);
       if (m) {
-        const ci = Number(m[1]) + 1;
-        if (ci > n) n = ci;
+        const ci = Number(m[1]);
+        if (ci > exemplarMax) exemplarMax = ci;
       }
     }
+    const n = Math.max(liveClusterRates.length, exemplarMax + 1, 4);
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode]);
+  }, [exemplars, inputMode, liveClusterRates.length]);
 
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
@@ -594,9 +602,18 @@ export default function NodeLearn() {
               // PR-K (Phase 4, 2026-05-09): dynamic cluster length —
               // effectiveClusterFrames 영역 base 4 cluster (n13 default) 영역
               // catch 영역 신규 ART expansion cluster 영역 frame=0 fallback.
-              const count = i < 4 ? effectiveClusterFrames[i as 0|1|2|3] : 0;
+              // PR #203 polish (UX HIGH 2026-05-10): 신규 ART cluster (i >= 4)
+              // 영역 autoLearnProgress Map 영역 read — runAutoLearnLoop 영역
+              // chunk 단위 progress 영역 amber bar 영역 진행 visibility 정합.
+              const count = i < 4
+                ? effectiveClusterFrames[i as 0|1|2|3]
+                : (autoLearnProgress.get(i) ?? 0);
               const done = count >= CLUSTER_TARGET;
-              const active = i === activeCluster && isLearning;
+              // 신규 ART cluster (i >= 4) 영역 amber bar 영역 진행 시각 catch —
+              // autoLearnProgress 영역 0 < count < TOTAL 영역 active.
+              const active = i < 4
+                ? (i === activeCluster && isLearning)
+                : (count > 0 && count < CLUSTER_TARGET);
               return (
                 <ClusterRow
                   key={i}

@@ -34,6 +34,7 @@ import {
   onBackendEvent,
   type NeuronFiringDetail,
   type InputModeDetail,
+  type AutoLearnProgressDetail,
 } from '@/lib/backend/events';
 
 import type {
@@ -613,6 +614,10 @@ export class LiveSnn {
    *                  strict — 자주 novel 판정 + cluster 영역 풍부.
    */
   triggerWithVigilance(pattern: number[], vigilance: number = 0.15): { trialToken: number } {
+    // PR #203 polish (LOW SEC 2026-05-10): vigilance defensive clamp [0,1] —
+    // caller (UI slider) 영역 out-of-range 영역 winner.margin 비교 영역 항상
+    // novel (vig<0) 또는 항상 familiar (vig>1) 영역 misuse 회피.
+    vigilance = Math.max(0, Math.min(1, vigilance));
     this.setPattern(pattern);
     const trialToken = ++this._trialTokenSeq;
     void (async () => {
@@ -830,6 +835,8 @@ export class LiveSnn {
       const { newClusterId } = await this.expandClusterAsync(activeInputs);
       const ROUNDS = 6;
       const CHUNK = 5;
+      const TOTAL = ROUNDS * CHUNK;
+      let progress = 0;
       for (let round = 0; round < ROUNDS; round += 1) {
         for (let i = 0; i < CHUNK; i += 1) {
           // 마지막 chunk 영역 originalToken 영역 reuse — caller 영역 token
@@ -848,6 +855,18 @@ export class LiveSnn {
             observeMs: this.opts.observeMs,
             stimulusDurationMs: this.opts.stimulusDurationMs,
             trialToken,
+          });
+          // PR #203 polish (UX HIGH 2026-05-10): chunk 단위 progress emit —
+          // NodeLearn 영역 신규 ART expansion cluster 영역 amber bar 영역
+          // 진행 visibility (직전 effectiveClusterFrames base 4 only — 신규
+          // cluster 영역 progress 0 영역 misleading). PipelineEventContext
+          // 영역 framesDone Map 영역 update.
+          progress += 1;
+          emitBackendEvent<AutoLearnProgressDetail>('auto-learn-progress', {
+            trialToken: originalToken,
+            clusterId: newClusterId,
+            progress,
+            total: TOTAL,
           });
         }
       }

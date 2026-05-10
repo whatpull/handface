@@ -35,6 +35,7 @@ import {
   onBackendEvent,
   type NeuronFiringDetail,
   type InputModeDetail,
+  type AutoLearnProgressDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
@@ -65,6 +66,15 @@ export interface PipelineEventState {
    *   추가 mitigation. >= 3 영역 'stable' (green pill), < 3 영역 'learning' (amber pill).
    */
   consecutiveWinnerCount: number;
+  /**
+   * PR #203 polish (UX HIGH 2026-05-10): auto-learn progress per-cluster Map —
+   * runAutoLearnLoop 영역 chunk 단위 emit 영역 누적. NodeLearn 영역 신규 ART
+   * expansion cluster 영역 amber bar 영역 진행 visibility 정합. cluster id 영역
+   * key (4+ ART expansion cluster 영역 dynamic), value 영역 frame 누적 (0..30).
+   * 정직 한계: 본 Map 영역 in-memory only — page reload 영역 reset (server-state
+   * 영역 reinforce push event 영역 NodeLearn 영역 base 4 cluster 영역 별도 정합).
+   */
+  autoLearnProgress: Map<number, number>;
 }
 
 const EMPTY_WINNER: WinnerResult = {
@@ -87,11 +97,19 @@ const PipelineEventContext = createContext<PipelineEventState>({
   margin: 0,
   activeByRegion: {},
   consecutiveWinnerCount: 0,
+  autoLearnProgress: new Map(),
 });
 
 export function PipelineEventProvider({ children }: { children: ReactNode }) {
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
+  // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
+  // runAutoLearnLoop 영역 chunk 단위 emit 영역 누적. clusterId 영역 key (ART
+  // expansion 영역 4+ dynamic), value 영역 frame 누적. NodeLearn 영역
+  // effectiveClusterFrames 영역 base 4 fallback 영역 신규 cluster 영역 정합 read.
+  const [autoLearnProgress, setAutoLearnProgress] = useState<Map<number, number>>(
+    () => new Map(),
+  );
   // listener 영역 1회 등록 — provider mount 한정.
   const mountedRef = useRef(false);
 
@@ -114,6 +132,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     const offCleared = onBackendEvent('training-cleared', () => {
       setDetail(null);
       setTs(null);
+      setAutoLearnProgress(new Map());
     });
     // 사용자 catch 2026-05-09 (Fix 3 — HIGH): input-mode swap (GRID ↔ CAMERA)
     // 시점 영역 lastDetail / ts 영역 reset — 직전 GRID 추론 winner 영역 CAMERA
@@ -124,12 +143,25 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     const offInputMode = onBackendEvent<InputModeDetail>('input-mode', () => {
       setDetail(null);
       setTs(null);
+      // substrate switch 영역 progress map 영역 reset 정합 (다른 substrate
+      // 영역 cluster id 영역 의미 다름 — stale read 회피).
+      setAutoLearnProgress(new Map());
+    });
+    // PR #203 polish (UX HIGH 2026-05-10): auto-learn-progress event listener —
+    // runAutoLearnLoop 영역 chunk 단위 emit 영역 Map 영역 update.
+    const offAutoLearn = onBackendEvent<AutoLearnProgressDetail>('auto-learn-progress', (d) => {
+      setAutoLearnProgress((prev) => {
+        const next = new Map(prev);
+        next.set(d.clusterId, d.progress);
+        return next;
+      });
     });
     return () => {
       off();
       offHand();
       offCleared();
       offInputMode();
+      offAutoLearn();
       mountedRef.current = false;
     };
   }, []);
@@ -178,7 +210,8 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     margin: winner.margin,
     activeByRegion: detail?.active_neurons_by_region || {},
     consecutiveWinnerCount,
-  }), [detail, ts, winner, consecutiveWinnerCount]);
+    autoLearnProgress,
+  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress]);
 
   return (
     <PipelineEventContext.Provider value={value}>

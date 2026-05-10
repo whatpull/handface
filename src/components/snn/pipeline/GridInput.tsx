@@ -443,7 +443,7 @@ export default function GridInput() {
         if (pendingInferTokenRef.current === trialToken) {
           pendingInferTokenRef.current = null;
           setStatus((s) => s.kind === 'inferring'
-            ? { kind: 'ok', message: '추론 완료 *', hint: '(timeout — 새로고침 권장)' }
+            ? { kind: 'ok', message: '추론 완료 *', hint: '(처리 지연 — 잠시 후 재시도)' }
             : s);
         }
       }, 8000);
@@ -482,7 +482,7 @@ export default function GridInput() {
             setStatus({
               kind: 'warning',
               message: '추론 완료',
-              hint: '낮은 confidence — 자세 안정화 권장',
+              hint: '신뢰도 낮음 — 자세 안정화 권장',
             });
           } else {
             setStatus({ kind: 'ok', message: '추론 완료' });

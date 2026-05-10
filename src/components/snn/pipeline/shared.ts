@@ -36,8 +36,12 @@ export const OUT_PER_CLUSTER = 8;
  */
 export function getClusterLabel(cluster: number, _mode: InputModeKind = 'grid'): string {
   void _mode; // mode 영역 호환 path 영역 보존 (caller 영역 호환 catch).
-  if (cluster >= 0) return `패턴 ${cluster + 1}`;
-  return `패턴 ${cluster}`;
+  // PR #203 polish (LOW QA 2026-05-10): negative cluster 영역 defensive — 직전
+  // '패턴 -1' / '패턴 0' 영역 misleading (cluster id 영역 1-based 사용자 표시).
+  // negative 영역 'no winner' 영역 의미 — '—' fallback 정합 (caller 영역
+  // winnerLabel ?? null 영역 정합 path 영역 호환 보존).
+  if (cluster < 0) return '—';
+  return `패턴 ${cluster + 1}`;
 }
 
 /**

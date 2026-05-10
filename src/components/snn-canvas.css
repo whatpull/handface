@@ -1973,6 +1973,16 @@
   color: var(--pipe-text);
   font-family: monospace;
   box-sizing: border-box;
+  /* Hide native spinner (up/down arrows) — vigilance input only.
+     User catch (2026-05-10): spinner 영역 hide, keyboard 입력 영역 유지. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.snn-grid-vigilance-number-input::-webkit-inner-spin-button,
+.snn-grid-vigilance-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
 .snn-grid-vigilance-foot-hint {
   font-size: 10px;

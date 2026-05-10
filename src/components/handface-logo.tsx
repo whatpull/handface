@@ -1,28 +1,25 @@
 // HandFace 로고 — favicon (src/app/icon.svg) 영역 동일 silhouette inline reuse.
-// 사용자 명시 (2026-05-09): "파비콘과 로고에 손모양만 정확하게 들어가면 좋겠습니다.(귀여운 아가손)"
-//   favicon 영역 SVG raw path 영역 그대로 inline — 같은 source 영역 단일 visual.
-//   inline SVG 영역 정합: <img src="/icon.svg" /> 영역 basePath 영역 catch 영역 회피
-//   (Next.js basePath '/handface' 영역 prod / dev 분기 영역 catch 0 — inline 영역 무관).
+// 사용자 catch (2026-05-09): "아무리봐도 이상한 파비콘, 혹시 손 모양을 다른 곳에서
+//   다운받을 수는 없나요? (외계인 손같아 보여요)"
+//   → 자체 hand silhouette path 영역 폐기 + Heroicons HandRaised solid 영역 채택.
 //
-// 디자인 (UX 3-catch 정정 — PR #195, 2026-05-10):
+// 디자인 (PR-F, 2026-05-10):
 //   - viewBox 32×32, GitHub favicon 영역 정합 원형 배경 (`<circle r="16">`).
-//   - HF brand yellow (#FFD21E) + brown (#3a2a1a) right palm-forward baby hand silhouette.
-//   - **본격 finger length** — middle h=16 / ring h=14 / index h=13 / pinky h=12 영역
-//     palm top (y=14.6) 위 영역 8-12px protrude — stub-look 영역 회피, open hand 영역
-//     본격 인지. base y=18 영역 palm 안 깊이 영역 융합 (mass disconnect 0).
-//   - **anatomy 정확** — index < middle (tallest) > ring > pinky 영역 right hand
-//     palm-forward 정합.
-//   - **thumb vertical 좌측 protrude** — rect rotate -50deg, palm 좌측 영역 명확
-//     extension visible (silhouette thumb 인지 ground).
-//   - **finger gap 1.0px @32** — sub-pixel 영역 16px 영역 0.5px gap 영역 anti-alias
-//     영역 finger 분리 visible.
+//   - HF brand yellow (#FFD21E) circle background + brown (#3a2a1a) hand silhouette.
+//   - **hand path source — Heroicons v2 HandRaised solid (24×24)** —
+//       https://github.com/tailwindlabs/heroicons (MIT License — Tailwind Labs Inc.)
+//       optimized/24/solid/hand-raised.svg (PR-F, 2026-05-09).
+//       → LICENSE-ICONS.md 영역 attribution.
+//   - **mount** — 24×24 path 영역 translate(4,4) 영역 32×32 viewBox 영역 center
+//       + 1.0 scale 영역 24px hand 영역 32px circle 안 4px padding 영역 정합.
+//   - **anatomy** — Heroicons HandRaised 영역 4-finger upright + thumb 영역 official
+//       icon library 영역 universally-recognized hand silhouette (외계인 손 catch 회피).
 //   - **face features 0** — 손모양만.
-//   - **chubby baby hand** — finger rect rx=1.3 + thumb rect rx=1.8 + palm wide oval.
 //
-// 16×16 / 24×24 / 32×32 readability: 4 finger 영역 1.3px @16 + 0.5px gap @16 (1.0px
-//   @32) 영역 sub-pixel anti-alias 영역 finger 분리 visible. thumb 좌측 영역 본격
-//   protrude. raster preview 영역 16/24/32/64/128 영역 open hand silhouette 본격
-//   인지 ground.
+// 16×16 / 24×24 / 32×32 readability: Heroicons 영역 official 24×24 grid 영역 design
+//   영역 16/24/32px 영역 raster 영역 hand silhouette 영역 universally legible
+//   (Tailwind / GitHub / Vercel 영역 favicon 영역 actively used 영역 fact 정합).
+//   raster preview 영역 16/24/32/64/128 영역 open hand silhouette 본격 인지 ground.
 
 import type { CSSProperties } from 'react';
 
@@ -51,27 +48,14 @@ export function HandFaceLogo({
       style={style}
     >
       <circle cx="16" cy="16" r="16" fill="#FFD21E" />
-      {/* 4 fingers — index / middle (tallest) / ring / pinky (shortest), round tips,
-          base y=18 영역 palm 안 깊이 영역 융합, gap 1.0px @32 (0.5px @16 sub-pixel) */}
-      <rect x="9.0" y="5.0" width="2.6" height="13.0" rx="1.3" fill="#3a2a1a" />
-      <rect x="12.6" y="2.0" width="2.6" height="16.0" rx="1.3" fill="#3a2a1a" />
-      <rect x="16.2" y="4.0" width="2.6" height="14.0" rx="1.3" fill="#3a2a1a" />
-      <rect x="19.8" y="6.0" width="2.6" height="12.0" rx="1.3" fill="#3a2a1a" />
-      {/* thumb — palm 좌측 vertical-ish (-50deg) 영역 본격 protrude, palm 영역 융합 */}
-      <rect
-        x="2.6"
-        y="13.6"
-        width="3.6"
-        height="8.4"
-        rx="1.8"
-        transform="rotate(-50 4.4 17.8)"
-        fill="#3a2a1a"
-      />
-      {/* palm — wide round chubby baby palm, finger 영역 base + thumb 영역 융합 */}
-      <path
-        fill="#3a2a1a"
-        d="M 6.5 16.4 Q 6.5 14.6 8.5 14.6 L 23.5 14.6 Q 25.5 14.6 25.5 16.6 L 25.5 19 Q 25.5 26.4 16.0 26.4 Q 6.5 26.4 6.5 19 Z"
-      />
+      {/*
+        Heroicons v2 HandRaised solid (24×24) — MIT License — Tailwind Labs Inc.
+        https://github.com/tailwindlabs/heroicons/blob/master/optimized/24/solid/hand-raised.svg
+        translate(4,4) — 24×24 path 영역 32×32 viewBox 영역 center mount.
+      */}
+      <g transform="translate(4 4)" fill="#3a2a1a">
+        <path d="M10.5 1.875a1.125 1.125 0 0 1 2.25 0v8.219c.517.162 1.02.382 1.5.659V3.375a1.125 1.125 0 0 1 2.25 0v10.937a4.505 4.505 0 0 0-3.25 2.373 8.963 8.963 0 0 1 4-.935A.75.75 0 0 0 18 15v-2.266a3.368 3.368 0 0 1 .988-2.37 1.125 1.125 0 0 1 1.591 1.59 1.118 1.118 0 0 0-.329.79v3.006h-.005a6 6 0 0 1-1.752 4.007l-1.736 1.736a6 6 0 0 1-4.242 1.757H10.5a7.5 7.5 0 0 1-7.5-7.5V6.375a1.125 1.125 0 0 1 2.25 0v5.519c.46-.452.965-.832 1.5-1.141V3.375a1.125 1.125 0 0 1 2.25 0v6.526c.495-.1.997-.151 1.5-.151V1.875Z" />
+      </g>
     </svg>
   );
 }

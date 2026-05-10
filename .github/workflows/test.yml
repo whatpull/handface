@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: verify-${{ github.ref }}
+  group: verify-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 # Node.js 20 deprecated 2026-09-16 — 모든 javascript action 영역 Node 24 강제.

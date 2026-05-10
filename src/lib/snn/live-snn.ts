@@ -621,6 +621,30 @@ export class LiveSnn {
     vigilance = Math.max(0, Math.min(1, vigilance));
     this.setPattern(pattern);
     const trialToken = ++this._trialTokenSeq;
+    // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
+    // _vigilancePending.set 영역 triggerBackground await 직전 영역 옮김. 직전
+    // 영역 await 영역 후 set 영역 MainThreadTransport fallback path (Web Worker
+    // bundle fail 시 자동 fallback) 영역 race 영역 root cause.
+    //
+    // Race trace (MainThreadTransport):
+    //   1. caller awaits client.triggerBackground(req)
+    //   2. transport.postMessage(req) → core.handle(req) sync (inline simulation)
+    //      → handleTriggerBackground 영역 push emit (queueMicrotask 영역 enqueue,
+    //      먼저 enqueue) → handle 영역 ack 반환 → postMessage 영역 ack 영역
+    //      queueMicrotask 영역 enqueue (그 다음).
+    //   3. microtask drain — push 'triggerComplete' 영역 fire 먼저 →
+    //      handleTriggerComplete 영역 호출 → vigilancePending.has(token)=false →
+    //      runAutoLearnLoop 미호출 (silent).
+    //   4. ack microtask 영역 그 다음 fire → caller await resolve →
+    //      vigilancePending.set(token,...) 영역 stale (handler 이미 지나감).
+    //
+    // 결과: 사용자 catch 영역 "학습 #1 no winner — WTA 대기 / 빈 row / 학습
+    // 가중치 0" — vigilance follow-up 영역 fire 안 됨 → expandCluster 미호출 →
+    // cluster 영역 0 잔존.
+    //
+    // 정정: pending state 영역 dispatch 영역 직전 영역 set — push handler 영역
+    // fire 시점 영역 보장 catch. dispatch 영역 throw 영역 catch path 영역 cleanup.
+    this._vigilancePending.set(trialToken, { pattern: pattern.slice(), vigilance });
     void (async () => {
       try {
         const root = await getRootLocalSnnFor(this.substrateKind);
@@ -628,6 +652,10 @@ export class LiveSnn {
         // 1. inferAsync (STDP off) 영역 winner margin 측정 — worker 영역 inline.
         //    triggerBackground RPC 영역 stdpGain=0 영역 정합 — STDP 0 + cluster
         //    firing rates 측정 only.
+        // 2. 결과 영역 main thread 영역 push event listener 영역 catch —
+        //    handleTriggerComplete 영역 trialToken match 영역 winner.margin
+        //    영역 vigilance 영역 비교 + ART expansion + reinforce loop 영역
+        //    pending dispatch.
         await root.client.triggerBackground({
           pattern: this.patternRef.slice(),
           intensity: this.opts.intensity,
@@ -638,15 +666,6 @@ export class LiveSnn {
           resetThreshold: true,
           trialToken,
         });
-        // 2. 결과 영역 main thread 영역 push event listener 영역 catch —
-        //    handleTriggerComplete 영역 trialToken match 영역 winner.margin
-        //    영역 vigilance 영역 비교 + ART expansion + reinforce loop 영역
-        //    pending dispatch (별도 path — handleVigilanceFollowup).
-        //    본 push 영역 이미 ensurePushHandler 영역 등록 단 본 method 영역
-        //    별도 vigilance state 영역 track — vigilance pending map 영역
-        //    별도 catch (latest token-wins 영역 worker sequential serial 영역
-        //    자연 정합 단 token mismatch 회피 catch 영역 explicit).
-        this._vigilancePending.set(trialToken, { pattern: pattern.slice(), vigilance });
       } catch (e) {
         console.warn('[LiveSnn] triggerWithVigilance dispatch failed:', e);
         this._vigilancePending.delete(trialToken);

@@ -10,7 +10,7 @@
 //
 // G1: pixel toggle 영역 Live mode → setPattern only — triggerOnce 호출 0.
 // G2: pixel toggle Backend mode → live API 0 호출 (engineMode='backend').
-// G3: preset apply button (Live) → setPattern only — reinforce 호출 0 (PR-K 폐기 path).
+// G3: preset apply button (Live) 영역 본격 폐기 — render 0 (PR-L 사용자 catch 2026-05-10 자율 학습).
 // G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix).
 // G5: 추론 button click 영역 Live mode → triggerWithVigilance 1회 (PR-K ART path).
 
@@ -122,17 +122,19 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
     expect(mockTriggerWithVigilance).not.toHaveBeenCalled();
   });
 
-  it('G3: preset apply button (Live) → setPattern only — reinforce 호출 0 (PR-K 폐기 path)', async () => {
-    // PR-K (사용자 catch 2026-05-09 catch 1): cluster 별 학습 button × 4 본격
-    // 폐기 — Live 모드 영역 preset row 영역 [preset apply] only (setPattern,
-    // 학습 0). 학습 trigger 영역 추론 button (triggerWithVigilance) 영역 단일.
+  it('G3: preset apply button (Live) 영역 본격 폐기 — render 0 (PR-L 사용자 catch 2026-05-10 자율 학습)', async () => {
+    // PR-L (사용자 catch 2026-05-10): "INPUT node의 패턴 선택은 없어져도
+    // 괜찮을것 같아요(자율 학습)". Live 모드 영역 preset apply button × 4 영역
+    // 본격 폐기 — 사용자 영역 4×4 grid 영역 직접 그림 영역 자율 학습 path 영역
+    // 정합. 추론 button 영역 ART unsupervised auto-learn 영역 단일 trigger.
     render(<GridInput />);
-    const presetBtns = screen.getAllByRole('button', { name: /preset apply — 패턴 set only$/ });
-    expect(presetBtns).toHaveLength(4);
-    fireEvent.click(presetBtns[0]); // horizontal preset apply.
-    await Promise.resolve();
-    expect(mockSetPattern).toHaveBeenCalled();
-    // PR-K: reinforce / reinforceAsync caller 0 — preset apply 영역 학습 trigger 0.
+    // preset apply button (직전 aria-label /preset apply — 패턴 set only/) 영역 0.
+    const presetBtns = screen.queryAllByRole('button', { name: /preset apply/ });
+    expect(presetBtns).toHaveLength(0);
+    // 사용자 catch 2026-05-09 catch 1: cluster 별 학습 button × 4 영역도 0 (PR-K 폐기 보존).
+    const trainBtns = screen.queryAllByRole('button', { name: /학습 \d/ });
+    expect(trainBtns).toHaveLength(0);
+    // setPattern 영역 grid state effect 영역 1회 sync (mount 시점) — preset trigger 0.
     expect(mockReinforce).not.toHaveBeenCalled();
     expect(mockReinforceAsync).not.toHaveBeenCalled();
     expect(mockTriggerOnce).not.toHaveBeenCalled();

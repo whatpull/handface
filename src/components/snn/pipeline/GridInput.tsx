@@ -543,9 +543,10 @@ export default function GridInput() {
               reader 노이즈 (\"빨간 큰 동그라미\") catch — semantic Tailwind dot
               영역 swap + aria-hidden. 시각 사용자 동일 정합. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          {/* PR-K (사용자 catch 2026-05-09 catch 1): hint copy 영역 ART
-              auto-learn path 영역 정합 — "추론 버튼이 곧 학습 적용(자동)". */}
-          LIVE — 패턴을 그리고 추론 버튼을 누르세요. 처음 보는 패턴은 30회 자동 학습.
+          {/* PR-L (사용자 catch 2026-05-10): hint copy 정정 — "자율 학습"
+              영역 본질 영역 명시. 직전 path 영역 '패턴' 단순 단어 영역 preset
+              잔여 catch 회피 + dynamic cluster 추가 path 영역 visible 강조. */}
+          LIVE — 4×4 그리드를 자율로 그리고 추론 버튼을 누르세요. 처음 보는 패턴은 자동 30회 학습 + 새 cluster 추가.
         </div>
       )}
 
@@ -591,27 +592,13 @@ export default function GridInput() {
           ))}
         </div>
       )}
-      {/* Live 모드 영역 preset apply button 영역 setPattern only — 사용자
-          영역 4-cell preset 영역 빠른 입력 path 영역 보존 (학습 trigger 0,
-          추론 button 영역 명시 trigger). */}
-      {isLiveMode && (
-        <div className="snn-grid-presets">
-          {ORIENTATION_LABELS.map((label, i) => (
-            <div key={i} className="snn-grid-preset-row">
-              <button
-                type="button"
-                className="snn-grid-train-btn snn-grid-train-btn--preset-only"
-                onClick={() => applyPreset(i)}
-                disabled={false}
-                aria-label={`${label} preset apply — 패턴 set only`}
-                title={`${label} preset 영역 패턴 set (학습 0 — 추론 button 영역 자동 학습)`}
-              >
-                {`${i} 패턴 (${label})`}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* PR-L (사용자 catch 2026-05-10): Live 모드 영역 preset apply button × 4
+          본격 폐기 — "INPUT node의 패턴 선택은 없어져도 괜찮을것 같아요(자율
+          학습)". 사용자 영역 4×4 grid 영역 직접 그림 영역 자율 학습 path 영역
+          정합. preset apply button 영역 noise — 추론 button (runInferAuto) 영역
+          ART unsupervised auto-learn 영역 단일 trigger. ORIENTATION_PRESETS /
+          applyPreset 영역 backend mode 영역 trainPreset/trainAllRoundRobin
+          영역 보존 (학술 supervised path 영역 별도). */}
 
       {/* PR-A architecture pivot (사용자 catch 2026-05-09 A1): Live 영역
           추론 button 영역 visible — pixel/preset click 영역 STDP off (setPattern

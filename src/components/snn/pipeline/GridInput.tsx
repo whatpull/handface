@@ -159,7 +159,7 @@ export default function GridInput() {
       clearExemplars('orientation');
       // Step 4: fresh weights 영역 영속 — saveDebounced 우회 직접 lab.save.
       await root.lab.save();
-      setStatus({ kind: 'ok', message: '학습 가중치 + trial + 추론 결과 영역 모두 reset 완료' });
+      setStatus({ kind: 'ok', message: '학습 가중치 · trial · 추론 결과 모두 reset 완료' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });

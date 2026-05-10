@@ -233,6 +233,15 @@ export class LiveSnn {
     this.trialCount = 0;
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(16).fill(0);
+    // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
+    this._lastSaveAtMs = Number.NEGATIVE_INFINITY;
+    // Trailing save cancel — stale weights snapshot 영역 fresh build 영역 overwrite 0.
+    if (this._saveTrailingTimer !== null) {
+      clearTimeout(this._saveTrailingTimer);
+      this._saveTrailingTimer = null;
+    }
+    // _pushBoundForKind 영역 보존 — push handler substrate 영역 active 정합
+    // (다음 trigger 영역 ensurePushHandler 영역 정합 path 영역 reuse).
   }
 
   setPattern(pattern: number[]): void {

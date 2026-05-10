@@ -234,9 +234,50 @@ export class LocalSNN {
   }
 
   // 현재 가중치를 sink 에 저장. 직전 대비 delta 누적 (변화 있으면).
+  //
+  // 사용자 catch 2026-05-10 (CRITICAL — console spam 100+):
+  //   PR #210 Fix #20 Part B 영역 n13 builder 영역 dynamic N_CLUSTER (clusterActive
+  //   .length derive) → expandCluster (ART vigilance miss path) 영역 신규 cluster
+  //   spawn 영역 worker 영역 synapse count 영역 증가. lab.persistTopology() 영역
+  //   별도 호출 0 → 다음 reinforceComplete 영역 saveDebounced(force) → save() 영역
+  //   diffWeightSnapshots(prev_short, next_long) → "weight 길이 불일치 — 토폴로지
+  //   변경 의심" throw → console.warn 영역 매 frame 누적 spam.
+  //
+  //   Root cause fix: prev.length !== next.length 영역 silent topology drift 영역
+  //   catch — diff/delta 영역 skip + topology snapshot 영역 fresh 갱신 + 가중치
+  //   영역 baseline 영역 저장. 이후 save 영역 정합 path 영역 정상 복귀. 사용자
+  //   가시 영역 silent (이미 worker 영역 cluster spawn toast catch).
+  //
+  //   학술 정합: NeuralNetwork 영역 expansion 영역 후 가중치 vector 영역 새 길이
+  //   영역 정합 — 직전 delta 영역 적용 불가 (인덱스 mapping 영역 stale). compact(0)
+  //   영역 누적 delta 영역 폐기 — persistTopology() 영역 동일 정합.
   async save(): Promise<number> {
     const { client, sink, netId } = this.opts;
     const weights = await client.extractWeights();
+    const lengthDrift = this.prevWeights !== null
+      && this.prevWeights.weights.length !== weights.length;
+    if (lengthDrift) {
+      // 토폴로지 변경 catch — fresh topology snapshot + baseline 가중치 영역 저장.
+      // 누적 delta 영역 폐기 (이전 위상 기반 → 적용 불가).
+      const { snapshot } = await client.snapshot();
+      await sink.saveTopology(netId, snapshot);
+      this.neuronsCount = snapshot.neurons.length;
+      this.synapsesCount = snapshot.synapses.length;
+      const baseline: WeightSnapshot = {
+        schema: 1,
+        netId,
+        rev: this.rev + 1,
+        t: snapshot.t,
+        savedAt: Date.now(),
+        weights,
+      };
+      await sink.saveWeights(baseline);
+      await sink.compact(netId, 0);
+      this.rev = baseline.rev;
+      this.prevWeights = baseline;
+      this.lastSavedAt = baseline.savedAt;
+      return this.rev;
+    }
     const next: WeightSnapshot = {
       schema: 1,
       netId,

@@ -57,6 +57,7 @@ const mocks = vi.hoisted(() => {
     region: 'V1' as const,
     hz: 0,
     neuronCount: 0,
+    firingCount: 0,
   }));
   const onBackendEvent = vi.fn(() => () => undefined);
   const emitBackendEvent = vi.fn();
@@ -115,6 +116,7 @@ beforeEach(() => {
     region: 'V1' as const,
     hz: 0,
     neuronCount: 0,
+    firingCount: 0,
   });
   disposeLiveSnn();
 });

@@ -120,6 +120,32 @@ describe('regionFiringRates — substrate prefix 매칭 (FINDING-1 regression)',
     });
     expect(r.neuronCount).toBe(0);
     expect(r.hz).toBe(0);
+    expect(r.firingCount).toBe(0);
     // worker crash 0 — Promise resolve 사실 (throw 영역 reject 검증 0).
+  });
+
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix):
+  //   증상 — V1 0/128, V2 0/72 firing count 0 고정.
+  //   root cause — RegionFiringRatesResult 영역 firingCount field 미존재 → emit
+  //   영역 active_neurons_by_region 0 → NodeLearn 영역 0/N 표시 stale.
+  //   본 test — firingCount field 영역 정합 (idle=0, fire 영역 >0).
+  it('T7: firingCount field — idle 영역 0 (build 직후 영역 모든 neuron 영역 silent)', async () => {
+    const client = await makeBuiltClient();
+    const r = await client.regionFiringRates({ region: 'V1', windowMs: 100 });
+    // build 직후 영역 inject 0 → 모든 neuron 영역 hz=0 → firingCount=0.
+    expect(r.firingCount).toBe(0);
+    expect(r.firingCount).toBeLessThanOrEqual(r.neuronCount);
+  });
+
+  it('T8: firingCount field 영역 0 <= firingCount <= neuronCount 영역 invariant', async () => {
+    const client = await makeBuiltClient();
+    // build 직후 영역 monitor.firingRate 영역 모든 neuron 0 — firingCount=0 정상.
+    // 정직 한계: input → V1 cascade 영역 fire 영역 substrate-specific tuning
+    // (input weight × LIF threshold) 영역 의존 — 본 test 영역 invariant 영역만
+    // verify (firingCount ∈ [0, neuronCount]). 실 V1 fire path 영역 snn-worker
+    // / live-snn-trigger-with-vigilance test 영역 catch.
+    const r = await client.regionFiringRates({ region: 'V1', windowMs: 100 });
+    expect(r.firingCount).toBeGreaterThanOrEqual(0);
+    expect(r.firingCount).toBeLessThanOrEqual(r.neuronCount);
   });
 });

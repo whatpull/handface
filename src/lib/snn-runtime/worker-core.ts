@@ -372,10 +372,13 @@ export class SNNWorkerCore {
     // SEC-8 defensive guard — hostile/unknown region 영역 silent { hz: 0 }
     // 응답 (throw 영역 worker crash 회피).
     if (!prefList) {
-      return { region: payload.region, hz: 0, neuronCount: 0 };
+      return { region: payload.region, hz: 0, neuronCount: 0, firingCount: 0 };
     }
     let sum = 0;
     let count = 0;
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount —
+    // hz > 0 인 neuron 수 (NodeLearn V1/V2 strip 'firing/total' source).
+    let firingCount = 0;
     for (const n of net.neurons) {
       let match = false;
       for (const p of prefList) {
@@ -385,13 +388,16 @@ export class SNNWorkerCore {
         }
       }
       if (!match) continue;
-      sum += monitor.firingRate(n.name, net.t, payload.windowMs);
+      const hz = monitor.firingRate(n.name, net.t, payload.windowMs);
+      sum += hz;
       count += 1;
+      if (hz > 0) firingCount += 1;
     }
     return {
       region: payload.region,
       hz: count > 0 ? sum / count : 0,
       neuronCount: count,
+      firingCount,
     };
   }
 
@@ -868,6 +874,9 @@ export class SNNWorkerCore {
             cfr,
             v1Hz: v1.hz,
             v2Hz: v2.hz,
+            // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount 동봉.
+            v1FireCount: v1.firingCount,
+            v2FireCount: v2.firingCount,
             netTime: net.t,
           },
         });
@@ -981,6 +990,9 @@ export class SNNWorkerCore {
             cfr,
             v1Hz: v1.hz,
             v2Hz: v2.hz,
+            // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount 동봉.
+            v1FireCount: v1.firingCount,
+            v2FireCount: v2.firingCount,
             trained: trainResult.trained,
             correct: trainResult.correct,
             accuracy: trainResult.accuracy,

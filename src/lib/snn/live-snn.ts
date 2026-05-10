@@ -309,6 +309,10 @@ export class LiveSnn {
     // PR fix/live-mode-time-and-restore — Fix 5: V1/V2 region rate 실 측정.
     let v1Hz = 0;
     let v2Hz = 0;
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount catch —
+    // emit 영역 active_neurons_by_region 영역 동봉 → NodeLearn 0/N 고정 catch.
+    let v1FireCount = 0;
+    let v2FireCount = 0;
     try {
       root = await getRootLocalSnnFor(this.substrateKind);
       // PR fix/live-mode-time-and-restore — Fix 3: 매 trigger 진입 시점
@@ -330,6 +334,8 @@ export class LiveSnn {
           ]);
           v1Hz = v1.hz;
           v2Hz = v2.hz;
+          v1FireCount = v1.firingCount;
+          v2FireCount = v2.firingCount;
         } catch (e) {
           // regionFiringRates 영역 fail 영역 0 fallback (legacy worker / mock 영역
           // 정합 catch). UX-1: dev mode 영역 console.warn 1회 emit 영역 cause-effect
@@ -339,7 +345,7 @@ export class LiveSnn {
             console.warn('[LiveSnn] regionFiringRates fallback to 0Hz:', e);
           }
         }
-        this.emitTick(cfr, v1Hz, v2Hz);
+        this.emitTick(cfr, v1Hz, v2Hz, undefined, v1FireCount, v2FireCount);
       }
     } catch (e) {
       console.warn('[LiveSnn] triggerOnce failed:', e);
@@ -514,6 +520,9 @@ export class LiveSnn {
       // V1/V2 region rates 영역 catch (NodeLearn cascade strip 영역 정합).
       let v1Hz = 0;
       let v2Hz = 0;
+      // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount catch (reinforce path).
+      let v1FireCount = 0;
+      let v2FireCount = 0;
       try {
         const [v1, v2] = await Promise.all([
           root.client.regionFiringRates({ region: 'V1', windowMs: this.opts.observeMs }),
@@ -521,12 +530,14 @@ export class LiveSnn {
         ]);
         v1Hz = v1.hz;
         v2Hz = v2.hz;
+        v1FireCount = v1.firingCount;
+        v2FireCount = v2.firingCount;
       } catch (e) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn('[LiveSnn] reinforce regionFiringRates fallback to 0Hz:', e);
         }
       }
-      this.emitTick(cfr, v1Hz, v2Hz);
+      this.emitTick(cfr, v1Hz, v2Hz, undefined, v1FireCount, v2FireCount);
     } catch (e) {
       console.warn('[LiveSnn] reinforce failed:', e);
     } finally {
@@ -826,10 +837,18 @@ export class LiveSnn {
     this.trialCount += 1;
     // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken + source 영역 LiveTickDetail
     // 영역 동봉 → caller 영역 reinforcingCluster 영역 token match 영역 reset.
-    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
-      trialToken: payload.trialToken,
-      source: 'trigger',
-    });
+    this.emitTick(
+      payload.cfr,
+      payload.v1Hz,
+      payload.v2Hz,
+      {
+        trialToken: payload.trialToken,
+        source: 'trigger',
+      },
+      // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount 전달.
+      payload.v1FireCount ?? 0,
+      payload.v2FireCount ?? 0,
+    );
     // saveDebounced fire-and-forget — 사용자 결과 표시 영역 IndexedDB write
     // 영역 wait 0. force=false (throttle 정합 — supervised path 영역 reinforce
     // 별도 force=true).
@@ -966,11 +985,19 @@ export class LiveSnn {
 
   private handleReinforceComplete(root: RootLocalSnn, payload: ReinforceCompletePayload): void {
     this.trialCount += 1;
-    this.emitTick(payload.cfr, payload.v1Hz, payload.v2Hz, {
-      trialToken: payload.trialToken,
-      source: 'reinforce',
-      targetCluster: payload.targetCluster,
-    });
+    this.emitTick(
+      payload.cfr,
+      payload.v1Hz,
+      payload.v2Hz,
+      {
+        trialToken: payload.trialToken,
+        source: 'reinforce',
+        targetCluster: payload.targetCluster,
+      },
+      // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount 전달.
+      payload.v1FireCount ?? 0,
+      payload.v2FireCount ?? 0,
+    );
     // force=true — supervised reward 영역 즉시 영속 (saveDebounced throttle bypass).
     void this.saveDebounced(root, true);
   }
@@ -1003,6 +1030,13 @@ export class LiveSnn {
     v1Hz = 0,
     v2Hz = 0,
     meta?: { trialToken?: number; source?: 'trigger' | 'reinforce'; targetCluster?: number },
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): 0 < firing rate 영역
+    // V1/V2 neuron 수 — emit 영역 active_neurons_by_region 영역 placeholder
+    // array length 영역 동봉 (NodeLearn 영역 (byActive[region] || []).length
+    // 영역 read path 영역 정합). 정직 한계: name 정보 0 (count only — UI 영역
+    // length 영역만 read 영역 정합). 0 default 영역 backward compat.
+    v1FireCount = 0,
+    v2FireCount = 0,
   ): void {
     if (typeof window === 'undefined') return;
     const patternActive = this.patternRef.some((v) => v > 0.5);
@@ -1046,12 +1080,25 @@ export class LiveSnn {
     // V1/V2 둘 중 하나 영역 RPC fail (=0) 영역 proxy 영역 fallback 사실 →
     // patternActive 시점 영역 v1Hz<=0 || v2Hz<=0 영역 isProxy=true.
     const isProxy = patternActive && (v1Hz <= 0 || v2Hz <= 0);
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): active_neurons_by_region
+    // 영역 placeholder array (length = firingCount) 영역 동봉 → NodeLearn 영역
+    // (byActive[region] || []).length 영역 read path 영역 정합 → V1/V2 strip
+    // "firingCount/total" 표시 정합. patternActive=false 영역 0 emit (silent
+    // catch). RPC 영역 catch 0 영역 영역 v1FireCount/v2FireCount=0 → empty
+    // array → 0 표시 (정직 fallback).
+    const v1Names = patternActive
+      ? new Array<string>(v1FireCount).fill('v1_fire')
+      : [];
+    const v2Names = patternActive
+      ? new Array<string>(v2FireCount).fill('v2_fire')
+      : [];
     emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
       cluster_rates: cfr.rates,
       winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
       winner_margin: cfr.margin,
       rates_by_region: patternActive ? { V1: v1Final, V2: v2Final } : { V1: 0, V2: 0 },
       rates_by_region_is_proxy: isProxy,
+      active_neurons_by_region: { V1: v1Names, V2: v2Names },
     });
     // OUT count — winner 변경 시점 1회 increment (idempotent: 동일 cluster 연속
     // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid

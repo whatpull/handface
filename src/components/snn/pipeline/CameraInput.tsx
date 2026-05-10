@@ -1,6 +1,6 @@
 'use client';
 
-// CameraInput — MediaPipe hand 자세 → SNN 학습 / 추론.
+// CameraInput — MediaPipe hand 자세 → SNN Live runtime 학습 / 추론.
 // 사용자 catch 2026-05-08 (제스처 검증 path Y' 정합):
 //   - hand-feature event → sharpenForGesture (binary cluster-exclusive)
 //   - 회로 빌드 시점 영역 GESTURE_CLUSTER_ACTIVE_INPUTS 영역 substrate
@@ -14,28 +14,29 @@
 //   - 추론 button 영역 hide — winner 영역 NodeInfer 영역 자동 표시.
 //   - cameraConnected toggle false → live.setPattern 영역 zero reset.
 //
-// cluster 매핑 (feature-encoder.ts 영역 정합):
+// PR-M (사용자 catch 2026-05-10 — GridInput 정합 패턴 폐기):
+//   - 영역 backend mode preset/cluster row 학습 button × 4 영역 본격 폐기 —
+//     agent 자율 판단 영역 backend mode 영역 trainGesture / runInfer path 영역
+//     모두 제거 (사용자 vision: Live primary 영역 backend 폐기 권장).
+//   - 영역 Live mode 영역 static pattern row 영역도 제거 (GridInput PR-L 정합).
+//   - 영역 stable-pose 자동 trigger (triggerWithVigilance) 영역 단일 path —
+//     사용자 액션 0 (자율 학습 + 새 cluster 자동 추가).
+//
+// cluster 매핑 (feature-encoder.ts 영역 정합 — 코드 reference comment):
 //   0 = Pointing (─ index 강조)
 //   1 = Open Palm (모든 finger 펴짐)
 //   2 = Closed Fist (모든 finger 굽힘)
 //   3 = Victory (index+middle 펴짐)
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getClient } from '@/lib/backend/client';
 import {
   emitBackendEvent,
   onBackendEvent,
-  type GridTrainingDetail,
-  type GridInferDetail,
-  type NeuronFiringDetail,
   type HandFeatureDetail,
   type InputModeDetail,
 } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
-import {
-  GESTURE_CLUSTER_ACTIVE_INPUTS,
-  sharpenForGesture,
-} from '@/lib/mediapipe/feature-encoder';
+import { sharpenForGesture } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
@@ -48,38 +49,21 @@ import {
 // 영역 동일 정합 (Carpenter & Grossberg 1987).
 const ART_VIGILANCE_THRESHOLD = 0.15;
 
-const GESTURE_LABELS = [
-  'Pointing',
-  'Open Palm',
-  'Closed Fist',
-  'Victory',
-] as const;
-// 사용자 catch 2026-05-09 (3 신규 catch): status message glyph prefix 영역
-// 본격 제거 — cluster index 보다 의미 catch (GESTURE_LABELS) 영역 swap.
-// 직전 GESTURE_GLYPHS 영역 polyfill (─│╲╱) 영역 사용 0 영역 제거.
-
 // PR #196 polish (UX LOW-1/2 + QA LOW-1): hint 영역 secondary line + 'warning'
 // kind 영역 amber visual cue (낮은 confidence 영역 정합) + GridInput 영역 정합.
 type Status =
   | { kind: 'idle' }
   | { kind: 'building' }
-  | { kind: 'training'; cluster: number }
   | { kind: 'inferring' }
   | { kind: 'ok'; message: string; hint?: string }
   | { kind: 'warning'; message: string; hint?: string }
   | { kind: 'error'; message: string };
 
-const TRAIN_FRAMES = 30;
-const TRAIN_CHUNK = 5;
-
 export default function CameraInput({ cameraConnected }: { cameraConnected: boolean }) {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const lastFeatureRef = useRef<number[] | null>(null);
-  const substrateBuiltRef = useRef<boolean>(false);
   const [engineMode] = useEngineMode();
   const isLiveMode = engineMode === 'live';
-  // PR-K (사용자 catch 2026-05-09 catch 1): reinforcingCluster state 영역 본격
-  // 폐기 — cluster 별 학습 button 영역 폐기 영역 in-flight gate 영역 caller 0.
   // engineMode 영역 useEffect listener closure 영역 stale catch — ref 영역
   // 동기화 후 listener 영역 ref.current 영역 read 사실.
   const engineModeRef = useRef(engineMode);
@@ -165,10 +149,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   }), []);
 
   // circuit-changed event — HF Spaces 컨테이너 재시작 등으로 backend 가
-  // 새 빈 네트워크를 만든 시점. substrate 재빌드 gate 를 다시 열어 다음 학습
-  // 호출이 자동으로 gesture mapping 정합 substrate 를 빌드하도록 함.
+  // 새 빈 네트워크를 만든 시점. PR-M (2026-05-10): backend mode trainGesture
+  // path 영역 폐기 후 substrate gate 영역 caller 0 — status idle reset 영역만
+  // 보존 (Live runtime 영역 LiveSnn 자체 lifecycle 영역 별도).
   useEffect(() => onBackendEvent('circuit-changed', () => {
-    substrateBuiltRef.current = false;
     setStatus({ kind: 'idle' });
   }), []);
 
@@ -196,85 +180,10 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }, [cameraConnected, engineMode]);
 
-  // 사용자 catch 2026-05-09 [1]: buildSubstrate callback 영역 본격 제거 —
-  // trainGesture / runInfer 영역 자동 빌드 (substrateBuiltRef gate) 영역 정합.
-
-  const trainGesture = useCallback(async (clusterIdx: 0 | 1 | 2 | 3) => {
-    if (lastFeatureRef.current === null) {
-      setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
-      return;
-    }
-    setStatus({ kind: 'training', cluster: clusterIdx });
-    emitBackendEvent<GridTrainingDetail>('grid-training', {
-      kind: 'started', cluster: clusterIdx,
-      framesDone: 0, framesTotal: TRAIN_FRAMES,
-    });
-    const client = getClient();
-    if (!substrateBuiltRef.current) {
-      const built = await client.presetOrientation({
-        overwrite: true,
-        clusterActiveInputs: GESTURE_CLUSTER_ACTIVE_INPUTS,
-      });
-      if (!built.ok) {
-        setStatus({ kind: 'error', message: `회로 빌드 실패: ${built.reason}` });
-        // 'started' 이미 emit 영역 NodeLearn 영역 isTraining=true stuck 회피.
-        emitBackendEvent<GridTrainingDetail>('grid-training', {
-          kind: 'error', cluster: clusterIdx, message: built.reason,
-        });
-        return;
-      }
-      substrateBuiltRef.current = true;
-    }
-    let totalCorrect = 0;
-    let totalTrained = 0;
-    for (let chunk = 0; chunk < TRAIN_FRAMES; chunk += TRAIN_CHUNK) {
-      const size = Math.min(TRAIN_CHUNK, TRAIN_FRAMES - chunk);
-      // 각 frame 별 lastFeature 영역 sample (사용자 자세 유지 가정).
-      const patterns: number[][] = [];
-      for (let k = 0; k < size; k += 1) {
-        patterns.push([...(lastFeatureRef.current ?? new Array<number>(16).fill(0))]);
-      }
-      const r = await client.clusterTrainRStdp(patterns, clusterIdx, {
-        observeMs: 50, stimulusDurationMs: 10,
-      });
-      if (!r.ok) {
-        setStatus({ kind: 'error', message: `학습 실패: ${r.reason}` });
-        // 'started' 이미 emit 영역 NodeLearn 영역 isTraining=true stuck 회피.
-        emitBackendEvent<GridTrainingDetail>('grid-training', {
-          kind: 'error', cluster: clusterIdx, message: r.reason,
-        });
-        return;
-      }
-      totalCorrect += r.data.correct;
-      totalTrained += r.data.trained;
-      emitBackendEvent<GridTrainingDetail>('grid-training', {
-        kind: 'progress', cluster: clusterIdx,
-        framesDone: chunk + size, framesTotal: TRAIN_FRAMES,
-      });
-      if (r.data.rates_by_region || r.data.active_neurons_by_region) {
-        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
-          rates_by_region: r.data.rates_by_region,
-          active_neurons_by_region: r.data.active_neurons_by_region,
-        });
-      }
-    }
-    const acc = totalTrained > 0 ? Math.round(totalCorrect / totalTrained * 100) : 0;
-    setStatus({
-      kind: 'ok',
-      message: `${GESTURE_LABELS[clusterIdx]} ${acc}% (${totalCorrect}/${totalTrained})`,
-    });
-    emitBackendEvent<GridTrainingDetail>('grid-training', {
-      kind: 'finished', cluster: clusterIdx,
-      accuracy: totalTrained > 0 ? totalCorrect / totalTrained : 0,
-      correct: totalCorrect, trained: totalTrained,
-      framesDone: TRAIN_FRAMES, framesTotal: TRAIN_FRAMES,
-    });
-  }, []);
-
-  // PR-K (사용자 catch 2026-05-09 catch 1): reinforceLive callback 영역 본격
-  // 폐기 — cluster 별 supervised reinforce button 영역 모두 제거 + stable-pose
-  // 자동 trigger (triggerWithVigilance) 영역 단일 path. backend mode 영역
-  // trainGesture 영역 보존 (학술 검증 — 명시 supervised label 영역 신호).
+  // PR-M (사용자 catch 2026-05-10): trainGesture / runInfer callback 영역 본격
+  // 폐기 — backend mode supervised path 영역 모두 제거. Live mode stable-pose
+  // 자동 trigger (triggerWithVigilance) 영역 단일 학습/추론 path. backend mode
+  // 영역 사용자 vision (Live primary 영역 backend 폐기 권장) 영역 정합.
 
   // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
   // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
@@ -351,28 +260,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }, [engineMode]);
 
-  const runInfer = useCallback(async () => {
-    if (lastFeatureRef.current === null) {
-      setStatus({ kind: 'error', message: '카메라에 손을 보여주세요' });
-      return;
-    }
-    setStatus({ kind: 'inferring' });
-    emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
-    const r = await getClient().injectPattern([...lastFeatureRef.current], { stdp: false });
-    if (r.ok) {
-      const cluster = r.data.winner_cluster ?? null;
-      const winnerCluster = cluster !== null && cluster >= 0 && cluster <= 3
-        ? (cluster as 0 | 1 | 2 | 3)
-        : null;
-      setStatus({ kind: 'ok', message: '추론 완료' });
-      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
-    } else {
-      setStatus({ kind: 'error', message: `추론 실패: ${r.reason}` });
-      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: r.reason });
-    }
-  }, []);
-
-  const isBusy = status.kind === 'building' || status.kind === 'training' || status.kind === 'inferring';
+  const isBusy = status.kind === 'building' || status.kind === 'inferring';
 
   // UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen reader
   //   노이즈 catch — semantic Tailwind red-dot + aria-hidden 영역 swap.
@@ -390,7 +278,6 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         }
         return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
       case 'building': return '회로 빌드 중…';
-      case 'training': return `${GESTURE_LABELS[status.cluster]} 학습 중 (${TRAIN_FRAMES} frame)…`;
       case 'inferring': return '추론 중…';
       // PR #196 polish (UX LOW-1/2): hint 영역 secondary <small> + warning kind
       // 영역 amber pill 영역 visual cue (snn-grid-status--warning CSS 정합).
@@ -410,13 +297,15 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
 
   return (
     <div className="snn-grid-input">
-      {/* 사용자 catch 2026-05-09 [1]: '회로 빌드 (gesture)' button 제거 —
-          trainGesture / runInfer 영역 자동 빌드 (substrateBuiltRef gate). */}
+      {/* PR-M (사용자 catch 2026-05-10): Live hint copy 강화 — '자율 학습' +
+          '새 cluster 자동 추가' 명시. GridInput PR-L hint 정합 (4×4 그리드 →
+          카메라 자세 swap). 직전 'LIVE — 자세를 보여주면 즉시 학습 + 추론' 영역
+          단순 copy → 자율 학습 본질 + ART vigilance 신규 cluster 추가 path 명시. */}
       {isLiveMode && (
         <div className="snn-grid-build-btn pointer-events-none text-center opacity-70">
           {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          LIVE — 자세를 보여주면 즉시 학습 + 추론
+          LIVE — 카메라 자세를 보여주세요. 처음 보는 자세는 자동 30회 학습 + 새 cluster 추가.
         </div>
       )}
 
@@ -428,71 +317,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         </div>
       </div>
 
-      {/* PR-K (사용자 catch 2026-05-09 catch 1): cluster 별 학습 button × 4
-          본격 폐기 — Live 모드 영역 stable-pose 자동 trigger (ART vigilance)
-          영역 단일 path. backend mode 영역 trainGesture button 영역 보존
-          (legacy supervised path — 학술 검증 영역 별도). cluster preset 영역
-          static span 영역 cluster mapping 영역 시각 catch 영역 보존. */}
-      {!isLiveMode && (
-        <div className="snn-grid-presets">
-          {GESTURE_LABELS.map((label, i) => (
-            <div key={i} className="snn-grid-preset-row">
-              <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
-                <span className="snn-grid-preset-label">cluster {i}</span>
-              </span>
-              <button
-                type="button"
-                className="snn-grid-train-btn"
-                onClick={() => trainGesture(i as 0 | 1 | 2 | 3)}
-                disabled={(isBusy && !isLiveMode) || !cameraConnected}
-                aria-label={`${label} 학습 — R-STDP (backend mode)`}
-                title={
-                  !cameraConnected
-                    ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
-                    : lastFeatureRef.current === null
-                      ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
-                      : `${label} 학습 (R-STDP, backend)`
-                }
-              >
-                {`학습 ${i} (${label})`}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* Live 모드 영역 cluster mapping 영역 시각 catch 영역 static — stable-pose
-          영역 자동 trigger 영역 ART vigilance path 영역 사용자 액션 0. */}
-      {isLiveMode && (
-        <div className="snn-grid-presets">
-          {GESTURE_LABELS.map((label, i) => (
-            <div key={i} className="snn-grid-preset-row">
-              <span className="snn-grid-preset-btn snn-grid-preset-btn--static" title={label}>
-                <span className="snn-grid-preset-label">{`패턴 ${i + 1} (${label})`}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* PR-M (사용자 catch 2026-05-10): cluster preset row 영역 본격 폐기 —
+          backend mode 영역 trainGesture path 영역 모두 제거 + Live mode 영역
+          static pattern row 영역도 제거 (GridInput PR-L 정합). 사용자 vision —
+          Live primary 영역 backend 폐기 권장. cluster identity 영역 ART
+          vigilance 영역 자율 형성 — 사용자 명명 (RenameButton) 영역 별도 path. */}
 
-      {!isLiveMode && (
-        <div className="snn-grid-actions">
-          <button
-            type="button"
-            className="snn-grid-infer-btn"
-            onClick={runInfer}
-            disabled={isBusy || !cameraConnected}
-            title={
-              !cameraConnected
-                ? '카메라 미연결 — 카메라 버튼으로 활성화하세요'
-                : lastFeatureRef.current === null
-                  ? '손이 인식되지 않음 — 카메라에 손을 보여주세요'
-                  : '현재 자세로 추론 (STDP off)'
-            }
-          >
-            추론
-          </button>
-        </div>
-      )}
       {/* 사용자 catch 2026-05-09 [2] (Fix 5): Live 모드 영역 학습 reset button —
           GridInput 영역 mirror. substrate='gesture' 영역 catch (CAMERA path).
           GRID(orientation) 영역 별도 보존 — substrate isolation. */}

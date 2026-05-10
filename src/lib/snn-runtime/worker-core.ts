@@ -54,12 +54,11 @@ function applyWeightsLocal(net: NeuralNetwork, weights: number[]): void {
   for (let i = 0; i < weights.length; i += 1) net.synapses[i].weight = weights[i];
 }
 
-const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [
-  [4, 5, 6, 7],
-  [1, 5, 9, 13],
-  [0, 5, 10, 15],
-  [3, 6, 9, 12],
-];
+// Fix #20 (2026-05-10): zero-init dynamic — cluster 0 영역 시작.
+// 사용자 mental model "1 입력 = vigilance miss → cluster spawn 1, 2, 3, ..."
+// 정합 (직전 4-cluster default 영역 폐기 — base substrate 영역 baseline noise
+// 영역 stale '패턴 1..4' 영역 표시 root cause 영역 정정).
+const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [];
 
 // PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
 // 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
@@ -114,8 +113,11 @@ function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void
   if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
     throw new Error('invalid pattern (expected length 16 array)');
   }
-  if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 31) {
-    throw new Error('invalid targetCluster (expected 0..31)');
+  // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
+  // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장
+  // (8 cluster × 8 OUT 영역 자연 상한 — UI 영역 Live mode cluster cap 정합).
+  if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 63) {
+    throw new Error('invalid targetCluster (expected 0..63)');
   }
   if (typeof p.observeMs !== 'number' || p.observeMs < 1 || p.observeMs > 1000) {
     throw new Error('invalid observeMs (expected 1..1000)');
@@ -318,7 +320,9 @@ export class SNNWorkerCore {
         const ai = payload.clusterActiveInputs[i];
         if (ai) registry.slots[i].activeInputs = ai.slice();
       }
-      this.buildClusterActiveInputs = payload.clusterActiveInputs.slice(0, 4);
+      // Fix #20 (2026-05-10): dynamic length 영역 보존 — 직전 .slice(0, 4)
+      // 영역 4 cluster cap 영역 폐기. zero-init 영역 [] 영역 자연 보존.
+      this.buildClusterActiveInputs = payload.clusterActiveInputs.slice();
     }
     this.registry = registry;
     return {
@@ -575,6 +579,38 @@ export class SNNWorkerCore {
       }
       const gain = isCorrect ? rewardGain : punishGain;
 
+      // Fix #20 Part E (2026-05-10): supervisor pulse — 신규 spawn cluster
+      // 영역 V2_L5→OUT cascade 영역 sparse / weak (initial weights — measure
+      // pass 영역 fire 0 catch). R-STDP 영역 spike-pair 0 영역 weight 변화 0
+      // → cluster 영역 강화 영역 30 trial 영역 0 효과 (사용자 catch root cause).
+      // 정정: target OUT cluster 영역 직접 supervisor pulse 영역 inject — 강제
+      // post-synaptic fire 영역 pre (V2_L5_E) post (OUT) spike pair 영역 형성
+      // → Hebbian LTP 영역 정상 적용.
+      // 학술 정합: Diehl & Cook 2015 supervised label injection — teacher
+      // signal 영역 target OUT 영역 강제 fire (one-hot pulse), Florian 2007
+      // R-STDP 영역 spike pair 영역 mandatory 정합. correct 시점만 적용 — wrong
+      // winner 영역 LTD 영역 reward mask 영역 0 정합.
+      const targetCi = payload.targetCluster;
+      if (isCorrect || measure.winner === -1) {
+        // measure winner === -1 (silent — 신규 cluster 첫 trial 영역 자연):
+        // supervisor pulse 영역 정합 (correct path 영역 정합 catch). 측정
+        // winner 영역 다른 cluster 영역 wrong winner 영역 LTD path — supervisor
+        // pulse 영역 skip (target reward 영역 0 정합 — cross-pollution 회피).
+        const targetSlot = registry.slots[targetCi];
+        if (targetSlot) {
+          const supervisorEvents = targetSlot.out.map((name) => ({
+            neuron: name,
+            // 영역 V_th -55 영역 강제 fire 영역 충분 강도 — 30 영역 단일 spike,
+            // sustained durationMs 영역 multi-spike (Hebbian spike-pair 보장).
+            weight: 30.0,
+            time: tNow2,
+            durationMs: stimulusDurationMs,
+            stepMs: dtMs,
+          }));
+          if (supervisorEvents.length > 0) net.inject(supervisorEvents);
+        }
+      }
+
       // QA CAUSE A fix (2026-05-10): synapse cluster mask 영역 swap-restore.
       // 직전 reward pass 영역 GLOBAL stdpGain 영역 모든 발화 neuron 영역 LTP 적용
       // → cluster 별 selective 0 → cross-cluster strengthen → margin 약화 영역
@@ -582,7 +618,6 @@ export class SNNWorkerCore {
       // region-specific gating — reward 영역 target cluster 영역 incoming synapse
       // 영역만 적용. swap-restore 영역 worker thread sequential FIFO 영역 정합
       // — race 0.
-      const targetCi = payload.targetCluster;
       const savedMultipliers = this.applyClusterRewardMask(targetCi);
       try {
         net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });

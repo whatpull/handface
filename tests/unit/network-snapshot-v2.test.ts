@@ -30,13 +30,23 @@ import { buildN13OrientationPreset } from '@/lib/snn-runtime/builders/n13-orient
 
 describe('NetworkSnapshot v2 — NMDA + homeostatic + thresholdOffset round-trip (Fix 2)', () => {
   it('T1: snapshot.schema === 2', () => {
-    const { net } = buildN13OrientationPreset({ seed: 57 });
+    const { net } = buildN13OrientationPreset({ seed: 57, clusterActiveInputs: [
+      [4, 5, 6, 7],
+      [1, 5, 9, 13],
+      [0, 5, 10, 15],
+      [3, 6, 9, 12],
+    ] });
     const snap = net.snapshot();
     expect(snap.schema).toBe(2);
   });
 
   it('T2: NMDA + homeostatic 7 필드 round-trip — n13 영역 모든 excitatory neuron 보존', () => {
-    const { net } = buildN13OrientationPreset({ seed: 57 });
+    const { net } = buildN13OrientationPreset({ seed: 57, clusterActiveInputs: [
+      [4, 5, 6, 7],
+      [1, 5, 9, 13],
+      [0, 5, 10, 15],
+      [3, 6, 9, 12],
+    ] });
     const snap = net.snapshot();
 
     // n13 영역 모든 excitatory neuron 영역 NMDA enable 영역 검증.

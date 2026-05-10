@@ -1,9 +1,13 @@
 // n13 substrate builder 단위 테스트.
 //
+// Fix #20 (2026-05-10): zero-init dynamic — default clusterActiveInputs=[]
+// (zero base cluster). 4-cluster legacy 영역 explicit LEGACY_FOUR_CLUSTER_INPUTS
+// 영역 pass 영역 catch (사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기).
+//
 // 검증 포인트:
 //  - 토폴로지 결정론 (같은 seed → 같은 neuron / synapse 수).
 //  - 뉴런 region/population 분포가 신경해부학 정합 (V1, V2, OUT, INPUT).
-//  - cluster_active_inputs 검증: default vs override 차이 노출.
+//  - cluster_active_inputs 검증: zero-init / 4-cluster override 차이 노출.
 //  - NMDA + homeostatic 활성화 (excitatory layer + OUT, V1_L4_I 제외).
 //  - WTA: OUT cluster 간 negative weight, 같은 cluster 안은 positive.
 
@@ -14,6 +18,7 @@ import {
   N13Pools,
   buildN13OrientationPreset,
 } from '@/lib/snn-runtime';
+import { LEGACY_FOUR_CLUSTER_INPUTS } from '@/lib/snn-runtime/builders/n13-orientation';
 
 describe('snn-builder-n13 — 토폴로지', () => {
   it('default 빌드는 결정론 (같은 seed → 같은 결과)', () => {
@@ -23,39 +28,58 @@ describe('snn-builder-n13 — 토폴로지', () => {
     expect(r1.synapsesAdded).toBe(r2.synapsesAdded);
   });
 
-  it('seed 다르면 synapse 수도 다르다 (random sparse)', () => {
-    const r1 = buildN13OrientationPreset({ seed: 57 });
-    const r2 = buildN13OrientationPreset({ seed: 999 });
+  it('Fix #20: default (zero-init) 영역 INPUT 16 영역만 — base cluster pool 0', () => {
+    const r = buildN13OrientationPreset({ seed: 57 });
+    expect(r.neuronsAdded).toBe(16);
+    expect(r.outClusters).toBe(0);
+    expect(r.outTotal).toBe(0);
+    expect(r.inputDim).toBe(16);
+    expect(r.preset).toBe('n13_orientation');
+    // synapses 영역 0 — base cluster pool 0 → cascade 영역 0 iteration.
+    expect(r.synapsesAdded).toBe(0);
+  });
+
+  it('seed 다르면 synapse 수도 다르다 (random sparse, 4-cluster explicit)', () => {
+    const r1 = buildN13OrientationPreset({ seed: 57, clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
+    const r2 = buildN13OrientationPreset({ seed: 999, clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     expect(r1.synapsesAdded).not.toBe(r2.synapsesAdded);
   });
 
-  it('뉴런 수 = 16 + 128 + 256 + 128 + 128 + 96 + 64 + 32 = 848', () => {
-    const r = buildN13OrientationPreset();
-    expect(r.neuronsAdded).toBe(
-      16 + N13Pools.V1_L4E + N13Pools.V1_L4I + N13Pools.V1_L23E + N13Pools.V2_L4E +
-        N13Pools.V2_L23E + N13Pools.V2_L5E + N13Pools.OUT_TOTAL,
-    );
+  it('LEGACY 4-cluster 빌드 — 뉴런 수 = 16 + 128 + 256 + 128 + 128 + 96 + 64 + 32 = 848', () => {
+    const r = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
+    const v1L4 = N13Pools.V1_L4_PER_SUB * 4;
+    const v1L4I = N13Pools.V1_L4I_PER_SUB * 4;
+    const v1L23 = N13Pools.V1_L23_PER_SUB * 4;
+    const v2L4 = N13Pools.V2_L4_PER_SUB * 4;
+    const v2L23 = N13Pools.V2_L23_PER_SUB * 4;
+    const v2L5 = N13Pools.V2_L5_PER_SUB * 4;
+    const outTotal = N13Pools.OUT_PER_CLUSTER * 4;
+    expect(r.neuronsAdded).toBe(16 + v1L4 + v1L4I + v1L23 + v2L4 + v2L23 + v2L5 + outTotal);
     expect(r.outClusters).toBe(4);
     expect(r.outTotal).toBe(32);
     expect(r.inputDim).toBe(16);
     expect(r.preset).toBe('n13_orientation');
   });
 
-  it('region 분포가 신경해부학 정합', () => {
-    const { net } = buildN13OrientationPreset();
+  it('LEGACY 4-cluster — region 분포가 신경해부학 정합', () => {
+    const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     const counts = new Map<string, number>();
     for (const n of net.neurons) {
       const k = n.region ?? 'NULL';
       counts.set(k, (counts.get(k) ?? 0) + 1);
     }
     expect(counts.get('INPUT')).toBe(16);
-    expect(counts.get('V1')).toBe(N13Pools.V1_L4E + N13Pools.V1_L4I + N13Pools.V1_L23E);
-    expect(counts.get('V2')).toBe(N13Pools.V2_L4E + N13Pools.V2_L23E + N13Pools.V2_L5E);
+    expect(counts.get('V1')).toBe(
+      (N13Pools.V1_L4_PER_SUB + N13Pools.V1_L4I_PER_SUB + N13Pools.V1_L23_PER_SUB) * 4,
+    );
+    expect(counts.get('V2')).toBe(
+      (N13Pools.V2_L4_PER_SUB + N13Pools.V2_L23_PER_SUB + N13Pools.V2_L5_PER_SUB) * 4,
+    );
     expect(counts.get('OUT')).toBe(32);
   });
 
-  it('OUT cluster population label 정합 (cluster_0 .. cluster_3)', () => {
-    const { net } = buildN13OrientationPreset();
+  it('LEGACY 4-cluster — OUT cluster population label 정합 (cluster_0 .. cluster_3)', () => {
+    const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     for (let ci = 0; ci < 4; ci += 1) {
       for (let ni = 0; ni < N13Pools.OUT_PER_CLUSTER; ni += 1) {
         const n = net.get(N13Names.out(ci, ni));
@@ -67,8 +91,8 @@ describe('snn-builder-n13 — 토폴로지', () => {
 });
 
 describe('snn-builder-n13 — cluster_active_inputs', () => {
-  it('default vs 명시 mapping 은 어떤 input 이 V1 sub 에 dense 연결되는지가 다르다', () => {
-    const def = buildN13OrientationPreset({ seed: 57 });
+  it('LEGACY vs 명시 mapping 은 어떤 input 이 V1 sub 에 dense 연결되는지가 다르다', () => {
+    const def = buildN13OrientationPreset({ seed: 57, clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     const gesture = buildN13OrientationPreset({
       seed: 57,
       clusterActiveInputs: [
@@ -79,7 +103,7 @@ describe('snn-builder-n13 — cluster_active_inputs', () => {
       ],
     });
 
-    // default cluster 0 active = [4,5,6,7] → in_feat_4 → v1_L4_E_0..31 weight ~11.
+    // LEGACY cluster 0 active = [4,5,6,7] → in_feat_4 → v1_L4_E_0..31 weight ~11.
     // gesture cluster 0 active = [0,1,2,3] → in_feat_0 → v1_L4_E_0..31 weight ~11.
     // cluster 0 sub = v1_L4_E_0..31. 본 sub 만 대상.
     const countCluster0Dense = (net: typeof def.net, inputName: string) => {
@@ -95,21 +119,21 @@ describe('snn-builder-n13 — cluster_active_inputs', () => {
       return n;
     };
 
-    expect(countCluster0Dense(def.net, 'in_feat_4')).toBeGreaterThan(20); // active in default
-    expect(countCluster0Dense(def.net, 'in_feat_0')).toBeLessThan(5); // inactive in default
+    expect(countCluster0Dense(def.net, 'in_feat_4')).toBeGreaterThan(20); // active in LEGACY
+    expect(countCluster0Dense(def.net, 'in_feat_0')).toBeLessThan(5); // inactive in LEGACY
     expect(countCluster0Dense(gesture.net, 'in_feat_0')).toBeGreaterThan(20); // active in gesture
   });
 
-  it('길이 != 4 시 명시적 오류', () => {
-    expect(() =>
-      buildN13OrientationPreset({ clusterActiveInputs: [[0], [1], [2]] }),
-    ).toThrow(/clusterActiveInputs/);
+  it('Fix #20: clusterActiveInputs=[] 영역 zero-init 자연 정합 (throw 0)', () => {
+    expect(() => buildN13OrientationPreset({ clusterActiveInputs: [] })).not.toThrow();
+    const r = buildN13OrientationPreset({ clusterActiveInputs: [] });
+    expect(r.outClusters).toBe(0);
   });
 });
 
 describe('snn-builder-n13 — 신경 파라미터', () => {
-  it('모든 뉴런에 NMDA 활성 (threshold -65, gain 10)', () => {
-    const { net } = buildN13OrientationPreset();
+  it('LEGACY 4-cluster — 모든 뉴런에 NMDA 활성 (threshold -65, gain 10)', () => {
+    const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     for (const n of net.neurons) {
       expect(n.nmdaEnabled).toBe(true);
       expect(n.nmdaThreshold).toBe(-65.0);
@@ -117,12 +141,12 @@ describe('snn-builder-n13 — 신경 파라미터', () => {
     }
   });
 
-  it('homeostatic 은 excitatory + OUT 만, V1_L4_I 는 비활성', () => {
-    const r = buildN13OrientationPreset();
-    expect(r.homeostaticNeurons).toBe(
-      N13Pools.V1_L4E + N13Pools.V1_L23E + N13Pools.V2_L4E + N13Pools.V2_L23E +
-        N13Pools.V2_L5E + N13Pools.OUT_TOTAL,
-    );
+  it('LEGACY 4-cluster — homeostatic 은 excitatory + OUT 만, V1_L4_I 는 비활성', () => {
+    const r = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
+    const expectedHomeo =
+      (N13Pools.V1_L4_PER_SUB + N13Pools.V1_L23_PER_SUB + N13Pools.V2_L4_PER_SUB +
+        N13Pools.V2_L23_PER_SUB + N13Pools.V2_L5_PER_SUB + N13Pools.OUT_PER_CLUSTER) * 4;
+    expect(r.homeostaticNeurons).toBe(expectedHomeo);
     const inhibSample = r.net.get('v1_L4_I_0')!;
     expect(inhibSample.homeostaticEnabled).toBe(false);
     const outSample = r.net.get('out_0_0')!;
@@ -133,8 +157,8 @@ describe('snn-builder-n13 — 신경 파라미터', () => {
 });
 
 describe('snn-builder-n13 — WTA / 격리', () => {
-  it('OUT cluster 간 mutual inhibition (negative weight)', () => {
-    const { net } = buildN13OrientationPreset();
+  it('LEGACY 4-cluster — OUT cluster 간 mutual inhibition (negative weight)', () => {
+    const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     let crossCount = 0;
     let crossNegMin = 0;
     for (const s of net.synapses) {
@@ -160,8 +184,8 @@ describe('snn-builder-n13 — WTA / 격리', () => {
     expect(crossNegMin).toBe(-8.0);
   });
 
-  it('OUT cluster 내부 mutual excitation (positive weight)', () => {
-    const { net } = buildN13OrientationPreset();
+  it('LEGACY 4-cluster — OUT cluster 내부 mutual excitation (positive weight)', () => {
+    const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     let intraCount = 0;
     let intraPosMin = Infinity;
     for (const s of net.synapses) {

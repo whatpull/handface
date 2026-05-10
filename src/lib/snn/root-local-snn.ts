@@ -27,6 +27,7 @@ import {
 } from '@/lib/snn-runtime';
 import { GESTURE_CLUSTER_ACTIVE_INPUTS } from '@/lib/mediapipe/feature-encoder';
 import { showToast } from '@/components/ui/Toast';
+import { clearExemplars } from './out-exemplars';
 
 export type SubstrateKind = 'orientation' | 'gesture';
 
@@ -64,13 +65,12 @@ export function getLastLocalSnnInitState(kind: SubstrateKind): LocalSnnInitState
 
 const SEED = 57;
 
-// orientation default — n13 builder default 와 동일 (4×4 row/col/diag).
-const ORIENTATION_CLUSTER_ACTIVE_INPUTS: number[][] = [
-  [4, 5, 6, 7],     // ─ horizontal — row 1
-  [1, 5, 9, 13],    // │ vertical — col 1
-  [0, 5, 10, 15],   // ╲ diag-back
-  [3, 6, 9, 12],    // ╱ diag-fore
-];
+// Fix #20 (2026-05-10): zero-init dynamic — orientation substrate 영역 base
+// cluster 영역 폐기. 사용자 mental model "1 입력 = vigilance miss → cluster
+// spawn 1, 2, 3, ..." 영역 정합 — 첫 trigger 영역 vigilance miss 영역 자동
+// expandCluster 영역 cluster 영역 spawn (live-snn.runAutoLearnLoop 정합).
+// 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기 권한.
+const ORIENTATION_CLUSTER_ACTIVE_INPUTS: number[][] = [];
 
 function netIdFor(kind: SubstrateKind): string {
   return `root-pipeline-${kind}`;
@@ -212,6 +212,12 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     // 사용자 catch 2026-05-09 [2] (Fix 4): DB hydrate state visibility —
     // NodeLearn footer status row 영역 emit + cache (mount 영역 race 회피).
     onFreshBuild: () => {
+      // Fix #20 Part D (2026-05-10): fresh build 영역 substrate 영역 stale
+      // exemplar 영역 clear — base 4 cluster 영역 학습된 직전 세션 영역 영역
+      // zero-init 영역 build 영역 carry-over 영역 stale '패턴 N=count' 영역 표시
+      // 회피. 학술 정합: fresh substrate (cluster 0개) 영역 OUT 영역 fire count
+      // 영역 0 시작 — exemplar count 영역 sync 정합 catch.
+      clearExemplars(kind);
       const state: LocalSnnInitState = { kind, phase: 'fresh' };
       _lastInitState.set(kind, state);
       emitLocalSnnInitState(state);

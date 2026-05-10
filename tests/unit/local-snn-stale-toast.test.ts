@@ -68,6 +68,14 @@ function makeStack() {
   return { core, client, storage, sink };
 }
 
+// Fix #20 (2026-05-10): zero-init dynamic — LEGACY 4-cluster 영역 explicit pass.
+const LEGACY_FOUR = [
+  [4, 5, 6, 7],
+  [1, 5, 9, 13],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+];
+
 describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
   it('T1: schema:1 topology + 가중치 보존 → callback("schema-mismatch") 1회', async () => {
     const { client, sink } = makeStack();
@@ -103,7 +111,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
     await sink.saveWeights(v1Weights);
 
     const onStaleCacheReset = vi.fn();
-    const lab = new LocalSNN({ netId, client, sink, seed: 57, onStaleCacheReset });
+    const lab = new LocalSNN({ netId, client, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR, onStaleCacheReset });
     await lab.init();
 
     expect(onStaleCacheReset).toHaveBeenCalledTimes(1);
@@ -114,7 +122,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
     // 1차: fresh build → schema:2 topology + 정합 가중치 보존.
     const { client: client1, sink } = makeStack();
     const netId = 'mismatch_v2';
-    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
 
     // 2차: 가중치 영역 강제 truncate → 길이 mismatch 시뮬레이트.
@@ -134,7 +142,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
     const onStaleCacheReset = vi.fn();
     const lab2 = new LocalSNN({
-      netId, client: client2, sink, seed: 57, onStaleCacheReset,
+      netId, client: client2, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR, onStaleCacheReset,
     });
     await lab2.init();
 
@@ -147,7 +155,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
     const netId = 'fresh_first_init';
 
     const onStaleCacheReset = vi.fn();
-    const lab = new LocalSNN({ netId, client, sink, seed: 57, onStaleCacheReset });
+    const lab = new LocalSNN({ netId, client, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR, onStaleCacheReset });
     await lab.init();
 
     // 첫 진입 path 영역 폐기 가중치 0 → callback 미호출 정합.
@@ -157,7 +165,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
   it('T4: schema:2 + 정합 가중치 → restore → callback 미호출', async () => {
     const { client: client1, sink } = makeStack();
     const netId = 'restore_path';
-    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57 });
+    const lab1 = new LocalSNN({ netId, client: client1, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR });
     await lab1.init();
     await lab1.save();
 
@@ -165,7 +173,7 @@ describe('LocalSNN — onStaleCacheReset callback (PR #189 UX-1)', () => {
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
     const onStaleCacheReset = vi.fn();
     const lab2 = new LocalSNN({
-      netId, client: client2, sink, seed: 57, onStaleCacheReset,
+      netId, client: client2, sink, seed: 57, clusterActiveInputs: LEGACY_FOUR, onStaleCacheReset,
     });
     await lab2.init();
 

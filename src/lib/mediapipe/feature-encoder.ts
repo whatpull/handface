@@ -134,14 +134,12 @@ export function sharpenForGesture(features: number[]): number[] {
   return out;
 }
 
-// 제스처 학습 정합 cluster_active_inputs — backend preset body 영역 전송.
-// cluster 0/1/2/3 → IN[0-3]/4-7/8-11/12-15.
-export const GESTURE_CLUSTER_ACTIVE_INPUTS: number[][] = [
-  [0, 1, 2, 3],     // Pointing — IN[0-3]
-  [4, 5, 6, 7],     // Open Palm — IN[4-7]
-  [8, 9, 10, 11],   // Closed Fist — IN[8-11]
-  [12, 13, 14, 15], // Victory — IN[12-15]
-];
+// Fix #20 (2026-05-10): zero-init dynamic — gesture substrate 영역 base
+// cluster 영역 폐기. orientation 정합 — 첫 카메라 자세 영역 vigilance miss
+// 영역 expandCluster 영역 cluster 영역 spawn (사용자 직접 명명 path 영역
+// NodeOut RenameButton 정합). 사용자 명시 "기존 로직 신경쓰지말고" — backward
+// compat 폐기 권한.
+export const GESTURE_CLUSTER_ACTIVE_INPUTS: number[][] = [];
 
 // 3-frame moving average (jitter 감소).
 export class FeatureSmoother {

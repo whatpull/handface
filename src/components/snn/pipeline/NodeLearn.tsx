@@ -321,7 +321,7 @@ export default function NodeLearn() {
   // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
   // expansion cluster 영역 amber bar 영역 진행 visibility 정합 (NodeOut 영역
   // winner.clusterRates 정합 — clusterLabels.length 영역 dynamic catch).
-  const { lastDetail, clusterRates: liveClusterRates, autoLearnProgress } = usePipelineEvents();
+  const { lastDetail, autoLearnProgress } = usePipelineEvents();
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -465,11 +465,11 @@ export default function NodeLearn() {
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
   const clusterLabels = useMemo(() => {
-    // PR #203 polish (MEDIUM QA 2026-05-10): clusterLabels.length 영역 NodeOut
-    // 영역 정합 — Math.max(winner.clusterRates.length, exemplarMax+1, 4).
-    // 직전 exemplar max only — runtime 영역 신규 ART expansion cluster 영역
-    // exemplar 미생성 시점 영역 NodeLearn ↔ NodeOut length divergence 영역
-    // catch (NodeOut 영역 표시되는 cluster 영역 NodeLearn 영역 누락 회피).
+    // Fix #19 (사용자 catch 2026-05-10): zero-init — base 4 floor 폐기.
+    // Request C (2026-05-10): firing fallback 영역 폐기 — exemplars 영역 영역
+    // 학습된 cluster 영역만 표시 (NodeOut 정합). 직전 firingMax fallback 영역
+    // base n13 substrate 영역 baseline noise 영역 stale '패턴 1..4' 영역 표시.
+    // 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기.
     let exemplarMax = -1;
     for (const k of Object.keys(exemplars)) {
       const m = /^out_(\d+)_\d+$/.exec(k);
@@ -478,9 +478,9 @@ export default function NodeLearn() {
         if (ci > exemplarMax) exemplarMax = ci;
       }
     }
-    const n = Math.max(liveClusterRates.length, exemplarMax + 1, 4);
+    const n = Math.max(exemplarMax + 1, 0);
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode, liveClusterRates.length]);
+  }, [exemplars, inputMode]);
 
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
@@ -617,6 +617,14 @@ export default function NodeLearn() {
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
           <div className="snn-pipeline-cluster-list">
+            {/* Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
+                empty placeholder (사용자 mental model "cluster 0개 시작" 정합). */}
+            {clusterLabels.length === 0 && (
+              <div className="snn-pipeline-cluster-row snn-pipeline-cluster-row--empty">
+                <span className="snn-pipeline-cluster-label">아직 학습된 패턴 0</span>
+                <span className="snn-pipeline-cluster-count snn-pipeline-mono">—</span>
+              </div>
+            )}
             {Array.from({ length: clusterLabels.length }, (_, i) => i).map((i) => {
               // PR-K (Phase 4, 2026-05-09): dynamic cluster length —
               // effectiveClusterFrames 영역 base 4 cluster (n13 default) 영역
@@ -759,6 +767,8 @@ function LiveLearnPanel({
     );
   }
   const max = Math.max(...tick.rates, 1);
+  // Fix #19 (2026-05-10): winner stale 회피 — winner idx 영역 clusterLabels
+  // 영역 안 영역 cluster (학습 안 된 base 4) 영역 표시 안 영역 — null fallback.
   const winnerLabel = tick.winner >= 0 && tick.winner < clusterLabels.length
     ? clusterLabels[tick.winner]
     : null;
@@ -812,14 +822,20 @@ function LiveLearnPanel({
         )}
       </div>
       <div className="snn-pipeline-cluster-list">
-        {/* PR-K (Phase 4 + Phase 5): dynamic cluster bar — tick.rates length
-            영역 ART expansion 시점 영역 신규 cluster 표시. fresh state 영역
-            cluster bar 영역 hide (winner emerge misleading 회피). */}
-        {!hideWinner && tick.rates.map((rate, i) => (
+        {/* Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
+            empty placeholder. tick.rates 영역 base 4 default 영역 firing
+            영역 안 영역 cluster 영역 표시 회피 — clusterLabels 영역 source. */}
+        {!hideWinner && clusterLabels.length === 0 && (
+          <div className="snn-pipeline-cluster-row snn-pipeline-cluster-row--empty">
+            <span className="snn-pipeline-cluster-label">아직 학습된 패턴 0</span>
+            <span className="snn-pipeline-cluster-count snn-pipeline-mono">—</span>
+          </div>
+        )}
+        {!hideWinner && clusterLabels.map((label, i) => (
           <LiveRateRow
             key={i}
-            label={clusterLabels[i] ?? `패턴 ${i + 1}`}
-            rate={rate}
+            label={label}
+            rate={tick.rates[i] ?? 0}
             max={max}
             isWinner={tick.winner === i}
           />

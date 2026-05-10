@@ -260,3 +260,60 @@ export function disposeRootLocalSnn(kind?: SubstrateKind): void {
   }
   _lastInitState.delete(kind);
 }
+
+// 사용자 catch 2026-05-10 (Request C): 학습 데이터 전체 삭제 — IndexedDB
+// 영역 모든 substrate (orientation + gesture) 영속 weight 영역 wipe + cache
+// 영역 dispose + localStorage handface.* keys 영역 wipe. caller (GridInput
+// 학습 reset button 영역 전 path) 영역 worker resetClusterWeights 영역 별도
+// 호출 — 본 helper 영역 영속 (DB) layer 영역만 catch.
+//
+// 사용자 명시 "학습 데이터 전체 삭제 (DB)" + "default 학습 데이터 폐기" —
+// 영속 영역 wipe + 다음 mount 영역 fresh build (zero-init).
+export async function purgeAllLearningData(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  // Step 1: cache 영역 dispose — worker / lab 영역 stale 영역 회피.
+  disposeRootLocalSnn();
+  // Step 2: IndexedDB 영역 모든 substrate 영역 wipe — 직접 IndexedDBSink
+  // instance 영역 생성 영역 remove(netId).
+  try {
+    const sink = new IndexedDBSink();
+    for (const kind of ['orientation', 'gesture'] as const) {
+      try {
+        await sink.remove(netIdFor(kind));
+      } catch (e) {
+        console.warn(`[purgeAllLearningData] IndexedDB remove ${kind} failed:`, e);
+      }
+    }
+    await sink.close();
+  } catch (e) {
+    console.warn('[purgeAllLearningData] IndexedDB sink creation failed:', e);
+  }
+  // Step 3: localStorage handface.* 영역 wipe (out-exemplars + vigilance 등).
+  // migration flag 영역 보존 (재진입 영역 재migration 영역 noise 회피).
+  try {
+    const PRESERVE = new Set([
+      'handface.migration.indexeddb',
+      'handface.migration.out-exemplars-substrate-split.v1',
+    ]);
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith('handface.') && !PRESERVE.has(k)) {
+        keysToRemove.push(k);
+      }
+    }
+    for (const k of keysToRemove) {
+      window.localStorage.removeItem(k);
+    }
+  } catch (e) {
+    console.warn('[purgeAllLearningData] localStorage wipe failed:', e);
+  }
+  // Step 4: out-exemplars 영역 substrate 별 dispatch — UI 영역 즉시 0 row.
+  try {
+    for (const kind of ['orientation', 'gesture'] as const) {
+      window.dispatchEvent(new CustomEvent(`handface:out-exemplars-changed:${kind}`, { detail: {} }));
+    }
+  } catch {
+    // ignore
+  }
+}

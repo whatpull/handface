@@ -18,15 +18,18 @@ import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInf
 import { showToast } from '@/components/ui/Toast';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
-import { getRootLocalSnnFor } from '@/lib/snn/root-local-snn';
+import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars, loadExemplars } from '@/lib/snn/out-exemplars';
 import { resolveClusterLabel } from './shared';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — 추론
 // 영역 winner margin < threshold 시점 영역 자동 expansion + 30 trial chunked
-// reinforce. Carpenter & Grossberg 1987 ART vigilance 영역 정합 — 0.15 영역
-// 보수적 threshold (margin meter 영역 0.10 영역 별도 — 본 영역 unsupervised
-// auto-learn trigger 영역 보다 높은 신뢰 영역 catch).
-const ART_VIGILANCE_THRESHOLD = 0.15;
+// reinforce. Carpenter & Grossberg 1987 ART vigilance 영역 정합.
+// Fix #19 (사용자 catch 2026-05-10): 0.15 → 0.7 — 사용자 명시 zero-init +
+// "동일 패턴 자동 강화" + "신규 패턴 자동 형성" 정합 path 영역 strict
+// vigilance 영역 첫 입력 영역 항상 novel → cluster 1 spawn. 직전 0.15 영역
+// 너무 관대 영역 base 4 substrate 영역 random winner 영역 familiar 판정 →
+// 신규 cluster spawn 영역 안 영역 root cause. backend default 0.7 정합.
+const ART_VIGILANCE_THRESHOLD = 0.7;
 
 // 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
 // only 영역 일관 정합. 직전 '─ horizontal' / '│ vertical' / '╲ diag-back' /
@@ -215,33 +218,55 @@ export default function GridInput() {
   //   4. lab.save() — fresh weights 영역 영속 (다음 reload 영역 stale lock-in 0).
   // substrate isolation — 'orientation' 영역만 reset (PR-G 영역 정합) — 'gesture'
   // 영역 별도 LocalSNN + 별도 IndexedDB store 영역 보존.
+  // 사용자 catch 2026-05-10 (Request C): "학습 데이터 전체 삭제 (DB)" + "default
+  // 학습 데이터 폐기" — 직전 path 영역 worker resetClusterWeights + lab.save
+  // 영역 영속 (IndexedDB) 영역 stale snapshot 영역 잔여 catch (사용자 catch:
+  // "학습되지 않았는데 자동으로 패턴1, 패턴2, 패턴3, 패턴4가 추론"). 정정 path:
+  //   1. purgeAllLearningData — IndexedDB 양 substrate wipe + cache dispose +
+  //      localStorage handface.* (출력 라벨 / vigilance / migration 외) wipe.
+  //   2. UI count 영역 substrate 양쪽 clear (사용자 명시 "전체 삭제").
+  //   3. fresh substrate rebuild trigger (다음 mount 영역 zero-init).
+  //   4. live state-clear + reload prompt (worker 영역 영속 cache 영역 mount-time
+  //      영역 fresh — 페이지 reload 영역 가장 안전 path).
   const resetLearningLive = useCallback(async () => {
     if (engineMode !== 'live') return;
     if (typeof window !== 'undefined') {
       const confirmed = window.confirm(
-        '학습 가중치 + 학습 횟수 + 추론 결과 영역 모두 reset 하시겠습니까?\n\n양 substrate (GRID/CAMERA) 영역 별도 학습 weight 영역 완벽 분리 — reset 영역 현재 GRID(orientation) substrate 영역만 적용. CAMERA(gesture) 학습 영역 보존.',
+        '학습 데이터 전체 삭제\n\n양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
       );
       if (!confirmed) return;
     }
     setStatus({ kind: 'building' });
     try {
-      const root = await getRootLocalSnnFor('orientation');
-      // Step 1: worker fresh build — net.t / synapses / thresholds / monitor 모두 0.
-      await root.client.resetClusterWeights();
-      // Step 2: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+      // Step 1: LiveSnn state-clear — trial/lastWinner/patternRef 0.
       try {
         getLiveSnn().resetTrigger();
       } catch {
         // SSR / 미초기화 — 무시.
       }
-      // Step 3: UI count 영역 substrate-aware clear (PR-G 영역 보존).
+      // Step 2: 영속 (IndexedDB) + cache + localStorage 영역 wipe.
+      await purgeAllLearningData();
+      // Step 3: UI count 영역 양 substrate 영역 clear (사용자 명시 전체 삭제).
       clearExemplars('orientation');
-      // Step 4: fresh weights 영역 영속 — saveDebounced 우회 직접 lab.save.
-      await root.lab.save();
-      setStatus({ kind: 'ok', message: '학습 가중치 · trial · 추론 결과 모두 reset 완료' });
+      clearExemplars('gesture');
+      setStatus({
+        kind: 'ok',
+        message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
+      });
+      // Step 4: 다음 mount 영역 fresh build — page reload 영역 가장 안전 path.
+      // 사용자 명시 confirm 후 1500ms delay 영역 reload (status message visibility).
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          try {
+            window.location.reload();
+          } catch {
+            // ignore
+          }
+        }, 1500);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `학습 reset 실패: ${msg}` });
+      setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
     }
   }, [engineMode]);
 
@@ -373,24 +398,25 @@ export default function GridInput() {
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
 
     if (noveltyMode) {
-      // ART vigilance path — _grow_cluster auto spawn (backend max_clusters cap 64).
-      const r = await getClient().clusterVigilance(grid, {
+      // Fix #19 (사용자 catch 2026-05-10): auto train-or-spawn 영역 단일 path —
+      // vigilance miss → spawn + N회 R-STDP, vigilance pass → 동일 cluster
+      // N회 R-STDP. 사용자 명시 "추론시 자동 학습" + "동일 패턴 자동 강화" 정합.
+      const r = await getClient().clusterAutoTrainOrSpawn(grid, {
         vigilanceThreshold: vigilance,
+        trainIterations: 30,
       });
       if (r.ok) {
         const cluster = r.data.cluster_idx;
-        // Audit Fix #8 (2026-05-10): backend vigilance 영역 cluster_idx 0..63
-        // (max_clusters cap) 영역 정합 — 직전 `0..3` cap 영역 silent drop 영역
-        // 신규 cluster spawn (cluster_idx ≥ 4) 영역 winnerCluster=null 영역 거짓
-        // idle. dynamic cap — Number.isInteger + non-negative 영역 forward.
         const winnerCluster = Number.isInteger(cluster) && cluster >= 0
           ? cluster
           : null;
         const action = r.data.action;
-        const novelLabel = r.data.is_novel ? ` · 신규 cluster ${cluster + 1}` : '';
+        const actionLabel = action === 'spawned'
+          ? `신규 cluster ${cluster + 1} 형성`
+          : `cluster ${cluster + 1} 강화`;
         setStatus({
           kind: 'ok',
-          message: `추론 완료 (${action}${novelLabel})`,
+          message: `${actionLabel} (${r.data.train_iterations}회 학습)`,
         });
         emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });
       } else {

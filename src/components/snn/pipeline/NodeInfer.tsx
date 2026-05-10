@@ -40,8 +40,10 @@ export default function NodeInfer() {
     setExemplars(loadExemplars(substrate));
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
+  // Fix #19 (사용자 catch 2026-05-10): zero-init — 학습된 cluster 영역만 표시.
+  // 직전 base 4 영역 무학습 시점 영역 stale '패턴 1..4' 영역 표시.
   const clusterLabels = useMemo(() => {
-    let n = 4;
+    let n = 0;
     for (const k of Object.keys(exemplars)) {
       const m = /^out_(\d+)_\d+$/.exec(k);
       if (m) {
@@ -125,7 +127,9 @@ export default function NodeInfer() {
   const max = Math.max(...winner.clusterRates, 1);
   // PR-K (사용자 catch 2026-05-09 catch 2): generic '패턴 N' label + 사용자
   // 명명 우선 (resolveClusterLabel 영역 clusterLabels 영역 derive 정합).
-  const winnerLabel = winner.cluster !== null
+  // Fix #19 (2026-05-10): clusterLabels.length 영역 zero 일부 winner 영역 stale
+  // 표시 회피 — winner.cluster >= length 영역 null fallback (학습 안 된 cluster).
+  const winnerLabel = winner.cluster !== null && winner.cluster < clusterLabels.length
     ? (clusterLabels[winner.cluster] ?? `패턴 ${winner.cluster + 1}`)
     : null;
   const confPct = (winner.confidence * 100).toFixed(0);
@@ -209,13 +213,23 @@ export default function NodeInfer() {
         </div>
       )}
       {/* PR-K (Phase 5): fresh state 영역 winner row + margin + cluster bars
-          영역 hide — winner emerge misleading 회피 (사용자 catch 3). */}
-      {!isFreshUntrained && (
+          영역 hide — winner emerge misleading 회피 (사용자 catch 3).
+          Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
+          학습 0 영역 cluster bar / winner row 영역 hide ('—' fallback). */}
+      {!isFreshUntrained && clusterLabels.length === 0 && (
+        <div className="snn-pipeline-current snn-pipeline-current--fresh">
+          <div className="snn-pipeline-current-label">아직 학습된 패턴 0</div>
+          <div className="snn-pipeline-current-hint">
+            패턴 입력 → 자동 학습 → cluster 1, 2, ..., N 순차 형성
+          </div>
+        </div>
+      )}
+      {!isFreshUntrained && clusterLabels.length > 0 && (
         <>
           <div className="snn-pipeline-row">
             <span className="snn-pipeline-row-label">winner</span>
             <span className="snn-pipeline-row-value">
-              {winner.cluster !== null
+              {winner.cluster !== null && winner.cluster < clusterLabels.length
                 ? (clusterLabels[winner.cluster] ?? `패턴 ${winner.cluster + 1}`)
                 : (winner.clusterRates.some((v) => v > 0) ? 'WTA tie' : '—')}
             </span>
@@ -223,13 +237,13 @@ export default function NodeInfer() {
           {/* 사용자 catch 2026-05-09 [3]: margin meter — Diehl & Cook 2015 winner
               stability indicator. (max - second) / max ≥ WINNER_MARGIN (default 0.10)
               영역 winner 인정 영역 dotted line 영역 시각 catch. */}
-          <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null} />
+          <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null && winner.cluster < clusterLabels.length} />
           <div className="snn-pipeline-rate-grid">
-            {/* PR-K (Phase 4): dynamic cluster length — winner.clusterRates
-                영역 ART expansion 시점 영역 신규 cluster 영역 표시. */}
-            {winner.clusterRates.map((r, i) => (
-              <RateBar key={i} label={clusterLabels[i] ?? `패턴 ${i + 1}`} rate={r} max={max}
-                isWinner={winner.cluster === i} isSaturated={r >= SATURATION_HZ} />
+            {/* Fix #19 (2026-05-10): 학습된 cluster 영역만 cluster bar 영역 표시.
+                clusterLabels.length 영역 dynamic — base 4 floor 폐기. */}
+            {clusterLabels.map((label, i) => (
+              <RateBar key={i} label={label} rate={winner.clusterRates[i] ?? 0} max={max}
+                isWinner={winner.cluster === i} isSaturated={(winner.clusterRates[i] ?? 0) >= SATURATION_HZ} />
             ))}
           </div>
           <div className="snn-pipeline-row">

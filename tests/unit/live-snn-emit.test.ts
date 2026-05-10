@@ -55,6 +55,8 @@ const mocks = vi.hoisted(() => {
     region: 'V1' as const,
     hz: 0,
     neuronCount: 0,
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount field 추가.
+    firingCount: 0,
   }));
   const eventListeners = new Map<string, Array<(d: unknown) => void>>();
   const onBackendEvent = vi.fn((name: string, handler: (d: unknown) => void) => {
@@ -124,6 +126,9 @@ interface NeuronFiringDetailLite {
   cluster_rates?: number[];
   winner_cluster?: number | null;
   rates_by_region?: Record<string, number>;
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): NodeLearn V1/V2 strip
+  // 영역 firing count 영역 source — placeholder array length 영역 catch.
+  active_neurons_by_region?: Record<string, string[]>;
 }
 
 // default cluster firing 영역 winner=0 (default mock impl) — each test 영역
@@ -155,6 +160,8 @@ beforeEach(() => {
     region: 'V1' as const,
     hz: 0,
     neuronCount: 0,
+    // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount field 추가.
+    firingCount: 0,
   });
   mocks.emittedEvents.length = 0;
   mocks.eventListeners.clear();
@@ -382,6 +389,82 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2); // 1 + 1
+    snn.dispose();
+  });
+
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix):
+  //   증상 — V1 0/128, V2 0/72 firing count 0 고정 (rate ~241Hz 정상 단 count 0).
+  //   root cause — emitTick 영역 active_neurons_by_region 영역 미동봉.
+  //   정정 — RegionFiringRatesResult.firingCount 영역 추가 + emit 영역 placeholder
+  //   array length 영역 동봉 → NodeLearn (byActive[region]||[]).length 영역 정합.
+  it('FC1: emit 영역 active_neurons_by_region 영역 동봉 (V1/V2 firing count 영역 source)', async () => {
+    // mock — V1: 64 neuron firing, V2: 36 neuron firing (사용자 시나리오 정합).
+    // mockResolvedValueOnce 영역 region literal 영역 default factory ('V1' const)
+    // 영역 union catch 0 — 'V2' 영역 'V1' as const cast (test mock 영역 region
+    // 영역 검증 영역 영역 영역 — UI 영역 firingCount length 영역 read).
+    mocks.mockRegionFiringRates
+      .mockResolvedValueOnce({ region: 'V1' as const, hz: 241, neuronCount: 128, firingCount: 64 })
+      .mockResolvedValueOnce({ region: 'V2' as 'V1', hz: 241, neuronCount: 72, firingCount: 36 });
+    const snn = new LiveSnn();
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await snn.triggerOnce();
+
+    const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
+    expect(firing).toBeDefined();
+    const detail = firing!.detail as NeuronFiringDetailLite;
+    // active_neurons_by_region 영역 placeholder array — length 영역 firingCount 정합.
+    expect(detail.active_neurons_by_region).toBeDefined();
+    expect(detail.active_neurons_by_region!.V1).toBeDefined();
+    expect(detail.active_neurons_by_region!.V2).toBeDefined();
+    // NodeLearn 영역 (byActive[region] || []).length 영역 read path 정합 — length only.
+    expect(detail.active_neurons_by_region!.V1.length).toBe(64);
+    expect(detail.active_neurons_by_region!.V2.length).toBe(36);
+    snn.dispose();
+  });
+
+  it('FC2: silent (pattern 영역 0) 영역 active_neurons_by_region 영역 empty array', async () => {
+    // pattern silent 영역 RPC 결과 무관 영역 emit empty (idle catch).
+    mocks.mockRegionFiringRates.mockResolvedValue({
+      region: 'V1',
+      hz: 0,
+      neuronCount: 128,
+      firingCount: 0,
+    });
+    mocks.mockClusterFiringRates.mockResolvedValue({
+      rates: [0, 0, 0, 0],
+      winner: -1,
+      share: 0,
+      margin: 0,
+      total: 0,
+      windowMs: 30,
+      layer: 'OUT',
+    });
+    const snn = new LiveSnn();
+    snn.setPattern(new Array(16).fill(0));
+    await snn.triggerOnce();
+
+    const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
+    expect(firing).toBeDefined();
+    const detail = firing!.detail as NeuronFiringDetailLite;
+    // patternActive=false 영역 V1/V2 영역 empty array (NodeLearn 영역 0/N 표시).
+    expect(detail.active_neurons_by_region!.V1).toEqual([]);
+    expect(detail.active_neurons_by_region!.V2).toEqual([]);
+    snn.dispose();
+  });
+
+  it('FC3: regionFiringRates RPC fail 영역 firingCount=0 fallback (NodeLearn 0/N 정직 표시)', async () => {
+    // mock — 첫 호출 fail.
+    mocks.mockRegionFiringRates.mockRejectedValue(new Error('RPC fail'));
+    const snn = new LiveSnn();
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await snn.triggerOnce();
+
+    const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
+    expect(firing).toBeDefined();
+    const detail = firing!.detail as NeuronFiringDetailLite;
+    // RPC fail 영역 v1FireCount=0 영역 fallback — placeholder array empty.
+    expect(detail.active_neurons_by_region!.V1).toEqual([]);
+    expect(detail.active_neurons_by_region!.V2).toEqual([]);
     snn.dispose();
   });
 

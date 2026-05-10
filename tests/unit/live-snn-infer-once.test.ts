@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => {
     region: 'V1' as const,
     hz: 0,
     neuronCount: 0,
+    firingCount: 0,
   }));
   const mockIncrementCount = vi.fn();
   const emittedEvents: Array<{ name: string; detail: unknown }> = [];

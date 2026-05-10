@@ -164,6 +164,11 @@ export interface TriggerCompletePayload {
   cfr: ClusterFiringRatesResult;
   v1Hz: number;
   v2Hz: number;
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount catch —
+  // main thread 영역 emitTick 영역 active_neurons_by_region 영역 동봉 정합.
+  // backward compat: 미동봉 (legacy push payload) 영역 0 fallback.
+  v1FireCount?: number;
+  v2FireCount?: number;
   netTime: number;
 }
 
@@ -201,6 +206,9 @@ export interface ReinforceCompletePayload {
   cfr: ClusterFiringRatesResult;
   v1Hz: number;
   v2Hz: number;
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount catch (reinforce path).
+  v1FireCount?: number;
+  v2FireCount?: number;
   // R-STDP supervised batch 영역 결과 (worker-core handleClusterTrainRStdp 정합).
   trained: number;
   correct: number;
@@ -309,4 +317,9 @@ export interface RegionFiringRatesResult {
   // neuron count 영역 0 영역 0 반환.
   hz: number;
   neuronCount: number;
+  // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): hz>0 인 neuron 수 —
+  // NodeLearn V1/V2 region strip "firing/total" 표시 영역 source. 직전 본
+  // field 미존재 영역 emit 영역 active_neurons_by_region 0 → 0/N 고정 catch.
+  // count: 0 < firingRate(name, t, windowMs) 영역 neuron 수.
+  firingCount: number;
 }

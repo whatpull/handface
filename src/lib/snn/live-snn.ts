@@ -735,20 +735,23 @@ export class LiveSnn {
     // winner 영역 1회 only). 사용자 catch 2026-05-09 (broken state): Live grid
     // path 영역 OUT count 0 잔존 → 직접 incrementCount.
     //
-    // QA FINDING-2 fix (2026-05-10): cluster broadcast supervisor 영역 정합 catch
-    // 영역 8 OUT 영역 모두 increment (out_${winner}_0 ~ out_${winner}_7). 직전
-    // sole `out_${winner}_0` 영역 7 OUT 영원 idle → NodeOut 영역 sumClusterCount
-    // 영역 비례 mismatch (helper 영역 8 OUT 합산 영역 catch — node-out-cluster-count.test
-    // 영역 정합). 사용자 catch ("엉망 추론") 영역 visual root 영역 정합. 학술
-    // 정합: cluster 영역 winner-take-all 영역 8 OUT 영역 sub-cluster 영역
-    // population code 영역 catch (n13 builder OUT cluster 내부 mutual excitation
-    // 정합 — 1 winner 영역 8 OUT 영역 모두 fire 정합 trend).
+    // PR-E (사용자 catch 2026-05-09 "한번 추론에 8개씩 증가"): UI semantic 정합
+    // 영역 trial counter 영역 1회 추론 영역 cluster +1 영역 자연. 직전 PR #194
+    // 영역 8 OUT broadcast loop 영역 cluster broadcast supervisor 영역 weight
+    // learning path 영역 정합 영역 의도 영역 — UI exemplar count 영역 별도 path
+    // 영역 trial-counter semantic 영역 mismatch (1 trigger → +8 cluster count).
+    // 정정: cluster representative neuron (out_${winner}_0) 영역 단일 increment
+    // 영역 trial-counter semantic 영역 정합. NodeOut 영역 sumClusterCount helper
+    // 영역 8 OUT 합산 영역 — 1 representative neuron 영역 trial 횟수 영역 정합.
+    //
+    // 정직 한계: backend STDP weight update path 영역 cluster broadcast supervisor
+    // 영역 8 OUT 영역 보존 (worker-core.ts handleClusterTrainRStdp 영역 학습 path)
+    // — 본 정정 영역 UI exemplar count 영역 단일 path 영역 별도 catch.
     if (cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
       this.lastWinnerCluster = cfr.winner;
       const featSnap = this.patternRef.slice();
-      for (let ni = 0; ni < 8; ni += 1) {
-        incrementCount(`out_${cfr.winner}_${ni}`, featSnap);
-      }
+      // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
+      incrementCount(`out_${cfr.winner}_0`, featSnap);
     } else if (cfr.winner < 0) {
       this.lastWinnerCluster = -1;
     }

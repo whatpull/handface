@@ -1,18 +1,24 @@
-// QA FINDING-2 fix (2026-05-10): emitTick 영역 8 OUT 영역 모두 increment 검증.
+// PR-E (사용자 catch 2026-05-09 "한번 추론에 8개씩 증가"): emitTick 영역
+// 단일 representative neuron 영역 increment 검증.
 //
-// 사용자 catch 2026-05-09 ("현제 추론 결과 엉망"):
-// 직전 emitTick 영역 sole `out_${winner}_0` 영역 incrementCount → cluster 영역 8
-// OUT (out_${ci}_0 ~ out_${ci}_7) 중 7 OUT 영원 idle → NodeOut 영역 sumClusterCount
-// 비례 mismatch → "엉망 추론" visual root.
+// 직전 PR #194 (QA FINDING-2): cluster broadcast supervisor 정합 영역 8 OUT
+// 모두 increment — backend weight learning semantic 영역 정합 의도 영역 — UI
+// exemplar count 영역 별도 path 영역 trial-counter semantic 영역 mismatch
+// (1 trigger → +8 cluster count). 사용자 catch 영역 visual root 영역 정합.
 //
-// 정정: cluster 영역 8 OUT 영역 모두 increment — node-out-cluster-count 영역
-// sumClusterCount helper (8 OUT 합산) 영역 정합 + cluster broadcast supervisor 정합.
+// 정정 (PR-E): cluster representative neuron (out_${winner}_0) 영역 단일
+// increment 영역 trial-counter UI semantic 정합. NodeOut 영역 sumClusterCount
+// helper 영역 8 OUT 합산 영역 — 1 representative 영역 trial 횟수 정합.
 //
-// O1: triggerOnce 영역 winner=0 → out_0_0 ~ out_0_7 영역 8회 increment.
-// O2: 동일 winner 연속 — idempotent (call count 8 유지, lastWinner gate).
-// O3: winner 변경 — 새 cluster 영역 8 OUT 영역 추가 (총 16).
+// 정직 한계: backend STDP weight update path 영역 worker-core.ts
+// handleClusterTrainRStdp 영역 8 OUT 영역 보존 — 본 정정 영역 UI count path 영역
+// 단일 catch.
+//
+// O1: triggerOnce 영역 winner=0 → out_0_0 영역 1회 increment.
+// O2: 동일 winner 연속 — idempotent (call count 1 유지, lastWinner gate).
+// O3: winner 변경 — 새 cluster 영역 representative 영역 추가 (총 2).
 // O4: silent (winner=-1) — increment 호출 0.
-// O5: feature snapshot 영역 모든 increment 호출 영역 동일 array (lastFeature 정합).
+// O5: feature snapshot 영역 increment 호출 영역 동일 array (lastFeature 정합).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -105,37 +111,35 @@ afterEach(() => {
   // noop — 각 test 영역 dispose.
 });
 
-describe('LiveSnn — 8 OUT broadcast incrementCount (QA FINDING-2 2026-05-10)', () => {
-  it('O1: winner=0 → out_0_0 ~ out_0_7 영역 8회 increment (cluster broadcast supervisor 정합)', async () => {
+describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-09)', () => {
+  it('O1: winner=0 → out_0_0 영역 1회 increment (trial-counter UI semantic)', async () => {
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
-    for (let ni = 0; ni < 8; ni += 1) {
-      expect(mocks.mockIncrementCount).toHaveBeenCalledWith(`out_0_${ni}`, expect.any(Array));
-    }
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', expect.any(Array));
     snn.dispose();
   });
 
-  it('O2: 동일 winner 연속 — lastWinner gate 영역 idempotent (call count 8 유지)', async () => {
+  it('O2: 동일 winner 연속 — lastWinner gate 영역 idempotent (call count 1 유지)', async () => {
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     snn.dispose();
   });
 
-  it('O3: winner 변경 — 새 cluster 영역 8 OUT 추가 (총 16)', async () => {
+  it('O3: winner 변경 — 새 cluster 영역 representative 추가 (총 2)', async () => {
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
-    // winner 변경 → cluster 1 영역 8 OUT 추가.
+    // winner 변경 → cluster 1 영역 representative 추가.
     mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [0, 12, 0, 0],
       winner: 1,
@@ -144,10 +148,8 @@ describe('LiveSnn — 8 OUT broadcast incrementCount (QA FINDING-2 2026-05-10)',
       layer: 'OUT',
     });
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(16);
-    for (let ni = 0; ni < 8; ni += 1) {
-      expect(mocks.mockIncrementCount).toHaveBeenCalledWith(`out_1_${ni}`, expect.any(Array));
-    }
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', expect.any(Array));
     snn.dispose();
   });
 
@@ -155,7 +157,7 @@ describe('LiveSnn — 8 OUT broadcast incrementCount (QA FINDING-2 2026-05-10)',
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
     // silent — increment 0.
     mocks.mockClusterFiringRates.mockResolvedValue({
@@ -167,21 +169,18 @@ describe('LiveSnn — 8 OUT broadcast incrementCount (QA FINDING-2 2026-05-10)',
     });
     snn.setPattern(new Array(16).fill(0));
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8); // 미증가.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 미증가.
     snn.dispose();
   });
 
-  it('O5: feature snapshot 영역 모든 8회 increment 영역 동일 array (lastFeature 정합)', async () => {
+  it('O5: feature snapshot 영역 increment 호출 영역 동일 array (lastFeature 정합)', async () => {
     const snn = new LiveSnn();
     const pattern = [1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
     snn.setPattern(pattern);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
-    // 모든 호출 영역 동일 16-dim feature snapshot 영역 catch.
-    for (const call of mocks.mockIncrementCount.mock.calls) {
-      const [, feature] = call;
-      expect(feature).toEqual(pattern);
-    }
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    const [, feature] = mocks.mockIncrementCount.mock.calls[0];
+    expect(feature).toEqual(pattern);
     snn.dispose();
   });
 });

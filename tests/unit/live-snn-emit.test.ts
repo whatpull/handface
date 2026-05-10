@@ -313,26 +313,24 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     snn.dispose();
   });
 
-  it('C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회 batch)', async () => {
-    // QA FINDING-2 fix (2026-05-10): cluster broadcast supervisor 정합 영역
-    // 8 OUT 영역 모두 increment (out_${winner}_0 ~ out_${winner}_7). 직전
-    // sole `out_${winner}_0` 영역 7 OUT 영원 idle → NodeOut 영역 sumClusterCount
-    // 비례 mismatch root cause.
+  it('C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회 only)', async () => {
+    // PR-E (사용자 catch 2026-05-09 "한번 추론에 8개씩 증가"): trial-counter UI
+    // semantic 정합 영역 cluster representative neuron (out_${winner}_0) 영역
+    // 단일 increment. 직전 PR #194 영역 8 OUT broadcast 영역 backend weight
+    // learning path 영역 정합 — 본 path 영역 UI exemplar count 영역 별도.
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-    // trigger 1: winner=0 (mock default) → 8 OUT 모두 increment.
+    // trigger 1: winner=0 (mock default) → out_0_0 영역 1회 increment.
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
-    for (let ni = 0; ni < 8; ni += 1) {
-      expect(mocks.mockIncrementCount).toHaveBeenCalledWith(`out_0_${ni}`, expect.any(Array));
-    }
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', expect.any(Array));
 
-    // trigger 2: winner 동일 (0) — idempotent (call count 8 유지).
+    // trigger 2: winner 동일 (0) — idempotent (call count 1 유지).
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
-    // trigger 3: winner 변경 → 새 8 OUT increment (out_1_0 ~ out_1_7).
+    // trigger 3: winner 변경 → 새 representative (out_1_0) 추가.
     mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [0, 12, 0, 0],
       winner: 1,
@@ -343,19 +341,17 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
       layer: 'OUT',
     });
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(16); // 8 + 8
-    for (let ni = 0; ni < 8; ni += 1) {
-      expect(mocks.mockIncrementCount).toHaveBeenCalledWith(`out_1_${ni}`, expect.any(Array));
-    }
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2); // 1 + 1
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', expect.any(Array));
     snn.dispose();
   });
 
   it('C4: winner=-1 (silent) 시점 영역 incrementCount 호출 0 + lastWinner reset', async () => {
     const snn = new LiveSnn();
-    // trigger 1: winner=0 → 8 OUT 모두 increment.
+    // trigger 1: winner=0 → out_0_0 영역 1회 increment.
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
     // trigger 2: silent (winner=-1).
     mocks.mockClusterFiringRates.mockResolvedValue({
@@ -369,10 +365,10 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     });
     snn.setPattern(new Array(16).fill(0));
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(8); // 미증가.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 미증가.
 
     // trigger 3: 동일 cluster (0) 재winner — silent 후 영역 lastWinner reset 영역
-    // 동일 cluster 영역 새 trigger 정합 → 8 OUT 추가.
+    // 동일 cluster 영역 새 trigger 정합 → representative 추가.
     mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [12, 0, 0, 0],
       winner: 0,
@@ -384,7 +380,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     });
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(16); // 8 + 8
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2); // 1 + 1
     snn.dispose();
   });
 

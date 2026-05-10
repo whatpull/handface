@@ -45,6 +45,7 @@ import {
   GESTURE_CONFIDENCE_MIN,
   GESTURE_STABLE_FRAMES,
 } from '@/lib/snn/use-hand-control';
+import { usePipelineEvents } from './PipelineEventContext';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — GridInput
 // 영역 동일 정합 (Carpenter & Grossberg 1987).
 const ART_VIGILANCE_THRESHOLD = 0.15;
@@ -70,6 +71,17 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   useEffect(() => {
     engineModeRef.current = engineMode;
   }, [engineMode]);
+
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): auto-learn 진행 중
+  // 영역 hand-feature event 자동 trigger 차단 — runAutoLearnLoop 영역 30회
+  // R-STDP 진행 중 영역 추론 (triggerWithVigilance) 호출 시 race + winner
+  // unreliable. ref pattern 영역 hand-feature listener (useEffect [] deps)
+  // closure 영역 stale 회피.
+  const { isAutoLearning } = usePipelineEvents();
+  const isAutoLearningRef = useRef(isAutoLearning);
+  useEffect(() => {
+    isAutoLearningRef.current = isAutoLearning;
+  }, [isAutoLearning]);
 
   // event-driven 1-shot pivot (사용자 catch 2026-05-09 B): stable 자세 threshold
   // 영역 trigger gating. 직전 (A) 영역 background loop 200ms tick 영역 setPattern
@@ -117,7 +129,12 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
           gScore >= GESTURE_CONFIDENCE_MIN &&
           stableCountRef.current >= GESTURE_STABLE_FRAMES &&
           mappedCluster !== null &&
-          lastStableClusterRef.current !== mappedCluster
+          lastStableClusterRef.current !== mappedCluster &&
+          // 사용자 catch 2026-05-10 (block-infer-during-learn): auto-learn 진행
+          // 중 영역 자동 trigger skip — race condition 회피 + winner unreliable
+          // 사용자 catch. lastStableClusterRef 영역 update 0 (학습 완료 후 동일
+          // 자세 영역 stable 영역 다시 trigger 영역 fresh path).
+          !isAutoLearningRef.current
         ) {
           lastStableClusterRef.current = mappedCluster;
           try {
@@ -273,12 +290,26 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }, [engineMode]);
 
-  const isBusy = status.kind === 'building' || status.kind === 'inferring';
+  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
+  // isBusy 영역 합산 — 학습 reset button 영역 동시 disable (race 회피).
+  const isBusy = status.kind === 'building' || status.kind === 'inferring' || isAutoLearning;
 
   // UX Polish PR1 Fix 4 (HIGH [H4], 2026-05-09): 🔴 emoji 영역 screen reader
   //   노이즈 catch — semantic Tailwind red-dot + aria-hidden 영역 swap.
   //   statusLine 영역 string → ReactNode (Live idle 케이스 dot 동봉).
   const statusLine = useMemo(() => {
+    // 사용자 catch 2026-05-10 (block-infer-during-learn): 학습 진행 중 영역
+    // statusLine 영역 우선 override — idle / ok 영역 'LIVE 자세를 취하세요'
+    // 영역 misleading (실 상태 영역 학습 중). status.kind === 'building' /
+    // 'inferring' / 'error' 영역 보존 (학습 reset / explicit error 우선).
+    if (isAutoLearning && status.kind !== 'building' && status.kind !== 'error') {
+      return (
+        <>
+          <span className="snn-grid-status-msg">학습 중 — 추론 대기</span>
+          <small className="snn-grid-status-hint">신규 패턴 30회 학습 진행 중 — 완료 후 추론 사실</small>
+        </>
+      );
+    }
     switch (status.kind) {
       case 'idle':
         if (isLiveMode) {
@@ -306,7 +337,7 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
           : status.message;
       case 'error': return status.message;
     }
-  }, [status, cameraConnected, isLiveMode]);
+  }, [status, cameraConnected, isLiveMode, isAutoLearning]);
 
   return (
     <div className="snn-grid-input">

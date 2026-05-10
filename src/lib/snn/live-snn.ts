@@ -128,6 +128,12 @@ export class LiveSnn {
   // (Number.NEGATIVE_INFINITY 영역 sinceLast >> SAVE_THROTTLE_MS 보장).
   private _lastSaveAtMs = Number.NEGATIVE_INFINITY;
   private _saveTrailingTimer: ReturnType<typeof setTimeout> | null = null;
+  // 사용자 catch 2026-05-10 (CRITICAL — console spam 100+):
+  //   "콘솔 로그 처리해주세요 안나오게" — save fail 영역 매 frame 누적 spam
+  //   회피. Set 영역 message dedup — 같은 error message 영역 1회만 console.warn.
+  //   root cause fix (LocalSNN.save 영역 length drift catch) 영역 위 영역 safety
+  //   net — backend / sink 영역 신규 fail mode 영역 silent miss 회피 정합.
+  private _seenSaveErrors: Set<string> = new Set();
   // PR-B (Web Worker background offload, 2026-05-10): trial token + push handler.
   // trialToken 영역 monotonic seq — out-of-order push event 영역 latest-token-wins
   // discrimination. _unsubscribePush 영역 ensurePushHandler 영역 lazy bind 영역
@@ -395,7 +401,12 @@ export class LiveSnn {
         const trailingNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
         this._lastSaveAtMs = trailingNow;
         root.lab.save().catch((e) => {
-          console.warn('[LiveSnn] trailing save failed:', e);
+          // 사용자 catch 2026-05-10: console spam dedup (immediate path 정합).
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!this._seenSaveErrors.has(msg)) {
+            this._seenSaveErrors.add(msg);
+            console.warn('[LiveSnn] trailing save failed:', e);
+          }
         });
       }, remain);
       return false;
@@ -410,7 +421,14 @@ export class LiveSnn {
       await root.lab.save();
       return false;
     } catch (e) {
-      console.warn('[LiveSnn] save failed (in-memory weight 영역 update OK):', e);
+      // 사용자 catch 2026-05-10: console spam dedup — 같은 error message 영역
+      // 1회만 emit. root cause (LocalSNN.save 영역 length drift catch) 영역 본
+      // path 영역 0 도달 — 신규 fail mode 영역 silent miss 회피 영역 safety net.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!this._seenSaveErrors.has(msg)) {
+        this._seenSaveErrors.add(msg);
+        console.warn('[LiveSnn] save failed (in-memory weight 영역 update OK):', e);
+      }
       return true;
     }
   }

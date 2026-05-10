@@ -378,6 +378,42 @@
   font-weight: 700;
   color: var(--pipe-text);
 }
+/* 사용자 catch 2026-05-10 (Request D): zoom level indicator — PC ctrl+scroll
+   영역 visual feedback. .snn-pipeline 영역 absolute container 영역 sticky 대신
+   absolute (top-right corner) 영역 정합. zoom !== 1.0 시점 영역만 mount.
+   click 영역 reset to 100% (button 영역 cursor pointer + hover 영역 visual cue).
+   mobile (pointer: coarse) 영역 hidden — pinch zoom 영역 별도. */
+.snn-pipeline-zoom-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  padding: 4px 10px;
+  background: var(--pipe-surface);
+  border: 1px solid var(--pipe-border);
+  border-radius: 3px;
+  color: var(--pipe-text);
+  font-family: var(--pipe-font-mono, monospace);
+  font-size: var(--pipe-font-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  pointer-events: auto;
+}
+.snn-pipeline-zoom-indicator:hover {
+  background: var(--pipe-hover);
+  border-color: var(--pipe-border-strong);
+}
+.snn-pipeline-zoom-indicator:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  /* mobile pinch zoom 영역 별도 — indicator 영역 hidden (사용자 catch — PC 영역만). */
+  .snn-pipeline-zoom-indicator { display: none; }
+}
+
 .snn-pipeline-reset {
   position: sticky;
   left: calc(var(--stage-w, 1280px) - 140px);
@@ -422,6 +458,11 @@
     background-image: none;
     border: 0;
     overflow: visible;
+    /* 사용자 catch 2026-05-10 (Request A): mobile OUT 노드 영역 footer bar
+       사이 여백 — header bar 영역 INPUT 사이 gap (var(--pipe-gap-md), ≈12px)
+       정합. footer bar height ≈ 56px (44 min-height + py-2) → safety 72px
+       (12 + 60) 영역 OUT 노드 마지막 row 영역 footer 영역 시각 충돌 0. */
+    padding-bottom: 72px;
     /* mobile 영역 pan cursor 폐기 — touch scroll 정합. */
     cursor: auto;
     touch-action: auto;
@@ -556,15 +597,15 @@
     height: auto;
   }
   .snn-pipeline-node--input { max-height: none; }
-  /* PR-H 사용자 catch 2026-05-09: "모바일에서 아웃풋 노드의 아래 여백이 없음
-     풋터메뉴랑 붙음(스크롤 최하단시)" — vertical stack 마지막 OUT 노드 영역
-     scroll bottom 영역 MobileBottomBar 영역 시각 충돌 catch.
-     last-child 영역 visual breathing room 영역 24px (.snn-pipeline padding 48px
-     영역 누적 ≈ 72px ≥ MobileBottomBar (~64px) 영역 충분 여백). */
-  .snn-pipeline-flow > .snn-pipeline-node-wrap:last-child,
-  .snn-pipeline-flow > .snn-pipeline-node:last-child {
-    margin-bottom: 24px;
-  }
+  /* PR-H 사용자 catch 2026-05-09 + 사용자 catch 2026-05-10 (Request A):
+     "모바일 OUT 노드 마지막 row 영역 footer bar 영역 gap 0 — header bar 영역
+     INPUT 노드 사이 gap 영역 동일 spacing token mandatory". 직전 24px 영역
+     scroll bottom 시점 영역 시각 정합 0 catch. 본 정정 — last-child margin
+     영역 본격 폐기, 대신 .snn-pipeline-stage 영역 padding-bottom 영역 단일
+     source — scroll content 영역 padding 영역 robust catch (mobile Safari
+     영역 padding-bottom 영역 scroll content 영역 표시 정합).
+     stage 영역 mobile vertical flex 영역 stack — padding-bottom 영역 마지막
+     자식 (OUT) 영역 footer 사이 spacing 영역 정합. */
   .snn-pipeline-node-body {
     /* 사용자 명시: 노드 내부 스크롤 폐기 — 자체 height fit. */
     overflow: visible;
@@ -1619,11 +1660,17 @@
   cursor: not-allowed;
 }
 /* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): LIVE 안내 span 영역 static
-   variant — button 영역 일치 layout 영역 cursor / hover 영역 회피. */
+   variant — button 영역 일치 layout 영역 cursor / hover 영역 회피.
+   사용자 catch 2026-05-10 (font-size escalate): 11px (--pipe-font-xs) → 14px
+   영역 가독 정합 (안내 텍스트 영역 button 영역 다른 weight 영역 별도 escalate
+   안전 — --static modifier 영역 LIVE info 영역만 사용 사실 grep 정합). */
 .snn-grid-train-all-btn--static {
   cursor: default;
   border-style: dashed;
   opacity: 0.7;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 8px 12px;
 }
 .snn-grid-train-all-btn--static:hover {
   background: rgba(255, 255, 255, 0.06);

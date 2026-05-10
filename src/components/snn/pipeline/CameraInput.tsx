@@ -19,8 +19,17 @@
 //     agent 자율 판단 영역 backend mode 영역 trainGesture / runInfer path 영역
 //     모두 제거 (사용자 vision: Live primary 영역 backend 폐기 권장).
 //   - 영역 Live mode 영역 static pattern row 영역도 제거 (GridInput PR-L 정합).
-//   - 영역 stable-pose 자동 trigger (triggerWithVigilance) 영역 단일 path —
-//     사용자 액션 0 (자율 학습 + 새 cluster 자동 추가).
+//
+// PR (manual-trigger-paradigm, 사용자 catch 2026-05-10):
+//   - 영역 stable-pose 자동 triggerWithVigilance 영역 본격 폐기 — 직전 path
+//     영역 hand-feature event stream 영역 GESTURE_STABLE_FRAMES 충족 자동 학습
+//     trigger 영역 사용자 mental model 영역 path. 사용자 명시: "추론을 누르면
+//     학습하게 해주세요". 정정 path 영역 setPattern (worker buffer mirror) 영역
+//     보존 + 추론 button click 영역만 triggerWithVigilance 호출 영역 단일 trigger.
+//   - 영역 lastStableClusterRef / stableCountRef / lastGestureNameRef 영역 본격
+//     제거 — 자동 gating 영역 caller 0.
+//   - 영역 isAutoLearningRef 영역 button click handler 영역 read 영역 보존
+//     (학습 진행 중 영역 추론 button disable + click 영역 idempotent skip).
 //
 // cluster 매핑 (feature-encoder.ts 영역 정합 — 코드 reference comment):
 //   0 = Pointing (─ index 강조)
@@ -34,17 +43,13 @@ import {
   onBackendEvent,
   type HandFeatureDetail,
   type InputModeDetail,
+  type GridInferDetail,
 } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { sharpenForGesture } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
-import {
-  GESTURE_LABEL_TO_CLUSTER,
-  GESTURE_CONFIDENCE_MIN,
-  GESTURE_STABLE_FRAMES,
-} from '@/lib/snn/use-hand-control';
 import { usePipelineEvents } from './PipelineEventContext';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — GridInput
 // 영역 동일 정합 (Carpenter & Grossberg 1987).
@@ -83,78 +88,29 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     isAutoLearningRef.current = isAutoLearning;
   }, [isAutoLearning]);
 
-  // event-driven 1-shot pivot (사용자 catch 2026-05-09 B): stable 자세 threshold
-  // 영역 trigger gating. 직전 (A) 영역 background loop 200ms tick 영역 setPattern
-  // 만 push, 본 정정 영역 stable cluster 변경 영역 1회 triggerOnce.
-  //   - lastStableClusterRef: 직전 trigger cluster — 같은 cluster 영역 멱등 (재
-  //     trigger 0). 새 cluster stable 영역 새 trigger.
-  //   - hasHand=false 시점 영역 reset — 다음 동일 cluster stable 영역 새 trigger.
-  //   - GESTURE_LABEL_TO_CLUSTER 매핑 + conf >= GESTURE_CONFIDENCE_MIN +
-  //     stableCount >= GESTURE_STABLE_FRAMES 영역 동시 충족 영역만 trigger.
-  const lastStableClusterRef = useRef<number | null>(null);
-  const stableCountRef = useRef<number>(0);
-  const lastGestureNameRef = useRef<string | null>(null);
+  // PR (manual-trigger-paradigm, 2026-05-10): 자동 stable-pose trigger 영역 본격
+  // 폐기. 직전 path 영역 lastStableClusterRef / stableCountRef / lastGestureNameRef
+  // 영역 hand-feature stream 영역 GESTURE_STABLE_FRAMES 충족 영역 자동 학습 +
+  // 신규 cluster spawn 영역 trigger — 사용자 mental model 영역 path. 정정 path
+  // 영역 setPattern (worker buffer mirror) 영역만 보존 + 추론 button click 영역
+  // triggerWithVigilance 호출 영역 단일 trigger.
 
-  // hand-feature event listen → sharpened feature 보존.
+  // hand-feature event listen → sharpened feature 보존 + worker buffer mirror.
+  // 학습 / 추론 trigger 0 — runInferAuto callback (button click) 영역만 호출.
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
     if (d.hasHand && d.feature && d.feature.length >= 16) {
       const sharpened = sharpenForGesture(d.feature);
       lastFeatureRef.current = sharpened;
       if (engineModeRef.current === 'live') {
         try {
+          // worker pattern buffer mirror 영역만 — STDP / 추론 trigger 0.
           getLiveSnn().setPattern(sharpened);
         } catch {
           // SSR / live-snn 미초기화 — 무시.
         }
-        // event-driven 1-shot trigger gating.
-        const gName = d.gestureName ?? null;
-        const gScore = d.gestureScore ?? 0;
-        const mappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
-        const mappedCluster = mappable ? GESTURE_LABEL_TO_CLUSTER[gName!] : null;
-        // stable count 추적 — 본 컴포넌트 내부 cluster gating 정합 (NodeLearn
-        // teacher stable 영역 별도 path 영역 무관).
-        if (mappable && gScore >= GESTURE_CONFIDENCE_MIN) {
-          if (gName === lastGestureNameRef.current) {
-            stableCountRef.current = Math.min(stableCountRef.current + 1, GESTURE_STABLE_FRAMES);
-          } else {
-            lastGestureNameRef.current = gName;
-            stableCountRef.current = 1;
-          }
-        } else {
-          lastGestureNameRef.current = null;
-          stableCountRef.current = 0;
-        }
-        if (
-          mappable &&
-          gScore >= GESTURE_CONFIDENCE_MIN &&
-          stableCountRef.current >= GESTURE_STABLE_FRAMES &&
-          mappedCluster !== null &&
-          lastStableClusterRef.current !== mappedCluster &&
-          // 사용자 catch 2026-05-10 (block-infer-during-learn): auto-learn 진행
-          // 중 영역 자동 trigger skip — race condition 회피 + winner unreliable
-          // 사용자 catch. lastStableClusterRef 영역 update 0 (학습 완료 후 동일
-          // 자세 영역 stable 영역 다시 trigger 영역 fresh path).
-          !isAutoLearningRef.current
-        ) {
-          lastStableClusterRef.current = mappedCluster;
-          try {
-            // PR-K (사용자 catch 2026-05-09 catch 1): stable-pose 자동 trigger
-            // 영역 ART path 영역 wrap — 직전 triggerAsync (STDP off) → vigilance
-            // 영역 자동 비교 + novel pattern 영역 30 trial auto-learn.
-            // gestureName 영역 supervised label 영역 0 (사용자 catch 1: cluster
-            // identity 영역 자율 형성) — 단 mediapipe 영역 stable-pose 영역
-            // novel 영역 trigger 영역 충분 (vigilance 영역 worker 측정).
-            getLiveSnn().triggerWithVigilance(sharpened, ART_VIGILANCE_THRESHOLD);
-          } catch {
-            // SSR / 미초기화 — 무시.
-          }
-        }
       }
     } else {
       lastFeatureRef.current = null;
-      lastStableClusterRef.current = null;
-      stableCountRef.current = 0;
-      lastGestureNameRef.current = null;
       if (engineModeRef.current === 'live') {
         try {
           getLiveSnn().setPattern(new Array<number>(16).fill(0));
@@ -197,45 +153,98 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
     }
   }, [cameraConnected, engineMode]);
 
-  // PR-M (사용자 catch 2026-05-10): trainGesture / runInfer callback 영역 본격
-  // 폐기 — backend mode supervised path 영역 모두 제거. Live mode stable-pose
-  // 자동 trigger (triggerWithVigilance) 영역 단일 학습/추론 path. backend mode
-  // 영역 사용자 vision (Live primary 영역 backend 폐기 권장) 영역 정합.
+  // PR (manual-trigger-paradigm, 사용자 catch 2026-05-10): 추론 button click
+  // 영역만 학습 + 추론 trigger — GridInput runInferAuto 정합. lastFeatureRef
+  // 영역 마지막 sharpened hand-feature 영역 catch (hand-feature event listener
+  // 영역 보존). 손 영역 화면 0 영역 추론 0 (warning). isAutoLearning 영역
+  // disable 영역 button level 영역 catch + click handler 영역 idempotent skip.
+  const pendingInferTokenRef = useRef<number | null>(null);
+
+  const runInferAuto = useCallback(() => {
+    if (!isLiveMode) return;
+    if (isAutoLearningRef.current) {
+      setStatus({
+        kind: 'warning',
+        message: '학습 중 — 추론 대기',
+        hint: '신규 패턴 30회 학습 진행 중 — 완료 후 추론 사실',
+      });
+      return;
+    }
+    const feature = lastFeatureRef.current;
+    if (!feature || feature.length < 16) {
+      setStatus({
+        kind: 'warning',
+        message: '손 자세 미감지',
+        hint: '카메라 정면 영역 손 영역 보이게 자세 후 재시도',
+      });
+      return;
+    }
+    setStatus({ kind: 'inferring' });
+    // GridInput 영역 정합 — 직전 winner stale carry-over 회피 (PipelineEventContext
+    // 영역 grid-infer started kind 영역 detail/ts reset).
+    emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
+    try {
+      const live = getLiveSnn();
+      live.setPattern(feature);
+      const { trialToken } = live.triggerWithVigilance(feature, ART_VIGILANCE_THRESHOLD);
+      pendingInferTokenRef.current = trialToken;
+      // safety-net 8s — GridInput 영역 정합 (worker simulation throttled CPU
+      // 영역 ≥2s 가능 + auto-learn 영역 30 trial × ~150ms ≈ 4.5s timeout 회피).
+      setTimeout(() => {
+        if (pendingInferTokenRef.current === trialToken) {
+          pendingInferTokenRef.current = null;
+          setStatus((s) => s.kind === 'inferring'
+            ? { kind: 'ok', message: '추론 완료 *', hint: '(처리 지연 — 잠시 후 재시도)' }
+            : s);
+        }
+      }, 8000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `추론 실패: ${msg}` });
+      emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'error', message: msg });
+    }
+  }, [isLiveMode]);
 
   // PR #192 polish (UX-3 + QA FINDING-1/2): LiveTickDetail listener 영역 push
   // event 영역 trialToken match 영역 정확 reset (status copy + reinforcingCluster).
   useEffect(() => {
     if (engineMode !== 'live') return;
     return onLiveTick((d) => {
-      if (d.source === 'reinforce' && d.trialToken !== undefined) {
+      if (d.source === 'trigger' && d.trialToken !== undefined) {
+        // PR (manual-trigger-paradigm, 2026-05-10): manual trigger 영역 token
+        // match 영역만 status swap — 직전 자동 trigger 영역 background event
+        // 영역 다른 cluster 영역 stale match 회피.
+        if (pendingInferTokenRef.current === d.trialToken) {
+          pendingInferTokenRef.current = null;
+          // GridInput 영역 정합 — Diehl & Cook 2015 winner margin 10% threshold.
+          const lowConf = d.winner < 0 || d.margin < 0.10;
+          if (lowConf) {
+            setStatus({
+              kind: 'warning',
+              message: '추론 완료',
+              hint: '신뢰도 낮음 — 자세 안정화 권장',
+            });
+          } else {
+            setStatus({ kind: 'ok', message: '추론 완료' });
+          }
+        }
+      } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
         // PR-K (사용자 catch 2026-05-09 catch 1): auto-learn loop 영역 final
-        // chunk 영역 status 영역 'auto-learn 완료' 영역 swap. 직전 cluster 별
-        // 학습 button 영역 폐기 영역 별도 reinforcingCluster 영역 unused.
+        // chunk 영역 status 영역 'auto-learn 완료' 영역 swap. manual trigger
+        // 영역 동일 token 영역 vigilance miss → ART expansion + reinforce loop
+        // 영역 final chunk 영역 token 영역 reset.
+        if (pendingInferTokenRef.current === d.trialToken) {
+          pendingInferTokenRef.current = null;
+        }
         const tc = d.targetCluster;
         const label = tc !== undefined && tc >= 0
           ? `패턴 ${tc + 1}`
           : '패턴';
         setStatus({
           kind: 'ok',
-          message: `${label} 자동 학습 완료`,
+          message: `${label} 자동 학습 완료 (30 trial)`,
           hint: 'ART vigilance 영역 신규 cluster 영역 자동 형성',
         });
-      } else if (d.source === 'trigger') {
-        // PR #196 polish (QA LOW-1, 2026-05-10): GridInput 영역 정합 — stable-
-        // pose 자동 trigger 영역 push event 영역 winner < 0 || margin < 0.10
-        // 영역 'warning' kind 영역 amber visual cue (낮은 confidence). 직전
-        // silent 영역 사용자 catch 0 — Diehl & Cook 2015 winner margin 10%
-        // threshold 정합 (NodeInfer MarginMeter 영역 정합). 정직 한계: stable-
-        // pose 영역 background trigger 영역 status 영역 ok 영역 copy 0 — low-
-        // conf 영역만 escalate (사용자 catch 영역 정합 path).
-        const lowConf = d.winner < 0 || d.margin < 0.10;
-        if (lowConf) {
-          setStatus({
-            kind: 'warning',
-            message: '추론 완료 (신뢰도 낮음)',
-            hint: '자세 안정화 권장',
-          });
-        }
       }
     });
   }, [engineMode]);
@@ -316,11 +325,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
           return (
             <>
               <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-              {cameraConnected ? 'LIVE — 자세를 취하세요' : 'LIVE — 카메라 미연결'}
+              {cameraConnected ? 'LIVE — 자세 후 추론 버튼을 누르세요' : 'LIVE — 카메라 미연결'}
             </>
           );
         }
-        return cameraConnected ? '카메라 준비됨 — 자세를 취하세요' : '카메라 미연결 (좌측 카메라 아이콘)';
+        return cameraConnected ? '카메라 준비됨 — 자세 후 추론 버튼을 누르세요' : '카메라 미연결 (좌측 카메라 아이콘)';
       case 'building': return '회로 빌드 중…';
       case 'inferring': return '추론 중…';
       // PR #196 polish (UX LOW-1/2): hint 영역 secondary <small> + warning kind
@@ -351,7 +360,11 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
         <div className="snn-grid-train-all-btn snn-grid-train-all-btn--static pointer-events-none text-center">
           {/* UX Polish PR1 Fix 4 (HIGH [H4]): a11y dot — emoji 영역 swap. */}
           <span aria-hidden="true" className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" />
-          LIVE — 카메라로 손 자세를 자동 추적. 처음 보는 자세는 자동 30회 학습 + 새 cluster 추가.
+          {/* PR (manual-trigger-paradigm, 사용자 catch 2026-05-10): copy 정정 —
+              직전 "처음 보는 자세는 자동 30회 학습" 영역 자동 학습 paradigm 영역
+              잔여. 사용자 명시 paradigm 영역 "추론 button click 영역 학습 +
+              추론 trigger" 영역 정합. */}
+          LIVE — 카메라 자세 후 추론 버튼을 누르세요. 처음 보는 자세는 30회 학습 + 새 cluster 추가.
         </div>
       )}
 
@@ -369,11 +382,33 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
           Live primary 영역 backend 폐기 권장. cluster identity 영역 ART
           vigilance 영역 자율 형성 — 사용자 명명 (RenameButton) 영역 별도 path. */}
 
-      {/* 사용자 catch 2026-05-09 [2] (Fix 5): Live 모드 영역 학습 reset button —
-          GridInput 영역 mirror. substrate='gesture' 영역 catch (CAMERA path).
-          GRID(orientation) 영역 별도 보존 — substrate isolation. */}
+      {/* PR (manual-trigger-paradigm, 사용자 catch 2026-05-10): Live 모드 영역
+          추론 button 추가 — 사용자 명시 click 영역만 학습 + 추론 trigger.
+          GridInput runInferAuto 영역 정합 mirror. lastFeatureRef 영역 마지막
+          sharpened hand-feature 영역 catch (hand-feature event listener 영역
+          보존). 학습 reset button 영역 옆 cohabit (snn-grid-actions row). */}
       {isLiveMode && (
         <div className="snn-grid-actions">
+          <button
+            type="button"
+            className="snn-grid-infer-btn snn-grid-infer-btn--primary"
+            onClick={runInferAuto}
+            disabled={isBusy || !cameraConnected}
+            aria-label={
+              isAutoLearning
+                ? '추론 — 학습 진행 중 영역 대기'
+                : '추론 — 마지막 손 자세 영역 학습 + 추론 (STDP off → 신규 vigilance miss → 자동 학습)'
+            }
+            title={
+              isAutoLearning
+                ? '학습 중 — 추론 대기 (신규 패턴 30회 학습 후 enable)'
+                : !cameraConnected
+                  ? '카메라 미연결 — 좌측 카메라 버튼으로 활성화'
+                  : '마지막 손 자세 영역 추론 (신규 자세 영역 자동 30회 학습)'
+            }
+          >
+            {isAutoLearning ? '학습 중…' : '추론'}
+          </button>
           <button
             type="button"
             className="snn-grid-reset-btn snn-grid-reset-btn--danger"

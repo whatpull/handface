@@ -21,7 +21,7 @@ import {
 import type { SubstrateKind } from '@/lib/snn/root-local-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { getClusterLabel } from './shared';
+import { getClusterLabel, OUT_PER_CLUSTER, resolveClusterLabel } from './shared';
 
 // 사용자 catch 2026-05-09 (Fix 1): inputMode 영역 substrate kind mapping —
 // GRID = orientation, CAMERA = gesture. out-exemplars store 영역 segregation
@@ -30,13 +30,14 @@ function substrateForInputMode(mode: 'grid' | 'camera'): SubstrateKind {
   return mode === 'camera' ? 'gesture' : 'orientation';
 }
 
-// 8 OUT per cluster — N3 cluster broadcast supervisor 정합 (out_{ci}_0 ~ out_{ci}_7).
-const OUT_PER_CLUSTER = 8;
-
 /**
  * cluster ci 영역 count 합산:
  *   - 우선: out_{ci}_0 ~ out_{ci}_7 sum (N3 cluster broadcast supervisor 정합).
  *   - fallback: out_{ci} (legacy single-OUT exemplar) — 8-OUT slot 영역 0 영역 시점.
+ *
+ * resolveClusterLabel 영역 shared.ts 영역 hoist (PR-K 2026-05-09 catch 2 정합) —
+ * NodeLearn / NodeInfer 영역 동일 source 영역 사용자 RenameButton 영역 명시
+ * 명명 시점 영역 모든 노드 영역 sync.
  */
 function sumClusterCount(exemplars: OutExemplars, ci: number): number {
   let sum = 0;
@@ -48,24 +49,6 @@ function sumClusterCount(exemplars: OutExemplars, ci: number): number {
     sum = exemplars[`out_${ci}`]?.count ?? 0;
   }
   return sum;
-}
-
-/**
- * cluster ci 영역 label 영역 — 8-OUT 영역 첫 비-null label 우선,
- * fallback out_{ci}, fallback default cluster label.
- */
-function resolveClusterLabel(
-  exemplars: OutExemplars,
-  ci: number,
-  inputMode: 'grid' | 'camera',
-): string {
-  for (let n = 0; n < OUT_PER_CLUSTER; n += 1) {
-    const lbl = exemplars[`out_${ci}_${n}`]?.label;
-    if (lbl) return lbl;
-  }
-  const legacy = exemplars[`out_${ci}`]?.label;
-  if (legacy) return legacy;
-  return getClusterLabel(ci, inputMode);
 }
 
 export default function NodeOut() {
@@ -92,6 +75,23 @@ export default function NodeOut() {
     ? (winnerEx?.label || getClusterLabel(winner.cluster, inputMode))
     : null;
 
+  // PR-K (사용자 catch 2026-05-09 catch 1 + Phase 4): cluster count 영역 dynamic
+  // length — ART expansion 시점 영역 신규 cluster 영역 표시. source priority:
+  //   1. winner.clusterRates.length (현재 firing 영역 cluster 수 — runtime 정합)
+  //   2. exemplars 영역 키 영역 max cluster id ↑ (영속 영역 학습 cluster 영역 catch)
+  //   3. fallback 4 (base n13 substrate 영역 default).
+  const clusterCount = useMemo(() => {
+    let n = winner.clusterRates.length;
+    for (const k of Object.keys(exemplars)) {
+      const m = /^out_(\d+)_\d+$/.exec(k);
+      if (m) {
+        const ci = Number(m[1]) + 1;
+        if (ci > n) n = ci;
+      }
+    }
+    return Math.max(n, 4);
+  }, [winner.clusterRates.length, exemplars]);
+
   return (
     <NodeShell title="OUT" subtitle="결과값" tone="out">
 
@@ -108,7 +108,7 @@ export default function NodeOut() {
         )}
       </div>
       <div className="snn-pipeline-out-counts">
-        {[0, 1, 2, 3].map((ci) => {
+        {Array.from({ length: clusterCount }, (_, ci) => ci).map((ci) => {
           const count = sumClusterCount(exemplars, ci);
           const label = resolveClusterLabel(exemplars, ci, inputMode);
           return (

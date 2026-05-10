@@ -1,17 +1,18 @@
-// GridInput — Live mode 영역 명시 trigger 검증 (PR-A architecture pivot 2026-05-09).
+// GridInput — Live mode 영역 명시 trigger 검증 (PR-K architectural pivot 2026-05-09).
 //
-// 직전 (PR #184): pixel/preset click → triggerOnce 1-shot (auto-on-click).
-// 본 정정 (PR-A 사용자 catch A1): pixel/preset click → setPattern only.
-//   학습/추론 trigger 영역 명시 button 영역 한정 (사용자 명시):
-//     - "추론" button 영역 click → inferOnce (stdpGain=0, 가중치 변경 0)
-//     - "현재 패턴 보강" button 영역 click → reinforce (R-STDP supervised)
+// 사용자 catch 2026-05-09 catch 1: 학습 button × 4 본격 폐기 + 추론 button
+// 영역 ART unsupervised auto-learn (triggerWithVigilance) 영역 단일 path swap.
+//
+// 직전 (PR-J): cluster 별 학습 button × 4 — Live mode 영역 reinforceAsync(ci, 0.8) 호출.
+// 본 정정 (PR-K): cluster 학습 button × 4 + reinforceAsync caller 폐기 →
+//   - 추론 button 영역 click → triggerWithVigilance(grid, 0.15) — ART vigilance.
+//   - cluster row 영역 preset apply only (setPattern, 학습 0).
 //
 // G1: pixel toggle 영역 Live mode → setPattern only — triggerOnce 호출 0.
 // G2: pixel toggle Backend mode → live API 0 호출 (engineMode='backend').
-// G3: 학습 button 영역 Live mode → setPattern + reinforceAsync 자동 통합 (PR-J).
+// G3: preset apply button (Live) → setPattern only — reinforce 호출 0 (PR-K 폐기 path).
 // G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix).
-// G5: '추론' button click 영역 Live mode → inferOnce 1회 (명시 trigger).
-// G6: '학습 N (label)' button click 영역 Live mode → reinforceAsync(targetCluster, 0.8) 1회 (PR-J).
+// G5: 추론 button click 영역 Live mode → triggerWithVigilance 1회 (PR-K ART path).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
@@ -22,12 +23,13 @@ const mockTriggerOnce = vi.fn(async () => ({ saveFailed: false }));
 const mockReinforce = vi.fn(async () => ({ saveFailed: false }));
 const mockInferOnce = vi.fn(async () => ({ saveFailed: false }));
 // PR-B (Web Worker background offload, 2026-05-10): fire-and-forget API mock.
-// triggerAsync / inferAsync / reinforceAsync 영역 sync return `{ trialToken }` —
-// callsite 영역 await 0. 본 mock 영역 동일 sync return semantics.
 let mockTrialTokenSeq = 0;
 const mockTriggerAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
 const mockInferAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
 const mockReinforceAsync = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
+// PR-K (사용자 catch 2026-05-09 catch 1): triggerWithVigilance — ART
+// unsupervised auto-learn 영역 단일 trigger path. sync return `{ trialToken }`.
+const mockTriggerWithVigilance = vi.fn(() => ({ trialToken: ++mockTrialTokenSeq }));
 
 vi.mock('@/lib/snn/live-snn', () => ({
   getLiveSnn: vi.fn(() => ({
@@ -38,11 +40,8 @@ vi.mock('@/lib/snn/live-snn', () => ({
     triggerAsync: mockTriggerAsync,
     inferAsync: mockInferAsync,
     reinforceAsync: mockReinforceAsync,
+    triggerWithVigilance: mockTriggerWithVigilance,
   })),
-  // PR #192 polish (UX-3 token-aware reset): onLiveTick 영역 LiveTickDetail
-  // listener export. test 영역 noop unsubscribe — push event emit 0 영역 본
-  // test 영역 listener wire path 영역 무관 (button click 영역 callback 호출
-  // 검증 only).
   onLiveTick: vi.fn(() => () => undefined),
 }));
 
@@ -77,7 +76,7 @@ vi.mock('@/lib/backend/client', () => ({
 
 import GridInput from '@/components/snn/pipeline/GridInput';
 
-describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)', () => {
+describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 catch 1)', () => {
   beforeEach(() => {
     mockSetPattern.mockClear();
     mockTriggerOnce.mockClear();
@@ -86,6 +85,7 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     mockTriggerAsync.mockClear();
     mockInferAsync.mockClear();
     mockReinforceAsync.mockClear();
+    mockTriggerWithVigilance.mockClear();
     mockTrialTokenSeq = 0;
     mockUseEngineMode.mockReturnValue(['live', vi.fn()]);
   });
@@ -99,15 +99,14 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
     expect(pixels).toHaveLength(16);
     fireEvent.click(pixels[0]);
-    // 사용자 catch A1: pixel click 영역 학습 trigger 영역 본격 폐기 — setPattern only.
     expect(mockSetPattern).toHaveBeenCalled();
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockReinforce).not.toHaveBeenCalled();
-    // PR-B: async API 영역 호출 0 — pixel click 영역 명시 trigger 0 정합 보존.
     expect(mockTriggerAsync).not.toHaveBeenCalled();
     expect(mockInferAsync).not.toHaveBeenCalled();
     expect(mockReinforceAsync).not.toHaveBeenCalled();
+    expect(mockTriggerWithVigilance).not.toHaveBeenCalled();
   });
 
   it('G2: pixel toggle Backend mode → live API 0 호출', async () => {
@@ -120,28 +119,25 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockSetPattern).not.toHaveBeenCalled();
     expect(mockInferAsync).not.toHaveBeenCalled();
     expect(mockReinforceAsync).not.toHaveBeenCalled();
+    expect(mockTriggerWithVigilance).not.toHaveBeenCalled();
   });
 
-  it('G3: 학습 button click 영역 Live mode → setPattern + reinforceAsync 자동 통합 (PR-J)', async () => {
-    // PR-J (사용자 catch 2026-05-09 [1]): preset cluster button 영역 본격 폐기 —
-    // 학습 button (cluster 별 단일) 영역 click 영역 applyPreset (setPattern) +
-    // reinforceAsync(clusterIdx, 0.8) 자동 통합. 직전 (PR-A): preset click → setPattern
-    // only, 학습 영역 별도 button 영역 명시 호출. 본 정정 — 1-click 통합 정합.
+  it('G3: preset apply button (Live) → setPattern only — reinforce 호출 0 (PR-K 폐기 path)', async () => {
+    // PR-K (사용자 catch 2026-05-09 catch 1): cluster 별 학습 button × 4 본격
+    // 폐기 — Live 모드 영역 preset row 영역 [preset apply] only (setPattern,
+    // 학습 0). 학습 trigger 영역 추론 button (triggerWithVigilance) 영역 단일.
     render(<GridInput />);
-    // PR-J: '학습 0 (horizontal)' / '학습 1 (vertical)' / ... 영역 단일 button (cluster 별).
-    const trainBtns = screen.getAllByRole('button', { name: /^horizontal 학습 — supervised R-STDP/ });
-    expect(trainBtns).toHaveLength(1);
-    fireEvent.click(trainBtns[0]);
+    const presetBtns = screen.getAllByRole('button', { name: /preset apply — 패턴 set only$/ });
+    expect(presetBtns).toHaveLength(4);
+    fireEvent.click(presetBtns[0]); // horizontal preset apply.
     await Promise.resolve();
-    // setPattern 영역 applyPreset path 영역 mandatory.
     expect(mockSetPattern).toHaveBeenCalled();
-    // reinforceAsync(0, 0.8) 영역 자동 호출 — cluster 0 (horizontal).
-    expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
-    expect(mockReinforceAsync).toHaveBeenCalledWith(0, 0.8);
-    // 명시 trigger / inferOnce 영역 호출 0.
+    // PR-K: reinforce / reinforceAsync caller 0 — preset apply 영역 학습 trigger 0.
+    expect(mockReinforce).not.toHaveBeenCalled();
+    expect(mockReinforceAsync).not.toHaveBeenCalled();
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
-    expect(mockInferAsync).not.toHaveBeenCalled();
+    expect(mockTriggerWithVigilance).not.toHaveBeenCalled();
   });
 
   it('G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix)', async () => {
@@ -154,42 +150,26 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockTriggerAsync).not.toHaveBeenCalled();
     expect(mockInferAsync).not.toHaveBeenCalled();
-    // setPattern 영역 매 click 영역 호출 — Live runtime 영역 다음 추론 영역 stale 방지.
+    expect(mockTriggerWithVigilance).not.toHaveBeenCalled();
     expect(mockSetPattern.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('G5: 추론 button click 영역 Live mode → inferAsync 1회 (PR-B fire-and-forget)', async () => {
+  it('G5: 추론 button click 영역 Live mode → triggerWithVigilance 1회 (PR-K ART path)', async () => {
+    // PR-K (사용자 catch 2026-05-09 catch 1): 추론 button 영역 click → ART
+    // unsupervised auto-learn 영역 단일 path. inferAsync (STDP off) → vigilance
+    // 영역 비교 → novel 시점 영역 30 trial chunked reinforce 영역 자동 trigger
+    // (worker push event 영역 별도 emit).
     render(<GridInput />);
-    // PR #191 polish (UX-6, 2026-05-10): 추론 button 영역 aria-label 'STDP off,
-    // 가중치 변경 0' 영역 명시 — accessible name override.
     const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);
-    // PR-B (Web Worker background offload): inferAsync 영역 sync return —
-    // microtask wait 영역 미필요 단 React state batch 영역 정합 catch 영역 await.
     await Promise.resolve();
-    // PR-B: inferOnce 영역 await 영역 별도 path 영역 inferAsync 영역 swap.
-    expect(mockInferAsync).toHaveBeenCalledTimes(1);
+    // PR-K: triggerWithVigilance 영역 단일 trigger (default vigilance 0.15).
+    expect(mockTriggerWithVigilance).toHaveBeenCalledTimes(1);
+    expect(mockTriggerWithVigilance).toHaveBeenCalledWith(expect.any(Array), 0.15);
+    // 직전 inferAsync 영역 caller 폐기 — main path 영역 triggerWithVigilance 영역 단일.
+    expect(mockInferAsync).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
-    // setPattern 영역 추론 직전 영역 1회 — runInferLive 영역 명시 setPattern.
-    expect(mockSetPattern).toHaveBeenCalled();
-  });
-
-  it('G6: 학습 N (label) button click → reinforceAsync(targetCluster, 0.8) 1회 (PR-J)', async () => {
-    // PR-J (사용자 catch 2026-05-09 [1]): cluster row 영역 [preset] [보강] 2 button
-    // → 단일 [학습 N] button 영역 통합. aria-label 영역 'label 학습 — supervised
-    // R-STDP (패턴 자동 보강)' 영역 swap.
-    render(<GridInput />);
-    const reinforceBtns = screen.getAllByRole('button', {
-      name: /학습 — supervised R-STDP \(패턴 자동 보강\)$/,
-    });
-    expect(reinforceBtns).toHaveLength(4);
-    fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
-    await Promise.resolve();
-    // PR-B/PR-J: reinforceAsync(1, 0.8) — saturation overshoot 회피 영역 0.8 보존.
-    expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
-    expect(mockReinforceAsync).toHaveBeenCalledWith(1, 0.8);
-    expect(mockReinforce).not.toHaveBeenCalled();
-    // setPattern 영역 applyPreset 영역 동시 호출 (PR-J 통합 path 정합).
+    expect(mockReinforceAsync).not.toHaveBeenCalled();
     expect(mockSetPattern).toHaveBeenCalled();
   });
 });

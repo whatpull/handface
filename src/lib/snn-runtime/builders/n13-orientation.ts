@@ -253,12 +253,19 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
     }
   }
   // OUT cluster 간 mutual inhibition (WTA).
+  // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+  // 2026-05-10): 직전 weight=-4.0 영역 idx overlap (mathematical impossible)
+  // + STDP 누적 영역 winner mismatch root cause 영역 mitigation. -4.0 → -8.0
+  // 영역 강화 영역 학술 정합 — Diehl & Cook 2015 "strong inhibitory pool"
+  // (§3.2, lateral inhibition weight 영역 typical excitatory 5-10× 범위) 영역
+  // ratio 정합. follow-up PR (Option A — 32-dim disjoint feature engineering)
+  // 영역 본격 root fix.
   for (let ci = 0; ci < N_CLUSTER; ci += 1) {
     for (let cj = 0; cj < N_CLUSTER; cj += 1) {
       if (ci === cj) continue;
       for (const s of outClusters[ci]) {
         for (const t of outClusters[cj]) {
-          net.connect(s, t, -4.0, 0.5);
+          net.connect(s, t, -8.0, 0.5);
         }
       }
     }

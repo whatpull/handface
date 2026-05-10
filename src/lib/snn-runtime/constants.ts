@@ -18,8 +18,13 @@ export const STDP_TAU_MINUS_MS = 20.0;
 export const STDP_A_PLUS = 0.0005;
 export const STDP_A_MINUS = 0.001;
 export const STDP_W_MIN = 0.0;
-// Phase E rev15: n13 baseline max ~14 → cap 40 (≈ 3× max base, paper 정합).
-export const STDP_W_MAX = 40.0;
+// Phase E rev15: n13 baseline max ~14 → cap 40 (≈ 3× max base).
+// PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+// 2026-05-10): 40 영역 saturation overshoot 영역 STDP 누적 영역 idx overlap
+// cluster 영역 winner lock-in 사실 영역 catch — cap 25 영역 lower (≈ 2× max
+// base) 영역 saturation guard. 학술 정합 — Diehl & Cook 2015 §3.3 weight
+// normalization (cap ≤ 2× baseline) 영역 정합.
+export const STDP_W_MAX = 25.0;
 
 // ── Synapse 기본 ──
 export const SYNAPSE_PSP_DURATION_MS = 5.0; // AMPA-like fast (Phase 1 D90 정합)

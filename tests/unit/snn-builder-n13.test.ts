@@ -154,7 +154,10 @@ describe('snn-builder-n13 — WTA / 격리', () => {
     // 4 cluster × 8 neuron 이 다른 cluster 의 모든 24 neuron 으로 inhibit.
     // = 32 × 24 = 768.
     expect(crossCount).toBe(32 * 24);
-    expect(crossNegMin).toBe(-4.0);
+    // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+    // 2026-05-10): WTA inhibition -4.0 → -8.0 영역 강화 (Diehl & Cook 2015
+    // strong inhibitory pool 정합).
+    expect(crossNegMin).toBe(-8.0);
   });
 
   it('OUT cluster 내부 mutual excitation (positive weight)', () => {

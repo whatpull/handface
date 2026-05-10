@@ -69,7 +69,9 @@ describe('snn-runtime — pair STDP', () => {
   it('learning rate 가 Python 정합 값으로 노출된다', () => {
     expect(STDP_A_PLUS).toBeCloseTo(0.0005, 6);
     expect(STDP_A_MINUS).toBeCloseTo(0.001, 6);
-    expect(STDP_W_MAX).toBe(40.0);
+    // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+    // 2026-05-10): 40 → 25 영역 lower 영역 saturation overshoot guard.
+    expect(STDP_W_MAX).toBe(25.0);
   });
 
   it('frozen synapse 는 STDP 적용을 받지 않는다', () => {

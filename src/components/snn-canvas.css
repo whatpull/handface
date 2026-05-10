@@ -800,6 +800,12 @@
   margin-top: 2px;
   line-height: 1.3;
 }
+/* PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
+   2026-05-10): NodeLearn multi-trial 수렴 hint 영역 dim modifier — 정직
+   한계 catch (mitigation only — Option A follow-up 영역 root fix). */
+.snn-pipeline-phase-sub--dim {
+  opacity: 0.55;
+}
 /* phase indicator — monochrome (사용자 mandatory). lightness 단계:
    idle (dim) → amber/orange (mid-light) → green (light) → blue (mid).
    (직전 fuchsia EVOLVING tone + snn-evolving-pulse keyframe 폐기 — Sidebar Evolve 회수.) */

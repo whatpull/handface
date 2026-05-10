@@ -93,7 +93,12 @@ export {
   type PushEventName,
   type PushHandlers,
 } from './worker-client';
-export { LocalSNN, type LocalSNNOptions, type LocalSNNStatus } from './local-snn';
+export {
+  LocalSNN,
+  FIX_REV_BASELINE,
+  type LocalSNNOptions,
+  type LocalSNNStatus,
+} from './local-snn';
 export { MainThreadTransport } from './main-thread-transport';
 // PR-B (Web Worker background offload, 2026-05-10): web worker factory export.
 // 직전 (PR #189 이전) 영역 export 0 — root-local-snn.ts 영역 MainThreadTransport

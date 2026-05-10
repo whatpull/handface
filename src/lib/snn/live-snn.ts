@@ -212,6 +212,29 @@ export class LiveSnn {
     return this.substrateKind;
   }
 
+  /**
+   * PR-J (사용자 catch 2026-05-09 [2]): trial / lastWinnerCluster / patternRef
+   * 영역 모두 reset — 학습 reset path 영역 mandatory state-clear hook.
+   *
+   * 직전 (PR-G Fix 2): setSubstrate 영역만 trial / lastWinner / patternRef reset
+   * 영역 path. 단 같은 substrate 영역 학습 reset (resetClusterWeights) 영역
+   * trial counter / lastWinnerCluster 영역 stale carry-over 사실 → 사용자
+   * catch "아웃풋 내역은 사라지나 학습 상태는 유지됨" 영역 root cause.
+   *
+   * 정정: substrate 영역 보존 + trial / lastWinner / patternRef 영역 reset 영역
+   * 단일 path. setSubstrate Fix 2 영역 동일 reset path 영역 reuse — semantics
+   * 영역 clear ('학습 reset 후 영역 fresh trial counter / silent winner').
+   *
+   * 정직 한계: in-flight trigger 영역 wait 영역 본 path 영역 sync 단순 reset —
+   * caller (GridInput / CameraInput) 영역 resetClusterWeights 영역 worker fresh
+   * build 영역 직전 영역 호출 권장 (worker 영역 inline serial 영역 race 0).
+   */
+  resetTrigger(): void {
+    this.trialCount = 0;
+    this.lastWinnerCluster = -1;
+    this.patternRef = new Array(16).fill(0);
+  }
+
   setPattern(pattern: number[]): void {
     // 16-dim 보장 — 부족하면 pad, 초과는 cut.
     const next = new Array<number>(16).fill(0);

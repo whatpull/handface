@@ -8,10 +8,10 @@
 //
 // G1: pixel toggle 영역 Live mode → setPattern only — triggerOnce 호출 0.
 // G2: pixel toggle Backend mode → live API 0 호출 (engineMode='backend').
-// G3: applyPreset 영역 Live mode → setPattern only — triggerOnce 호출 0.
+// G3: 학습 button 영역 Live mode → setPattern + reinforceAsync 자동 통합 (PR-J).
 // G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix).
 // G5: '추론' button click 영역 Live mode → inferOnce 1회 (명시 trigger).
-// G6: '현재 패턴 보강' button click 영역 Live mode → reinforce(targetCluster) 1회.
+// G6: '학습 N (label)' button click 영역 Live mode → reinforceAsync(targetCluster, 0.8) 1회 (PR-J).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
@@ -122,11 +122,23 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockReinforceAsync).not.toHaveBeenCalled();
   });
 
-  it('G3: applyPreset 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
+  it('G3: 학습 button click 영역 Live mode → setPattern + reinforceAsync 자동 통합 (PR-J)', async () => {
+    // PR-J (사용자 catch 2026-05-09 [1]): preset cluster button 영역 본격 폐기 —
+    // 학습 button (cluster 별 단일) 영역 click 영역 applyPreset (setPattern) +
+    // reinforceAsync(clusterIdx, 0.8) 자동 통합. 직전 (PR-A): preset click → setPattern
+    // only, 학습 영역 별도 button 영역 명시 호출. 본 정정 — 1-click 통합 정합.
     render(<GridInput />);
-    const presetBtns = screen.getAllByRole('button', { name: /cluster 0/i });
-    fireEvent.click(presetBtns[0]);
+    // PR-J: '학습 0 (horizontal)' / '학습 1 (vertical)' / ... 영역 단일 button (cluster 별).
+    const trainBtns = screen.getAllByRole('button', { name: /^horizontal 학습 — supervised R-STDP/ });
+    expect(trainBtns).toHaveLength(1);
+    fireEvent.click(trainBtns[0]);
+    await Promise.resolve();
+    // setPattern 영역 applyPreset path 영역 mandatory.
     expect(mockSetPattern).toHaveBeenCalled();
+    // reinforceAsync(0, 0.8) 영역 자동 호출 — cluster 0 (horizontal).
+    expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
+    expect(mockReinforceAsync).toHaveBeenCalledWith(0, 0.8);
+    // 명시 trigger / inferOnce 영역 호출 0.
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
     expect(mockInferAsync).not.toHaveBeenCalled();
@@ -162,20 +174,22 @@ describe('GridInput — PR-A architecture pivot (사용자 catch 2026-05-09 A1)'
     expect(mockSetPattern).toHaveBeenCalled();
   });
 
-  it('G6: 현재 패턴 보강 button click → reinforceAsync(targetCluster, 0.8) 1회 (PR-B fire-and-forget)', async () => {
+  it('G6: 학습 N (label) button click → reinforceAsync(targetCluster, 0.8) 1회 (PR-J)', async () => {
+    // PR-J (사용자 catch 2026-05-09 [1]): cluster row 영역 [preset] [보강] 2 button
+    // → 단일 [학습 N] button 영역 통합. aria-label 영역 'label 학습 — supervised
+    // R-STDP (패턴 자동 보강)' 영역 swap.
     render(<GridInput />);
-    // PR #191 polish (UX-6, 2026-05-10): cluster N 보강 button 영역 aria-label
-    // 'cluster N 현재 패턴 보강 — supervised R-STDP' 영역 명시 정합 query.
     const reinforceBtns = screen.getAllByRole('button', {
-      name: /현재 패턴 보강 — supervised R-STDP$/,
+      name: /학습 — supervised R-STDP \(패턴 자동 보강\)$/,
     });
     expect(reinforceBtns).toHaveLength(4);
     fireEvent.click(reinforceBtns[1]); // cluster 1 (vertical).
     await Promise.resolve();
-    // PR-B: reinforce 영역 await path 영역 reinforceAsync 영역 swap.
-    // QA CAUSE D fix (2026-05-10): 2.0 → 0.8 — saturation overshoot 회피.
+    // PR-B/PR-J: reinforceAsync(1, 0.8) — saturation overshoot 회피 영역 0.8 보존.
     expect(mockReinforceAsync).toHaveBeenCalledTimes(1);
     expect(mockReinforceAsync).toHaveBeenCalledWith(1, 0.8);
     expect(mockReinforce).not.toHaveBeenCalled();
+    // setPattern 영역 applyPreset 영역 동시 호출 (PR-J 통합 path 정합).
+    expect(mockSetPattern).toHaveBeenCalled();
   });
 });

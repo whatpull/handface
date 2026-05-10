@@ -1099,6 +1099,35 @@
   color: #fca5a5;
   word-break: break-word;
 }
+/* PR #199 polish — UX HIGH (사용자 catch 2026-05-10): '비신뢰' suffix 영역
+   visual 강화 — warning badge tint + ⚠ glyph 영역 사용자 catch 영역 강. 직전
+   inline color (#fca5a5) 영역 tone subtle — 사용자 영역 추론 결과 신뢰 0
+   영역 명시 catch 부족 영역. */
+.snn-pipeline-row-warning-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  word-break: keep-all;
+}
+.snn-pipeline-row-warning-badge::before {
+  content: '⚠';
+  font-size: 0.95em;
+  line-height: 1;
+}
+/* PR #199 polish — UX LOW (사용자 catch 2026-05-10): fresh phase 영역 amber
+   tint catch — 학습 0 영역 catch 강 (직전 idle gray 영역 fresh vs awaiting
+   영역 시각 catch 0 영역). monochrome mandatory 영역 일부 영역 — 사용자
+   명시 요청 영역 우선. */
+.snn-pipeline-phase-label--fresh {
+  color: #fbbf24;
+}
 
 /* 5) winner 변경 fade-in — key 변경 시 element 재생성 영역 animation 1회 재생. */
 .snn-pipeline-winner-fade {

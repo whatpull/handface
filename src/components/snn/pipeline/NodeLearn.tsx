@@ -665,7 +665,11 @@ function LiveLearnPanel({
     return (
       <>
         <div className="snn-pipeline-phase snn-pipeline-phase--idle snn-pipeline-phase-transition">
-          <div className="snn-pipeline-phase-label">
+          <div
+            className={`snn-pipeline-phase-label${
+              initState?.phase === 'fresh' ? ' snn-pipeline-phase-label--fresh' : ''
+            }`}
+          >
             {initState?.phase === 'fresh'
               ? 'LIVE — fresh circuit (학습 0회)'
               : initState?.phase === 'hydrated'
@@ -683,7 +687,7 @@ function LiveLearnPanel({
         {/* 사용자 catch 2026-05-09 [2] (Fix 4): DB visibility footer status row. */}
         {dbHint && (
           <div className="snn-pipeline-row snn-pipeline-row--wrap">
-            <span className="snn-pipeline-row-label">DB</span>
+            <span className="snn-pipeline-row-label">회로 상태</span>
             <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">{dbHint}</span>
           </div>
         )}
@@ -697,8 +701,9 @@ function LiveLearnPanel({
   const phaseTone = tick.patternActive ? 'amber' : 'idle';
   // 사용자 catch 2026-05-09 [2] (Fix 6): trial=0 영역 추론 영역 hint —
   // fresh build 영역 첫 추론 영역 신뢰 0 영역 정직 catch (amber suffix).
-  const isUntrustworthy = (initState?.phase === 'fresh' && tick.trial === 0)
-    || (initState?.phase === 'fresh' && tick.trial < 1);
+  // PR #199 polish — QA LOW Fix 6 (사용자 catch 2026-05-10): redundant
+  // clause (`trial < 1` 영역 `trial === 0` 영역 동일 — int domain 정합) 영역 합집.
+  const isUntrustworthy = initState?.phase === 'fresh' && tick.trial === 0;
   return (
     <>
       <div
@@ -720,8 +725,11 @@ function LiveLearnPanel({
             ? `winner ${winnerLabel} · margin ${(tick.margin * 100).toFixed(0)}%`
             : 'no winner — WTA 대기'}
           {isUntrustworthy && winnerLabel && (
-            <span className="snn-pipeline-row-error" aria-label="미학습 영역 비신뢰 추론">
-              {' '}(미학습 — 비신뢰)
+            <span
+              className="snn-pipeline-row-warning-badge"
+              aria-label="미학습 영역 비신뢰 추론"
+            >
+              미학습 — 비신뢰
             </span>
           )}
         </div>

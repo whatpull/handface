@@ -753,15 +753,25 @@ function LiveLearnPanel({
   // hint copy. fresh build 영역 '학습 0회' 영역 정직 catch / hydrated 영역 마지막
   // 학습 시점 영역 표시. tick=null (첫 trial 도달 직전) 영역 mental model 영역
   // 직접 정합 path — "기존에 학습된 데이터가 DB에 존재하는지" 사용자 catch 영역.
+  //
+  // 사용자 catch 2026-05-11 (infer-winner-display-fix): initState 영역 INIT 1회
+  // emit 영역 학습 진행 후 'fresh' stale 잔존 — clusterLabels.length 영역 학습된
+  // cluster 영역 source 영역 정합. fresh init + 진행 영역 학습 사실 ('학습 #N
+  // 진행 — 영속 대기' hint 영역 정합). exemplar count 영역 incrementCount 영역
+  // 학습 winner 변경 시점 영역 fire — clusterLabels.length>=1 영역 학습 사실 catch.
   const dbHint = useMemo(() => {
     if (!initState) return null;
+    const learnedCount = clusterLabels.length;
     if (initState.phase === 'fresh') {
-      return 'fresh circuit — 학습 가중치 0 (추론 결과 unreliable)';
+      if (learnedCount === 0) {
+        return 'fresh circuit — 학습 가중치 0 (추론 결과 unreliable)';
+      }
+      return `학습 진행 — ${learnedCount} 패턴 학습 (영속 대기)`;
     }
     const ageMs = Date.now() - initState.savedAt;
     const ageStr = formatAge(ageMs);
     return `hydrated — 마지막 학습 ${ageStr} 전 (rev ${initState.rev})`;
-  }, [initState]);
+  }, [initState, clusterLabels.length]);
 
   if (!tick) {
     return (

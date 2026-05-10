@@ -140,7 +140,18 @@ export default function NodeInfer() {
   // trial=0 + initState='fresh' 영역 winner card 영역 amber pill 영역 강화 +
   // winner cluster name 영역 dim + history hide. n13 INPUT→V1_L4_E weight
   // 11.0 base activation 영역 학술 정합 단 misleading 회피.
-  const isFreshUntrained = isLiveMode && initState?.phase === 'fresh' && (phase === null || pname === 'untrained');
+  //
+  // 사용자 catch 2026-05-11 (infer-winner-display-fix): initState 영역 INIT 시점
+  // 1회 emit (fresh build vs hydrate) → 학습 진행 영역 phase='fresh' 영역 stale 잔존.
+  // 학습 #33 영역 winner 패턴 1 진행 영역 영역 NodeInfer 영역 "FRESH CIRCUIT — 학습
+  // 0회" stale 표시 root cause. clusterLabels.length === 0 영역 추가 gate — 학습된
+  // exemplar 영역 0 영역 한정 (incrementCount 영역 winner 변경 시점 영역 fire 영역
+  // 첫 cluster spawn 영역 length>=1 → fresh hint 영역 자동 hide). NodeLearn LiveLearnPanel
+  // 영역 isUntrustworthy === tick.trial===0 정합 path — exemplar 영역 동일 source.
+  const isFreshUntrained = isLiveMode
+    && initState?.phase === 'fresh'
+    && (phase === null || pname === 'untrained')
+    && clusterLabels.length === 0;
 
   return (
     <NodeShell

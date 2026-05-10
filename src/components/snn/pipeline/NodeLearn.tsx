@@ -504,6 +504,12 @@ export default function NodeLearn() {
     // 학습된 cluster 영역만 표시 (NodeOut 정합). 직전 firingMax fallback 영역
     // base n13 substrate 영역 baseline noise 영역 stale '패턴 1..4' 영역 표시.
     // 사용자 명시 "기존 로직 신경쓰지말고" — backward compat 폐기.
+    //
+    // 사용자 catch 2026-05-11 (cluster-source-unify): winner.cluster 영역 floor —
+    // OUT 노드 영역 winner.cluster !== null 영역 winnerLabel fallback 영역 cluster
+    // row 영역 표시 — LEARN/INFER 영역 동일 winner 영역 cluster bar 영역 표시 mandatory.
+    // exemplars 영역 incrementCount 영역 fire 0 영역 영역 (학습 0회 영역 정합) 영역
+    // winner derive fire 영역 영역 영역 가상 cluster row 영역 표시 (winner.cluster + 1 floor).
     let exemplarMax = -1;
     for (const k of Object.keys(exemplars)) {
       const m = /^out_(\d+)_\d+$/.exec(k);
@@ -512,9 +518,12 @@ export default function NodeLearn() {
         if (ci > exemplarMax) exemplarMax = ci;
       }
     }
+    if (winner.cluster !== null && winner.cluster > exemplarMax) {
+      exemplarMax = winner.cluster;
+    }
     const n = Math.max(exemplarMax + 1, 0);
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode]);
+  }, [exemplars, inputMode, winner.cluster]);
 
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
@@ -783,23 +792,41 @@ function LiveLearnPanel({
     return `hydrated — 마지막 학습 ${ageStr} 전 (rev ${initState.rev})`;
   }, [initState, clusterLabels.length]);
 
+  // 사용자 catch 2026-05-11 (cluster-source-unify): tick === null 영역 영역
+  // winner 영역 fire 영역 영역 fresh banner 영역 stale 표시 catch 회피 — INFER /
+  // OUT 영역 단일 source 정합. isUntrustworthy 영역 단일 helper 영역 두 path
+  // (early return + main return) 영역 동일 gate.
+  const earlyUntrustworthy = isUntrustworthy({
+    initPhase: initState?.phase,
+    phaseName: null,
+    clusterLabelCount: clusterLabels.length,
+    winnerCluster: winner.cluster,
+  });
   if (!tick) {
     return (
       <>
         <div className="snn-pipeline-phase snn-pipeline-phase--idle snn-pipeline-phase-transition">
           <div
             className={`snn-pipeline-phase-label${
-              initState?.phase === 'fresh' ? ' snn-pipeline-phase-label--fresh' : ''
+              earlyUntrustworthy ? ' snn-pipeline-phase-label--fresh' : ''
             }`}
           >
-            {/* MEDIUM #8 (사용자 catch 2026-05-11): fresh wording 통일 — INFER 정합. */}
-            {initState?.phase === 'fresh'
+            {/* MEDIUM #8 (사용자 catch 2026-05-11): fresh wording 통일 — INFER 정합.
+                cluster-source-unify (2026-05-11): winner !== null 영역 fresh banner
+                영역 hide — INFER/OUT 영역 동일 winner 표시 path 영역 정합. */}
+            {earlyUntrustworthy
               ? 'FRESH CIRCUIT — 학습 0회 / 입력 대기'
               : initState?.phase === 'hydrated'
                 ? 'LIVE — hydrated (이전 학습 복원됨)'
-                : 'LIVE — awaiting'}
+                : winner.cluster !== null
+                  ? `LIVE — winner 패턴 ${winner.cluster + 1} (학습 진행)`
+                  : 'LIVE — awaiting'}
           </div>
-          <div className="snn-pipeline-phase-sub">패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요</div>
+          <div className="snn-pipeline-phase-sub">
+            {winner.cluster !== null && !earlyUntrustworthy
+              ? '추론 trigger → 자동 학습 후 cluster 영역 형성'
+              : '패턴 입력 대기 — INPUT 노드에서 패턴을 그리세요'}
+          </div>
         </div>
         <div className="snn-pipeline-hint">
           {/* PR-K (사용자 catch 2026-05-09 catch 1): hint copy 영역 ART
@@ -829,10 +856,14 @@ function LiveLearnPanel({
   // NodeInfer 정합 path. 직전 LEARN: `phase==='fresh' && tick.trial===0` /
   // INFER: `phase==='fresh' && (phase===null || pname==='untrained') &&
   // clusterLabels.length===0` 영역 다른 gate 영역 모순 path 영역 단일 source.
+  // 사용자 catch 2026-05-11 (cluster-source-unify): winnerCluster gate 추가 —
+  // NodeOut winner fallback 영역 정합. winner 영역 fire 영역 영역 fresh banner
+  // 영역 hide → cluster row 영역 표시.
   const untrustworthy = isUntrustworthy({
     initPhase: initState?.phase,
     phaseName: null, // Live 모드 영역 batch phase 미사용 — null 정합.
     clusterLabelCount: clusterLabels.length,
+    winnerCluster: winner.cluster,
   });
   const hideWinner = untrustworthy;
   // MEDIUM #10 (사용자 catch 2026-05-11): metric 통일 — INFER 영역 winner.confidence

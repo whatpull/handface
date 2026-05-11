@@ -11,7 +11,7 @@
 //     supervisor 정합 (QA MEDIUM-3, N3 cluster_train_supervised path).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onBackendEvent, type InputModeDetail } from '@/lib/backend/events';
+import { onBackendEvent, type InputModeDetail, type GridInferDetail } from '@/lib/backend/events';
 import {
   loadExemplars,
   subscribeExemplars,
@@ -65,6 +65,16 @@ export default function NodeOut() {
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
   useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
+
+  // F4 UX polish (1) — "처리 중" 시각 신호. grid-infer started → true, finished/error
+  // → false. winner 영역 미해결 ("—" placeholder) 영역 dim pulse animation 영역
+  // "결과 없음" vs "처리 중" 영역 시각 구분 정합. prefers-reduced-motion 영역
+  // CSS 영역 static dim 영역 fallback (animation-duration 0.01ms).
+  const [isInferring, setIsInferring] = useState(false);
+  useEffect(() => onBackendEvent<GridInferDetail>('grid-infer', (d) => {
+    if (d.kind === 'started') setIsInferring(true);
+    else setIsInferring(false);
+  }), []);
 
   // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
   // HIGH #6 (사용자 catch 2026-05-11): isAutoLearning 영역 LEARN/INFER 영역
@@ -120,7 +130,14 @@ export default function NodeOut() {
           학습 중 — count 갱신 대기 (신규 패턴 30회 학습 진행 중)
         </div>
       )}
-      <div className="snn-pipeline-out-winner">
+      {/* F4 UX polish (4, 2026-05-11): winner transition fade-in 100ms —
+          key={winnerKey} 영역 winner cluster 변경 시점 영역 element 재생성 →
+          fadeIn animation 1회 재생 (직전 winner 영역 새 winner 영역 시각 전환
+          영역 catch 정합). prefers-reduced-motion 영역 instant. */}
+      <div
+        key={winnerKey ?? 'empty'}
+        className={`snn-pipeline-out-winner${winnerKey ? ' snn-pipeline-out-winner--enter' : ''}`}
+      >
         {winnerLabel ? (
           <RenameButton
             outKey={winnerKey!}
@@ -129,7 +146,12 @@ export default function NodeOut() {
             hasLabel={!!winnerEx?.label}
           />
         ) : (
-          <span className="snn-pipeline-out-winner-empty">—</span>
+          <span
+            className={`snn-pipeline-out-winner-empty${isInferring ? ' is-inferring' : ''}`}
+            aria-live="polite"
+          >
+            {isInferring ? '처리 중…' : '—'}
+          </span>
         )}
       </div>
       <div className="snn-pipeline-out-counts">
@@ -199,6 +221,10 @@ function RenameButton({ outKey, substrate, label, hasLabel }:
       onClick={() => setEditing(true)}
       aria-label={`rename ${label}`}
       title="클릭 — 이름 변경"
+      // F4 UX polish (2, 2026-05-11): toast action 영역 query selector 영역
+      // out-key 영역 anchor (cluster-spawned toast → '이름 짓기' click 영역
+      // scrollIntoView + focus path 영역 정합).
+      data-out-rename-btn={outKey}
     >
       <span>{label}</span>
       <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>

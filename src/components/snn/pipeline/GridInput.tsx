@@ -160,10 +160,32 @@ export default function GridInput() {
       const exemplars = loadExemplars('orientation');
       const label = resolveClusterLabel(exemplars, d.clusterIdx, 'grid');
       // shared.ts getClusterLabel 정합 — '패턴 {idx+1}' 한국어.
+      // F4 UX polish (2, 2026-05-11): action 영역 OUT RenameButton scroll/focus
+      // path 영역 후속 명명 affordance — 사용자 영역 즉시 명명 path 영역 진입.
+      // querySelector 영역 data-out-rename-btn={outKey} 영역 anchor (out_{ci}_0 영역
+      // winnerKey 영역 정합 — NodeOut 영역 winner cluster 영역 RenameButton 영역
+      // 첫 slot 영역 render).
+      const outKey = `out_${d.clusterIdx}_0`;
       showToast({
         kind: 'success',
         message: `${label} 자동 형성됨 (top share ${(d.topShare * 100).toFixed(0)}%)`,
         duration: 5000,
+        action: {
+          label: '이름 짓기',
+          onClick: () => {
+            if (typeof document === 'undefined') return;
+            const btn = document.querySelector<HTMLButtonElement>(
+              `[data-out-rename-btn="${outKey}"]`,
+            );
+            if (btn) {
+              btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // focus 영역 click 영역 정합 — RenameButton 영역 click handler 영역
+              // 'editing' state 영역 input render → focus 영역 별도 effect 영역
+              // requestAnimationFrame 영역 trigger.
+              btn.click();
+            }
+          },
+        },
       });
     });
   }, []);

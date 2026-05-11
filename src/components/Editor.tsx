@@ -13,6 +13,7 @@ import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot, restoreSnapshotOnce } from '@/lib/snn/auto-snapshot';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { ToastProvider, showToast } from '@/components/ui/Toast';
+import { DialogProvider } from '@/components/ui/Dialog';
 import './snn-canvas.css';
 
 // UX Polish PR2 Fix 2 (MEDIUM [M2], 2026-05-09): header mini status — engine + phase.
@@ -140,6 +141,7 @@ export default function Editor() {
 
   return (
     <ToastProvider>
+    <DialogProvider>
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
       <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
         <HandFaceLogo size={24} />
@@ -220,6 +222,7 @@ export default function Editor() {
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
+    </DialogProvider>
     </ToastProvider>
   );
 }

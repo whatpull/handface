@@ -1256,6 +1256,11 @@ export class LiveSnn {
       cluster_rates: cfr.rates,
       winner_cluster: mismatch || cfr.winner < 0 ? null : cfr.winner,
       winner_margin: cfr.margin,
+      // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forced winner 영역
+      // propagate — PipelineEventContext 영역 NodeInfer / NodeLearn 영역 "EXACT MATCH"
+      // badge 표시 정합. mismatch 영역 winner invalidate 정합 영역 forced 영역 영역
+      // 영역 false 정합 (winner_cluster=null + forced=false 영역 stale badge 회피).
+      winner_forced_exact: !mismatch && cfr.winner >= 0 && cfr.forcedExact === true,
       rates_by_region: patternActive ? { V1: v1Final, V2: v2Final } : { V1: 0, V2: 0 },
       rates_by_region_is_proxy: isProxy,
       active_neurons_by_region: { V1: v1Names, V2: v2Names },

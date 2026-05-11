@@ -341,7 +341,7 @@ export default function NodeLearn() {
   // 직전 LiveLearnPanel 영역 tick.winner (live-snn 영역 별도 산출) 영역 INFER 영역
   // PipelineEventContext.winner 영역 dual source 영역 mismatch 회피 — context winner
   // 영역 LiveLearnPanel 영역 prop 영역 통합.
-  const { lastDetail, autoLearnProgress, winner } = usePipelineEvents();
+  const { lastDetail, autoLearnProgress, winner, winnerForcedExact } = usePipelineEvents();
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.
@@ -641,7 +641,13 @@ export default function NodeLearn() {
       </div>
 
       {isLiveMode ? (
-        <LiveLearnPanel tick={liveTick} clusterLabels={clusterLabels} initState={initState} winner={winner} />
+        <LiveLearnPanel
+          tick={liveTick}
+          clusterLabels={clusterLabels}
+          initState={initState}
+          winner={winner}
+          winnerForcedExact={winnerForcedExact}
+        />
       ) : (
         <>
           {/* phase indicator — key 영역 phase 변경 시점 transition animation 재생 (fade+slide-in).
@@ -750,6 +756,7 @@ function LiveLearnPanel({
   clusterLabels,
   initState,
   winner,
+  winnerForcedExact,
 }: {
   tick: LiveTickDetail | null;
   clusterLabels: readonly string[];
@@ -758,6 +765,10 @@ function LiveLearnPanel({
   // source — INFER 정합 path. 직전 tick.winner (live-snn 영역 별도 cfr.winner) 영역
   // dual source mismatch 회피.
   winner: { cluster: number | null; confidence: number; margin: number; clusterRates: number[] };
+  // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forced winner 사실 —
+  // PipelineEventContext 영역 단일 source. true 영역 winner card 영역 "EXACT MATCH"
+  // badge replace + LiveRateRow 영역 winner row Hz 영역 hide → "EXACT" pill.
+  winnerForcedExact: boolean;
 }) {
   // STDP pulse LED — trial 변경 시 mount key ↑ 영역 animation 1회 재생.
   // tick === null 영역 0 — 첫 trial 도달 시점부터 pulse.
@@ -893,13 +904,30 @@ function LiveLearnPanel({
         <div className="snn-pipeline-phase-sub">
           {/* HIGH #1 + MEDIUM #10: tick.trial 영역 학습 #N counter 영역만 사용 +
               winner 영역 PipelineEventContext.winner 영역 단일 source. metric 영역
-              INFER 정합 영역 정확도 (confidence) + 안정도 (margin) 영역 명시 label. */}
+              INFER 정합 영역 정확도 (confidence) + 안정도 (margin) 영역 명시 label.
+              사용자 catch 2026-05-12 (exact-match-badge-hide-rates): winnerForcedExact
+              영역 winner copy 영역 "EXACT MATCH (deterministic)" 영역 replace —
+              정확도/안정도 100% 영역 ART resonance lock 영역 명시 (사용자 mental
+              model 영역 modicum information 영역 fix). */}
           {hideWinner
             ? 'tap 추론 → 자동 30회 학습 후 winner 표시'
             : (
               <>
                 학습 #{tick.trial} · {winnerLabel
-                  ? `winner ${winnerLabel} · 정확도 ${confPct}% · 안정도 ${marginPct}%`
+                  ? (winnerForcedExact
+                      ? (
+                        <>
+                          winner {winnerLabel}{' '}
+                          <span
+                            className="snn-pipeline-exact-badge"
+                            role="status"
+                            aria-label="EXACT MATCH — deterministic winner (ART resonance)"
+                          >
+                            EXACT MATCH (deterministic)
+                          </span>
+                        </>
+                      )
+                      : `winner ${winnerLabel} · 정확도 ${confPct}% · 안정도 ${marginPct}%`)
                   : 'no winner — WTA 대기'}
               </>
             )}
@@ -926,7 +954,10 @@ function LiveLearnPanel({
           </div>
         )}
         {/* HIGH #1 (2026-05-11): isWinner 영역 PipelineEventContext.winner.cluster
-            영역 단일 source — INFER 정합. */}
+            영역 단일 source — INFER 정합.
+            사용자 catch 2026-05-12 (exact-match-badge-hide-rates): winnerForcedExact
+            + isWinner 영역 LiveRateRow 영역 Hz 영역 hide ("EXACT" pill 영역 replace).
+            non-winner cluster 영역 그대로 Hz 표시. */}
         {!hideWinner && clusterLabels.map((label, i) => (
           <LiveRateRow
             key={i}
@@ -934,6 +965,7 @@ function LiveLearnPanel({
             rate={tick.rates[i] ?? 0}
             max={max}
             isWinner={winnerCluster === i}
+            hideRate={winnerForcedExact && winnerCluster === i}
           />
         ))}
       </div>
@@ -958,15 +990,18 @@ function formatAge(ms: number): string {
   return `${Math.floor(ms / 86_400_000)}일`;
 }
 
-function LiveRateRow({ label, rate, max, isWinner }:
-  { label: string; rate: number; max: number; isWinner: boolean }) {
+function LiveRateRow({ label, rate, max, isWinner, hideRate = false }:
+  { label: string; rate: number; max: number; isWinner: boolean; hideRate?: boolean }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (fillRef.current) {
-      const pct = max > 0 ? Math.min(100, (rate / max) * 100) : 0;
+      // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): hideRate (forced winner)
+      // 영역 fill 영역 100% (deterministic lock 시각 catch — fire rate=0Hz 영역 산출
+      // 사실 단 winner deterministic 영역 사용자 mental model 영역 정합).
+      const pct = hideRate ? 100 : (max > 0 ? Math.min(100, (rate / max) * 100) : 0);
       fillRef.current.style.setProperty('--w', `${pct}%`);
     }
-  }, [rate, max]);
+  }, [rate, max, hideRate]);
   return (
     <div className={`snn-pipeline-cluster-row ${isWinner ? 'is-active' : ''}`}>
       <span className={`snn-pipeline-cluster-label ${isWinner ? 'is-active' : ''}`}>
@@ -978,9 +1013,21 @@ function LiveRateRow({ label, rate, max, isWinner }:
           className={`snn-mode-progress-fill ${isWinner ? 'snn-pipeline-fill-green' : 'snn-pipeline-fill-cyan'}`}
         />
       </div>
-      <span className="snn-pipeline-cluster-count snn-pipeline-mono">
-        {rate.toFixed(0)}Hz
-      </span>
+      {/* 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): hideRate 영역 Hz 영역
+          replace → "EXACT" pill (NodeInfer RateBar 정합 — 단위 통일). non-exact 영역
+          그대로 Hz 표시. */}
+      {hideRate ? (
+        <span
+          className="snn-pipeline-cluster-count snn-pipeline-mono snn-pipeline-exact-badge"
+          aria-label="exact match — winner deterministic"
+        >
+          EXACT
+        </span>
+      ) : (
+        <span className="snn-pipeline-cluster-count snn-pipeline-mono">
+          {rate.toFixed(0)}Hz
+        </span>
+      )}
     </div>
   );
 }

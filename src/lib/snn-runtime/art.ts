@@ -454,11 +454,39 @@ export function expandCluster(
     }
   }
 
-  // ── 기존 cluster 들과 OUT 간 상호 inhibition (WTA 확장) ──
+  // ── 기존 cluster 들과 OUT 간 상호 inhibition (Sparse WTA — top-k) ──
   // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
   // 2026-05-10): n13-orientation 정합 -4.0 → -8.0 영역 강화 (Diehl & Cook 2015
-  // strong inhibitory pool). expansion path 영역 동일 inhibition 강도 정합.
-  for (const existing of registry.slots) {
+  // strong inhibitory pool).
+  //
+  // 사용자 catch 2026-05-11 (perf F2-a — Sparse WTA): 직전 dense O(N²) wiring
+  // 영역 새 cluster spawn 시점 영역 기존 N cluster × 8×8×2 영역 synapse 추가
+  // (N=10 영역 1280, N=20 영역 2560) — 학습 둔화 가장 큰 source.
+  // 정정: 신규 cluster 영역 activeInputs Jaccard 영역 가까운 top-k (default 4)
+  // 만 mutual inhibition wire — 멀리 있는 cluster 영역 input 영역 분리 정합 영역
+  // confound 영역 거의 0 (V1_L4 영역 input feature 영역 disjoint 영역 영역
+  // OUT 영역 cross-fire 영역 영역 0 영역 역시 거의 0).
+  // 학술 정합: cortical lateral inhibition 영역 cortical distance 영역 decay
+  // (Markram 2004) — 본 sparse 영역 functional analog. N <= k 영역 dense 정합
+  // (legacy 호환 — 본 PR 영역 64-edge 회귀 test 영역 통과 정합).
+  const SPARSE_WTA_K = 4;
+  let inhibitTargets: ClusterSlot[];
+  if (registry.slots.length <= SPARSE_WTA_K) {
+    inhibitTargets = registry.slots.slice();
+  } else {
+    const newActive = new Set(opts.activeInputs);
+    const scored = registry.slots.map((slot) => {
+      const other = new Set(slot.activeInputs);
+      let inter = 0;
+      for (const v of newActive) if (other.has(v)) inter += 1;
+      const union = newActive.size + other.size - inter;
+      const jaccard = union > 0 ? inter / union : 0;
+      return { slot, jaccard };
+    });
+    scored.sort((a, b) => b.jaccard - a.jaccard);
+    inhibitTargets = scored.slice(0, SPARSE_WTA_K).map((x) => x.slot);
+  }
+  for (const existing of inhibitTargets) {
     for (const s of out) {
       for (const t of existing.out) {
         net.connect(s, t, -8.0, 0.5);

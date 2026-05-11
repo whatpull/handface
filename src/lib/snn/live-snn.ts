@@ -172,6 +172,13 @@ export class LiveSnn {
   // (Number.NEGATIVE_INFINITY 영역 sinceLast >> SAVE_THROTTLE_MS 보장).
   private _lastSaveAtMs = Number.NEGATIVE_INFINITY;
   private _saveTrailingTimer: ReturnType<typeof setTimeout> | null = null;
+  // 사용자 catch 2026-05-11 (perf F2-b — trialCount localStorage throttle):
+  // emitTick 영역 매 tick 영역 localStorage.setItem 영역 cumulative I/O 영역
+  // cluster N 증가 영역 학습 둔화 보조 source. 250ms throttle 영역 적용 —
+  // C3 test (직접 emitTick 1회 영역 persist) 영역 첫 call 영역 항상 save (sentinel
+  // -∞) 영역 통과. dispose 시점 trailing flush 영역 마지막 trial 영역 영구 보존.
+  private _lastTrialPersistAtMs = Number.NEGATIVE_INFINITY;
+  private static readonly TRIAL_PERSIST_THROTTLE_MS = 250;
   // 사용자 catch 2026-05-10 (CRITICAL — console spam 100+):
   //   "콘솔 로그 처리해주세요 안나오게" — save fail 영역 매 frame 누적 spam
   //   회피. Set 영역 message dedup — 같은 error message 영역 1회만 console.warn.
@@ -223,6 +230,9 @@ export class LiveSnn {
       clearTimeout(this._saveTrailingTimer);
       this._saveTrailingTimer = null;
     }
+    // 사용자 catch 2026-05-11 (perf F2-b — throttle trailing flush): dispose
+    // 시점 영역 마지막 trial 영역 영구 보존 — throttle 영역 stale 손실 회피.
+    try { saveTrialCount(this.substrateKind, this.trialCount); } catch { /* noop */ }
     // PR-B (Web Worker background offload, 2026-05-10): push listener cleanup.
     for (const off of this._unsubscribePush) {
       try { off(); } catch { /* noop */ }
@@ -272,6 +282,9 @@ export class LiveSnn {
     this.trialCount = loadTrialCount(kind);
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(16).fill(0);
+    // F2-b throttle 영역 substrate swap 영역 reset — 신규 kind 영역 첫 emit
+    // 영역 즉시 persist 보장 (orientation/gesture isolation 정합).
+    this._lastTrialPersistAtMs = Number.NEGATIVE_INFINITY;
   }
 
   getSubstrate(): SubstrateKind {
@@ -304,6 +317,8 @@ export class LiveSnn {
     this.patternRef = new Array(16).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
     this._lastSaveAtMs = Number.NEGATIVE_INFINITY;
+    // F2-b — trial persist throttle reset (resetTrigger 영역 0 영역 즉시 보존).
+    this._lastTrialPersistAtMs = Number.NEGATIVE_INFINITY;
     // Trailing save cancel — stale weights snapshot 영역 fresh build 영역 overwrite 0.
     if (this._saveTrailingTimer !== null) {
       clearTimeout(this._saveTrailingTimer);
@@ -1122,7 +1137,18 @@ export class LiveSnn {
     // localStorage persist — page reload 영역 학습 횟수 정합 보존. emitTick
     // 영역 trialCount++ 직후 영역 single-source persist path (4개 trialCount++
     // 호출 path 영역 모두 emitTick 영역 도달 정합 — 중복 path 회피).
-    saveTrialCount(this.substrateKind, this.trialCount);
+    //
+    // 사용자 catch 2026-05-11 (perf F2-b — throttle): cluster N 영역 emitTick
+    // 영역 매 tick localStorage.setItem 영역 cumulative I/O 영역 학습 둔화 source —
+    // 250ms throttle 영역 적용. 첫 call 영역 sentinel -∞ 영역 항상 즉시 save
+    // (C3 test 영역 호환). dispose 영역 trailing flush 영역 보장.
+    {
+      const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (nowMs - this._lastTrialPersistAtMs >= LiveSnn.TRIAL_PERSIST_THROTTLE_MS) {
+        saveTrialCount(this.substrateKind, this.trialCount);
+        this._lastTrialPersistAtMs = nowMs;
+      }
+    }
     const patternActive = this.patternRef.some((v) => v > 0.5);
     const detail: LiveTickDetail = {
       rates: cfr.rates,

@@ -192,6 +192,16 @@ export default function NodeInfer() {
           ⚠ MediaPipe only — offline (SNN 영역 0, 학습 진행 0)
         </div>
       )}
+      {/* 사용자 catch 2026-05-11 (perf F2-c — cluster cap hint): cluster N
+          영역 >= 12 영역 학습 점진 둔화 사실 — sparse WTA 영역 mitigation 후
+          단 OUT layer 영역 mutual inhibition 영역 N 영역 linear 영역 영역 영역
+          neuron simulation step time 영역 N 영역 linear. vigilance threshold
+          영역 높이세요 영역 신규 cluster spawn 빈도 감소 — 사용자 hint. */}
+      {clusterLabels.length >= 12 && (
+        <div className="snn-pipeline-note" role="status" aria-live="polite">
+          ⓘ 학습된 패턴 {clusterLabels.length}개 — 학습이 점진 영역 느려질 수 사실 (vigilance threshold 영역 높이거나 패턴 통합 권장)
+        </div>
+      )}
       {/* 사용자 catch 2026-05-10 (block-infer-during-learn): runAutoLearnLoop
           영역 30회 R-STDP 진행 중 영역 visible 안내 — 추론 결과 unreliable
           (학습 미완 weight 영역 winner 영역 noise) 영역 사용자 catch. NodeOut

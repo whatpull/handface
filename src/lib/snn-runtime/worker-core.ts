@@ -229,6 +229,18 @@ export class SNNWorkerCore {
           return { id: req.id, ok: true, result: this.handleRun(req.payload) };
         case 'snapshot': {
           const snap = this.requireNet().snapshot();
+          // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist):
+          //   registry.slots[ci].activeInputs 영역 round-trip 보존 — schema 영역 3
+          //   영역 bump + clusterActiveInputs 영역 동봉. 직전 schema 2 snapshot 영역
+          //   reload 영역 inferClusterRegistry 영역 빈 배열 fallback → exact match
+          //   영역 항상 miss → vigilance miss → 신규 cluster spawn loop 영역 catch.
+          //   본 field 영역 handleRestoreSnapshot 영역 hydrate. registry 영역 미build
+          //   (이론상 — restoreSnapshot before snapshot 영역 정합 단 build 영역 항상
+          //   선행) 영역 미동봉 fallback (legacy schema 2 영역 동일 catch).
+          if (this.registry) {
+            snap.schema = 3;
+            snap.clusterActiveInputs = this.registry.slots.map((s) => s.activeInputs.slice());
+          }
           return { id: req.id, ok: true, result: { snapshot: snap } satisfies SnapshotResult };
         }
         case 'extractWeights':
@@ -370,14 +382,38 @@ export class SNNWorkerCore {
     this.monitor.attachAll(restored.neurons);
     // 토폴로지 기반으로 cluster 슬롯 추론.
     const registry = inferClusterRegistry(restored.neurons.map((n) => n.name));
-    if (payload.clusterActiveInputs) {
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist):
+    //   activeInputs hydrate 우선순위 (높음 → 낮음):
+    //   1. payload.clusterActiveInputs (caller 영역 명시 — gesture preset 영역
+    //      hard-coded GESTURE_CLUSTER_ACTIVE_INPUTS 영역 정합 path).
+    //   2. payload.snapshot.clusterActiveInputs (schema=3, 사용자 catch fix —
+    //      registry round-trip 보존 영역 직전 학습 cluster activeInputs hydrate).
+    //   3. fallback — inferClusterRegistry 영역 빈 배열 (legacy schema 1/2 영역
+    //      backward compat — 단 exact match 영역 miss 영역 catch).
+    //
+    // 사용자 mental model 영역 직접 fix path:
+    //   "왜 패턴2가 winner로 나와야 할 것 같은데, 새로운 패턴5가 생기고, 재학습을
+    //    하게 되는지" — 직전 reload path 영역 activeInputs=[] 영역 catch 영역
+    //   findExactMatchCluster 영역 미작동 → exact match miss → inputMatch=0 →
+    //   vigilance miss → expandClusterAsync (신규 패턴 5 spawn) → 재학습 loop.
+    //   본 hydrate path 영역 직전 학습 cluster activeInputs 보존 → exact match
+    //   영역 정상 작동 → 패턴 2 영역 winner 영역 정합.
+    const snapshotClusterActiveInputs =
+      (payload.snapshot as { clusterActiveInputs?: number[][] }).clusterActiveInputs;
+    const hydrateSource: number[][] | undefined =
+      payload.clusterActiveInputs && payload.clusterActiveInputs.length > 0
+        ? payload.clusterActiveInputs
+        : snapshotClusterActiveInputs && snapshotClusterActiveInputs.length > 0
+          ? snapshotClusterActiveInputs
+          : payload.clusterActiveInputs;
+    if (hydrateSource) {
       for (let i = 0; i < registry.slots.length; i += 1) {
-        const ai = payload.clusterActiveInputs[i];
+        const ai = hydrateSource[i];
         if (ai) registry.slots[i].activeInputs = ai.slice();
       }
       // Fix #20 (2026-05-10): dynamic length 영역 보존 — 직전 .slice(0, 4)
       // 영역 4 cluster cap 영역 폐기. zero-init 영역 [] 영역 자연 보존.
-      this.buildClusterActiveInputs = payload.clusterActiveInputs.slice();
+      this.buildClusterActiveInputs = hydrateSource.map((ai) => ai.slice());
     }
     this.registry = registry;
     return {
@@ -577,6 +613,18 @@ export class SNNWorkerCore {
     // 사용자 mental model: 동일 input → deterministic 동일 cluster winner
     // (fire rate / silent / cardinality 영역 영역) — RECENT 영역 들쑥날쑥 0.
     let forcedExact = false;
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B —
+    //   fire-rate fallback vigilance pass):
+    //   exact match 영역 miss + fire-rate winner 영역 emerge + Jaccard(I, T_winner)
+    //   >= 0.5 영역 vigilance pass 영역 신호 (jaccardPassed=true). spawn loop
+    //   회피 — 사용자 mental model "fire rate winner cluster 영역 영역 영역 영역
+    //   강화 mandatory". exact match (forcedExact=true) 영역 우선 — 본 fallback
+    //   영역 exact miss path 만 catch.
+    // Jaccard threshold 0.5 영역 학술 정합 — Jaccard 1901 + Fuzzy ART (Carpenter
+    //   1991 ρ=0.5 권장). 신규 input 영역 학습 cluster activeInputs 영역 영역
+    //   영역 영역 spawn (Jaccard < 0.5 → vigilance miss → 정상 ART expansion).
+    let jaccardFallbackPassed = false;
+    let jaccardFallbackValue = 0;
     if (activeIdx && activeIdx.size > 0) {
       const exactCi = findExactMatchCluster(activeIdx, registry.slots);
       if (exactCi >= 0) {
@@ -593,6 +641,28 @@ export class SNNWorkerCore {
         // 분모 영역 floor 처리 영역 winner 영역 catch (1.0 share / 0 margin
         // — second 영역 0 정합).
         if (total <= 0) total = max > 0 ? max : 1;
+      } else if (winner >= 0 && total > 0) {
+        // exact match 0 + fire-rate winner 존재 → Jaccard 영역 catch.
+        // Jaccard(I, T_winner) = |I ∩ T| / |I ∪ T|. union 영역 inputSize +
+        //   templateSize - intersection.
+        const winnerSlot = registry.slots[winner];
+        const templateSize = winnerSlot.activeInputs.length;
+        const inputSize = activeIdx.size;
+        if (templateSize > 0) {
+          let intersection = 0;
+          for (const ai of winnerSlot.activeInputs) {
+            if (activeIdx.has(ai)) intersection += 1;
+          }
+          const union = inputSize + templateSize - intersection;
+          const jaccard = union > 0 ? intersection / union : 0;
+          if (jaccard >= 0.5) {
+            // fire-rate winner cluster 영역 활성 유지 — 신규 cluster spawn 회피.
+            // inputMatch 영역 Jaccard value 영역 catch — caller vigilance gate
+            //   (default 0.15) 영역 pass 정합 + 강화 path 영역 동일 trigger.
+            jaccardFallbackPassed = true;
+            jaccardFallbackValue = jaccard;
+          }
+        }
       }
     }
     // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이 학습이 안됨):
@@ -627,6 +697,13 @@ export class SNNWorkerCore {
         // binary equality — I == T (set 영역 정확 일치) → 1.0, 아니면 0.0.
         // 사용자 명시 "조금이라도 다르면 다른 패턴" + "완벽 일치" 정합.
         inputMatch = computeExactInputMatch(intersection, inputSize, templateSize);
+        // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+        //   exact match miss + Jaccard fallback pass (>= 0.5) → inputMatch 영역
+        //   Jaccard value 영역 catch (vigilance gate pass + 강화 path 영역 trigger).
+        //   사용자 mental model "fire rate winner cluster 강화 mandatory" 영역 정합.
+        if (!forcedExact && jaccardFallbackPassed && inputMatch < jaccardFallbackValue) {
+          inputMatch = jaccardFallbackValue;
+        }
       } else {
         inputMatch = 0;
       }

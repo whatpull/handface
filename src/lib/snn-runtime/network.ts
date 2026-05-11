@@ -65,14 +65,30 @@ export type NetworkSnapshotNeuronV1 = Omit<
 >;
 
 export interface NetworkSnapshot {
-  // schema 영역 1 (legacy backward compat) | 2 (current — NMDA + homeostatic).
-  schema: 1 | 2;
+  // schema 영역 1 (legacy backward compat) | 2 (NMDA + homeostatic) |
+  //   3 (cluster_active_inputs persist — 사용자 catch 2026-05-12).
+  // v3 영역 v2 영역 neuron 직렬화 정합 + top-level `clusterActiveInputs` 영역 추가
+  // (registry 영역 cluster slot 영역 activeInputs 영역 round-trip 보존). v2 / v1
+  // 영역 backward compat — 본 field 영역 미존재 시 caller (worker-core
+  // handleRestoreSnapshot) 영역 빈 배열 fallback (inferClusterRegistry 정합).
+  schema: 1 | 2 | 3;
   dtMs: number;
   t: number;
-  // v2 영역 NetworkSnapshotNeuronV2[] / v1 영역 NetworkSnapshotNeuronV1[].
+  // v2 / v3 영역 NetworkSnapshotNeuronV2[] / v1 영역 NetworkSnapshotNeuronV1[].
   // restore 영역 schema 영역 분기 영역 default 영역 적용.
   neurons: Array<NetworkSnapshotNeuronV2 | NetworkSnapshotNeuronV1>;
   synapses: SnapshotSynapse[];
+  // v3 (사용자 catch 2026-05-12 — snapshot-activeinputs-persist):
+  //   registry.slots[ci].activeInputs 영역 round-trip 보존. 직전 (v2) 영역
+  //   inferClusterRegistry 영역 neuron name scan 단 activeInputs 영역 빈 배열
+  //   fallback → 영역 reload 영역 모든 cluster activeInputs=[] 영역 findExactMatchCluster
+  //   영역 항상 -1 영역 catch → exact match miss → vigilance miss → 신규 cluster
+  //   spawn → 사용자 catch "패턴 2 winner 영역 영역 영역 신규 패턴 5 spawn + 재학습".
+  //   본 field 영역 worker-core handleSnapshot 영역 registry.slots.map(slot =>
+  //   slot.activeInputs.slice()) 영역 동봉, handleRestoreSnapshot 영역 hydrate.
+  //   schema=1/2 영역 (legacy snapshot) 영역 미동봉 → caller 영역 빈 배열 fallback
+  //   (legacy 영역 동일 catch).
+  clusterActiveInputs?: number[][];
 }
 
 export class NeuralNetwork {
@@ -208,11 +224,14 @@ export class NeuralNetwork {
   }
 
   static restore(snap: NetworkSnapshot): NeuralNetwork {
-    if (snap.schema !== 1 && snap.schema !== 2) {
+    if (snap.schema !== 1 && snap.schema !== 2 && snap.schema !== 3) {
       throw new Error(`알 수 없는 snapshot schema: ${snap.schema}`);
     }
     const net = new NeuralNetwork({ defaultDtMs: snap.dtMs });
-    const isV2 = snap.schema === 2;
+    // v2 / v3 영역 동일 neuron 직렬화 (NMDA + homeostatic + thresholdOffset) —
+    // v3 영역 top-level clusterActiveInputs 영역 추가 (registry 영역 worker-core
+    // 영역 별도 hydrate, network restore 영역 영역 영역 0).
+    const isV2 = snap.schema === 2 || snap.schema === 3;
     for (const n of snap.neurons) {
       const neuron = new Neuron({
         name: n.name,

@@ -1345,9 +1345,14 @@
   .snn-pipeline-cluster-bar-pulse,
   .snn-pipeline-tick-spinner,
   .snn-pipeline-winner-fade,
+  .snn-pipeline-out-winner--enter,
+  .snn-pipeline-out-winner-empty.is-inferring,
   .snn-pipeline-node-wrap.is-learn-active .snn-pipeline-node {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+  .snn-pipeline-out-winner-empty.is-inferring {
+    opacity: 0.7;
   }
 }
 
@@ -1357,11 +1362,34 @@
   /* content-fit v4 — vertical padding 4 (직전 6 대부분 일부). */
   padding: var(--pipe-gap-xs) 0;
 }
+/* F4 UX polish (4, 2026-05-11): winner cluster 전환 fade-in 100ms ease-in —
+   key={winnerKey} 영역 element 재생성 영역 fade-in animation 1회 재생.
+   직전 .snn-pipeline-winner-fade (360ms scale 영역) 영역 별도 path — 본 100ms
+   영역 subtle transition 영역 winner 영역 sequential 변경 영역 시각 catch.
+   prefers-reduced-motion 영역 0.01ms 영역 instant fallback. */
+.snn-pipeline-out-winner--enter {
+  animation: snn-pipeline-out-winner-fade-in 100ms ease-in;
+}
+@keyframes snn-pipeline-out-winner-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 .snn-pipeline-out-winner-empty {
   /* readable v4 — empty placeholder 영역 dim 정합 (직전 18px 영역 너무 큼). */
   font-size: var(--pipe-font-md);
   color: var(--pipe-text-dim);
   letter-spacing: 0.04em;
+}
+/* F4 UX polish (1, 2026-05-11): "처리 중" dim pulse — winner 미해결 영역
+   "결과 없음" vs "처리 중" 영역 시각 구분 정합 (직전 "—" 영역 동일 시각 →
+   사용자 영역 추론 진행 영역 catch 0 영역 root cause). 1.2s ease-in-out infinite
+   영역 부드러운 호흡 — prefers-reduced-motion 영역 0.01ms 영역 static dim. */
+.snn-pipeline-out-winner-empty.is-inferring {
+  animation: snn-pipeline-out-empty-pulse 1.2s ease-in-out infinite;
+}
+@keyframes snn-pipeline-out-empty-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.95; }
 }
 .snn-pipeline-out-winner-btn {
   background: rgba(255, 255, 255, 0.03);
@@ -1924,7 +1952,13 @@
   gap: 8px;
   font-size: 11px;
   color: var(--pipe-text-dim);
-  min-height: 32px;
+  /* F4 UX polish (3, 2026-05-11): 44px touch target — checkbox visual 18px
+     영역 보존 단 label row 영역 hit-area 영역 ≥44px (WCAG 2.5.5 / pointer:coarse
+     영역 정합). 직전 32px 영역 mobile tap 영역 mis-tap 영역 root cause. align-items
+     영역 center 영역 swap — vertical center 영역 hit-area 영역 균등. */
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -2014,8 +2048,12 @@
   opacity: 0.95;
 }
 .snn-grid-vigilance-foot-hint--muted {
-  color: #6b7280;
-  opacity: 0.7;
+  /* F4 UX polish (5, 2026-05-11): gray-500 (#6b7280) opacity 0.7 영역 contrast
+     ≈ 3.3:1 (WCAG AA 4.5:1 미달 + AAA 영역 미달) → gray-400 (#9ca3af) opacity
+     0.85 영역 swap (≈ 4.6:1, AA pass). 직전 ≤0.1 vigilance hint 영역 거의
+     unreadable 영역 root cause. amber-300 (--danger) 영역 별도 정합 (high-contrast). */
+  color: #9ca3af;
+  opacity: 0.85;
 }
 @media (pointer: coarse) {
   .snn-grid-vigilance-toggle,

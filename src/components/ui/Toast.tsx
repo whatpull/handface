@@ -16,16 +16,25 @@ import {
 
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';
 
+// F4 UX polish (2, 2026-05-11): action button — toast 영역 후속 path 영역
+// affordance. cluster-spawned toast 영역 → OUT RenameButton scroll/focus,
+// 사용자 영역 즉시 명명 path 영역 진입 (직전 toast 영역 visual only).
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
   // ms — 0 영역 manual dismiss 영역만 폐기.
   duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  push: (kind: ToastKind, message: string, duration?: number) => void;
+  push: (kind: ToastKind, message: string, duration?: number, action?: ToastAction) => void;
   dismiss: (id: number) => void;
 }
 
@@ -36,10 +45,10 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 // 전역 push handle — Provider mount 영역 register.
 // 컴포넌트 영역 외 (예: 비-React module) 영역 호출 catch path.
-let globalPush: ((kind: ToastKind, message: string, duration?: number) => void) | null = null;
+let globalPush: ((kind: ToastKind, message: string, duration?: number, action?: ToastAction) => void) | null = null;
 
-export function showToast(arg: { kind: ToastKind; message: string; duration?: number }) {
-  if (globalPush) globalPush(arg.kind, arg.message, arg.duration);
+export function showToast(arg: { kind: ToastKind; message: string; duration?: number; action?: ToastAction }) {
+  if (globalPush) globalPush(arg.kind, arg.message, arg.duration, arg.action);
   else if (typeof console !== 'undefined') {
     // Provider 미mount path — fallback console.
     if (arg.kind === 'error') console.error(`[toast] ${arg.message}`);
@@ -57,9 +66,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((it) => it.id !== id));
   }, []);
 
-  const push = useCallback((kind: ToastKind, message: string, duration = 4000) => {
+  const push = useCallback((kind: ToastKind, message: string, duration = 4000, action?: ToastAction) => {
     const id = nextId; nextId += 1;
-    setItems((prev) => [...prev, { id, kind, message, duration }]);
+    setItems((prev) => [...prev, { id, kind, message, duration, action }]);
     if (duration > 0) {
       setTimeout(() => {
         setItems((prev) => prev.filter((it) => it.id !== id));
@@ -120,10 +129,28 @@ function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
   //   jsx-a11y/aria-props-valid-values rule 영역 literal attr 영역 강제 — wrapper
   //   영역 분기 (assertive vs polite) 영역 split 정합.
   const className = `snn-toast pointer-events-auto flex items-start gap-2 rounded border px-3 py-2 font-mono text-[11px] shadow-lg backdrop-blur ${palette.classes}`;
+  // F4 UX polish (2, 2026-05-11): action button — toast click 영역 후속 path
+  // (예: OUT RenameButton scroll/focus) 영역 affordance. focus-visible ring +
+  // min touch height 28px (toast 영역 dense 영역 44px 영역 oversize, 28px 영역
+  // pointer:fine 영역 정합 — pointer:coarse 영역 hover 영역 별도 catch).
+  const handleAction = item.action
+    ? () => {
+        try { item.action!.onClick(); } finally { onDismiss(); }
+      }
+    : undefined;
   const inner = (
     <>
       <span aria-hidden="true" className="mt-[1px] shrink-0">{palette.icon}</span>
       <span className="flex-1 break-words">{item.message}</span>
+      {handleAction && (
+        <button
+          type="button"
+          onClick={handleAction}
+          className="shrink-0 rounded border border-white/20 bg-white/5 px-2 py-[2px] text-[11px] text-white/90 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
+        >
+          {item.action!.label}
+        </button>
+      )}
       <button
         type="button"
         aria-label="Dismiss notification"

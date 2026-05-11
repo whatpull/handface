@@ -270,6 +270,28 @@ export interface ClusterFiringRatesResult {
   // winner=-1 (silent) 또는 |I|=0 (empty pattern) → 0.
   inputMatch: number;
   layer: 'OUT' | 'V1_L23' | 'V2_L5';
+  // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates):
+  //   "패턴 4가 추론되는데 실제 수치가 맞는건가요? 0Hz 표시는 정확한 것인지?"
+  //   스크린샷: forced winner 영역 cluster fire rate=0Hz / 영역 cluster fire rate=82Hz
+  //   → 사용자 mental model "winner=cluster 4 단 fire 0Hz" 영역 모순.
+  // root cause: PR #237 exact-match winner force 영역 deterministic cluster lock —
+  //   fire rate dominance 영역 LIF stochasticity / WTA cross-talk 영역 영역 영역
+  //   vigilance metric 영역 별도 (Carpenter-Grossberg 1987 ART resonance). winner
+  //   cluster fire rate 영역 0Hz 영역 산출 사실 (stale subthreshold neuron / 영역
+  //   cluster weight dominance 영역 catch) — 단 사용자 영역 cluster fire rate 영역
+  //   winner 영역 source 영역 mental model.
+  // fix propagate path:
+  //   - 본 field 영역 emit boolean — main thread (live-snn.ts) 영역 NeuronFiringDetail
+  //     영역 forcedExact propagate → PipelineEventContext / NodeInfer / NodeLearn
+  //     영역 winner card 영역 "EXACT MATCH (deterministic)" badge 표시 + fire rate
+  //     row 영역 cluster bar 영역 그대로 표시 (사실 catch — 단 winner card 영역
+  //     ART resonance 영역 명시).
+  // 학술 정합: Carpenter-Grossberg 1987 ART F2 resonance 영역 exact template match
+  //   = deterministic winner — fire rate stochasticity 영역 영역 영역. 정직 한계
+  //   catch: fire rate 영역 0Hz 영역 산출 사실 단 winner 영역 deterministic.
+  // backward compat: 미동봉 (legacy path) 영역 undefined → false 정합 (caller 영역
+  //   ?? false floor).
+  forcedExact?: boolean;
 }
 
 export interface ClusterTrainRStdpResult {

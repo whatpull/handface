@@ -54,6 +54,17 @@ export interface PipelineEventState {
   clusterRates: number[];
   /** alias — winner.margin. */
   margin: number;
+  /**
+   * 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forced winner 사실 —
+   * worker-core findExactMatchCluster 영역 set-equal cluster 영역 winner deterministic
+   * 영역 lock 영역 사실 (Carpenter-Grossberg 1987 ART resonance). NodeInfer /
+   * NodeLearn LiveLearnPanel 영역 winner card "EXACT MATCH (deterministic)" badge
+   * 표시 + fire rate row 영역 사실 catch (fire rate=0Hz 영역 산출 사실 단 winner
+   * deterministic — 사용자 mental model 영역 명시 catch).
+   *
+   * backend (legacy / non-exact path) 영역 미동봉 → false 정합.
+   */
+  winnerForcedExact: boolean;
   /** active_neurons_by_region — NodeLearn 영역 V1/V2 cascade strip 영역 사용. */
   activeByRegion: Record<string, string[]>;
   /**
@@ -116,6 +127,7 @@ const PipelineEventContext = createContext<PipelineEventState>({
   winnerCluster: null,
   clusterRates: [],
   margin: 0,
+  winnerForcedExact: false,
   activeByRegion: {},
   consecutiveWinnerCount: 0,
   autoLearnProgress: new Map(),
@@ -266,6 +278,12 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     winnerCluster: winner.cluster,
     clusterRates: winner.clusterRates,
     margin: winner.margin,
+    // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): detail.winner_forced_exact
+    // 영역 expose — NodeInfer / NodeLearn LiveLearnPanel 영역 winner card badge 영역
+    // gate. winner.cluster === null 영역 false 정합 (mismatch / no-winner — stale badge
+    // 회피). detail null 영역 false 정합 (첫 frame 미수신).
+    winnerForcedExact:
+      winner.cluster !== null && detail?.winner_forced_exact === true,
     activeByRegion: detail?.active_neurons_by_region || {},
     consecutiveWinnerCount,
     autoLearnProgress,

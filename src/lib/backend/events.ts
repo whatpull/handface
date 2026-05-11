@@ -108,6 +108,13 @@ export interface NeuronFiringDetail {
   winner_cluster?: number | null;
   // Backend 영역 (max - second) / max margin (0..1). max 0 영역 0.
   winner_margin?: number;
+  // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forced winner 영역 사실 —
+  // worker-core 영역 findExactMatchCluster 영역 set-equal cluster 영역 winner deterministic
+  // 영역 lock 영역 사실 (Carpenter-Grossberg 1987 ART resonance). true 영역 winner card
+  // 영역 "EXACT MATCH (deterministic)" badge 표시 + fire rate row 영역 사실 catch — fire
+  // rate 영역 0Hz 영역 산출 사실 단 winner 영역 deterministic. backward compat: 미동봉
+  // (legacy / non-exact path) 영역 false 정합.
+  winner_forced_exact?: boolean;
   // 전체 시냅스 weight (backward compat — `?synapses_full=true` 또는 누락 시 빈 배열).
   // 기본 응답에서는 비어있거나 누락. Δw 계산은 `synapses_changed` 우선 사용.
   synapses?: Array<{ pre: string; post: string; weight: number }>;

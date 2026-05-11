@@ -487,15 +487,16 @@
     top: auto;
     width: 100%;
   }
-  /* 사용자 catch 2026-05-10/11 (반복 frustration "OUT 노드와 footer 사이 여백 0"):
-     mobile OUT wrap 영역 직접 margin-bottom — Safari scroll content 영역 정합.
-     footer height: 44min + py-2 (16) ≈ 56px / 24px gap buffer / safe-area inset
-     (iOS notch + Android nav bar) → calc(env(safe-area-inset-bottom, 0px) + 96px).
-     gap visible: 96 - 56 = 40px (사용자 frustration "여백 안 보임" 본격 정정).
+  /* 사용자 catch 2026-05-11 (반복 frustration "여백 너무 큼"): 직전 96px 영역
+     overengineered — header bar ↔ INPUT 노드 영역 gap (`.snn-pipeline { padding:
+     var(--pipe-gap-md) }` = 12px) 영역 동일 spacing token mandatory. footer 영역
+     canvas 영역 sibling (overlay 0) — pure 시각 gap 영역 12px 정합. safe-area
+     inset 영역 iOS notch / Android nav 영역 device chrome 영역 보존 — 시각
+     gap (12px) + chrome 영역 합산.
      `.snn-pipeline-node-wrap--out` 정확 selector — last-child 보다 본격 정확
      (PipelineCanvas.tsx line 607 정합). */
   .snn-pipeline-node-wrap--out {
-    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pipe-gap-md));
   }
   .snn-pipeline-node-drag-handle { display: none; }
   .snn-pipeline-reset {
@@ -627,9 +628,10 @@
   /* 사용자 catch 2026-05-11 (반복 frustration): 직전 .snn-pipeline padding-bottom 48px
      영역 mobile Safari iOS scroll container 영역 padding-bottom bug (WebKit 204098)
      영역 last child 영역 padding 영역 scroll content 영역 누적 안 됨. 본격 fix 영역
-     OUT wrap 영역 직접 margin-bottom (위 line 482-490) — single source. 본 .snn-pipeline
-     영역 padding 영역 폐기 + scroll-padding-bottom 영역 add (scroll snap / focus 정합). */
-  .snn-pipeline { scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+     OUT wrap 영역 직접 margin-bottom (위 line 497-499) — single source. 본 .snn-pipeline
+     영역 padding 영역 폐기 + scroll-padding-bottom 영역 add (scroll snap / focus 정합).
+     scroll-padding 영역 OUT margin-bottom 영역 동일 token (var(--pipe-gap-md)) 정합. */
+  .snn-pipeline { scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pipe-gap-md)); }
 }
 /* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
    5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역

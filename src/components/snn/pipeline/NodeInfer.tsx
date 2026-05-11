@@ -48,7 +48,13 @@ export default function NodeInfer() {
   // hint mandatory (NodeOut "처리 중" 영역 동일 패턴).
   // 사용자 catch 2026-05-11 (cluster-source-unify): hoist 영역 — winner 영역
   // clusterLabels 영역 dependency catch (TDZ 회피).
-  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
+  const {
+    winner,
+    lastFiringTimestamp,
+    consecutiveWinnerCount,
+    isAutoLearning,
+    winnerForcedExact,
+  } = usePipelineEvents();
 
   // Fix #19 (사용자 catch 2026-05-10): zero-init — 학습된 cluster 영역만 표시.
   // 직전 base 4 영역 무학습 시점 영역 stale '패턴 1..4' 영역 표시.
@@ -247,9 +253,28 @@ export default function NodeInfer() {
           >
             {/* MEDIUM #10 (사용자 catch 2026-05-11): metric 통일 — LEARN 정합 path
                 (정확도 confidence + 안정도 margin 영역 명시 label). 직전 conf only
-                영역 LEARN margin 영역 다른 metric 영역 mismatch. */}
+                영역 LEARN margin 영역 다른 metric 영역 mismatch.
+                사용자 catch 2026-05-12 (exact-match-badge-hide-rates):
+                forcedExact 영역 winner card 영역 "EXACT MATCH (deterministic)"
+                badge 영역 replace — 정확도/안정도 100% 영역 ART resonance lock
+                영역 명시 (Carpenter-Grossberg 1987). 직전 "정확도 100% · 안정도
+                100%" 영역 사용자 mental model 영역 modicum information — exact
+                match 영역 deterministic 영역 명시 영역 정합. */}
             {winnerLabel
-              ? `${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`
+              ? (winnerForcedExact
+                  ? (
+                    <>
+                      {winnerLabel}{' '}
+                      <span
+                        className="snn-pipeline-exact-badge"
+                        role="status"
+                        aria-label="EXACT MATCH — deterministic winner (ART resonance)"
+                      >
+                        EXACT MATCH (deterministic)
+                      </span>
+                    </>
+                  )
+                  : `${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`)
               : '—'}
           </div>
           {/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement): consecutive
@@ -294,14 +319,26 @@ export default function NodeInfer() {
           </div>
           {/* 사용자 catch 2026-05-09 [3]: margin meter — Diehl & Cook 2015 winner
               stability indicator. (max - second) / max ≥ WINNER_MARGIN (default 0.10)
-              영역 winner 인정 영역 dotted line 영역 시각 catch. */}
-          <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null && winner.cluster < clusterLabels.length} />
+              영역 winner 인정 영역 dotted line 영역 시각 catch.
+              사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forcedExact 영역
+              MarginMeter 영역 hide — share/margin 영역 1.0 hard-set 영역 "안정도 100%"
+              영역 사용자 mental model 영역 정보 부재. EXACT MATCH badge 영역 winner
+              card 영역 단일 source. */}
+          {!winnerForcedExact && (
+            <MarginMeter margin={winner.margin} threshold={WINNER_MARGIN} hasWinner={winner.cluster !== null && winner.cluster < clusterLabels.length} />
+          )}
           <div className="snn-pipeline-rate-grid">
             {/* Fix #19 (2026-05-10): 학습된 cluster 영역만 cluster bar 영역 표시.
-                clusterLabels.length 영역 dynamic — base 4 floor 폐기. */}
+                clusterLabels.length 영역 dynamic — base 4 floor 폐기.
+                사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forcedExact +
+                isWinner 영역 RateBar 영역 Hz 표시 영역 hide ("EXACT" pill 영역 replace) —
+                fire rate=0Hz 영역 산출 사실 단 winner deterministic 영역 사용자 mental
+                model 영역 misleading catch 영역. non-winner cluster 영역 그대로 Hz 표시
+                (background context catch). */}
             {clusterLabels.map((label, i) => (
               <RateBar key={i} label={label} rate={winner.clusterRates[i] ?? 0} max={max}
-                isWinner={winner.cluster === i} isSaturated={(winner.clusterRates[i] ?? 0) >= SATURATION_HZ} />
+                isWinner={winner.cluster === i} isSaturated={(winner.clusterRates[i] ?? 0) >= SATURATION_HZ}
+                hideRate={winnerForcedExact && winner.cluster === i} />
             ))}
           </div>
           <div className="snn-pipeline-row">
@@ -323,15 +360,19 @@ export default function NodeInfer() {
   );
 }
 
-function RateBar({ label, rate, max, isWinner, isSaturated }:
-  { label: string; rate: number; max: number; isWinner: boolean; isSaturated: boolean }) {
+function RateBar({ label, rate, max, isWinner, isSaturated, hideRate = false }:
+  { label: string; rate: number; max: number; isWinner: boolean; isSaturated: boolean; hideRate?: boolean }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (fillRef.current) {
-      const pct = max > 0 ? (rate / max) * 100 : 0;
+      // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): hideRate 영역 winner
+      // 영역 forced exact match — fill 영역 100% (deterministic lock 시각 catch).
+      // 직전 fill=rate/max 영역 winner fire=0Hz 영역 산출 사실 → empty bar 영역
+      // winner row 시각 inconsistent. 1.0 lock 영역 EXACT 영역 정합.
+      const pct = hideRate ? 100 : (max > 0 ? (rate / max) * 100 : 0);
       fillRef.current.style.setProperty('--w', `${pct}%`);
     }
-  }, [rate, max]);
+  }, [rate, max, hideRate]);
   return (
     <div className={`snn-pipeline-rate-row ${isWinner ? 'is-winner' : ''} ${isSaturated ? 'is-saturated' : ''}`}>
       <span className="snn-pipeline-rate-label">{label}</span>
@@ -342,8 +383,17 @@ function RateBar({ label, rate, max, isWinner, isSaturated }:
         />
       </div>
       {/* HIGH #2 (사용자 catch 2026-05-11): Hz suffix — NodeLearn LiveRateRow
-          정합 (단위 통일). 직전 number-only 영역 LEARN 영역 'Hz' suffix 영역 mismatch. */}
-      <span className="snn-pipeline-rate-value">{rate.toFixed(0)}Hz</span>
+          정합 (단위 통일). 직전 number-only 영역 LEARN 영역 'Hz' suffix 영역 mismatch.
+          사용자 catch 2026-05-12 (exact-match-badge-hide-rates): hideRate 영역 fire rate
+          Hz 영역 hide → "EXACT" pill 영역 replace (winner card 영역 EXACT MATCH badge
+          영역 inline visual cue). non-winner / non-exact 영역 그대로 Hz 표시. */}
+      {hideRate ? (
+        <span className="snn-pipeline-rate-value snn-pipeline-exact-badge" aria-label="exact match — winner deterministic">
+          EXACT
+        </span>
+      ) : (
+        <span className="snn-pipeline-rate-value">{rate.toFixed(0)}Hz</span>
+      )}
     </div>
   );
 }

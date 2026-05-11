@@ -1090,6 +1090,35 @@
   color: #34d399;
 }
 
+/*
+  사용자 catch 2026-05-12 (exact-match-badge-hide-rates):
+    "패턴 4가 추론되는데 실제 수치가 맞는건가요? 0Hz 표시는 정확한 것인지?"
+  EXACT MATCH badge — forced winner (Carpenter-Grossberg 1987 ART resonance)
+  영역 deterministic lock 영역 시각 catch. fire rate 영역 stochasticity 영역
+  영역 영역 winner 영역 deterministic 영역 명시 영역 사용자 mental model 영역
+  정합 (정확도/안정도 100% 영역 modicum information 영역 fix).
+
+  green tone (deterministic / verified) — 학술 정합 ART resonance.
+  rate row 영역 "EXACT" pill 영역 winner card "EXACT MATCH (deterministic)" badge
+  모두 동일 class — visual consistency.
+*/
+.snn-pipeline-exact-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 1px 6px;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  color: #34d399;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
 .snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .snn-pipeline-rate-row {
   display: flex; align-items: center; gap: 6px;

@@ -27,6 +27,10 @@ interface CfrResult {
   margin: number;
   inputMatch: number;
   layer: string;
+  // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forced winner 사실 —
+  // emit downstream 영역 NodeInfer / NodeLearn 영역 "EXACT MATCH (deterministic)"
+  // badge 표시 정합.
+  forcedExact?: boolean;
 }
 
 interface InternalCore {
@@ -223,6 +227,39 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
     // margin 영역 [-∞, 1] 영역 fire-rate path 영역 정합 — 본 test 영역 fallback
     // 영역 1.0 hard-set 영역 영역 영역 0 invariant 만 catch (non-exact path).
     expect(cfr.margin).toBeLessThanOrEqual(1);
+  });
+
+  it('R19 [forcedExact field emit]: exact match cluster → cfr.forcedExact=true, non-exact path → false (사용자 catch 2026-05-12 — EXACT MATCH badge propagate)', () => {
+    // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates):
+    //   "패턴 4가 추론되는데 실제 수치가 맞는건가요? 0Hz 표시는 정확한 것인지?"
+    // forced winner 영역 NodeInfer / NodeLearn 영역 "EXACT MATCH (deterministic)"
+    // badge 표시 mandatory — cfr.forcedExact 영역 emit 영역 downstream propagate
+    // path 영역 catch.
+    const core = makeCoreWithTwoClusters();
+
+    // exact match case — TOP_HALF input == cluster 0 activeInputs → forcedExact=true.
+    injectAndRun(core, TOP_HALF_PATTERN, 1300);
+    const exactRes = core.handle({
+      id: 1400,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_HALF_PATTERN },
+    });
+    expect(exactRes.ok).toBe(true);
+    const exactCfr = (exactRes as { ok: true; result: CfrResult }).result;
+    expect(exactCfr.forcedExact).toBe(true);
+    expect(exactCfr.winner).toBe(0);
+
+    // non-exact case — DIAGONAL_PATTERN 영역 cluster 영역 disjoint/mismatch →
+    // forcedExact=false (기존 fire rate path fallback).
+    injectAndRun(core, DIAGONAL_PATTERN, 1500);
+    const nonExactRes = core.handle({
+      id: 1600,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: DIAGONAL_PATTERN },
+    });
+    expect(nonExactRes.ok).toBe(true);
+    const nonExactCfr = (nonExactRes as { ok: true; result: CfrResult }).result;
+    expect(nonExactCfr.forcedExact).toBe(false);
   });
 
   it('R17b [no clusters registered]: empty registry → exact match 0, winner emerge 0 (silent)', () => {

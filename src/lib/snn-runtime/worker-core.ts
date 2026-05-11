@@ -657,6 +657,10 @@ export class SNNWorkerCore {
       margin: forcedExact ? 1 : (max > 0 ? (max - second) / max : 0),
       inputMatch,
       layer,
+      // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): forcedExact boolean
+      // 영역 emit — main thread 영역 NeuronFiringDetail 영역 propagate 영역 NodeInfer
+      // / NodeLearn 영역 winner card "EXACT MATCH (deterministic)" badge 표시 정합.
+      forcedExact,
     };
   }
 
@@ -1120,6 +1124,11 @@ export class SNNWorkerCore {
         margin: reinforceExact ? 1 : (measureMax > 0 ? (measureMax - measureSecond) / measureMax : 0),
         inputMatch: reinforceInputMatch,
         layer: 'OUT',
+        // 사용자 catch 2026-05-12 (exact-match-badge-hide-rates): reinforce path 영역
+        // 동일 적용 — measure pass winner 영역 exact-match cluster 영역 catch path
+        // 영역 동일 boolean. caller 영역 NodeLearn LiveLearnPanel 영역 winner card
+        // badge 표시 정합.
+        forcedExact: reinforceExact,
       };
       const v1 = this.handleRegionFiringRates({ region: 'V1', windowMs: payload.observeMs });
       const v2 = this.handleRegionFiringRates({ region: 'V2', windowMs: payload.observeMs });

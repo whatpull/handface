@@ -106,11 +106,14 @@ describe('snn-worker — 가중치 / snapshot', () => {
   });
 
   // PR fix/live-mode-time-and-restore — Fix 2: schema 1 → 2 bump.
-  it('snapshot 은 NetworkSnapshot schema=2 반환 (NMDA + homeostatic 보존)', async () => {
+  // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist): schema 2 → 3 bump
+  //   + clusterActiveInputs round-trip 보존. registry 영역 build 영역 등록 시점
+  //   영역 schema 3 영역 upgrade (worker-core handleSnapshot 정합).
+  it('snapshot 은 NetworkSnapshot schema=3 반환 (NMDA + homeostatic + clusterActiveInputs 보존)', async () => {
     const { client } = makeClient();
     await client.build({ preset: 'n13_orientation', seed: 57, clusterActiveInputs: LEGACY_FOUR });
     const { snapshot } = await client.snapshot();
-    expect(snapshot.schema).toBe(2);
+    expect(snapshot.schema).toBe(3);
     expect(snapshot.neurons.length).toBeGreaterThan(800);
     expect(snapshot.synapses.length).toBeGreaterThan(0);
     // v2 신규 필드 영역 직렬화 catch 영역 검증 (n13 영역 NMDA + homeostatic 영역
@@ -123,6 +126,8 @@ describe('snn-worker — 가중치 / snapshot', () => {
       (n) => 'homeostaticEnabled' in n && n.homeostaticEnabled,
     ).length;
     expect(homeoCount).toBeGreaterThan(400);
+    // v3 신규 필드 영역 clusterActiveInputs 영역 round-trip 보존 catch.
+    expect(snapshot.clusterActiveInputs).toEqual(LEGACY_FOUR);
   });
 });
 

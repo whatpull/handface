@@ -123,9 +123,14 @@ describe('LocalSNN — Fix B (schema:1 topology reject → fresh build)', () => 
     expect(status.neurons).toBeGreaterThan(800);
     expect(status.synapses).toBeGreaterThan(0);
 
-    // 새 topology 영역 schema:2 영역 catch — sink 영역 swap 정합.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist):
+    //   worker-core snapshot 영역 registry 영역 존재 시 schema 영역 3 영역 bump
+    //   + clusterActiveInputs 동봉. fresh build (LEGACY_FOUR clusterActiveInputs
+    //   영역 4 cluster 등록) → schema=3 정합. 직전 schema=2 영역 영역 영역 (registry
+    //   미build path 영역 fallback) — 본 path 영역 build 후 snapshot path 영역
+    //   항상 schema=3.
     const reloaded = await sink.loadTopology(netId);
-    expect(reloaded?.schema).toBe(2);
+    expect(reloaded?.schema).toBe(3);
   });
 
   it('T2: schema:2 topology + 정합 가중치 → restore (보존 catch)', async () => {

@@ -274,16 +274,20 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=4 ≠ |T|=8 → 0.0 → spawn.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 fire-rate winner emerge +
+    //   Jaccard = 4/8 = 0.5 영역 fallback path 영역 vigilance pass → inputMatch
+    //   영역 Jaccard value (0.5) 영역 emit (사용자 의도 — fire rate winner
+    //   cluster 영역 영역 영역 영역 강화 mandatory).
     if (cfr.winner < 0) {
       expect(cfr.inputMatch).toBe(0);
     } else {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
     }
   });
 
-  it('R7 [superset, 4/2]: cluster T=[0,1] + input [0..3] (superset) → inputMatch=0.0 (spawn)', () => {
+  it('R7 [superset, 4/2]: cluster T=[0,1] + input [0..3] (superset) → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -317,12 +321,14 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=4 ≠ |T|=2 → 0.0 → spawn.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I|=4 ≠ |T|=2) 단 fire-rate winner emerge +
+    //   Jaccard = 2/4 = 0.5 영역 fallback path 영역 vigilance pass.
     if (cfr.winner < 0) {
       expect(cfr.inputMatch).toBe(0);
     } else {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
     }
   });
 
@@ -404,7 +410,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     expect(cfr.inputMatch).toBe(0);
   });
 
-  it('R10 [1-cell noise, same size]: cluster T=[1,5,9,13] + input [1,5,9,12] → inputMatch=0.0 (spawn — 사용자 mental model)', () => {
+  it('R10 [1-cell noise, same size]: cluster T=[1,5,9,13] + input [1,5,9,12] → inputMatch=Jaccard 0.6 (fire-rate fallback)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -439,17 +445,21 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=|T|=4 단 |I ∩ T|=3 ≠ 4 (idx 12 != 13) → 0.0 → spawn.
-    // 사용자 명시 "조금이라도 다르면 다른 패턴" 정합.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I ∩ T|=3 ≠ 4) 단 fire-rate winner emerge +
+    //   Jaccard = 3/5 = 0.6 영역 fallback path 영역 vigilance pass → inputMatch
+    //   영역 Jaccard value (0.6) 영역 emit. 직전 PR #236 strict equality 영역
+    //   1-cell noise 영역 spawn 사실 — 본 path 영역 fire-rate winner cluster 영역
+    //   영역 영역 영역 영역 강화 (cross-fire input → reinforce) 사용자 의도 정합.
     if (cfr.winner >= 0) {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.6, 3);
     } else {
       expect(cfr.inputMatch).toBe(0);
     }
   });
 
-  it('R11 [2-cell noise]: cluster T=[1,5,9,13] + input [1,5,8,12] → inputMatch=0.0 (spawn)', () => {
+  it('R11 [2-cell noise]: cluster T=[1,5,9,13] + input [1,5,8,12] → inputMatch=0.0 (spawn — Jaccard 2/6=0.33 < 0.5)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -492,7 +502,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     }
   });
 
-  it('R12 [subset boundary, 4/8]: cluster T=[0..7] + input [0..3] → inputMatch=0.0 (spawn)', () => {
+  it('R12 [subset boundary, 4/8]: cluster T=[0..7] + input [0..3] → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -526,14 +536,16 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=4 ≠ |T|=8 → 0.0 → spawn.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 Jaccard = 4/8 = 0.5 영역
+    //   fallback path 영역 vigilance pass.
     if (cfr.winner >= 0) {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
     }
   });
 
-  it('R13 [subset cross]: cluster T=[1,2,4,5,6,9,10,13] (8 cells) + input [5,6,9,10] (4 subset) → inputMatch=0.0 (spawn)', () => {
+  it('R13 [subset cross]: cluster T=[1,2,4,5,6,9,10,13] (8 cells) + input [5,6,9,10] (4 subset) → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -567,16 +579,18 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=4 ≠ |T|=8 → 0.0 → spawn.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 Jaccard = 4/8 = 0.5 영역
+    //   fallback path 영역 vigilance pass.
     if (cfr.winner >= 0) {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
     } else {
       expect(cfr.inputMatch).toBe(0);
     }
   });
 
-  it('R14 [superset, 5/4]: cluster T=[1,5,9,13] + input [1,5,9,13,14] (1 extra) → inputMatch=0.0 (spawn — 사용자 mental model)', () => {
+  it('R14 [superset, 5/4]: cluster T=[1,5,9,13] + input [1,5,9,13,14] (1 extra) → inputMatch=Jaccard 0.8 (fire-rate fallback)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -610,11 +624,14 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact equality: |I|=5 ≠ |T|=4 → 0.0 → spawn.
-    // 사용자 명시 "조금이라도 다르면 다른 패턴" — 1-cell extension 영역 신규 cluster.
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
+    //   exact equality 영역 miss (|I|=5 ≠ |T|=4) 단 Jaccard = 4/5 = 0.8 영역
+    //   fallback path 영역 vigilance pass — 1-cell extension 영역 학습 cluster
+    //   영역 영역 영역 영역 영역 강화 (사용자 catch 2026-05-12 fire-rate winner
+    //   cluster 강화 mandatory).
     if (cfr.winner >= 0) {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.0, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.8, 3);
     }
   });
 

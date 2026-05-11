@@ -458,11 +458,13 @@
     background-image: none;
     border: 0;
     overflow: visible;
-    /* 사용자 catch 2026-05-10 (Request A): mobile OUT 노드 영역 footer bar
-       사이 여백 — header bar 영역 INPUT 사이 gap (var(--pipe-gap-md), ≈12px)
-       정합. footer bar height ≈ 56px (44 min-height + py-2) → safety 72px
-       (12 + 60) 영역 OUT 노드 마지막 row 영역 footer 영역 시각 충돌 0. */
-    padding-bottom: 72px;
+    /* 사용자 catch 2026-05-10/11 (반복 frustration): stage padding-bottom 영역
+       폐기 — scroll container (.snn-pipeline) 영역 padding-bottom 영역 mobile
+       Safari iOS chronic bug 영역 last-child 영역 padding 영역 scroll content
+       영역 누적 안 됨 (WebKit 204098). 본격 fix 영역 마지막 OUT wrap 영역
+       직접 margin-bottom 영역 적용 — margin 영역 scroll content 영역 정합
+       보장 (Safari bug 영역 affected 0). 본 stage 영역 padding 0 — 단일
+       source 영역 NodeOut margin (아래). */
     /* mobile 영역 pan cursor 폐기 — touch scroll 정합. */
     cursor: auto;
     touch-action: auto;
@@ -484,6 +486,16 @@
     left: auto;
     top: auto;
     width: 100%;
+  }
+  /* 사용자 catch 2026-05-10/11 (반복 frustration "OUT 노드와 footer 사이 여백 0"):
+     mobile OUT wrap 영역 직접 margin-bottom — Safari scroll content 영역 정합.
+     footer height: 44min + py-2 (16) ≈ 56px / 24px gap buffer / safe-area inset
+     (iOS notch + Android nav bar) → calc(env(safe-area-inset-bottom, 0px) + 96px).
+     gap visible: 96 - 56 = 40px (사용자 frustration "여백 안 보임" 본격 정정).
+     `.snn-pipeline-node-wrap--out` 정확 selector — last-child 보다 본격 정확
+     (PipelineCanvas.tsx line 607 정합). */
+  .snn-pipeline-node-wrap--out {
+    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
   }
   .snn-pipeline-node-drag-handle { display: none; }
   .snn-pipeline-reset {
@@ -612,9 +624,12 @@
     height: auto;
   }
   .snn-pipeline-node:hover { transform: none; }
-  /* 사용자 catch: 모바일 마지막 노드 (OUT) 하단 마진 — LLM 노드 폐기 (2026-05-09 [2]) 후
-     pipeline 영역 padding-bottom 48px 영역 충분 (별도 node--out margin 영역 불필요). */
-  .snn-pipeline { padding-bottom: 48px; }
+  /* 사용자 catch 2026-05-11 (반복 frustration): 직전 .snn-pipeline padding-bottom 48px
+     영역 mobile Safari iOS scroll container 영역 padding-bottom bug (WebKit 204098)
+     영역 last child 영역 padding 영역 scroll content 영역 누적 안 됨. 본격 fix 영역
+     OUT wrap 영역 직접 margin-bottom (위 line 482-490) — single source. 본 .snn-pipeline
+     영역 padding 영역 폐기 + scroll-padding-bottom 영역 add (scroll snap / focus 정합). */
+  .snn-pipeline { scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
 }
 /* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
    5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역

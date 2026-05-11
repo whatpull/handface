@@ -1,7 +1,9 @@
-name: Deploy to GitHub Pages
+name: CI (verify + deploy)
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -11,16 +13,28 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 # Node.js 20 deprecated 2026-09-16 — 모든 javascript action 영역 Node 24 강제.
-# https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+
   build:
+    # PR open / main push 영역 모두 build (main push 영역 영역 deploy job 진행)
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +51,10 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
+
   deploy:
+    # main push 영역 영역 deploy (PR open 영역 verify + build 영역 단 deploy 0)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

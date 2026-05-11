@@ -98,6 +98,15 @@ export interface LiveTickDetail {
   // reinforce 영역 targetCluster — caller 영역 in-flight gate 영역 cluster-specific
   // reset 영역 정합 (직전 setTimeout 100ms 영역 race 회피).
   targetCluster?: number;
+  // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+  //   "다른 패턴임에도 패턴1에 학습이 진행되었습니다". root cause — vigilance
+  //   gate 영역 mismatch (inputMatch < ρ) 시점 영역 emitTick 영역 winner_cluster
+  //   영역 broadcast → NodeOut incrementCount 영역 stale cluster 영역 fire +
+  //   PipelineEventContext winner 표시 영역 misread. 정정: handleTriggerComplete
+  //   영역 vigilance check 영역 emitTick 영전 영역 옮김 + mismatch flag 동봉
+  //   영역 emitTick 영역 winner_cluster=null broadcast + incrementCount skip.
+  //   caller (GridInput/CameraInput) 영역 status copy 영역 catch 가능.
+  vigilanceMismatch?: boolean;
 }
 
 export interface LiveSnnOptions {
@@ -899,6 +908,25 @@ export class LiveSnn {
     // 본 path 영역 미적용 — worker 영역 sequential serial 영역 자연 정합 +
     // main thread 영역 stale token 영역 dispatch 0 (push order = trial order).
     this.trialCount += 1;
+    // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+    //   "다른 패턴임에도 패턴1에 학습이 진행되었습니다". root cause —
+    //   STDP-off trigger 영역 winner emerge 영역 ANY pattern 영역 가능 (dense
+    //   WTA + 학습 cluster weight 우위) → emitTick 영역 winner_cluster broadcast
+    //   + incrementCount fire → 사용자 영역 "cluster 1 학습 진행" 영역 misread.
+    //   정직 한계: 실제 R-STDP weight 변화 영역 0 (stdpGain=0) 단 UI count + winner
+    //   표시 영역 cluster 1 영역 표시 → 신규 cluster 2 spawn + 30 trial reinforce
+    //   영역 separate path 영역 동시 진행 영역 사용자 영역 catch 0.
+    //
+    //   정정: vigilance check 영역 emitTick 영전 영역 옮김. inputMatch < vigilance
+    //   영역 mismatch 영역 emitTick 영역 vigilanceMismatch=true 전달 → emitTick
+    //   영역 winner_cluster=null broadcast + incrementCount skip (mismatch cluster
+    //   영역 stale count 영원 회피). Carpenter & Grossberg 1987 ART canonical 정합 —
+    //   F2 reset 시점 영역 winner 영역 invalidate.
+    const pending = this._vigilancePending.get(payload.trialToken);
+    const winner = payload.cfr.winner;
+    const inputMatch = payload.cfr.inputMatch;
+    const vigilanceMismatch = pending !== undefined
+      && (winner < 0 || inputMatch < pending.vigilance);
     // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken + source 영역 LiveTickDetail
     // 영역 동봉 → caller 영역 reinforcingCluster 영역 token match 영역 reset.
     this.emitTick(
@@ -908,6 +936,7 @@ export class LiveSnn {
       {
         trialToken: payload.trialToken,
         source: 'trigger',
+        vigilanceMismatch,
       },
       // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): firingCount 전달.
       payload.v1FireCount ?? 0,
@@ -919,12 +948,10 @@ export class LiveSnn {
     void this.saveDebounced(root, false);
     // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance follow-up — winner
     // margin 영역 vigilance 영역 비교 + novel pattern 영역 auto-learn dispatch.
-    const pending = this._vigilancePending.get(payload.trialToken);
     if (pending !== undefined) {
       this._vigilancePending.delete(payload.trialToken);
-      const { pattern, vigilance } = pending;
+      const { pattern } = pending;
       const margin = payload.cfr.margin;
-      const winner = payload.cfr.winner;
       // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이
       // 학습이 안됨): Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 —
       // |I ∩ T| / |I| (input ∩ winner template / input). 직전 margin (rate-based
@@ -937,11 +964,12 @@ export class LiveSnn {
       // discrimination 영역 영역 — inputMatch 영역 input vs template 영역 직접
       // 매칭 영역 catch 영역 ART canonical 정합 영역 입력 pattern novelty 영역
       // 정확 catch 영역 우선 (margin path 영역 fallback 0 — 단일 정의).
-      const inputMatch = payload.cfr.inputMatch;
-      // novel pattern 영역 catch — winner -1 (silent) 또는 inputMatch < vigilance.
       // (margin reference retain — debug / future fallback path 영역 0 mutation).
       void margin;
-      if (winner < 0 || inputMatch < vigilance) {
+      // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+      // mismatch 영역 vigilanceMismatch 영역 outer scope 영역 이미 산출 정합 —
+      // 동일 condition 영역 spawn path 영역 trigger.
+      if (vigilanceMismatch) {
         // active inputs 영역 pattern 영역 v > 0.5 binary catch.
         const activeInputs: number[] = [];
         for (let i = 0; i < pattern.length; i += 1) {
@@ -1123,7 +1151,15 @@ export class LiveSnn {
     cfr: ClusterFiringRatesResult,
     v1Hz = 0,
     v2Hz = 0,
-    meta?: { trialToken?: number; source?: 'trigger' | 'reinforce'; targetCluster?: number },
+    meta?: {
+      trialToken?: number;
+      source?: 'trigger' | 'reinforce';
+      targetCluster?: number;
+      // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+      // mismatch 영역 emitTick 영역 winner_cluster=null broadcast + incrementCount
+      // skip. handleTriggerComplete 영역 vigilance check 영역 결과 영역 전달.
+      vigilanceMismatch?: boolean;
+    },
     // 사용자 catch 2026-05-11 (v1v2-firing-count-fix): 0 < firing rate 영역
     // V1/V2 neuron 수 — emit 영역 active_neurons_by_region 영역 placeholder
     // array length 영역 동봉 (NodeLearn 영역 (byActive[region] || []).length
@@ -1150,9 +1186,18 @@ export class LiveSnn {
       }
     }
     const patternActive = this.patternRef.some((v) => v > 0.5);
+    // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+    //   mismatch 시점 영역 winner 영역 invalidate (Carpenter-Grossberg ART F2
+    //   reset). LiveTickDetail.winner 영역 -1 swap → caller (GridInput
+    //   onLiveTick) 영역 low-conf path 영역 자연 catch + status hint 영역 정합.
+    //   neuron-firing 영역 winner_cluster=null + incrementCount skip 영역
+    //   downstream 정합. caller 영역 vigilanceMismatch field 영역 read 영역
+    //   spawn-pending status hint 영역 표시 가능.
+    const mismatch = meta?.vigilanceMismatch === true;
+    const effectiveWinner = mismatch ? -1 : cfr.winner;
     const detail: LiveTickDetail = {
       rates: cfr.rates,
-      winner: cfr.winner,
+      winner: effectiveWinner,
       share: cfr.share,
       margin: cfr.margin,
       patternActive,
@@ -1162,6 +1207,7 @@ export class LiveSnn {
       trialToken: meta?.trialToken,
       source: meta?.source,
       targetCluster: meta?.targetCluster,
+      vigilanceMismatch: mismatch || undefined,
     };
     window.dispatchEvent(new CustomEvent<LiveTickDetail>(TICK_EVENT, { detail }));
     // PR3 (사용자 catch 2026-05-09): NodeInfer / PipelineEventContext 영역
@@ -1202,9 +1248,13 @@ export class LiveSnn {
     const v2Names = patternActive
       ? new Array<string>(v2FireCount).fill('v2_fire')
       : [];
+    // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+    //   mismatch 시점 영역 winner_cluster=null broadcast → PipelineEventContext
+    //   영역 stale winner cluster bar update 영역 회피. winner_margin 영역 보존
+    //   (debug visibility — caller 영역 cfr.margin 영역 read 가능).
     emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
       cluster_rates: cfr.rates,
-      winner_cluster: cfr.winner >= 0 ? cfr.winner : null,
+      winner_cluster: mismatch || cfr.winner < 0 ? null : cfr.winner,
       winner_margin: cfr.margin,
       rates_by_region: patternActive ? { V1: v1Final, V2: v2Final } : { V1: 0, V2: 0 },
       rates_by_region_is_proxy: isProxy,
@@ -1226,7 +1276,13 @@ export class LiveSnn {
     // 정직 한계: backend STDP weight update path 영역 cluster broadcast supervisor
     // 영역 8 OUT 영역 보존 (worker-core.ts handleClusterTrainRStdp 영역 학습 path)
     // — 본 정정 영역 UI exemplar count 영역 단일 path 영역 별도 catch.
-    if (cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
+    // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+    //   mismatch 영역 incrementCount skip — stale winner cluster (vertical 학습 후
+    //   horizontal input 영역 cluster 1 winner emerge — STDP-off trigger 영역
+    //   rate 비교 영역 dense WTA + 학습 weight 우위) 영역 OUT count fire 영역
+    //   사용자 영역 "패턴 1 영역 학습 진행" 영역 misread root cause. Carpenter
+    //   & Grossberg 1987 ART F2 reset 정합 — mismatch 영역 winner 영역 invalidate.
+    if (!mismatch && cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
       this.lastWinnerCluster = cfr.winner;
       // MEDIUM #11 (사용자 catch 2026-05-11): autoLearnProgress race gate —
       // runAutoLearnLoop 영역 30회 R-STDP 진행 중 영역 winner 영역 weight 미수렴
@@ -1242,7 +1298,7 @@ export class LiveSnn {
         // 별도 store 영역 GRID/CAMERA carry-over 회피.
         incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
       }
-    } else if (cfr.winner < 0) {
+    } else if (mismatch || cfr.winner < 0) {
       this.lastWinnerCluster = -1;
     }
   }

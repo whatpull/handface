@@ -213,20 +213,13 @@ describe('snn-art — Cluster expansion', () => {
   });
 });
 
-// 사용자 catch 2026-05-11 (perf F2-a — Sparse WTA): cluster N 영역 증가 영역
-// dense O(N²) cross-inhibition 영역 학습 둔화 source. 정정: top-k=4 영역만
-// mutual inhibition wire — Jaccard(activeInputs) 영역 가까운 cluster 우선.
-//
-// 회귀 위험 catch:
-//   - N <= k 영역 dense 보존 정합 (기존 64-edge test 영역 통과 — 4 existing).
-//   - N > k 영역 top-k 만 wire — synapse 영역 (k * 8 * 8 * 2) 영역 cap.
-//   - 학습 selectivity 영역 회귀 위험 catch — 멀리 떨어진 cluster 영역 input
-//     영역 disjoint 영역 OUT 영역 cross-fire 영역 영역 거의 0 영역 정합 (V1
-//     영역 cluster-local hard-wire — 본 path 영역 input 영역 동일 가까운 cluster
-//     영역 confound 영역만 기록 cross-inhibit 영역 충분).
-describe('snn-art — Sparse WTA (perf F2-a)', () => {
-  it('N=8 expand 시 신규 cluster 영역 top-k=4 영역 cluster 영역만 cross-inhibit', () => {
-    // 8 cluster — base 4 + expand 4 영역 만들고 9th expand.
+// PR-J (사용자 catch 2026-05-11 — 학습된 1번 패턴 영역 다른 패턴 영역 인식):
+// PR #227 Sparse WTA top-k=4 영역 회귀 — 신규 cluster 영역 학습 cluster 영역
+// 영역 영역 inhibition wire 0 → cross-fire winner 강탈.
+// 정정: 모든 cluster 영역 dense inhibition wire (Sparse WTA 폐기).
+// 학술 정합: Diehl & Cook 2015 — global lateral inhibition.
+describe('snn-art — Dense WTA (correctness PR-J)', () => {
+  it('N=8 expand 시 신규 cluster 영역 모든 8 cluster 영역 dense cross-inhibit', () => {
     const inputs8 = [
       [0, 1, 2, 3], // c0
       [4, 5, 6, 7], // c1
@@ -235,52 +228,37 @@ describe('snn-art — Sparse WTA (perf F2-a)', () => {
     ];
     const { net } = buildN13OrientationPreset({ clusterActiveInputs: inputs8 });
     const reg = buildClusterRegistryFromN13(inputs8);
-    // 4 expand 영역 확장 (registry.slots.length 영역 8 영역).
-    expandCluster(net, reg, { activeInputs: [0, 1, 4, 5], seed: 11 }); // c4 — c0/c1 가까움
-    expandCluster(net, reg, { activeInputs: [2, 3, 6, 7], seed: 12 }); // c5 — c0/c1 가까움
-    expandCluster(net, reg, { activeInputs: [8, 9, 12, 13], seed: 13 }); // c6 — c2/c3 가까움
-    expandCluster(net, reg, { activeInputs: [10, 11, 14, 15], seed: 14 }); // c7 — c2/c3 가까움
+    expandCluster(net, reg, { activeInputs: [0, 1, 4, 5], seed: 11 }); // c4
+    expandCluster(net, reg, { activeInputs: [2, 3, 6, 7], seed: 12 }); // c5
+    expandCluster(net, reg, { activeInputs: [8, 9, 12, 13], seed: 13 }); // c6
+    expandCluster(net, reg, { activeInputs: [10, 11, 14, 15], seed: 14 }); // c7
     expect(reg.slots).toHaveLength(8);
 
-    // 9th cluster — activeInputs [0,1,2,3] 영역 c0 영역 정확 동일 + c4/c5 영역 partial overlap.
-    // top-k=4 영역 expectation: c0 (Jaccard 1.0) + c4/c5 (overlap) + c1 또는 c2 영역 tie.
+    // 9th cluster — 모든 8 cluster 영역 inhibition wire (dense).
     expandCluster(net, reg, { activeInputs: [0, 1, 2, 3], seed: 99 });
     expect(reg.slots).toHaveLength(9);
 
     const newOut = reg.slots[8].out;
-    // 본 신규 cluster 영역 inhibit 영역 받은 cluster 수 영역 정확 측정.
-    const inhibitedBy = new Set<string>();
+    const inhibitedClusters = new Set<number>();
     for (const s of net.synapses) {
       if (newOut.includes(s.pre.name) && s.weight < 0) {
-        inhibitedBy.add(s.post.name);
+        for (let ci = 0; ci < 8; ci += 1) {
+          if (reg.slots[ci].out.includes(s.post.name)) inhibitedClusters.add(ci);
+        }
       }
     }
-    // 본 신규 cluster 영역 inhibit 영역 cluster id catch.
-    const inhibitedClusters = new Set<number>();
-    for (const post of inhibitedBy) {
-      for (let ci = 0; ci < 8; ci += 1) {
-        if (reg.slots[ci].out.includes(post)) inhibitedClusters.add(ci);
-      }
-    }
-    // top-k=4 영역 cap — 8 cluster 중 4 만.
-    expect(inhibitedClusters.size).toBe(4);
-    // 가장 가까운 c0 영역 반드시 포함.
-    expect(inhibitedClusters.has(0)).toBe(true);
+    // 모든 8 cluster 영역 inhibition wire (dense).
+    expect(inhibitedClusters.size).toBe(8);
 
-    // 신규 cross-inhibit synapse count 영역 정확 검증 — sparse cap 영역 직접 측정.
-    // dense path: 8 cluster × 8 (newOut) × 8 (existingOut) × 2 directions = 1024.
-    // sparse path (k=4): 4 cluster × 8 × 8 × 2 = 512.
+    // 신규 cross-inhibit synapse count: 8 cluster × 8 × 8 × 2 = 1024.
     let crossInhibitTotal = 0;
     for (const s of net.synapses) {
       if (s.weight >= 0) continue;
       const pre = s.pre.name;
       const post = s.post.name;
-      // 본 신규 cluster 영역 OUT 영역 inbound + outbound cross-inhibit catch.
       const newIsPre = newOut.includes(pre);
       const newIsPost = newOut.includes(post);
       if (!newIsPre && !newIsPost) continue;
-      // 본 cluster 영역 inner mutual excitation (+2.0) 영역 weight > 0 영역 이미 skip.
-      // 본 path 영역 cross-cluster only — pre/post 영역 다른 cluster OUT 영역 catch.
       const otherSide = newIsPre ? post : pre;
       let otherIsExistingOut = false;
       for (let ci = 0; ci < 8; ci += 1) {
@@ -288,15 +266,13 @@ describe('snn-art — Sparse WTA (perf F2-a)', () => {
       }
       if (otherIsExistingOut) crossInhibitTotal += 1;
     }
-    // 4 cluster × 64 × 2 = 512 정확.
-    expect(crossInhibitTotal).toBe(512);
+    expect(crossInhibitTotal).toBe(1024);
   });
 
-  it('N=4 (k 이하) 영역 dense 보존 — 기존 64-edge test 회귀 0', () => {
+  it('N=4 dense 보존 — 기존 64-edge test 회귀 0', () => {
     const { net } = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR });
     const reg = buildClusterRegistryFromN13(LEGACY_FOUR);
     expandCluster(net, reg, { activeInputs: [0, 4, 8, 12], seed: 1 });
-    // 모든 4 existing cluster 영역 64 edge 영역 wire — dense 보존.
     for (let ci = 0; ci < 4; ci += 1) {
       const newOut = reg.slots[4].out;
       const existingOut = reg.slots[ci].out;
@@ -312,5 +288,79 @@ describe('snn-art — Sparse WTA (perf F2-a)', () => {
       }
       expect(crossNeg).toBe(64);
     }
+  });
+});
+
+// PR-J Fix 3 — 학습 cluster c0 영역 신규 cluster cN spawn 후 영역 영역
+// 영역 입력 영역 winner=c0 정합 (cross-fire 영역 영역 영역 영역 영역 영역).
+//
+// 본 test 영역 inactiveIdx 5% wire delete + dense WTA inhibition 영역 영역
+// 영역 효과 영역 측정 — synapse 영역 영역 0 영역 영역 영역 영역 정합 (full
+// runtime simulate 영역 worker 영역 hand off — vitest 영역 단위 영역 영역
+// 영역 wire 영역 영역 영역 영역 영역).
+describe('snn-art — PR-J cross-fire wire 영역 회귀 0', () => {
+  it('inactiveIdx wire 영역 영역 영역 — 신규 cluster 영역 학습 input 만 받음', () => {
+    const { net } = buildN13OrientationPreset(); // zero-init.
+    const reg = buildClusterRegistryFromN13([]);
+    // c0: vertical [1,5,9,13].
+    expandCluster(net, reg, { activeInputs: [1, 5, 9, 13], seed: 1 });
+    // c1: horizontal [4,5,6,7].
+    expandCluster(net, reg, { activeInputs: [4, 5, 6, 7], seed: 2 });
+
+    // c1 v1L4 영역 inactive feature (예: 0, 2, 3, 8, ...) 영역 wire 영역 영역.
+    const c1V1L4 = new Set(reg.slots[1].v1L4E);
+    const c1ActiveSet = new Set([4, 5, 6, 7]);
+    for (const s of net.synapses) {
+      if (!c1V1L4.has(s.post.name)) continue;
+      if (!s.pre.name.startsWith('in_feat_')) continue;
+      const idx = parseInt(s.pre.name.replace('in_feat_', ''), 10);
+      // 본 wire 영역 active input 영역만 정합 — inactive 영역 wire 0.
+      expect(c1ActiveSet.has(idx)).toBe(true);
+    }
+  });
+
+  it('dense WTA — c0 학습 후 cN spawn 영역 cN→c0 inhibition wire 정합', () => {
+    const { net } = buildN13OrientationPreset();
+    const reg = buildClusterRegistryFromN13([]);
+    // c0 spawn (vertical).
+    expandCluster(net, reg, { activeInputs: [1, 5, 9, 13], seed: 1 });
+    // cN spawn (distinct input — horizontal).
+    expandCluster(net, reg, { activeInputs: [4, 5, 6, 7], seed: 2 });
+
+    // cN OUT → c0 OUT inhibition wire 64 (dense).
+    const c0Out = new Set(reg.slots[0].out);
+    const cNOut = new Set(reg.slots[1].out);
+    let inhibitNToZero = 0;
+    let inhibitZeroToN = 0;
+    for (const s of net.synapses) {
+      if (s.weight >= 0) continue;
+      if (cNOut.has(s.pre.name) && c0Out.has(s.post.name)) inhibitNToZero += 1;
+      if (c0Out.has(s.pre.name) && cNOut.has(s.post.name)) inhibitZeroToN += 1;
+    }
+    expect(inhibitNToZero).toBe(64);
+    expect(inhibitZeroToN).toBe(64);
+  });
+
+  it('cN spawn 후 c0 영역 학습 input pattern 영역 cN V1_L4 영역 inactive wire 0', () => {
+    const { net } = buildN13OrientationPreset();
+    const reg = buildClusterRegistryFromN13([]);
+    // c0: [1,5,9,13].
+    expandCluster(net, reg, { activeInputs: [1, 5, 9, 13], seed: 1 });
+    // cN: [4,5,6,7]. c0 영역 active 영역 [1,5,9,13] — cN 영역 inactive 영역
+    // [0,1,2,3,8,9,...] (5 만 c0 영역 active 영역 일치).
+    expandCluster(net, reg, { activeInputs: [4, 5, 6, 7], seed: 2 });
+
+    // c0 영역 input feature index — cN V1_L4 영역 in_feat_1, in_feat_9,
+    // in_feat_13 wire 영역 0 정합 (inactive — wire delete 영역 효과).
+    const cNV1L4 = new Set(reg.slots[1].v1L4E);
+    let crossWire = 0;
+    for (const s of net.synapses) {
+      if (!cNV1L4.has(s.post.name)) continue;
+      if (!s.pre.name.startsWith('in_feat_')) continue;
+      const idx = parseInt(s.pre.name.replace('in_feat_', ''), 10);
+      // c0 만 영역 active (1,9,13) — cN 영역 inactive index 영역 wire 영역 0.
+      if (idx === 1 || idx === 9 || idx === 13) crossWire += 1;
+    }
+    expect(crossWire).toBe(0);
   });
 });

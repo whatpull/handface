@@ -246,7 +246,7 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
   //   직전 buggy: |I ∩ T| / |I| = 4/4 = 1.0 → vigilance pass → cluster 3 false-winner.
   //   Jaccard fix: |I ∩ T| / |I ∪ T| = 4/8 = 0.5 → < 0.7 → vigilance miss → spawn.
 
-  it('R6 [Jaccard subset]: cluster T=[0..7] (top 2 rows) + 신규 input [0..3] (top row, subset) → inputMatch=0.5 (vigilance miss)', () => {
+  it('R6 [size-normalized Jaccard subset]: cluster T=[0..7] (top 2 rows) + 신규 input [0..3] (top row, subset) → inputMatch=0.25 (vigilance miss)', () => {
     const core = new SNNWorkerCore();
     // cluster 0 영역 superset template (8 cells: top 2 rows).
     const buildRes = core.handle({
@@ -282,24 +282,22 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // Jaccard: |I ∩ T| / |I ∪ T| = |{0,1,2,3} ∩ {0..7}| / |{0,1,2,3} ∪ {0..7}|
-    //        = 4 / 8 = 0.5.
-    // 사용자 catch 2026-05-11 (jaccard-tolerance-band): threshold 0.7 → 0.5 영역
-    // borderline pass — subset 영역 "동일 pattern 계열" 영역 정합 (Fuzzy ART
-    // ρ ≈ 0.5 intermediate). R6 영역 inputMatch 산출 정합 catch 영역 영역 (vigilance
-    // 비교 영역 GridInput layer 영역 적용).
+    // 사용자 catch 2026-05-11 (size-normalized-jaccard):
+    //   jaccard = |I ∩ T| / |I ∪ T| = 4/8 = 0.5.
+    //   sizePenalty = 1 - |4-8|/max(4,8) = 1 - 4/8 = 0.5.
+    //   adjusted = 0.5 × 0.5 = 0.25 → < 0.5 → vigilance miss → spawn ✓.
     if (cfr.winner < 0) {
       // silent — vigilance miss path 정합.
       expect(cfr.inputMatch).toBe(0);
     } else {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-      // Jaccard subset 영역 0.5 산출 invariant — threshold 비교 영역 caller 책임.
-      expect(cfr.inputMatch).toBeLessThan(1.0);
+      expect(cfr.inputMatch).toBeCloseTo(0.25, 3);
+      // size-normalized Jaccard subset 영역 0.25 산출 invariant.
+      expect(cfr.inputMatch).toBeLessThan(0.5);
     }
   });
 
-  it('R7 [Jaccard superset]: cluster T=[0,1] (2 cells) + 신규 input [0..3] (superset) → inputMatch=0.5 (vigilance miss)', () => {
+  it('R7 [size-normalized Jaccard superset]: cluster T=[0,1] (2 cells) + 신규 input [0..3] (superset) → inputMatch=0.25 (vigilance miss)', () => {
     const core = new SNNWorkerCore();
     // cluster 0 영역 subset template (2 cells).
     const buildRes = core.handle({
@@ -335,15 +333,16 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // Jaccard: |I ∩ T| / |I ∪ T| = |{0,1,2,3} ∩ {0,1}| / |{0,1,2,3} ∪ {0,1}|
-    //        = 2 / 4 = 0.5 → < 0.7 → mismatch → spawn.
-    // 직전 buggy |I ∩ T| / |I| = 2/4 = 0.5 → 이 한 케이스 영역 우연 일치, 단 R6
-    // (subset) 영역 4/4=1.0 false-pass 영역 root cause.
+    // 사용자 catch 2026-05-11 (size-normalized-jaccard):
+    //   jaccard = |{0,1,2,3} ∩ {0,1}| / |{0,1,2,3} ∪ {0,1}| = 2/4 = 0.5.
+    //   sizePenalty = 1 - |4-2|/max(4,2) = 1 - 2/4 = 0.5.
+    //   adjusted = 0.5 × 0.5 = 0.25 → < 0.5 → mismatch → spawn ✓.
     if (cfr.winner < 0) {
       expect(cfr.inputMatch).toBe(0);
     } else {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.25, 3);
+      expect(cfr.inputMatch).toBeLessThan(0.5);
     }
   });
 
@@ -571,7 +570,7 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     }
   });
 
-  it('R12 [subset boundary]: cluster T=[0..7] + input [0..3] (4/8 subset) → inputMatch=0.5 (≥0.5 boundary pass)', () => {
+  it('R12 [size-normalized subset]: cluster T=[0..7] + input [0..3] (4/8 subset) → inputMatch=0.25 (<0.5 spawn — size-normalized)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -606,17 +605,122 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // Jaccard: |{0..3} ∩ {0..7}| / |{0..3} ∪ {0..7}| = 4/8 = 0.5 → boundary.
-    // Trade-off (PR #232 subset catch vs jaccard-tolerance-band noise tolerance):
-    //   - 0.5 = 0.5 → boundary pass — subset 영역 "동일 pattern 계열" 영역 정합
-    //     (사용자 mental model — horizontal line 영역 vertical 영역 다른 cluster
-    //     영역 영역 단 동일 horizontal 영역 영역 superset 영역 동일 계열).
-    //   - 단 사용자 명시 catch 영역 영역 boundary case 영역 사용자 결정 영역
-    //     handoff — 본 invariant 영역 numeric value 정합 영역 검증, threshold
-    //     비교 영역 GridInput layer 영역 적용 catch 영역 영역.
+    // 사용자 catch 2026-05-11 (size-normalized-jaccard):
+    //   jaccard = 4/8 = 0.5, sizePenalty = 1 - 4/8 = 0.5, adjusted = 0.25.
+    //   subset 영역 size_penalty 영역 attenuate → 0.25 < 0.5 → spawn (사용자
+    //   mental model 정합 — "subset 영역 다른 패턴 영역 인식").
     if (cfr.winner >= 0) {
       expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
+      expect(cfr.inputMatch).toBeCloseTo(0.25, 3);
+      expect(cfr.inputMatch).toBeLessThan(0.5);
+    }
+  });
+
+  // 사용자 catch 2026-05-11 (size-normalized-jaccard):
+  //   PR #232 symmetric Jaccard 영역 subset/superset 영역 0.5 boundary pass 영역
+  //   사용자 mental model 위배 → Option E (Tversky 1977 ratio model α=β=0.5):
+  //     adjusted = jaccard × (1 - |I−T|/max(|I|,|T|))
+  //   R13 (4 vs 8 superset): jaccard=0.5, sizePenalty=0.5, adjusted=0.25 → spawn.
+  //   R14 (5 vs 4 near-match): jaccard=0.8, sizePenalty=0.8, adjusted=0.64 → pass.
+  //   동일 크기 영역 sizePenalty=1.0 → R10/R11 noise tolerance 보존.
+
+  it('R13 [size-normalized superset cross]: cluster T=cross[1,2,4,5,6,9,10,13] (8 cells) + input middle[5,6,9,10] (4 cells subset) → inputMatch=0.25 (spawn)', () => {
+    const core = new SNNWorkerCore();
+    // cross-shaped template (8 cells): symmetric around center.
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[1, 2, 4, 5, 6, 9, 10, 13]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // middle 4 cells [5,6,9,10] — subset of cross template.
+    const MIDDLE_PATTERN = [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = MIDDLE_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: MIDDLE_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Size-normalized Jaccard:
+    //   I ∩ T = {5,6,9,10} → intersection = 4.
+    //   jaccard = 4/(4+8-4) = 4/8 = 0.5.
+    //   sizePenalty = 1 - |4-8|/max(4,8) = 1 - 4/8 = 0.5.
+    //   adjusted = 0.5 × 0.5 = 0.25 → < 0.5 → spawn ✓.
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.25, 3);
+      expect(cfr.inputMatch).toBeLessThan(0.5);
+    } else {
+      // silent path — vigilance miss 정합.
+      expect(cfr.inputMatch).toBe(0);
+    }
+  });
+
+  it('R14 [size-normalized near-match — 1 extra cell]: cluster T=[1,5,9,13] (4 cells) + input [1,5,9,13,14] (5 cells superset) → inputMatch=0.64 (pass)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[1, 5, 9, 13]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // vertical + 1 extra cell at idx 14 (bottom row col 2).
+    const VERTICAL_PLUS_ONE = [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = VERTICAL_PLUS_ONE
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: VERTICAL_PLUS_ONE },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Size-normalized Jaccard:
+    //   I ∩ T = {1,5,9,13} → intersection = 4.
+    //   jaccard = 4/(5+4-4) = 4/5 = 0.8.
+    //   sizePenalty = 1 - |5-4|/max(5,4) = 1 - 1/5 = 0.8.
+    //   adjusted = 0.8 × 0.8 = 0.64 → ≥ 0.5 → vigilance pass ✓.
+    // 사용자 mental model 정합: 1-cell extension (98%+ shape overlap) 영역
+    // 동일 cluster 영역 인식 (noise tolerance — small additive jitter 보존).
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.64, 3);
+      expect(cfr.inputMatch).toBeGreaterThanOrEqual(0.5);
     }
   });
 });

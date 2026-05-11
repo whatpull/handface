@@ -60,6 +60,29 @@ function applyWeightsLocal(net: NeuralNetwork, weights: number[]): void {
 // 영역 stale '패턴 1..4' 영역 표시 root cause 영역 정정).
 const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [];
 
+// 사용자 catch 2026-05-11 (size-normalized-jaccard): symmetric Jaccard
+// (PR #232) 영역 subset/superset 영역 동일 0.5 산출 → R6/R7 모두 borderline pass
+// (threshold 0.5, PR #233) → 사용자 mental model 위배 ("subset 영역 다른 패턴 영역
+// 영역 영역 영역 영역 인식"). Option E (size-normalized Jaccard): adjusted =
+// jaccard × (1 - |I|−|T||/max(|I|,|T|)). 동일 크기 영역 size_penalty=1 (jaccard
+// 보존 — R10/R11 noise tolerance 보존), 크기 차이 영역 영역 영역 영역 attenuate
+// — R6 (4 vs 8) 영역 0.5×0.5=0.25, R14 (5 vs 4) 영역 0.8×0.8=0.64.
+// 학술 정합: Tversky 1977 ratio model α=β=0.5 영역 size-asymmetry penalty 정합,
+// + Carpenter & Grossberg 1991 Fuzzy ART ρ ≈ 0.5 intermediate 영역 noise tolerance
+// 보존. handleClusterFiringRates + handleClusterTrainRStdp 두 path 영역 동일 적용.
+function computeAdjustedInputMatch(
+  intersection: number,
+  inputSize: number,
+  templateSize: number,
+): number {
+  const unionSize = inputSize + templateSize - intersection;
+  if (unionSize <= 0) return 0;
+  const jaccard = intersection / unionSize;
+  const maxSize = Math.max(inputSize, templateSize);
+  const sizePenalty = maxSize > 0 ? 1 - Math.abs(inputSize - templateSize) / maxSize : 1;
+  return jaccard * sizePenalty;
+}
+
 // PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
 // 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
 // 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
@@ -539,9 +562,11 @@ export class SNNWorkerCore {
         for (const ai of winnerSlot.activeInputs) {
           if (activeIdx.has(ai)) intersection += 1;
         }
-        // |I ∪ T| = |I| + |T| - |I ∩ T| (inclusion-exclusion).
-        const unionSize = inputSize + templateSize - intersection;
-        inputMatch = unionSize > 0 ? intersection / unionSize : 0;
+        // 사용자 catch 2026-05-11 (size-normalized-jaccard):
+        // adjusted = jaccard × (1 - |I−T|/max(|I|,|T|)) — Tversky 1977
+        // ratio model 영역 size-asymmetry penalty 적용. 동일 크기 영역
+        // jaccard 보존, subset/superset 영역 size_penalty 영역 attenuate.
+        inputMatch = computeAdjustedInputMatch(intersection, inputSize, templateSize);
       } else {
         inputMatch = 0;
       }
@@ -982,8 +1007,10 @@ export class SNNWorkerCore {
           }
           const inputSize = reinforceActiveIdx.size;
           const templateSize = winnerSlot.activeInputs.length;
-          const unionSize = inputSize + templateSize - intersection;
-          reinforceInputMatch = unionSize > 0 ? intersection / unionSize : 0;
+          // 사용자 catch 2026-05-11 (size-normalized-jaccard): handleClusterFiringRates
+          // 영역 동일 helper 영역 catch — reinforce path 영역 protocol 정합 catch
+          // 영역 동일 산출 (vigilance 영역 직접 적용 0 단 emit 영역 일관성 보장).
+          reinforceInputMatch = computeAdjustedInputMatch(intersection, inputSize, templateSize);
         }
       } else if (measureWinner < 0 || reinforceActiveIdx.size === 0) {
         reinforceInputMatch = 0;

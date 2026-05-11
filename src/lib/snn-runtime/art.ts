@@ -414,14 +414,16 @@ export function expandCluster(
       net.connect(`in_feat_${ai}`, t, w, 1.0);
     }
   }
-  for (const ii of inactiveIdx) {
-    for (const t of v1L4E) {
-      if (rng.random() < 0.05) {
-        const w = 2.0 + rng.uniform(-0.3, 0.3);
-        net.connect(`in_feat_${ii}`, t, w, 1.0);
-      }
-    }
-  }
+  // PR-J (사용자 catch 2026-05-11 — 학습된 1번 패턴 영역 다른 패턴 영역 인식):
+  // 직전 inactiveIdx 5% wire (w=2.0) 영역 신규 cluster 영역 학습 안 받는
+  // input feature 영역 sparse 자극 path 영역 형성 — 학습 cluster c0 영역
+  // input pattern P0 영역 inactive subset 영역 cluster cN 영역 V1_L4 영역
+  // sparse 자극 → V2 cascade dense → cN OUT fire 누적 → cross-fire winner
+  // 강탈. 정정: inactiveIdx wire 완전 delete — 신규 cluster 영역 학습 input
+  // 만 받음, cross-fire path 영역 차단. noise generalization 영역 STDP
+  // plasticity (R-STDP weight 변화) 영역 자연 emerge — 학술 정합
+  // Diehl & Cook 2015 (selective receptive field).
+  void inactiveIdx;
 
   // ── 본 cluster 내 cascade dense ──
   const cascadeIntra = (
@@ -454,39 +456,23 @@ export function expandCluster(
     }
   }
 
-  // ── 기존 cluster 들과 OUT 간 상호 inhibition (Sparse WTA — top-k) ──
+  // ── 기존 cluster 들과 OUT 간 상호 inhibition (Dense WTA — 모든 cluster) ──
   // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
   // 2026-05-10): n13-orientation 정합 -4.0 → -8.0 영역 강화 (Diehl & Cook 2015
   // strong inhibitory pool).
   //
-  // 사용자 catch 2026-05-11 (perf F2-a — Sparse WTA): 직전 dense O(N²) wiring
-  // 영역 새 cluster spawn 시점 영역 기존 N cluster × 8×8×2 영역 synapse 추가
-  // (N=10 영역 1280, N=20 영역 2560) — 학습 둔화 가장 큰 source.
-  // 정정: 신규 cluster 영역 activeInputs Jaccard 영역 가까운 top-k (default 4)
-  // 만 mutual inhibition wire — 멀리 있는 cluster 영역 input 영역 분리 정합 영역
-  // confound 영역 거의 0 (V1_L4 영역 input feature 영역 disjoint 영역 영역
-  // OUT 영역 cross-fire 영역 영역 0 영역 역시 거의 0).
-  // 학술 정합: cortical lateral inhibition 영역 cortical distance 영역 decay
-  // (Markram 2004) — 본 sparse 영역 functional analog. N <= k 영역 dense 정합
-  // (legacy 호환 — 본 PR 영역 64-edge 회귀 test 영역 통과 정합).
-  const SPARSE_WTA_K = 4;
-  let inhibitTargets: ClusterSlot[];
-  if (registry.slots.length <= SPARSE_WTA_K) {
-    inhibitTargets = registry.slots.slice();
-  } else {
-    const newActive = new Set(opts.activeInputs);
-    const scored = registry.slots.map((slot) => {
-      const other = new Set(slot.activeInputs);
-      let inter = 0;
-      for (const v of newActive) if (other.has(v)) inter += 1;
-      const union = newActive.size + other.size - inter;
-      const jaccard = union > 0 ? inter / union : 0;
-      return { slot, jaccard };
-    });
-    scored.sort((a, b) => b.jaccard - a.jaccard);
-    inhibitTargets = scored.slice(0, SPARSE_WTA_K).map((x) => x.slot);
-  }
-  for (const existing of inhibitTargets) {
+  // PR-J (사용자 catch 2026-05-11 — 학습된 1번 패턴 영역 다른 패턴 영역 인식):
+  // PR #227 Sparse WTA top-k=4 영역 회귀 source — 신규 cluster N spawn 시점
+  // 영역 학습된 cluster 1 영역 activeInputs Jaccard 영역 top-k 영역 영역
+  // 영역 영역 영역 inhibition wire 0 → 신규 cluster N 영역 학습 cluster 1
+  // 영역 inhibit 0 → cross-fire winner 강탈.
+  // 정정: 모든 기존 cluster 영역 mutual inhibition wire (dense restore) —
+  // 학습 cluster 영역 priority 영역 영역 영역 모든 cluster 영역 학습 가능
+  // 후보 영역, union(top-k Jaccard, learned) = all slots 영역 정합.
+  // 학술 정합: Diehl & Cook 2015 — global lateral inhibition (모든 output
+  // cluster 영역 winner-take-all pool). perf cost 영역 N=20 영역 ~2560 synapse
+  // — correctness > perf priority (학습 cluster 인식 차분 영역 critical).
+  for (const existing of registry.slots) {
     for (const s of out) {
       for (const t of existing.out) {
         net.connect(s, t, -8.0, 0.5);

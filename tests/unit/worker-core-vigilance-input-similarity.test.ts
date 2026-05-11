@@ -235,6 +235,194 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     expect(cfr.inputMatch).toBe(0);
   });
 
+  // 사용자 catch 2026-05-11 (inputmatch-bilateral-jaccard):
+  //   "패턴에 포함된 4x4 그리드에 모양이 비슷하거나 포함일 경우 새로운 패턴이
+  //    아닌 기존 패턴으로 인식 (패턴의 모양이 인식되는 것이 아니라, 종속여부가
+  //    인식되는 것 같습니다.)"
+  // Fix: |I ∩ T| / |I| (one-direction) → |I ∩ T| / |I ∪ T| (Jaccard symmetric).
+  //
+  // 시나리오 (스크린샷): cluster 1/2/3 학습 + cluster 3 영역 T=[0..7] (top 2 rows).
+  //   INPUT: top row 4 cells [0..3] — 신규 horizontal line pattern.
+  //   직전 buggy: |I ∩ T| / |I| = 4/4 = 1.0 → vigilance pass → cluster 3 false-winner.
+  //   Jaccard fix: |I ∩ T| / |I ∪ T| = 4/8 = 0.5 → < 0.7 → vigilance miss → spawn.
+
+  it('R6 [Jaccard subset]: cluster T=[0..7] (top 2 rows) + 신규 input [0..3] (top row, subset) → inputMatch=0.5 (vigilance miss)', () => {
+    const core = new SNNWorkerCore();
+    // cluster 0 영역 superset template (8 cells: top 2 rows).
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 2, 3, 4, 5, 6, 7]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // top row 4-cell horizontal line pattern (subset of cluster 0 영역 activeInputs).
+    const TOP_ROW_PATTERN = [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = TOP_ROW_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |I ∩ T| / |I ∪ T| = |{0,1,2,3} ∩ {0..7}| / |{0,1,2,3} ∪ {0..7}|
+    //        = 4 / 8 = 0.5 → < ART_VIGILANCE_THRESHOLD (0.7) → mismatch → spawn.
+    if (cfr.winner < 0) {
+      // silent — vigilance miss path 정합.
+      expect(cfr.inputMatch).toBe(0);
+    } else {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
+      // 핵심 회귀 invariant — Jaccard subset 영역 vigilance miss path 정합.
+      expect(cfr.inputMatch).toBeLessThan(0.7);
+    }
+  });
+
+  it('R7 [Jaccard superset]: cluster T=[0,1] (2 cells) + 신규 input [0..3] (superset) → inputMatch=0.5 (vigilance miss)', () => {
+    const core = new SNNWorkerCore();
+    // cluster 0 영역 subset template (2 cells).
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // 신규 input 영역 superset (4 cells: top row).
+    const TOP_ROW_PATTERN = [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = TOP_ROW_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |I ∩ T| / |I ∪ T| = |{0,1,2,3} ∩ {0,1}| / |{0,1,2,3} ∪ {0,1}|
+    //        = 2 / 4 = 0.5 → < 0.7 → mismatch → spawn.
+    // 직전 buggy |I ∩ T| / |I| = 2/4 = 0.5 → 이 한 케이스 영역 우연 일치, 단 R6
+    // (subset) 영역 4/4=1.0 false-pass 영역 root cause.
+    if (cfr.winner < 0) {
+      expect(cfr.inputMatch).toBe(0);
+    } else {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
+    }
+  });
+
+  it('R8 [Jaccard identical]: cluster T=[0..7] + 동일 input [0..7] → inputMatch=1.0 (vigilance pass)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 2, 3, 4, 5, 6, 7]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    const TOP_TWO_ROWS_PATTERN = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = TOP_TWO_ROWS_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_TWO_ROWS_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |{0..7} ∩ {0..7}| / |{0..7} ∪ {0..7}| = 8/8 = 1.0 → vigilance pass.
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(1.0, 3);
+    }
+  });
+
+  it('R9 [Jaccard disjoint]: cluster T=[0..3] + 신규 input [12..15] (disjoint) → inputMatch=0 (vigilance miss)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 2, 3]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // 신규 input — bottom row (disjoint from top row).
+    const BOTTOM_ROW_PATTERN = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = BOTTOM_ROW_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: BOTTOM_ROW_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |{12,13,14,15} ∩ {0,1,2,3}| / |union| = 0/8 = 0.0 → vigilance miss.
+    expect(cfr.inputMatch).toBe(0);
+  });
+
   it('R5: pattern 미동봉 (legacy path) → inputMatch=1.0 fallback (backward compat)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({

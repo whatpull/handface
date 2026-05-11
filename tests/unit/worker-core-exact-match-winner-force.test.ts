@@ -171,6 +171,60 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
     expect([-1, 0, 1]).toContain(cfr.winner);
   });
 
+  it('R18 [exact-match stability = 100%]: exact match cluster → share=1.0, margin=1.0 (negative margin 차단)', () => {
+    // 사용자 catch 2026-05-12 (exact-match-stability-fix):
+    //   "패턴 인식은 올바름, 단 안정도 -178%가 의미하는게 맞는지 모르겠습니다."
+    //   스크린샷: winner=cluster 1, 패턴 1 fire=82Hz, 패턴 2 fire=229Hz →
+    //   직전 margin = (82-229)/82 = -179% (negative, 사용자 mental model 위배).
+    // root cause: PR #237 exact-match force 영역 winner cluster 영역 fire rate
+    // 영역 다른 cluster fire rate 영역 영역 영역 → negative margin 자연 산출.
+    // fix: forcedExact → share=1.0, margin=1.0 (Carpenter-Grossberg ART resonance
+    // 영역 deterministic perfect stability 정합).
+    const core = makeCoreWithTwoClusters();
+
+    // 모든 trial 영역 exact-match cluster (top half) input → margin=1.0, share=1.0.
+    for (let trial = 0; trial < 5; trial += 1) {
+      injectAndRun(core, TOP_HALF_PATTERN, 900 + trial * 10);
+      const cfrRes = core.handle({
+        id: 1000 + trial,
+        type: 'clusterFiringRates',
+        payload: { windowMs: 50, layer: 'OUT', pattern: TOP_HALF_PATTERN },
+      });
+      expect(cfrRes.ok).toBe(true);
+      const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+      // exact match → winner deterministic + share/margin 영역 1.0 hard-set.
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(1.0, 3);
+      expect(cfr.share).toBeCloseTo(1.0, 6);
+      expect(cfr.margin).toBeCloseTo(1.0, 6);
+      // negative margin 영역 절대 산출 0 — 사용자 catch 정합.
+      expect(cfr.margin).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('R18b [non-exact fallback preserves fire-rate margin]: exact match 0 → 기존 fire-rate margin path (PR #232/#231 보존)', () => {
+    // R17 fallback path 영역 share/margin 영역 fire-rate 영역 영역 (exact-match
+    // override 영역 영역 영역 0) — 직전 fire-rate margin 보존 정합.
+    const core = makeCoreWithTwoClusters();
+    injectAndRun(core, DIAGONAL_PATTERN, 1100);
+    const cfrRes = core.handle({
+      id: 1200,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: DIAGONAL_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // exact match 0 → inputMatch=0 (R17 정합).
+    expect(cfr.inputMatch).toBe(0);
+    // share/margin 영역 fire-rate path 영역 산출 — 1.0 hard-set 영역 영역 영역 0.
+    // (LIF noise 영역 catch 영역 정확 값 영역 assert 0 단 invariant range 영역 catch.)
+    expect(cfr.share).toBeGreaterThanOrEqual(0);
+    expect(cfr.share).toBeLessThanOrEqual(1);
+    // margin 영역 [-∞, 1] 영역 fire-rate path 영역 정합 — 본 test 영역 fallback
+    // 영역 1.0 hard-set 영역 영역 영역 0 invariant 만 catch (non-exact path).
+    expect(cfr.margin).toBeLessThanOrEqual(1);
+  });
+
   it('R17b [no clusters registered]: empty registry → exact match 0, winner emerge 0 (silent)', () => {
     // build 영역 default empty cluster (clusterActiveInputs=[]) — registry.slots
     // 영역 0 catch 영역 exact match 영역 항상 -1.

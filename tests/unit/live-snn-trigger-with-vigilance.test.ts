@@ -316,4 +316,112 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       }));
     }
   });
+
+  // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+  //   "다른 패턴임에도 패턴1에 학습이 진행되었습니다". root cause —
+  //   handleTriggerComplete 영역 emitTick 영역 vigilance check 영전 호출 →
+  //   inputMatch < vigilance (mismatch) 영역 시점 영역 cfr.winner (stale stale
+  //   cluster — STDP-off trigger 영역 rate 비교 영역 학습 cluster weight 우위
+  //   영역 winner emerge) 영역 winner_cluster 영역 broadcast +
+  //   incrementCount(out_${cfr.winner}_0) 호출 → 사용자 UI 영역 "cluster 1
+  //   영역 학습 진행" 영역 misread. 정정: vigilance check 영역 emitTick 영전
+  //   영역 옮김 + mismatch flag 동봉 → emitTick 영역 winner_cluster=null +
+  //   incrementCount skip.
+  it('V7: vigilance mismatch → winner_cluster=null broadcast + incrementCount skip', async () => {
+    const live = new LiveSnn();
+    // vertical pattern — 학습 가정 (사용자 시나리오: cluster 1 학습됨).
+    const pattern = [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0];
+    const { trialToken } = live.triggerWithVigilance(pattern, 0.7);
+    await new Promise((r) => setTimeout(r, 10));
+    mocks.emitBackendEvent.mockClear();
+    mocks.mockIncrementCount.mockClear();
+    // mismatch scenario: winner=0 (stale stale 학습 cluster — STDP-off trigger
+    // 영역 dense WTA + 학습 cluster weight 우위 영역 winner emerge) +
+    // inputMatch=0.25 (vertical input vs horizontal cluster template overlap
+    // 1/4 cells) < vigilance=0.7 → mismatch.
+    const cfr = {
+      rates: [0.8, 0.1, 0.1, 0.1],
+      winner: 0,
+      share: 0.73,
+      margin: 0.88,
+      inputMatch: 0.25, // < vigilance(0.7) → mismatch.
+      layer: 'OUT' as const,
+    };
+    const liveAny = live as unknown as {
+      handleTriggerComplete: (root: unknown, payload: unknown) => void;
+    };
+    const root = { lab: { save: mocks.mockSave }, client: mocks.mockClient };
+    liveAny.handleTriggerComplete(root, {
+      trialToken,
+      cfr,
+      v1Hz: 0,
+      v2Hz: 0,
+      netTime: 100,
+    });
+    // mismatch 영역 emitTick 영역 winner_cluster=null broadcast + incrementCount skip.
+    // emitBackendEvent('neuron-firing', ...) 영역 catch — winner_cluster=null mandatory.
+    const neuronFiringCalls = mocks.emitBackendEvent.mock.calls.filter(
+      (c) => c[0] === 'neuron-firing',
+    );
+    expect(neuronFiringCalls.length).toBeGreaterThanOrEqual(1);
+    const lastNeuronFiring = neuronFiringCalls[neuronFiringCalls.length - 1][1] as {
+      winner_cluster: number | null;
+    };
+    expect(lastNeuronFiring.winner_cluster).toBeNull();
+    // incrementCount 영역 호출 0 — mismatch cluster (out_0_0) 영역 stale fire 회피.
+    expect(mocks.mockIncrementCount).not.toHaveBeenCalled();
+    // 동시에 expandCluster + reinforce loop 영역 trigger — runAutoLearnLoop 영역 dispatch.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(mocks.mockExpandCluster).toHaveBeenCalledTimes(1);
+    expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(30);
+    live.dispose();
+  });
+
+  // 사용자 catch 2026-05-11 — vigilance pass path 영역 회귀 catch: inputMatch
+  // >= vigilance 영역 시점 영역 winner_cluster broadcast + incrementCount fire
+  // 영역 보존 (정상 path — 동일 패턴 영역 학습 cluster 영역 강화).
+  it('V8: vigilance pass → winner_cluster broadcast + incrementCount fire (보존)', async () => {
+    const live = new LiveSnn();
+    const pattern = [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]; // vertical.
+    const { trialToken } = live.triggerWithVigilance(pattern, 0.7);
+    await new Promise((r) => setTimeout(r, 10));
+    mocks.emitBackendEvent.mockClear();
+    mocks.mockIncrementCount.mockClear();
+    // pass scenario: winner=1 + inputMatch=1.0 (vertical input ∩ vertical template
+    // 4/4 cells) >= vigilance=0.7 → pass.
+    const cfr = {
+      rates: [0.1, 0.9, 0.1, 0.1],
+      winner: 1,
+      share: 0.75,
+      margin: 0.88,
+      inputMatch: 1.0,
+      layer: 'OUT' as const,
+    };
+    const liveAny = live as unknown as {
+      handleTriggerComplete: (root: unknown, payload: unknown) => void;
+    };
+    const root = { lab: { save: mocks.mockSave }, client: mocks.mockClient };
+    liveAny.handleTriggerComplete(root, {
+      trialToken,
+      cfr,
+      v1Hz: 0,
+      v2Hz: 0,
+      netTime: 100,
+    });
+    const neuronFiringCalls = mocks.emitBackendEvent.mock.calls.filter(
+      (c) => c[0] === 'neuron-firing',
+    );
+    expect(neuronFiringCalls.length).toBeGreaterThanOrEqual(1);
+    const lastNeuronFiring = neuronFiringCalls[neuronFiringCalls.length - 1][1] as {
+      winner_cluster: number | null;
+    };
+    expect(lastNeuronFiring.winner_cluster).toBe(1);
+    // incrementCount 영역 winner cluster (out_1_0) 영역 호출.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
+    // expandCluster + reinforce 영역 0 — vigilance pass.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mocks.mockExpandCluster).not.toHaveBeenCalled();
+    expect(mocks.mockReinforceBackground).not.toHaveBeenCalled();
+    live.dispose();
+  });
 });

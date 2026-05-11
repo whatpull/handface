@@ -598,23 +598,38 @@ export default function GridInput() {
       if (d.source === 'trigger' && d.trialToken !== undefined) {
         if (pendingInferTokenRef.current === d.trialToken) {
           pendingInferTokenRef.current = null;
-          // QA FINDING-5 fix (2026-05-10): margin < 10% 영역 '낮은 confidence'
-          // 영역 status copy 영역 hint — Diehl & Cook 2015 winner margin 10%
-          // threshold 정합 (NodeInfer MarginMeter 영역 정합). winner -1 영역
-          // silent 영역 별도 catch.
-          // PR #196 polish (UX LOW-2): low-conf 영역 단순 text → 'warning' kind
-          // 영역 amber pill 영역 visual cue 정합 (snn-grid-status--warning CSS
-          // 영역 amber border + ⚠ glyph). hint 영역 short detail 영역 분리 —
-          // main message 영역 단축 catch.
-          const lowConf = d.winner < 0 || d.margin < 0.10;
-          if (lowConf) {
+          // 사용자 catch 2026-05-11 (vigilance-mismatch-no-winner-broadcast):
+          //   mismatch 영역 vigilanceMismatch=true → status 영역 '신규 패턴 형성 중'
+          //   hint — 사용자 영역 "다른 패턴 영역 cluster 1 영역 학습" 영역 misread
+          //   회피. runAutoLearnLoop 영역 별도 dispatch (30 trial spawn + reinforce) →
+          //   reinforce push 영역 final '자동 학습 완료' status swap path 정합.
+          //   winner=-1 (mismatch path 영역 emitTick 영역 invalidate) — lowConf 영역
+          //   동시 true 단 vigilanceMismatch 영역 우선 (사용자 mental model 정합).
+          if (d.vigilanceMismatch) {
             setStatus({
               kind: 'warning',
-              message: '추론 완료',
-              hint: '신뢰도 낮음 — 자세 안정화 권장',
+              message: '신규 패턴 — 자동 학습 시작',
+              hint: 'vigilance miss — 신규 cluster spawn + 30회 R-STDP',
             });
           } else {
-            setStatus({ kind: 'ok', message: '추론 완료' });
+            // QA FINDING-5 fix (2026-05-10): margin < 10% 영역 '낮은 confidence'
+            // 영역 status copy 영역 hint — Diehl & Cook 2015 winner margin 10%
+            // threshold 정합 (NodeInfer MarginMeter 영역 정합). winner -1 영역
+            // silent 영역 별도 catch.
+            // PR #196 polish (UX LOW-2): low-conf 영역 단순 text → 'warning' kind
+            // 영역 amber pill 영역 visual cue 정합 (snn-grid-status--warning CSS
+            // 영역 amber border + ⚠ glyph). hint 영역 short detail 영역 분리 —
+            // main message 영역 단축 catch.
+            const lowConf = d.winner < 0 || d.margin < 0.10;
+            if (lowConf) {
+              setStatus({
+                kind: 'warning',
+                message: '추론 완료',
+                hint: '신뢰도 낮음 — 자세 안정화 권장',
+              });
+            } else {
+              setStatus({ kind: 'ok', message: '추론 완료' });
+            }
           }
         }
       } else if (d.source === 'reinforce' && d.trialToken !== undefined) {
@@ -720,7 +735,7 @@ export default function GridInput() {
             type="button"
             className="snn-grid-train-all-btn snn-grid-vigilance-toggle"
             onClick={() => setAdvancedOpen((v) => !v)}
-            aria-expanded={advancedOpen}
+            aria-expanded={advancedOpen ? 'true' : 'false'}
             aria-controls="snn-grid-vigilance-body"
             title="ART vigilance threshold + novelty 모드"
           >

@@ -263,16 +263,17 @@ export default function NodeInfer() {
             {winnerLabel
               ? (winnerForcedExact
                   ? (
-                    <>
-                      {winnerLabel}{' '}
+                    <div className="snn-pipeline-winner-stack">
+                      <span className="snn-pipeline-winner-label">{winnerLabel}</span>
                       <span
                         className="snn-pipeline-exact-badge"
                         role="status"
-                        aria-label="EXACT MATCH — deterministic winner (ART resonance)"
+                        aria-label="exact match deterministic"
+                        title="정확 일치 — deterministic"
                       >
-                        EXACT MATCH (deterministic)
+                        EXACT
                       </span>
-                    </>
+                    </div>
                   )
                   : `${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`)
               : '—'}

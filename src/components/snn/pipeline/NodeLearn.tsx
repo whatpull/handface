@@ -921,9 +921,10 @@ function LiveLearnPanel({
                           <span
                             className="snn-pipeline-exact-badge"
                             role="status"
-                            aria-label="EXACT MATCH — deterministic winner (ART resonance)"
+                            aria-label="exact match deterministic"
+                            title="정확 일치 — deterministic"
                           >
-                            EXACT MATCH (deterministic)
+                            EXACT
                           </span>
                         </>
                       )

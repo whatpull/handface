@@ -170,6 +170,16 @@ export class LiveSnn {
   // (count 갱신 대기 — NodeOut amber row 영역 사용자 mental model 영역 정합).
   // Set 영역 cluster id catch — 동시 다중 cluster 영역 mid-train 시점 정합.
   private _autoLearnInFlight: Set<number> = new Set();
+  // 사용자 catch 2026-05-12 (forced-exact-bypass-race-gate):
+  //   INFER winner [EXACT] STABLE 영역 OUT count 패턴 N=0 catch — runAutoLearnLoop
+  //   진행 중 (_autoLearnInFlight.size > 0) 영역 forced-exact winner 영역 영역
+  //   영역 incrementCount skip → 사용자 mental model "deterministic match 영역
+  //   즉시 +1" 영역 mismatch. 정정: forcedExact=true 영역 race-gate 영역 bypass —
+  //   매 forced-exact trigger 영역 +1 (PR #242 per-trigger 정합). 단 finally
+  //   commit (runAutoLearnLoop) 영역 동일 cluster id 영역 이미 increment 영역
+  //   double-increment 회피 영역 본 Set 영역 catch — finally commit 시점 영역
+  //   member check + skip + clear.
+  private _forcedExactIncrementedClusters: Set<number> = new Set();
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
   private substrateKind: SubstrateKind = 'orientation';
@@ -1092,9 +1102,21 @@ export class LiveSnn {
         // 학습 완료 commit — 신규 cluster 영역 exemplars 영역 영구 fire (race-gate
         // skip 영역 missing commit 영역 정정). featSnap 영역 학습 영역 사용된
         // pattern 영역 보존 (legacy export JSON path 호환).
+        //
+        // 사용자 catch 2026-05-12 (forced-exact-bypass-race-gate):
+        //   forced-exact bypass path 영역 본 cluster id 영역 이미 increment 영역
+        //   double-increment 회피 영역 mark check + skip + clear. mark 영역
+        //   emitTick 영역 set — 본 finally commit 영역 consume.
         try {
-          const featSnap = this.patternRef.slice();
-          incrementCount(`out_${registeredClusterId}_0`, this.substrateKind, featSnap);
+          const alreadyIncremented = this._forcedExactIncrementedClusters.has(
+            registeredClusterId,
+          );
+          if (!alreadyIncremented) {
+            const featSnap = this.patternRef.slice();
+            incrementCount(`out_${registeredClusterId}_0`, this.substrateKind, featSnap);
+          }
+          // mark consume (idempotent) — 다음 동일 cluster id 영역 학습 영역 fresh.
+          this._forcedExactIncrementedClusters.delete(registeredClusterId);
           // 다음 emitTick 영역 동일 cluster winner 영역 idempotent skip 정합 —
           // lastWinnerCluster 영역 신규 cluster 영역 set (double-increment 회피).
           this.lastWinnerCluster = registeredClusterId;
@@ -1303,8 +1325,18 @@ export class LiveSnn {
       // cluster 영역 set size > 0 영역 skip — NodeOut amber row 영역 사용자
       // mental model 정합 (count 갱신 대기). 학습 완료 finally commit 영역
       // 신규 cluster 영역 single increment + lastWinnerCluster set 영역 정합.
-      if (this._autoLearnInFlight.size > 0) {
-        // 진행 중 — count 갱신 대기. NodeOut isAutoLearning amber row 영역 visible.
+      //
+      // 사용자 catch 2026-05-12 (forced-exact-bypass-race-gate):
+      //   INFER winner [EXACT] STABLE 영역 OUT count 패턴 N=0 — 학습 진행 중
+      //   영역 race-gate 영역 forced-exact winner 영역 skip catch 영역 정정 —
+      //   forcedExact=true 영역 deterministic template match 영역 매 trigger +1
+      //   (사용자 mental model 정합). 단 double-increment 회피 영역
+      //   _forcedExactIncrementedClusters 영역 cluster id 영역 mark — finally
+      //   commit 시점 영역 member check + skip.
+      const forcedExact = cfr.forcedExact === true;
+      const inFlight = this._autoLearnInFlight.size > 0;
+      if (inFlight && !forcedExact) {
+        // 진행 중 + non-forced — count 갱신 대기. NodeOut isAutoLearning amber row 영역 visible.
       } else {
         const featSnap = this.patternRef.slice();
         // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
@@ -1313,6 +1345,12 @@ export class LiveSnn {
         // 사용자 catch 2026-05-12: 동일 winner 연속 영역 idempotent gate 영역 제거 —
         // 매 valid trigger 영역 +1 (사용자 mental model 정합).
         incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
+        // forced-exact bypass 시점 영역 cluster id 영역 mark — finally commit
+        // 영역 double-increment 회피 정합. in-flight 영역 cluster id 영역 set
+        // member 영역 → finally commit 영역 본 check 영역 skip + clear.
+        if (inFlight && forcedExact && this._autoLearnInFlight.has(cfr.winner)) {
+          this._forcedExactIncrementedClusters.add(cfr.winner);
+        }
       }
     } else if (mismatch || cfr.winner < 0) {
       this.lastWinnerCluster = -1;

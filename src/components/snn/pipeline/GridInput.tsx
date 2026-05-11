@@ -31,19 +31,18 @@ import { usePipelineEvents } from './PipelineEventContext';
 // 너무 관대 영역 base 4 substrate 영역 random winner 영역 familiar 판정 →
 // 신규 cluster spawn 영역 안 영역 root cause. backend default 0.7 정합.
 //
-// 사용자 catch 2026-05-11 (jaccard-tolerance-band — 같은 패턴이 2/3번으로
-// 신규 인식): PR #232 Jaccard symmetric fix 후 threshold 0.7 영역 너무 strict —
-// 4-cell vertical [1,5,9,13] 학습 후 1 cell jitter [1,5,9,12] 영역 Jaccard
-// = 3/(4+4-3) = 3/5 = 0.6 → < 0.7 → mismatch → spawn cluster 2 (false spawn).
-// 사용자 mental model 위배 (동일 패턴 영역 미세 noise = 같은 cluster).
-// fix: 0.7 → 0.5 — Fuzzy ART ρ ≈ 0.5 intermediate 학술 정합 (Carpenter &
-// Grossberg 1991 — moderate selectivity, noise tolerance balance).
-//   - 1-noise: Jaccard 0.6 ≥ 0.5 → pass + reinforce ✓ (same pattern 강화)
-//   - 2-noise: Jaccard 2/6 = 0.33 < 0.5 → mismatch + spawn ✓ (true novel)
-//   - subset (I⊂T, 4/8): Jaccard 0.5 → boundary pass (PR #232 borderline
-//     — 단방향 종속 영역 미세 차이 → 사용자 mental model 영역 동일 pattern
-//     계열 영역 정합). disjoint (0/N): 0.0 < 0.5 → spawn ✓.
-const ART_VIGILANCE_THRESHOLD = 0.5;
+// 사용자 catch 2026-05-12 (exact-equality-vigilance):
+//   "4x4 그리드의 경우 완벽하게 해당 그리드에서 나올 수 있는 패턴이 학습되어야
+//    합니다. (비슷한 모양이나 형태가 아닌 완벽하게 일치하는 패턴 인식) - 조금이라도
+//    다르면 다른 패턴으로 인식 (단, 완벽히 동일한 패턴의 경우 동일하게 인식)"
+// fundamentally deterministic categorical recognition — binary equality 정합.
+// worker-core computeExactInputMatch 영역 0.0 또는 1.0 binary 산출 — threshold
+// 1.0 strict (Carpenter-Grossberg ART ρ=1.0 strict end of vigilance spectrum).
+//   - I == T: inputMatch = 1.0 ≥ 1.0 → vigilance pass + reinforce ✓
+//   - I != T (조금이라도 다름): inputMatch = 0.0 < 1.0 → mismatch → spawn ✓
+// 폐기: PR #233 noise tolerance (0.5 Fuzzy ART) + PR #235 Tversky size_penalty —
+// 사용자 명시 "조금이라도 다르면 다른 패턴" 정합.
+const ART_VIGILANCE_THRESHOLD = 1.0;
 
 // 사용자 catch 2026-05-09 (3 신규 catch): label glyph prefix 본격 제거 — 텍스트
 // only 영역 일관 정합. 직전 '─ horizontal' / '│ vertical' / '╲ diag-back' /

@@ -2215,3 +2215,12 @@
   width: 32px;
   text-align: right;
 }
+
+/* Dialog component (2026-05-12): 사용자 catch "alert → dialog" — fade-in
+   keyframe. prefers-reduced-motion 정합 영역 tailwind 영역 'motion-safe:' prefix
+   영역 catch — 본 keyframe 영역 정의 영역만. */
+@keyframes snn-dialog-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

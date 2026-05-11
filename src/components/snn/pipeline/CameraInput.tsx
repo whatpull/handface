@@ -50,6 +50,7 @@ import { sharpenForGesture } from '@/lib/mediapipe/feature-encoder';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
+import { showDialog } from '@/components/ui/Dialog';
 import { usePipelineEvents } from './PipelineEventContext';
 // PR-K (사용자 catch 2026-05-09 catch 1): ART vigilance threshold — GridInput
 // 영역 동일 정합 (Carpenter & Grossberg 1987).
@@ -258,45 +259,51 @@ export default function CameraInput({ cameraConnected }: { cameraConnected: bool
   // sequence: resetClusterWeights → live.resetTrigger → clearExemplars → lab.save.
   // 사용자 catch 2026-05-10 (Request C): GridInput 영역 정합 — purgeAllLearningData
   // 영역 단일 path (양 substrate IndexedDB + cache + localStorage wipe + reload).
-  const resetLearningLive = useCallback(async () => {
+  const resetLearningLive = useCallback(() => {
     if (engineMode !== 'live') return;
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        '학습 데이터 전체 삭제\n\n양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
-      );
-      if (!confirmed) return;
-    }
-    setStatus({ kind: 'building' });
-    try {
-      // Step 1: LiveSnn state-clear.
+    // 사용자 catch 2026-05-12: native window.confirm → showDialog (accessible
+    // modal). callback-driven flow — onConfirm 영역만 실제 wipe path 진행.
+    const performWipe = async () => {
+      setStatus({ kind: 'building' });
       try {
-        getLiveSnn().resetTrigger();
-      } catch {
-        // SSR / 미초기화 — 무시.
+        // Step 1: LiveSnn state-clear.
+        try {
+          getLiveSnn().resetTrigger();
+        } catch {
+          // SSR / 미초기화 — 무시.
+        }
+        // Step 2: 영속 + cache + localStorage 영역 wipe.
+        await purgeAllLearningData();
+        // Step 3: UI count 양 substrate clear.
+        clearExemplars('orientation');
+        clearExemplars('gesture');
+        setStatus({
+          kind: 'ok',
+          message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
+        });
+        // Step 4: page reload 영역 fresh build (1500ms delay 영역 status 영역 visible).
+        if (typeof window !== 'undefined') {
+          setTimeout(() => {
+            try {
+              window.location.reload();
+            } catch {
+              // ignore
+            }
+          }, 1500);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
       }
-      // Step 2: 영속 + cache + localStorage 영역 wipe.
-      await purgeAllLearningData();
-      // Step 3: UI count 양 substrate clear.
-      clearExemplars('orientation');
-      clearExemplars('gesture');
-      setStatus({
-        kind: 'ok',
-        message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
-      });
-      // Step 4: page reload 영역 fresh build (1500ms delay 영역 status 영역 visible).
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          try {
-            window.location.reload();
-          } catch {
-            // ignore
-          }
-        }, 1500);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
-    }
+    };
+    showDialog({
+      kind: 'confirm',
+      title: '학습 데이터 전체 삭제',
+      message: '양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+      onConfirm: () => { void performWipe(); },
+    });
   }, [engineMode]);
 
   // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역

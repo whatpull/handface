@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent, onBackendEvent, type GridTrainingDetail, type GridInferDetail, type NeuronFiringDetail, type InputModeDetail, type ClusterSpawnedDetail } from '@/lib/backend/events';
 import { showToast } from '@/components/ui/Toast';
+import { showDialog } from '@/components/ui/Dialog';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
@@ -268,46 +269,52 @@ export default function GridInput() {
   //   3. fresh substrate rebuild trigger (다음 mount 영역 zero-init).
   //   4. live state-clear + reload prompt (worker 영역 영속 cache 영역 mount-time
   //      영역 fresh — 페이지 reload 영역 가장 안전 path).
-  const resetLearningLive = useCallback(async () => {
+  const resetLearningLive = useCallback(() => {
     if (engineMode !== 'live') return;
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        '학습 데이터 전체 삭제\n\n양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
-      );
-      if (!confirmed) return;
-    }
-    setStatus({ kind: 'building' });
-    try {
-      // Step 1: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+    // 사용자 catch 2026-05-12: native window.confirm → showDialog (accessible
+    // modal). callback-driven flow — onConfirm 영역만 실제 wipe path 진행.
+    const performWipe = async () => {
+      setStatus({ kind: 'building' });
       try {
-        getLiveSnn().resetTrigger();
-      } catch {
-        // SSR / 미초기화 — 무시.
+        // Step 1: LiveSnn state-clear — trial/lastWinner/patternRef 0.
+        try {
+          getLiveSnn().resetTrigger();
+        } catch {
+          // SSR / 미초기화 — 무시.
+        }
+        // Step 2: 영속 (IndexedDB) + cache + localStorage 영역 wipe.
+        await purgeAllLearningData();
+        // Step 3: UI count 영역 양 substrate 영역 clear (사용자 명시 전체 삭제).
+        clearExemplars('orientation');
+        clearExemplars('gesture');
+        setStatus({
+          kind: 'ok',
+          message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
+        });
+        // Step 4: 다음 mount 영역 fresh build — page reload 영역 가장 안전 path.
+        // 사용자 명시 confirm 후 1500ms delay 영역 reload (status message visibility).
+        if (typeof window !== 'undefined') {
+          setTimeout(() => {
+            try {
+              window.location.reload();
+            } catch {
+              // ignore
+            }
+          }, 1500);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
       }
-      // Step 2: 영속 (IndexedDB) + cache + localStorage 영역 wipe.
-      await purgeAllLearningData();
-      // Step 3: UI count 영역 양 substrate 영역 clear (사용자 명시 전체 삭제).
-      clearExemplars('orientation');
-      clearExemplars('gesture');
-      setStatus({
-        kind: 'ok',
-        message: '학습 데이터 전체 삭제 완료 — 페이지 새로고침 권장',
-      });
-      // Step 4: 다음 mount 영역 fresh build — page reload 영역 가장 안전 path.
-      // 사용자 명시 confirm 후 1500ms delay 영역 reload (status message visibility).
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          try {
-            window.location.reload();
-          } catch {
-            // ignore
-          }
-        }, 1500);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'error', message: `학습 데이터 삭제 실패: ${msg}` });
-    }
+    };
+    showDialog({
+      kind: 'confirm',
+      title: '학습 데이터 전체 삭제',
+      message: '양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+      onConfirm: () => { void performWipe(); },
+    });
   }, [engineMode]);
 
   // circuit-changed event — backend network 이 새로 만들어진 시점 (HF Spaces

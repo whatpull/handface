@@ -512,21 +512,36 @@ export class SNNWorkerCore {
       }
     }
     // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이 학습이 안됨):
-    // Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합 — |I ∩ T| / |I|.
-    // winner cluster 영역 activeInputs (학습 영역 hard-wired sub-pool) 영역 영역
-    // input pattern (active cells) 영역 overlap 영역 normalize. 신규 input pattern
-    // 영역 winner template 영역 0.0 → live-snn vigilance miss → expandCluster spawn.
-    // pattern 미동봉 (legacy path) 영역 1.0 fallback (vigilance pass — backward compat).
+    // Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합. 직전 |I ∩ T| / |I|
+    // (one-direction) → 사용자 catch 2026-05-11 (inputmatch-bilateral-jaccard):
+    //   "패턴에 포함된 4x4 그리드에 모양이 비슷하거나 포함일 경우 새로운 패턴이
+    //    아닌 기존 패턴으로 인식 (패턴의 모양이 인식되는 것이 아니라, 종속여부가
+    //    인식되는 것 같습니다.)"
+    // root cause: subset input (I=[0..3] 4 cells) 영역 superset template (T=[0..7] 8
+    // cells) 영역 |I ∩ T| / |I| = 4/4 = 1.0 → vigilance pass 영역 기존 cluster 영역
+    // false-positive winner. 종속(subset) 영역 패턴 모양 동일 영역 1.0 산출 → 사용자
+    // mental model 위배. fix: Jaccard similarity (symmetric set similarity 학술 표준)
+    //   inputMatch = |I ∩ T| / |I ∪ T|
+    // - 동일 (I=T): 4/4 = 1.0 → vigilance pass (학습 후 familiar) ✓
+    // - subset (I⊂T, |I|=4, |T|=8): 4/8 = 0.5 → < 0.7 → vigilance miss → spawn ✓
+    // - disjoint: 0/N = 0.0 → vigilance miss → spawn ✓
+    // 학술 정합: Jaccard 1901 set similarity index — symmetric, 0=disjoint, 1=identical.
+    // ART canonical |I ∩ T| / |I| 영역 input subset 영역 1.0 산출 영역 결함 — Jaccard
+    // 영역 |I ∪ T| 분모 영역 template 크기 영역 반영 → subset/superset 영역 단방향
+    // false-positive 차단. pattern 미동봉 (legacy path) 영역 1.0 fallback (backward compat).
     let inputMatch = 1.0;
     if (activeIdx && winner >= 0 && total > 0) {
       const winnerSlot = registry.slots[winner];
       const inputSize = activeIdx.size;
+      const templateSize = winnerSlot.activeInputs.length;
       if (inputSize > 0) {
         let intersection = 0;
         for (const ai of winnerSlot.activeInputs) {
           if (activeIdx.has(ai)) intersection += 1;
         }
-        inputMatch = intersection / inputSize;
+        // |I ∪ T| = |I| + |T| - |I ∩ T| (inclusion-exclusion).
+        const unionSize = inputSize + templateSize - intersection;
+        inputMatch = unionSize > 0 ? intersection / unionSize : 0;
       } else {
         inputMatch = 0;
       }
@@ -949,10 +964,10 @@ export class SNNWorkerCore {
           measureSecond = measureRates[i];
         }
       }
-      // Fix #22 (사용자 catch 2026-05-10): inputMatch 영역 reinforce path 영역
-      // 동일 산출 — winner template 영역 input pattern overlap ratio. reinforce
-      // 영역 supervised target 영역 catch 영역 vigilance 영역 직접 적용 0 단
-      // protocol 정합 catch 영역 동일 field 영역 emit (caller 영역 inspect 가능).
+      // Fix #22 (사용자 catch 2026-05-10) + 사용자 catch 2026-05-11 (inputmatch-
+      // bilateral-jaccard): reinforce path 영역 Jaccard similarity 동일 적용 —
+      // |I ∩ T| / |I ∪ T|. reinforce 영역 supervised target 영역 catch 영역
+      // vigilance 영역 직접 적용 0 단 protocol 정합 catch 영역 동일 field 영역 emit.
       const reinforceRegistry = this.requireRegistry();
       const reinforceActiveIdx = new Set(
         payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
@@ -965,7 +980,10 @@ export class SNNWorkerCore {
           for (const ai of winnerSlot.activeInputs) {
             if (reinforceActiveIdx.has(ai)) intersection += 1;
           }
-          reinforceInputMatch = intersection / reinforceActiveIdx.size;
+          const inputSize = reinforceActiveIdx.size;
+          const templateSize = winnerSlot.activeInputs.length;
+          const unionSize = inputSize + templateSize - intersection;
+          reinforceInputMatch = unionSize > 0 ? intersection / unionSize : 0;
         }
       } else if (measureWinner < 0 || reinforceActiveIdx.size === 0) {
         reinforceInputMatch = 0;

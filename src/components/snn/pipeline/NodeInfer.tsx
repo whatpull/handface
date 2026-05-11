@@ -306,8 +306,12 @@ export default function NodeInfer() {
           </div>
           <div className="snn-pipeline-row">
             <span className="snn-pipeline-row-label">recent</span>
+            {/* 사용자 catch 2026-05-11 (infer-recent-overflow-fix): cluster 영역
+                4 영역 초과 영역 직전 spark() chars[ci] 영역 undefined → '?'
+                fallback 영역 "??????" 영역 표시. 1-indexed cluster 번호 영역
+                separator-joined — cluster N (N >= 4) 영역 정합 표시. */}
             <span className="snn-pipeline-row-value snn-pipeline-mono">
-              {history.length === 0 ? '—' : history.map(spark).join('')}
+              {history.length === 0 ? '—' : history.map((ci) => ci + 1).join('·')}
             </span>
           </div>
         </>
@@ -342,11 +346,6 @@ function RateBar({ label, rate, max, isWinner, isSaturated }:
       <span className="snn-pipeline-rate-value">{rate.toFixed(0)}Hz</span>
     </div>
   );
-}
-
-function spark(ci: number): string {
-  const chars = ['▁', '▃', '▅', '▇'];
-  return chars[ci] || '?';
 }
 
 // PR-H catch 1 enhancement (2026-05-10): WinnerStreakPill — consecutive

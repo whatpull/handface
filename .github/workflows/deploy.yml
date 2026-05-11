@@ -3,8 +3,6 @@ name: CI (verify + deploy)
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 # Node.js 20 deprecated 2026-09-16 — 모든 javascript action 영역 Node 24 강제.
@@ -33,7 +31,6 @@ jobs:
       - run: npm run verify
 
   build:
-    # PR open / main push 영역 모두 build (main push 영역 영역 deploy job 진행)
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -53,8 +50,6 @@ jobs:
           path: out
 
   deploy:
-    # main push 영역 영역 deploy (PR open 영역 verify + build 영역 단 deploy 0)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

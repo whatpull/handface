@@ -1287,13 +1287,22 @@ export class LiveSnn {
     //   rate 비교 영역 dense WTA + 학습 weight 우위) 영역 OUT count fire 영역
     //   사용자 영역 "패턴 1 영역 학습 진행" 영역 misread root cause. Carpenter
     //   & Grossberg 1987 ART F2 reset 정합 — mismatch 영역 winner 영역 invalidate.
-    if (!mismatch && cfr.winner >= 0 && cfr.winner !== this.lastWinnerCluster) {
+    //
+    // 사용자 catch 2026-05-12 (increment-per-trigger): "왜 out 노드의 패턴N의
+    //   카운트가 정확히 안늘어날까요? (추론에서는 적용됨)". 직전 idempotent gate
+    //   (cfr.winner !== this.lastWinnerCluster) 영역 동일 winner 연속 trigger 영역
+    //   skip → 사용자 mental model "매 추론 +1" 영역 mismatch. 정정: valid winner
+    //   (mismatch 0 + winner >= 0) 영역 매번 increment. lastWinnerCluster 영역
+    //   tracking 영역 보존 (다른 path 영역 영역, race-gate auto-learn finally
+    //   commit 영역 double-increment 회피 정합).
+    if (!mismatch && cfr.winner >= 0) {
       this.lastWinnerCluster = cfr.winner;
       // MEDIUM #11 (사용자 catch 2026-05-11): autoLearnProgress race gate —
       // runAutoLearnLoop 영역 30회 R-STDP 진행 중 영역 winner 영역 weight 미수렴
       // 영역 fluctuate → incrementCount 영역 stale count 누적 회피. 진행 중
       // cluster 영역 set size > 0 영역 skip — NodeOut amber row 영역 사용자
-      // mental model 정합 (count 갱신 대기).
+      // mental model 정합 (count 갱신 대기). 학습 완료 finally commit 영역
+      // 신규 cluster 영역 single increment + lastWinnerCluster set 영역 정합.
       if (this._autoLearnInFlight.size > 0) {
         // 진행 중 — count 갱신 대기. NodeOut isAutoLearning amber row 영역 visible.
       } else {
@@ -1301,6 +1310,8 @@ export class LiveSnn {
         // 단일 representative neuron 영역 increment — trial-counter UI semantic 정합.
         // 사용자 catch 2026-05-09 (Fix 1): substrate 영역 명시 — orientation/gesture
         // 별도 store 영역 GRID/CAMERA carry-over 회피.
+        // 사용자 catch 2026-05-12: 동일 winner 연속 영역 idempotent gate 영역 제거 —
+        // 매 valid trigger 영역 +1 (사용자 mental model 정합).
         incrementCount(`out_${cfr.winner}_0`, this.substrateKind, featSnap);
       }
     } else if (mismatch || cfr.winner < 0) {

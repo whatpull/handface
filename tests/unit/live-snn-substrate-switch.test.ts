@@ -129,9 +129,12 @@ describe('LiveSnn — setSubstrate state reset (Fix 2)', () => {
     await snn.setSubstrate('orientation');
     expect(snn.getSubstrate()).toBe('orientation');
 
-    // pattern + lastWinner 영역 보존 — 같은 cluster 0 winner 영역 idempotent (no increment).
+    // pattern + lastWinner 영역 보존 — early-return 영역 state 영역 mutation 0.
+    // 사용자 catch 2026-05-12 (increment-per-trigger): 매 valid trigger 영역 +1
+    // (idempotent gate 폐기) → 같은 cluster 0 winner 영역 두 번째 trigger 영역
+    // +1 (총 2).
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 보존 — increment 0.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
 
     snn.dispose();
   });

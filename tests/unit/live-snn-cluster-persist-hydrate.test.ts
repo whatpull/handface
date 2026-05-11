@@ -131,7 +131,9 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
     expect(liveAny.lastWinnerCluster).toBe(-1); // initial sentinel.
     await liveAny.runAutoLearnLoop(1, [4, 5, 6, 7]);
     // 학습 완료 commit 영역 lastWinnerCluster 영역 신규 cluster (4) 영역 set —
-    // 다음 emitTick 영역 동일 cluster winner 영역 idempotent skip (double-increment 회피).
+    // 사용자 catch 2026-05-12 (increment-per-trigger): 직전 idempotent gate 폐기
+    // 후 영역 lastWinnerCluster 영역 tracking 영역 보존 (race-gate auto-learn
+    // finally commit 영역 부수 — 학습 완료 직후 cluster id catch).
     expect(liveAny.lastWinnerCluster).toBe(4);
     live.dispose();
   });

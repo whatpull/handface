@@ -83,6 +83,38 @@ function computeExactInputMatch(
   return 1.0;
 }
 
+// 사용자 catch 2026-05-12 (exact-match-winner-force):
+//   "패턴이 RECENT를 보면 들쑥날쑥입니다." (스크린샷: 동일 input 4-cell top row 영역
+//    cluster 2↔3 사이 winner oscillation 1·2·3·2·3·2·3)
+// PR #236 exact equality vigilance 영역 inputMatch 영역 binary 0/1 단 winner emerge
+// path 영역 fire rate argmax 영역 catch — LIF stochasticity (±15-20% jitter) +
+// Dense WTA cross-talk (학습된 2 cluster 동시 fire) 영역 catch 영역 동일 input
+// 영역 매 trigger 영역 winner cluster 영역 oscillation → RECENT 들쑥날쑥.
+// fix: registry.slots 영역 activeInputs 영역 activeIdx 영역 set-equal cluster
+// 영역 존재 시 → 영역 cluster 영역 winner 강제 (deterministic). exact match 0
+// 영역 기존 fire rate argmax path 영역 fallback.
+// 학술 정합: Carpenter-Grossberg 1987 ART resonance 영역 exact template match
+// 영역 winner 결정 deterministic — fire rate stochasticity 영역 catch 영역
+// vigilance + winner 영역 분리 (vigilance pass = exact match → winner 영역 동일
+// cluster 영역 lock).
+function findExactMatchCluster(
+  activeIdx: Set<number>,
+  slots: { activeInputs: number[] }[],
+): number {
+  const inputSize = activeIdx.size;
+  if (inputSize === 0) return -1;
+  for (let ci = 0; ci < slots.length; ci += 1) {
+    const tmpl = slots[ci].activeInputs;
+    if (tmpl.length !== inputSize) continue;
+    let intersection = 0;
+    for (const ai of tmpl) {
+      if (activeIdx.has(ai)) intersection += 1;
+    }
+    if (intersection === inputSize) return ci;
+  }
+  return -1;
+}
+
 // PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
 // 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
 // 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
@@ -534,6 +566,35 @@ export class SNNWorkerCore {
         second = rates[i];
       }
     }
+    // 사용자 catch 2026-05-12 (exact-match-winner-force): RECENT oscillation
+    // 정정 — 동일 input 영역 cluster 영역 activeInputs 영역 정확 일치 영역 cluster
+    // 영역 존재 시 → 영역 cluster 영역 winner 강제 (fire rate 영역 영역).
+    // fire rate argmax 영역 LIF stochasticity (±15-20% jitter) + Dense WTA
+    // cross-talk (학습된 2 cluster 동시 fire) 영역 catch 영역 oscillation 영역
+    // root cause → exact match 영역 deterministic 영역 lock.
+    // 학술 정합: Carpenter-Grossberg 1987 ART resonance — exact template match
+    // 영역 winner deterministic. exact match 0 영역 기존 fire rate path fallback.
+    // 사용자 mental model: 동일 input → deterministic 동일 cluster winner
+    // (fire rate / silent / cardinality 영역 영역) — RECENT 영역 들쑥날쑥 0.
+    let forcedExact = false;
+    if (activeIdx && activeIdx.size > 0) {
+      const exactCi = findExactMatchCluster(activeIdx, registry.slots);
+      if (exactCi >= 0) {
+        forcedExact = true;
+        winner = exactCi;
+        max = rates[exactCi];
+        // second 영역 forced winner 영역 제외 영역 max — share/margin 정합.
+        second = 0;
+        for (let i = 0; i < rates.length; i += 1) {
+          if (i === exactCi) continue;
+          if (rates[i] > second) second = rates[i];
+        }
+        // forced 영역 total 영역 0 catch (silent fire) → share/margin 영역
+        // 분모 영역 floor 처리 영역 winner 영역 catch (1.0 share / 0 margin
+        // — second 영역 0 정합).
+        if (total <= 0) total = max > 0 ? max : 1;
+      }
+    }
     // Fix #22 (사용자 catch 2026-05-10 — 첫번째 패턴만 학습되고 2번째 패턴이 학습이 안됨):
     // Carpenter-Grossberg 1987 ART vigilance ρ canonical 정합. 직전 |I ∩ T| / |I|
     // (one-direction) → 사용자 catch 2026-05-11 (inputmatch-bilateral-jaccard):
@@ -574,9 +635,11 @@ export class SNNWorkerCore {
     }
     return {
       rates,
-      winner: total > 0 ? winner : -1,
-      share: total > 0 ? max / total : 0,
-      margin: max > 0 ? (max - second) / max : 0,
+      // exact-match force 영역 winner 영역 항상 return — silent fire 영역 영역
+      // deterministic catch. fallback path 영역 기존 total>0 gate 보존.
+      winner: forcedExact ? winner : (total > 0 ? winner : -1),
+      share: total > 0 ? max / total : (forcedExact ? 1 : 0),
+      margin: max > 0 ? (max - second) / max : (forcedExact ? 1 : 0),
       inputMatch,
       layer,
     };
@@ -848,6 +911,15 @@ export class SNNWorkerCore {
       if (rates[i] > max) {
         max = rates[i];
         winner = i;
+      }
+    }
+    // 사용자 catch 2026-05-12 (exact-match-winner-force): reinforce/train path
+    // 영역 동일 적용 — handleClusterTrainRStdp 영역 measure pass winner 영역
+    // deterministic 정합 (R-STDP correct/wrong decision 영역 oscillation 차단).
+    if (activeIdx && max > 0) {
+      const exactCi = findExactMatchCluster(activeIdx, registry.slots);
+      if (exactCi >= 0 && exactCi !== winner) {
+        winner = exactCi;
       }
     }
     return { rates, winner: max > 0 ? winner : -1, rawRates };

@@ -167,8 +167,13 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
     await Promise.resolve();
     // Fix #19 (사용자 catch 2026-05-10): vigilance 0.15 → 0.7 — zero-init +
     // 동일 패턴 자동 강화 + 신규 패턴 자동 형성 paradigm 정합 (backend default).
+    // 사용자 catch 2026-05-11 (jaccard-tolerance-band): 0.7 → 0.5 — PR #232
+    // Jaccard symmetric fix 후 1-cell jitter ([1,5,9,13] vs [1,5,9,12]) 영역
+    // Jaccard 0.6 < 0.7 → false-spawn cluster 2/3 회귀. Fuzzy ART ρ ≈ 0.5
+    // intermediate 학술 정합 (Carpenter & Grossberg 1991 — noise tolerance
+    // balance).
     expect(mockTriggerWithVigilance).toHaveBeenCalledTimes(1);
-    expect(mockTriggerWithVigilance).toHaveBeenCalledWith(expect.any(Array), 0.7);
+    expect(mockTriggerWithVigilance).toHaveBeenCalledWith(expect.any(Array), 0.5);
     // 직전 inferAsync 영역 caller 폐기 — main path 영역 triggerWithVigilance 영역 단일.
     expect(mockInferAsync).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();

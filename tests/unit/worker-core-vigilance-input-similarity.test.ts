@@ -283,15 +283,19 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
     // Jaccard: |I ∩ T| / |I ∪ T| = |{0,1,2,3} ∩ {0..7}| / |{0,1,2,3} ∪ {0..7}|
-    //        = 4 / 8 = 0.5 → < ART_VIGILANCE_THRESHOLD (0.7) → mismatch → spawn.
+    //        = 4 / 8 = 0.5.
+    // 사용자 catch 2026-05-11 (jaccard-tolerance-band): threshold 0.7 → 0.5 영역
+    // borderline pass — subset 영역 "동일 pattern 계열" 영역 정합 (Fuzzy ART
+    // ρ ≈ 0.5 intermediate). R6 영역 inputMatch 산출 정합 catch 영역 영역 (vigilance
+    // 비교 영역 GridInput layer 영역 적용).
     if (cfr.winner < 0) {
       // silent — vigilance miss path 정합.
       expect(cfr.inputMatch).toBe(0);
     } else {
       expect(cfr.winner).toBe(0);
       expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-      // 핵심 회귀 invariant — Jaccard subset 영역 vigilance miss path 정합.
-      expect(cfr.inputMatch).toBeLessThan(0.7);
+      // Jaccard subset 영역 0.5 산출 invariant — threshold 비교 영역 caller 책임.
+      expect(cfr.inputMatch).toBeLessThan(1.0);
     }
   });
 
@@ -458,5 +462,161 @@ describe('worker-core — Fix #22 vigilance input similarity (사용자 catch 20
     // pattern 미동봉 — vigilance 영역 직접 적용 0 (legacy caller path) → inputMatch=1.0
     // fallback (vigilance pass — backward compat).
     expect(cfr.inputMatch).toBe(1.0);
+  });
+
+  // 사용자 catch 2026-05-11 (jaccard-tolerance-band):
+  //   "같은 패턴임에도, 2와 3의 패턴을 만들어서 새로운 패턴으로 인식, 같은
+  //    패턴을 지속적으로 재학습하여 신규 패턴으로 생성하고 있음"
+  // Root cause: PR #232 Jaccard symmetric fix 후 threshold 0.7 영역 너무 strict
+  // — 4-cell vertical [1,5,9,13] 영역 1 cell jitter [1,5,9,12] 영역 Jaccard
+  // = 3/(4+4-3) = 3/5 = 0.6 → < 0.7 → false-mismatch → spawn.
+  // Fix: ART_VIGILANCE_THRESHOLD 0.7 → 0.5 (GridInput.tsx) — Fuzzy ART ρ ≈ 0.5
+  // intermediate (Carpenter & Grossberg 1991 — moderate selectivity + noise
+  // tolerance balance). 본 test block 영역 Jaccard 산출 정합 (R10/R11/R12) +
+  // threshold 비교 invariant (caller-level) 검증.
+  //
+  // 본 worker-core test 영역 inputMatch 영역 numeric output 검증 영역 단,
+  // threshold 비교 영역 GridInput layer 영역 적용 catch 영역 R10~R12 영역
+  // numeric value + caller-level invariant (0.5 ≥ 0.5 / 0.33 < 0.5) 영역 분리 검증.
+
+  it('R10 [noise tolerance — 1 cell jitter]: cluster T=[1,5,9,13] + input [1,5,9,12] → inputMatch=0.6 (≥0.5 vigilance pass)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[1, 5, 9, 13]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // vertical 영역 1 cell jitter — idx 13 → idx 12 (bottom row 영역 col 0 → col 1).
+    const JITTER_PATTERN = [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = JITTER_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: JITTER_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |{1,5,9,12} ∩ {1,5,9,13}| / |{1,5,9,12} ∪ {1,5,9,13}|
+    //        = |{1,5,9}| / |{1,5,9,12,13}|
+    //        = 3 / 5 = 0.6 → ≥ 0.5 (new threshold) → vigilance pass + reinforce ✓.
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.6, 3);
+      // 사용자 catch core invariant — 1-cell jitter 영역 동일 cluster 영역 인식.
+      expect(cfr.inputMatch).toBeGreaterThanOrEqual(0.5);
+    }
+  });
+
+  it('R11 [noise tolerance — 2 cell jitter]: cluster T=[1,5,9,13] + input [1,5,8,12] → inputMatch≈0.33 (<0.5 vigilance miss)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[1, 5, 9, 13]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // vertical 영역 2 cell jitter — idx 9 → idx 8 + idx 13 → idx 12.
+    const HEAVY_JITTER_PATTERN = [0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = HEAVY_JITTER_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: HEAVY_JITTER_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |{1,5,8,12} ∩ {1,5,9,13}| / |{1,5,8,12} ∪ {1,5,9,13}|
+    //        = |{1,5}| / |{1,5,8,9,12,13}|
+    //        = 2 / 6 ≈ 0.333 → < 0.5 (new threshold) → vigilance miss + spawn ✓.
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(2 / 6, 3);
+      // 사용자 catch core invariant — 2-cell jitter 영역 진짜 신규 pattern (spawn).
+      expect(cfr.inputMatch).toBeLessThan(0.5);
+    }
+  });
+
+  it('R12 [subset boundary]: cluster T=[0..7] + input [0..3] (4/8 subset) → inputMatch=0.5 (≥0.5 boundary pass)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 2, 3, 4, 5, 6, 7]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // top row subset — R6 영역 동일 input 단 새 threshold 0.5 영역 boundary 검증.
+    const TOP_ROW_PATTERN = [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = TOP_ROW_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Jaccard: |{0..3} ∩ {0..7}| / |{0..3} ∪ {0..7}| = 4/8 = 0.5 → boundary.
+    // Trade-off (PR #232 subset catch vs jaccard-tolerance-band noise tolerance):
+    //   - 0.5 = 0.5 → boundary pass — subset 영역 "동일 pattern 계열" 영역 정합
+    //     (사용자 mental model — horizontal line 영역 vertical 영역 다른 cluster
+    //     영역 영역 단 동일 horizontal 영역 영역 superset 영역 동일 계열).
+    //   - 단 사용자 명시 catch 영역 영역 boundary case 영역 사용자 결정 영역
+    //     handoff — 본 invariant 영역 numeric value 정합 영역 검증, threshold
+    //     비교 영역 GridInput layer 영역 적용 catch 영역 영역.
+    if (cfr.winner >= 0) {
+      expect(cfr.winner).toBe(0);
+      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
+    }
   });
 });

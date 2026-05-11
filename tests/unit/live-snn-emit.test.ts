@@ -25,7 +25,8 @@
 //   T7: triggerOnce({ repeats: 3 }) — mockRun 3회 catch (default repeats 영역 정합).
 //   C1: pattern active 시점 영역 rates_by_region V1/V2 영역 동봉 (NodeLearn cascade fired).
 //   C2: pattern silent 영역 rates_by_region 영역 0 (idle catch).
-//   C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회).
+//   C3: winner emerge 시점 영역 OUT incrementCount 매 trigger +1
+//       (사용자 catch 2026-05-12 increment-per-trigger — idempotent gate 폐기).
 //   C4: winner=-1 (silent) 시점 영역 incrementCount 호출 0 + lastWinner reset.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -320,11 +321,16 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     snn.dispose();
   });
 
-  it('C3: winner emerge 시점 영역 OUT incrementCount idempotent (동일 winner 연속 영역 1회 only)', async () => {
+  it('C3: winner emerge 시점 영역 OUT incrementCount 매 trigger +1 (increment-per-trigger 2026-05-12)', async () => {
     // PR-E (사용자 catch 2026-05-09 "한번 추론에 8개씩 증가"): trial-counter UI
     // semantic 정합 영역 cluster representative neuron (out_${winner}_0) 영역
     // 단일 increment. 직전 PR #194 영역 8 OUT broadcast 영역 backend weight
     // learning path 영역 정합 — 본 path 영역 UI exemplar count 영역 별도.
+    //
+    // 사용자 catch 2026-05-12 (increment-per-trigger): "왜 out 노드의 패턴N의
+    // 카운트가 정확히 안늘어날까요? (추론에서는 적용됨)". 직전 idempotent gate
+    // 영역 동일 winner 연속 trigger 영역 skip → mental model mismatch. 정정:
+    // 매 valid winner trigger 영역 +1.
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
@@ -334,11 +340,11 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature.
     expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation', expect.any(Array));
 
-    // trigger 2: winner 동일 (0) — idempotent (call count 1 유지).
+    // trigger 2: winner 동일 (0) — 매 trigger +1 (call count 2).
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
 
-    // trigger 3: winner 변경 → 새 representative (out_1_0) 추가.
+    // trigger 3: winner 변경 → 새 representative (out_1_0) 추가 (총 3).
     mocks.mockClusterFiringRates.mockResolvedValue({
       rates: [0, 12, 0, 0],
       winner: 1,
@@ -349,7 +355,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
       layer: 'OUT',
     });
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2); // 1 + 1
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(3);
     expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
     snn.dispose();
   });

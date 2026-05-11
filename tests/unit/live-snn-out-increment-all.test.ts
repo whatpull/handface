@@ -15,7 +15,9 @@
 // 단일 catch.
 //
 // O1: triggerOnce 영역 winner=0 → out_0_0 영역 1회 increment.
-// O2: 동일 winner 연속 — idempotent (call count 1 유지, lastWinner gate).
+// O2: 동일 winner 3회 연속 — 매 trigger 영역 +1 (call count 3).
+//     사용자 catch 2026-05-12 (increment-per-trigger): idempotent gate 폐기 —
+//     사용자 mental model "매 추론 +1" 영역 정합.
 // O3: winner 변경 — 새 cluster 영역 representative 영역 추가 (총 2).
 // O4: silent (winner=-1) — increment 호출 0.
 // O5: feature snapshot 영역 increment 호출 영역 동일 array (lastFeature 정합).
@@ -123,15 +125,57 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     snn.dispose();
   });
 
-  it('O2: 동일 winner 연속 — lastWinner gate 영역 idempotent (call count 1 유지)', async () => {
+  it('O2: 동일 winner 3회 연속 — 매 trigger +1 (call count 3, increment-per-trigger 2026-05-12)', async () => {
+    // 사용자 catch 2026-05-12 (increment-per-trigger): "왜 out 노드의 패턴N의
+    // 카운트가 정확히 안늘어날까요? (추론에서는 적용됨)". 직전 idempotent gate
+    // (cfr.winner !== lastWinnerCluster) 영역 동일 winner 연속 trigger 영역 skip
+    // → 사용자 mental model "매 추론 +1" mismatch. 정정: 매 valid winner trigger
+    // 영역 +1. 동일 input × 3회 → cluster 0 count = 3.
     const snn = new LiveSnn();
     snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
     await snn.triggerOnce({ force: true });
-    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(3);
+    // 3 calls 모두 동일 outKey (out_0_0) + substrate (orientation).
+    for (let i = 0; i < 3; i += 1) {
+      expect(mocks.mockIncrementCount.mock.calls[i][0]).toBe('out_0_0');
+      expect(mocks.mockIncrementCount.mock.calls[i][1]).toBe('orientation');
+    }
+    snn.dispose();
+  });
+
+  it('O2b: 동일 input × 3 + 다른 input × 1 — cluster 0 count = 3, cluster 1 count = 1', async () => {
+    // 사용자 catch 2026-05-12 regression scenario: 동일 input 3회 + 다른 input 1회
+    // 영역 mock 시나리오 — count semantic 정합 verification.
+    const snn = new LiveSnn();
+    snn.setPattern([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    await snn.triggerOnce({ force: true });
+    await snn.triggerOnce({ force: true });
+    await snn.triggerOnce({ force: true });
+    // cluster 0 영역 3회 increment.
+    const cluster0Calls = mocks.mockIncrementCount.mock.calls.filter(
+      (c) => c[0] === 'out_0_0',
+    );
+    expect(cluster0Calls).toHaveLength(3);
+
+    // 다른 input (winner=1) 1회.
+    mocks.mockClusterFiringRates.mockResolvedValue({
+      rates: [0, 12, 0, 0],
+      winner: 1,
+      share: 1.0,
+      margin: 1.0,
+      layer: 'OUT',
+    });
+    await snn.triggerOnce({ force: true });
+    const cluster1Calls = mocks.mockIncrementCount.mock.calls.filter(
+      (c) => c[0] === 'out_1_0',
+    );
+    expect(cluster1Calls).toHaveLength(1);
+    // total = 4.
+    expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(4);
     snn.dispose();
   });
 

@@ -633,13 +633,28 @@ export class SNNWorkerCore {
     } else if (winner < 0 || total <= 0) {
       inputMatch = 0;
     }
+    // 사용자 catch 2026-05-12 (exact-match-stability-fix):
+    //   "패턴 인식은 올바름, 단 안정도 -178%가 의미하는게 맞는지 모르겠습니다."
+    //   스크린샷: LEARN/INFER winner=cluster 1, 정확도=74%, 안정도=-178%.
+    //   원인: 패턴 1 fire=82Hz, 패턴 2 fire=229Hz → 직전 margin = (82-229)/82 =
+    //   -1.79 = -179% (sign negative, 사용자 mental model 위배).
+    // root cause: PR #237 exact-match winner force 영역 winner cluster (exactCi)
+    // 영역 fire rate (rates[exactCi]) 영역 다른 cluster fire rate 영역 영역 영역
+    // 영역 negative margin 영역 자연 산출 → 영역 "stability" metric (사용자 UI
+    // 영역 안정도) 영역 fire-rate dominance 영역 mismatch.
+    // fix: forcedExact path 영역 share/margin 영역 1.0 hard-set — exact template
+    // match 영역 deterministic perfect stability (Carpenter-Grossberg 1987 ART
+    // resonance 영역 vigilance pass 영역 winner deterministic 정합). fire rate
+    // dominance 영역 LIF stochasticity / cross-talk 영역 영역 영역 vigilance
+    // metric 영역 영역. exact match 0 영역 기존 fire-rate margin path 보존
+    // (PR #232/#231 정합).
     return {
       rates,
       // exact-match force 영역 winner 영역 항상 return — silent fire 영역 영역
       // deterministic catch. fallback path 영역 기존 total>0 gate 보존.
       winner: forcedExact ? winner : (total > 0 ? winner : -1),
-      share: total > 0 ? max / total : (forcedExact ? 1 : 0),
-      margin: max > 0 ? (max - second) / max : (forcedExact ? 1 : 0),
+      share: forcedExact ? 1 : (total > 0 ? max / total : 0),
+      margin: forcedExact ? 1 : (max > 0 ? (max - second) / max : 0),
       inputMatch,
       layer,
     };
@@ -1069,6 +1084,10 @@ export class SNNWorkerCore {
         payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
       );
       let reinforceInputMatch = 1.0;
+      // 사용자 catch 2026-05-12 (exact-match-stability-fix): exact match 영역
+      // 정확 감지 영역 explicit boolean — default reinforceInputMatch=1.0 영역
+      // 영역 false-positive 차단 (winnerSlot 영역 undefined 영역 영역 영역 0).
+      let reinforceExactMatched = false;
       if (measureWinner >= 0 && reinforceActiveIdx.size > 0) {
         const winnerSlot = reinforceRegistry.slots[measureWinner];
         if (winnerSlot) {
@@ -1082,15 +1101,23 @@ export class SNNWorkerCore {
           // 영역 동일 helper 영역 catch — reinforce path 영역 protocol 정합 catch
           // 영역 동일 산출 (vigilance 영역 직접 적용 0 단 emit 영역 일관성 보장).
           reinforceInputMatch = computeExactInputMatch(intersection, inputSize, templateSize);
+          reinforceExactMatched = reinforceInputMatch === 1.0;
         }
       } else if (measureWinner < 0 || reinforceActiveIdx.size === 0) {
         reinforceInputMatch = 0;
       }
+      // 사용자 catch 2026-05-12 (exact-match-stability-fix): reinforce path 영역
+      // 동일 적용 — exact match 영역 cluster 영역 share/margin 영역 1.0 hard-set.
+      // handleClusterFiringRates path 영역 정합 (LIF stochasticity 영역 영역 영역
+      // fire-rate negative margin 차단). reinforceExactMatched 영역 winnerSlot
+      // 영역 정확 존재 + computeExactInputMatch === 1.0 영역 영역 영역 catch —
+      // default reinforceInputMatch=1.0 영역 false-positive 차단.
+      const reinforceExact = reinforceExactMatched;
       const cfr: ClusterFiringRatesResult = {
         rates: measureRates,
         winner: measureWinner,
-        share: measureTotal > 0 ? measureMax / measureTotal : 0,
-        margin: measureMax > 0 ? (measureMax - measureSecond) / measureMax : 0,
+        share: reinforceExact ? 1 : (measureTotal > 0 ? measureMax / measureTotal : 0),
+        margin: reinforceExact ? 1 : (measureMax > 0 ? (measureMax - measureSecond) / measureMax : 0),
         inputMatch: reinforceInputMatch,
         layer: 'OUT',
       };

@@ -460,7 +460,9 @@ export default function GridInput() {
       // Fix #19 (사용자 catch 2026-05-10): auto train-or-spawn 영역 단일 path —
       // vigilance miss → spawn + N회 R-STDP, vigilance pass → 동일 cluster
       // N회 R-STDP. 사용자 명시 "추론시 자동 학습" + "동일 패턴 자동 강화" 정합.
-      const r = await getClient().clusterAutoTrainOrSpawn(grid, {
+      // QA Fix: clusterAutoTrainOrSpawn(구버전) → autoTrainOrSpawn(신버전) 전환,
+      // action 분기 3가지 ('spawned' | 'reinforced' | 'spawn_failed') 정합.
+      const r = await getClient().autoTrainOrSpawn(grid, {
         vigilanceThreshold: vigilance,
         trainIterations: 30,
       });
@@ -470,11 +472,16 @@ export default function GridInput() {
           ? cluster
           : null;
         const action = r.data.action;
-        const actionLabel = action === 'spawned'
-          ? `신규 cluster ${cluster + 1} 형성`
-          : `cluster ${cluster + 1} 강화`;
+        let actionLabel: string;
+        if (action === 'spawned') {
+          actionLabel = `신규 cluster ${cluster + 1} 형성`;
+        } else if (action === 'reinforced') {
+          actionLabel = `cluster ${cluster + 1} 강화`;
+        } else {
+          actionLabel = 'cluster 생성 실패';
+        }
         setStatus({
-          kind: 'ok',
+          kind: action === 'spawn_failed' ? 'error' : 'ok',
           message: `${actionLabel} (${r.data.train_iterations}회 학습)`,
         });
         emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'finished', winnerCluster });

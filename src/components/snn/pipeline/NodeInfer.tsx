@@ -389,7 +389,7 @@ function RateBar({ label, rate, max, isWinner, isSaturated, hideRate = false }:
           Hz 영역 hide → "EXACT" pill 영역 replace (winner card 영역 EXACT MATCH badge
           영역 inline visual cue). non-winner / non-exact 영역 그대로 Hz 표시. */}
       {hideRate ? (
-        <span className="snn-pipeline-rate-value snn-pipeline-exact-badge" aria-label="exact match — winner deterministic">
+        <span className="snn-pipeline-exact-badge" aria-label="exact match — winner deterministic">
           EXACT
         </span>
       ) : (

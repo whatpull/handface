@@ -1131,15 +1131,11 @@
   white-space: nowrap;
   line-height: 1.2;
   /*
-    사용자 catch 2026-05-12 (exact-badge-overflow-fix): badge text 단축
-    ("EXACT MATCH (deterministic)" → "EXACT MATCH") + max-width 영역 INFER 노드
-    width overflow 회피. parent flex container 영역 narrow 영역 ellipsis fallback.
+    2026-05-12 (exact-badge-clip-fix): flex-shrink 0 + 자연폭 보장 — 부모
+    컨테이너의 고정 width(32px / 30px / 42px)에 갇혀 텍스트가 잘리는 문제 수정.
+    overflow/text-overflow/min-width:0 제거 → 뱃지가 스스로 필요한 폭을 차지.
   */
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
@@ -1164,9 +1160,13 @@
   background: rgba(255,255,255,0.06); overflow: hidden;
 }
 .snn-pipeline-rate-value {
-  width: 32px; text-align: right;
+  /* 2026-05-12 (exact-badge-clip-fix): width 고정 → min-width 로 전환.
+     Hz 수치 표시 시에는 32px 최소폭 유지, exact-badge 표시 시에는 자연 폭 확보. */
+  min-width: 32px; width: auto;
+  text-align: right;
   font-family: ui-monospace, monospace; font-size: 9px;
   opacity: 0.85;
+  flex-shrink: 0;
 }
 .snn-pipeline-warn {
   padding: var(--pipe-gap-xs) 6px; border-radius: 3px;
@@ -1654,9 +1654,11 @@
 @media (max-width: 480px) {
   .snn-pipeline { padding: var(--pipe-gap-sm); }
   .snn-pipeline-cluster-label { width: 52px; font-size: var(--pipe-font-md); }
-  .snn-pipeline-cluster-count { width: 30px; font-size: var(--pipe-font-sm); }
+  /* 2026-05-12 (exact-badge-clip-fix): 모바일 고정 width → min-width 전환.
+     exact-badge 표시 시 30px 고정폭에 갇혀 텍스트 잘림 방지. */
+  .snn-pipeline-cluster-count { min-width: 30px; width: auto; font-size: var(--pipe-font-sm); }
   .snn-pipeline-rate-label { width: 52px; font-size: var(--pipe-font-md); }
-  .snn-pipeline-rate-value { width: 30px; font-size: var(--pipe-font-sm); }
+  .snn-pipeline-rate-value { min-width: 30px; width: auto; font-size: var(--pipe-font-sm); }
   .snn-pipeline-node-sub { display: none; }
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); }
   .snn-pipeline-current-value { font-size: var(--pipe-font-title); }

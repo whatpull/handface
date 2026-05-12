@@ -97,9 +97,14 @@ export class LocalSNN {
     // n13 mitigation 적용 직전 학습 weight 영역 stale lock-in 영역 catch.
     // schema-mismatch 영역 별도 path (schema:1 영역 legacy v1) — 본 path 영역
     // schema:2 weight 영역 fix anchor 미달 영역 reject 정합 (defense-in-depth).
+    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist): schema 3 영역
+    //   bump — registry.slots.activeInputs round-trip 보존. schema 2 (직전
+    //   학습 cache) + schema 3 (신규 hydrate path) 둘 다 fix-baseline check 영역
+    //   동일 적용 — n13 mitigation rev anchor 영역 schema 영역 별도 (weight rev
+    //   영역 기준).
     const isFixBaselineStale = persistedTopology
       && persistedWeights
-      && persistedTopology.schema === 2
+      && (persistedTopology.schema === 2 || persistedTopology.schema === 3)
       && persistedWeights.rev < FIX_REV_BASELINE;
 
     if (

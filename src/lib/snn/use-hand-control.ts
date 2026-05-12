@@ -455,7 +455,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           });
           // background batch flush — tick loop 차단 0.
           void (async () => {
-            const r = await getClient().clusterTrainSupervised(boosted, cluster);
+            const r = await getClient().clusterTrainSupervised(boosted, cluster, {
+              intensity: 3.0,
+              observeMs: 150,
+            });
             if (cancelled) return;
             if (r.ok && r.data.ok) {
               setTrainStatus(`✓ ${label} 학습 완료 (Δw ${r.data.weight_changes_count} syn, ${r.data.target_outs.length} OUT broadcast)`);

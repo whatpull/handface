@@ -447,15 +447,187 @@ export class NeuronFaceClient {
         // inject_feature16 default=60 영역 정합 (cluster broadcast supervisor 영역 강 mandatory).
         supervisor_weight: opts.supervisorWeight ?? 60.0,
         supervisor_delay_ms: opts.supervisorDelayMs ?? 30.0,
-        // B+6: 16-dim [0,1] sub-threshold catch — backend default 1.0 → 2.0 정합.
-        intensity: opts.intensity ?? 2.0,
-        observe_ms: opts.observeMs ?? 80.0,
+        // B+4: intensity 2.0 → 3.0, observe_ms 80 → 150 (neuronface B+4 정합).
+        intensity: opts.intensity ?? 3.0,
+        observe_ms: opts.observeMs ?? 150.0,
         stimulus_duration_ms: opts.stimulusDurationMs ?? 20.0,
+        stdp_mode: opts.stdpMode ?? 'pair',
+        delta_threshold: opts.deltaThreshold ?? 0.01,
+        auto_freeze_others: true,
+      },
+    });
+    if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    return r;
+  }
+
+  // B+4 interleaved multi-cluster training — n_clusters 를 한 번에 인터리브 학습.
+  // backend endpoint: POST /networks/{id}/cluster_train_interleaved
+  // body: { patterns_per_cluster, cluster_ids, supervisor_weight, supervisor_delay_ms,
+  //         intensity, observe_ms, stimulus_duration_ms, stdp_mode, delta_threshold }
+  // 응답: { ok, trained, rounds, cluster_ids, cluster_outs, supervisor_weight,
+  //         supervisor_delay_ms, stdp_mode, weight_changes_count, weight_changes,
+  //         synapses_total }
+  async clusterTrainInterleaved(
+    patternsPerCluster: number[][][],
+    opts: {
+      clusterIds?: number[];
+      supervisorWeight?: number;
+      supervisorDelayMs?: number;
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+      stdpMode?: 'pair' | 'triplet';
+      deltaThreshold?: number;
+    } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    trained: number;
+    rounds: number;
+    cluster_ids: number[];
+    cluster_outs: Record<string, string[]>;
+    supervisor_weight: number;
+    supervisor_delay_ms: number;
+    stdp_mode: string;
+    weight_changes_count: number;
+    weight_changes: { pre: string; post: string; weight: number; delta: number }[];
+    synapses_total: number;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    // 16-dim padding/clamping per-cluster per-pattern.
+    const p16PerCluster = patternsPerCluster.map((clusterPatterns) =>
+      clusterPatterns.map((pattern) => {
+        const p16 = new Array<number>(16).fill(0);
+        for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+          const v = pattern[i];
+          p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+        }
+        return p16;
+      }),
+    );
+    const r = await this.request<{
+      ok: boolean;
+      trained: number;
+      rounds: number;
+      cluster_ids: number[];
+      cluster_outs: Record<string, string[]>;
+      supervisor_weight: number;
+      supervisor_delay_ms: number;
+      stdp_mode: string;
+      weight_changes_count: number;
+      weight_changes: { pre: string; post: string; weight: number; delta: number }[];
+      synapses_total: number;
+    }>(`/networks/${net.data}/cluster_train_interleaved`, {
+      method: 'POST',
+      body: {
+        patterns_per_cluster: p16PerCluster,
+        cluster_ids: opts.clusterIds ?? null,
+        supervisor_weight: opts.supervisorWeight ?? 30,
+        supervisor_delay_ms: opts.supervisorDelayMs ?? 30,
+        intensity: opts.intensity ?? 2.0,
+        observe_ms: opts.observeMs ?? 80,
+        stimulus_duration_ms: opts.stimulusDurationMs ?? 20,
         stdp_mode: opts.stdpMode ?? 'pair',
         delta_threshold: opts.deltaThreshold ?? 0.01,
       },
     });
     if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    return r;
+  }
+
+  // B+4 auto train-or-spawn (full-param) — vigilance-aware 단일 trigger.
+  // backend endpoint: POST /networks/{id}/cluster/auto_train_or_spawn
+  // 기존 clusterAutoTrainOrSpawn 의 확장판 — 모든 파라미터 명시 지원.
+  async autoTrainOrSpawn(
+    pattern: number[],
+    opts: {
+      vigilanceThreshold?: number;
+      minWinnerRateHz?: number;
+      trainIterations?: number;
+      intensity?: number;
+      observeMs?: number;
+      stimulusDurationMs?: number;
+      supervisorWeight?: number;
+      supervisorDelayMs?: number;
+      maxClusters?: number;
+      autoFreezeOthers?: boolean;
+    } = {},
+  ): Promise<Result<{
+    ok: boolean;
+    cluster_idx: number;
+    action: 'spawned' | 'reinforced' | 'spawn_failed';
+    train_iterations: number;
+    top_share: number;
+    top_rate: number;
+    is_novel: boolean;
+    n_cluster_before: number;
+    n_cluster_after: number;
+    vigilance_threshold: number;
+    min_winner_rate_hz: number;
+    cluster_rates: number[];
+    cluster_shares: number[];
+    weight_changes_count: number;
+    auto_frozen_prefixes: string[];
+    spawn_error?: string;
+  }>> {
+    const net = await this.ensureNetwork();
+    if (!net.ok) return net;
+    const p16 = new Array<number>(16).fill(0);
+    for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+      const v = pattern[i];
+      p16[i] = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+    }
+    const r = await this.request<{
+      ok: boolean;
+      cluster_idx: number;
+      action: 'spawned' | 'reinforced' | 'spawn_failed';
+      train_iterations: number;
+      top_share: number;
+      top_rate: number;
+      is_novel: boolean;
+      n_cluster_before: number;
+      n_cluster_after: number;
+      vigilance_threshold: number;
+      min_winner_rate_hz: number;
+      cluster_rates: number[];
+      cluster_shares: number[];
+      weight_changes_count: number;
+      auto_frozen_prefixes: string[];
+      spawn_error?: string;
+    }>(`/networks/${net.data}/cluster/auto_train_or_spawn`, {
+      method: 'POST',
+      body: {
+        pattern: p16,
+        vigilance_threshold: opts.vigilanceThreshold ?? 0.7,
+        min_winner_rate_hz: opts.minWinnerRateHz ?? 30.0,
+        train_iterations: opts.trainIterations ?? 30,
+        intensity: opts.intensity ?? 3.0,
+        observe_ms: opts.observeMs ?? 150.0,
+        stimulus_duration_ms: opts.stimulusDurationMs ?? 20.0,
+        supervisor_weight: opts.supervisorWeight ?? 30.0,
+        supervisor_delay_ms: opts.supervisorDelayMs ?? 30.0,
+        max_clusters: opts.maxClusters ?? 64,
+        auto_freeze_others: opts.autoFreezeOthers ?? true,
+      },
+    });
+    if (r.ok) {
+      const d = r.data;
+      // forward cluster_rates — neuron-firing 이벤트 정합.
+      if (d.cluster_rates) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          cluster_rates: d.cluster_rates,
+          winner_cluster: d.cluster_idx,
+        } as NeuronFiringDetail);
+      }
+      if (d.is_novel && d.action === 'spawned') {
+        emitBackendEvent('cluster-spawned', {
+          clusterIdx: d.cluster_idx,
+          topShare: d.top_share,
+          margin: 0,
+        });
+      }
+      emitBackendEvent('training-changed', { trained: d.train_iterations });
+    }
     return r;
   }
 

@@ -1118,6 +1118,7 @@
 .snn-pipeline-exact-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25em;
   padding: 1px 6px;
   font-size: 0.65em;
@@ -1134,8 +1135,12 @@
     2026-05-12 (exact-badge-clip-fix): flex-shrink 0 + 자연폭 보장 — 부모
     컨테이너의 고정 width(32px / 30px / 42px)에 갇혀 텍스트가 잘리는 문제 수정.
     overflow/text-overflow/min-width:0 제거 → 뱃지가 스스로 필요한 폭을 차지.
+    2026-05-13 (exact-badge-center-fix): justify-content center + text-align center
+    추가 — snn-pipeline-cluster-count(text-align:right) 와 병용 시 텍스트가
+    우측으로 치우쳐 보이는 문제 수정.
   */
   flex-shrink: 0;
+  text-align: center;
 }
 
 .snn-pipeline-rate-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }

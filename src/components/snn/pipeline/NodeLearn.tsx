@@ -1019,7 +1019,7 @@ function LiveRateRow({ label, rate, max, isWinner, hideRate = false }:
           그대로 Hz 표시. */}
       {hideRate ? (
         <span
-          className="snn-pipeline-cluster-count snn-pipeline-mono snn-pipeline-exact-badge"
+          className="snn-pipeline-exact-badge"
           aria-label="exact match — winner deterministic"
         >
           EXACT

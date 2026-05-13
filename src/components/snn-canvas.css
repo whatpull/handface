@@ -1,32 +1,22 @@
-/* PipelineCanvas + Region cascade 전용 스타일.
-   직전 drawflow / Canvas.tsx 영역 폐기됨 — 본 파일 영역 pipeline 4-node + region row +
-   feature bars + camera video mirror 만 보존.
-   LLM 노드 영역 폐기 (사용자 명시 2026-05-09 [2]) — 4-node (INPUT/LEARN/INFER/OUT).
+/* PipelineCanvas 전용 스타일 — pipeline 5-node (INPUT/LEARN/INFER/OUT) + region row +
+   feature bars + camera video mirror.
    참고: snn-feat-bars / snn-feat-bar / snn-feat-bar-fill 영역 NodeInput.tsx + HandTrackerHost.tsx 정합. */
 
-/* ─────────────────────────────────────────── Design tokens (2026-05-05) ─────
-   uniform spacing / typography / tone / shadow scale — 4 tone (input/learn/infer/
-   out) × radius/gap/font/shadow tokens. value 영역 기존 hardcoded 영역 정확히
-   대응 영역 visual regression 0 정합. */
+/* ─── Design tokens ──────────────────────────────────────────── */
 :root {
-  /* radius scale — admin minimalist v5 (2026-05-05).
-     사용자 mandatory: VS Code / Linear / Notion 류 minimalist — 6-8px 단순.
-     직전 12/14/16 영역 폐기. */
+  /* radius */
   --pipe-radius-sm: 3px;
   --pipe-radius-md: 3px;
   --pipe-radius-lg: 3px;
 
-  /* spacing scale */
+  /* spacing */
   --pipe-gap-xs: 4px;
   --pipe-gap-sm: 8px;
   --pipe-gap-md: 12px;
   --pipe-gap-lg: 16px;
   --pipe-gap-xl: 24px;
 
-  /* typography scale — readable v4 (2026-05-05 사용자 catch "가독성 안 좋음").
-     직전 10/11/12/13/14/15px 영역 너무 작음 (body 11-12px) + value 24-28px 영역 너무 큼.
-     본 부분 11/12/13/14/15/16 일부 강 + body 13-14px + value 20px (분리 token).
-     dim text gray-500 영역 contrast ~5:1 (AA pass). */
+  /* typography */
   --pipe-font-xs: 11px;
   --pipe-font-sm: 12px;
   --pipe-font-md: 13px;
@@ -35,12 +25,7 @@
   --pipe-font-title: 16px;
   --pipe-font-value: 20px;
 
-  /* monochrome black palette (2026-05-05 redesign — 사용자 catch "튀는 거 0").
-     직전 violet (#a78bfa) 영역 brand catch — 본 부분 단조 차분 tech professional 정합.
-     white main + gray-300 light + gray-600 dark — accent 0 (모든 box single white tint).
-     legacy token name (cyan/input/learn/infer/out) 영역 보존 — 모든 영역 white/gray
-     redirect — 영역 catch 1 (mono signature).
-     --pipe-tone-llm 영역 폐기 (LLM 노드 제거 2026-05-09 [2]). */
+  /* monochrome palette — legacy name 보존, 모두 white/gray redirect */
   --pipe-tone-cyan: 255, 255, 255;        /* white main (legacy name 보존) */
   --pipe-tone-cyan-light: 209, 213, 219;  /* gray-300 light accent */
   --pipe-tone-cyan-dark: 75, 85, 99;      /* gray-600 dark accent */
@@ -49,20 +34,17 @@
   --pipe-tone-infer: 255, 255, 255;   /* legacy → white */
   --pipe-tone-out: 255, 255, 255;     /* legacy → white */
 
-  /* tone alpha layers — monochrome 대부분 영역 alpha ↓ 정합 (사용자 "튀지 않음"). */
+  /* tone alpha layers */
   --pipe-tone-alpha-glow: 0.18;
   --pipe-tone-alpha-border: 0.28;
   --pipe-tone-alpha-bg: 0.04;
 
-  /* text scale — 사용자 catch "white 100% 가독성 강 대부분" → gray-300 main.
-     #d1d5db (gray-300) main + #6b7280 (gray-500) dim + #4b5563 (gray-600) muted.
-     #000 영역 contrast: 13:1 / 5:1 / 3.3:1 — main AAA, dim AA, muted decorative only. */
+  /* text — gray-300 main (AAA) / gray-500 dim (AA) / gray-600 muted */
   --pipe-text: #d1d5db;
   --pipe-text-dim: #6b7280;
   --pipe-text-muted: #4b5563;
 
-  /* surfaces — admin minimalist v5 (사용자 mandatory: flat 단색 — gradient 0).
-     body #000 / surface #0a0a0a / hover #141414 — VS Code / Linear 정합. */
+  /* surfaces */
   --pipe-bg: #000000;
   --pipe-surface: #0a0a0a;
   --pipe-hover: #141414;
@@ -72,31 +54,30 @@
   --pipe-border-strong: #2a2a2a;
   --pipe-border-subtle: #141414;
 
-  /* shadow scale — admin minimalist: shadow 영역 0 또는 매우 subtle (사용자 mandatory).
-     직전 6/20px blur 폐기 — 박스 hover 영역 border 일부 변화. */
+  /* shadow */
   --pipe-shadow-sm: none;
   --pipe-shadow-md: none;
   --pipe-shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.04);
   --pipe-shadow-glow: none;
 }
 
-/* 카메라 셀카 미러링 — NodeInput 안의 video / canvas 영역 transform. */
+/* 카메라 미러링 */
 .snn-camera-mirror {
   transform: scaleX(-1);
 }
 
-/* gesture 노드 — 16-dim feature 막대 그래프 (NodeInput + HandTrackerHost selector 정합). */
+/* 16-dim feature bars (NodeInput + HandTrackerHost) */
 .snn-feat-bars {
   display: flex;
   flex-direction: row;
-  align-items: stretch;     /* 자식 막대가 부모 높이를 꽉 채움 */
+  align-items: stretch;
   gap: 1px;
   width: 100%;
   height: 100%;
 }
 .snn-feat-bar {
   flex: 1 1 0;
-  height: 100%;             /* 명시 — fill (absolute) 이 부모 높이 기준 % 사용 */
+  height: 100%;
   min-width: 4px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 1px;
@@ -114,21 +95,17 @@
   transition: height 80ms linear;
 }
 
-/* Mode indicator — cluster 학습 진행 bar fill (CSS var --w 영역 동적 width).
-   inline style 회피 — Next.js eslint 정합. */
+/* progress fill — --w CSS var 로 width 동적 설정 (inline style 회피) */
 .snn-mode-progress-fill {
   width: var(--w, 0%);
   height: 100%;
   transition: width 120ms linear;
 }
 
-/* ─────────────────────────────────────────────────── Pipeline 4-node ─────────
-   PipelineCanvas — INPUT / Learn / Infer / OUT 영역 horizontal flow.
-   LLM 영역 폐기 (2026-05-09 [2]). */
+/* ─── Pipeline canvas ────────────────────────────────────────── */
 .snn-pipeline {
   position: absolute;
   inset: 0;
-  /* admin minimalist v5 — flat #000 단색. */
   background: #000000;
   overflow: hidden;
   padding: var(--pipe-gap-md);
@@ -137,16 +114,10 @@
   gap: 10px;
 }
 @media (max-width: 900px) {
-  .snn-pipeline {
-    /* 모바일 vertical scroll 사용자 catch — overflow auto. */
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
+  .snn-pipeline { overflow-y: auto; overflow-x: hidden; }
 }
 
-/* ─────────────── LEARN node 내부 V1/V2 cortical region strip ─────────────
-   직전 위쪽 RegionCascade row 폐기 — INPUT/OUT region 영역 INPUT/OUT 노드 영역
-   정합 → V1/V2 영역 학습 substrate 영역 LEARN 노드 내부 영역 inline. */
+/* LEARN 노드 내부 V1/V2 cortical region strip */
 .snn-pipeline-learn-region-strip {
   display: flex;
   flex-direction: row;
@@ -190,9 +161,7 @@
 .snn-pipeline-learn-region-box.is-fired {
   box-shadow: 0 0 14px rgba(var(--pipe-tone-infer), 0.55);
 }
-/* PR #187 polish — QA MEDIUM-5 (audit 2026-05-10): proxy fallback 영역
-   reduced opacity 영역 정직 한계 시각 catch (regionFiringRates RPC 미동봉
-   영역 cluster_rates max fallback). */
+/* proxy fallback — reduced opacity */
 .snn-pipeline-learn-region-box.is-proxy .snn-pipeline-learn-region-hz-value,
 .snn-pipeline-learn-region-box.is-proxy .snn-pipeline-learn-region-hz-bar {
   opacity: 0.6;
@@ -237,9 +206,7 @@
   color: rgba(255,255,255,0.55);
   text-align: center;
 }
-/* UX Polish PR2 Fix 8 (LOW [L3], 2026-05-09): V1/V2 영역 lightness 차별 — 직전
-   monochrome cyan-light 영역 두 박스 동일 색감 (시각 catch 약). V1 영역 dim
-   (entry — feature 입력) / V2 영역 strong (cluster 분리 substrate) 영역 정합. */
+/* V1 dim / V2 strong — lightness 차별 */
 .snn-pipeline-learn-region-box--v1 {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(20, 20, 24, 0.65);
@@ -259,44 +226,14 @@
   .snn-pipeline-learn-region-box { padding: 3px 6px; }
   .snn-pipeline-learn-region-arrow svg { width: 20px; height: 8px; }
 }
-/* 4 node × 3 arrow grid layout — LLM 영역 폐기 (2026-05-09 [2]) 영역 정합.
-   grid-template-columns: 4 × 1fr (uniform width) + 3 × auto (arrow 36px).
-   viewport 1280px (1280 - padding 24 - gap 3 × 12) ÷ 4 = ~305px per node.
-   모든 node uniform width + content-fit height (align-items: start).
-   본 .snn-pipeline-flow 영역 mobile fallback only (desktop 영역 절대좌표 stage). */
-.snn-pipeline-flow {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
-  align-items: start;
-  gap: var(--pipe-gap-md);
-  min-width: 0;
-  width: 100%;
-}
-@media (max-width: 900px) {
-  .snn-pipeline-flow {
-    /* mobile — grid 폐기 flex column 단순 vertical stack. */
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--pipe-gap-md);
-    min-width: 0;
-  }
-}
 
-/* ───── editable canvas v9 (2026-05-05 사용자 mandatory: 편집 가능 노드 + drag) ─────
-   "node 연결은 어디로 갔나요? 편집 가능한 노드로 구성 못하면 해고당하실 수 있어요"
-   drawflow 정합 — vanilla lib 사용 0, 순수 SVG + React 직접 구현.
-   stage size: --stage-w / --stage-h (PipelineCanvas.tsx 영역 동적).
-   node position: --node-x / --node-y (각 wrap 영역 동적).
-   path: SVG bezier — node 위치 변경 시 React state 영역 자동 redraw.
-   active: stroke 강 + drop-shadow glow + animateMotion dot. */
+/* editable canvas — SVG bezier edges + draggable nodes (PipelineCanvas.tsx).
+   stage size: --stage-w/--stage-h, node position: --node-x/--node-y (동적). */
 .snn-pipeline-stage {
   position: relative;
-  /* viewport fit — width 100% + height flex-1 (사용자 catch: 빈공간 채우기 + 스크롤바 폐기). */
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  /* canvas grid background — admin minimalist subtle dot grid. */
   background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: 0 0;
@@ -310,9 +247,7 @@
   touch-action: pan-y;
 }
 .snn-pipeline-stage:active { cursor: grabbing; }
-/* transform wrapper — pan + zoom (사용자 mandatory 99점). CSS var 영역 PipelineCanvas
-   영역 동적 set — translate(--pan-x, --pan-y) scale(--zoom). transform-origin top-left.
-   wrapper 영역 stage 내부 absolute fill — SVG + node 영역 동일 transform 적용. */
+/* transform wrapper — pan + zoom. translate(--pan-x,--pan-y) scale(--zoom). */
 .snn-pipeline-transform {
   position: absolute;
   inset: 0;
@@ -352,37 +287,8 @@
   /* touch: vertical scroll 은 페이지에 양보. drag 는 mouse/pen 만. */
   touch-action: pan-y;
 }
-.snn-pipeline-node-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 0;
-  background: #141414;
-  border: 1px solid var(--pipe-border);
-  border-bottom: 0;
-  border-top-left-radius: 3px;
-  border-top-right-radius: 3px;
-  cursor: grab;
-  -webkit-user-select: none;
-  user-select: none;
-  font-size: 10px;
-  color: var(--pipe-text-muted);
-}
-.snn-pipeline-node-drag-handle:active { cursor: grabbing; }
-.snn-pipeline-node-drag-grip {
-  font-size: 10px;
-  letter-spacing: -1px;
-  color: var(--pipe-text-muted);
-}
-.snn-pipeline-node-drag-id {
-  font-weight: 700;
-  color: var(--pipe-text);
-}
-/* 사용자 catch 2026-05-10 (Request D): zoom level indicator — PC ctrl+scroll
-   영역 visual feedback. .snn-pipeline 영역 absolute container 영역 sticky 대신
-   absolute (top-right corner) 영역 정합. zoom !== 1.0 시점 영역만 mount.
-   click 영역 reset to 100% (button 영역 cursor pointer + hover 영역 visual cue).
-   mobile (pointer: coarse) 영역 hidden — pinch zoom 영역 별도. */
+
+/* zoom level indicator — PC ctrl+scroll 시 top-right 표시, click 으로 reset. mobile hidden. */
 .snn-pipeline-zoom-indicator {
   position: absolute;
   top: 12px;
@@ -410,43 +316,11 @@
   outline-offset: 2px;
 }
 @media (pointer: coarse) {
-  /* mobile pinch zoom 영역 별도 — indicator 영역 hidden (사용자 catch — PC 영역만). */
   .snn-pipeline-zoom-indicator { display: none; }
 }
 
-.snn-pipeline-reset {
-  position: sticky;
-  left: calc(var(--stage-w, 1280px) - 140px);
-  bottom: 12px;
-  z-index: 3;
-  margin-left: auto;
-  display: block;
-  padding: 6px 12px;
-  background: var(--pipe-surface);
-  border: 1px solid var(--pipe-border);
-  border-radius: 3px;
-  color: var(--pipe-text-dim);
-  font-size: var(--pipe-font-xs);
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
-}
-.snn-pipeline-reset:hover {
-  background: var(--pipe-hover);
-  color: var(--pipe-text);
-  border-color: var(--pipe-border-strong);
-}
-.snn-pipeline-reset:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .snn-pipeline-edge-dot { animation-duration: 0.01ms !important; }
-}
 @media (max-width: 900px) {
-  /* mobile — drag/absolute 영역 부적합 → stage 영역 vertical flex 영역 fallback.
-     node-wrap 영역 absolute 폐기, drag-handle hide, SVG hide.
-     transform wrapper 영역 vertical stack 정합 — pan/zoom 영역 폐기 + flex column. */
+  /* mobile — stage vertical flex fallback, pan/zoom 폐기 */
   .snn-pipeline-stage {
     display: flex;
     flex-direction: column;
@@ -458,19 +332,11 @@
     background-image: none;
     border: 0;
     overflow: visible;
-    /* 사용자 catch 2026-05-10/11 (반복 frustration): stage padding-bottom 영역
-       폐기 — scroll container (.snn-pipeline) 영역 padding-bottom 영역 mobile
-       Safari iOS chronic bug 영역 last-child 영역 padding 영역 scroll content
-       영역 누적 안 됨 (WebKit 204098). 본격 fix 영역 마지막 OUT wrap 영역
-       직접 margin-bottom 영역 적용 — margin 영역 scroll content 영역 정합
-       보장 (Safari bug 영역 affected 0). 본 stage 영역 padding 0 — 단일
-       source 영역 NodeOut margin (아래). */
-    /* mobile 영역 pan cursor 폐기 — touch scroll 정합. */
+    /* WebKit 204098: stage padding 0, OUT wrap 에 margin-bottom 직접 적용. */
     cursor: auto;
     touch-action: auto;
   }
   .snn-pipeline-transform {
-    /* mobile — transform 폐기, vertical flex 정합 (pan/zoom 영역 desktop only). */
     position: static;
     inset: auto;
     transform: none;
@@ -487,79 +353,15 @@
     top: auto;
     width: 100%;
   }
-  /* 사용자 catch 2026-05-11 (반복 frustration "여백 너무 큼"): 직전 96px 영역
-     overengineered — header bar ↔ INPUT 노드 영역 gap (`.snn-pipeline { padding:
-     var(--pipe-gap-md) }` = 12px) 영역 동일 spacing token mandatory. footer 영역
-     canvas 영역 sibling (overlay 0) — pure 시각 gap 영역 12px 정합. safe-area
-     inset 영역 iOS notch / Android nav 영역 device chrome 영역 보존 — 시각
-     gap (12px) + chrome 영역 합산.
-     `.snn-pipeline-node-wrap--out` 정확 selector — last-child 보다 본격 정확
-     (PipelineCanvas.tsx line 607 정합). */
+  /* OUT wrap 하단 여백 — safe-area + spacing token. */
   .snn-pipeline-node-wrap--out {
     margin-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pipe-gap-md));
   }
-  .snn-pipeline-node-drag-handle { display: none; }
-  .snn-pipeline-reset {
-    position: relative;
-    left: auto;
-    bottom: auto;
-    margin: var(--pipe-gap-sm) auto 0;
-  }
+
 }
 
-/* simple horizontal arrow v7 (2026-05-05) — 사용자 mandatory monochrome + minimalist.
-   직전 bezier + dash anim + animateMotion dot + drop-shadow glow 영역 모두 폐기.
-   대부분 line + chevron 영역 — color white (idle 영역 dim, active 영역 강).
-   transition 영역 color 영역만, animation/filter 영역 0. */
-/* bezier connector v8 (2026-05-05 사용자 명시 부활):
-   "node로 연결해줘 ... 발화하면 active 되었던 그 구성"
-   drawflow 정합 — bezier path + active glow + animateMotion flow dot.
-   idle: gray alpha 0.3 / active: white alpha 0.92 + drop-shadow blur 5px.
-   stroke-width 1.8 → 2 (active). */
-.snn-pipeline-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 36px;
-  align-self: center;
-  /* idle — gray subtle (alpha 0.3 사용자 명시). */
-  color: rgba(255, 255, 255, 0.30);
-  transition: color 220ms ease, filter 220ms ease;
-  filter: none;
-}
-.snn-pipeline-arrow svg {
-  display: block;
-  overflow: visible;
-}
-.snn-pipeline-conn-path,
-.snn-pipeline-conn-head {
-  transition: stroke-width 200ms ease, opacity 200ms ease;
-}
-/* active — 색만 강조, glow 폐기 (사용자 catch 2026-05-07 모서리 조명 catch). */
-.snn-pipeline-arrow.is-active {
-  color: rgba(255, 255, 255, 0.92);
-  filter: none;
-}
-.snn-pipeline-arrow.is-active .snn-pipeline-conn-path,
-.snn-pipeline-arrow.is-active .snn-pipeline-conn-head {
-  stroke-width: 2;
-}
-/* active dot 폐기 — animateMotion + glow 가 모서리 조명 catch 의 본격 원인. */
-.snn-pipeline-conn-dot { display: none; }
-@media (prefers-reduced-motion: reduce) {
-  .snn-pipeline-conn-dot { animation-duration: 0.01ms !important; }
-}
 @media (max-width: 900px) {
-  .snn-pipeline-arrow {
-    transform: rotate(90deg);
-    width: auto;
-    height: 36px;
-    margin: var(--pipe-gap-xs) 0;
-  }
-  /* dot / glow / spinner / tick-spinner 데스크톱 정정 (위 base rule)
-     이 모든 환경에 적용되므로 모바일 한정 중복 폐기. cluster-bar-pulse
-     만 모바일 한정 hide (데스크톱은 capturing 시각화 보존). */
+  /* cluster-bar-pulse 모바일 한정 hide (데스크톱은 capturing 시각화 보존). */
   .snn-pipeline-cluster-bar-pulse { display: none !important; }
   /* 무한 fill pulse 도 모바일 약화. */
   .snn-mode-progress-fill,
@@ -570,15 +372,10 @@
 }
 
 .snn-pipeline-node {
-  /* admin minimalist v5 — flat #0a0a0a + 1px gray-800 border + radius 6 (사용자 mandatory).
-     glass / shadow / inset highlight 폐기 — VS Code / Linear 정합. */
   background: var(--pipe-surface);
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   min-width: 0;
-  /* 사용자 catch 2026-05-07 명확화: 노드 자체는 자연 height (content-fit) 보존.
-     content 자체가 fixed dimension (TEACHER nowrap / cluster bar fixed / V1V2 fixed)
-     → suffix / 글씨 / 텍스트 변동 시 박스 크기 영향 차단. */
   height: max-content;
   display: flex;
   flex-direction: column;
@@ -589,60 +386,34 @@
   transition: border-color 160ms ease, background 160ms ease;
 }
 .snn-pipeline-node:hover {
-  /* admin minimalist — hover 영역 background gray-900 + border 일부 변화 (사용자 명시).
-     translateY / box-shadow 영역 폐기. */
   background: #0e0e0e;
   border-color: var(--pipe-border-strong);
 }
 @media (max-width: 900px) {
   .snn-pipeline-node {
     flex: 0 0 auto;
-    /* mobile pixel-perfect — 박스 폭 100% 영역 0 여백 (사용자 catch 2026-05-05). */
     width: 100%;
     max-width: 100%;
     min-width: 0;
     margin: 0;
-    /* mobile 영역 desktop uniform min-height 380 영역 폐기 — vertical stack 영역
-       자식 본문 fit. */
     min-height: 0;
-    /* 사용자 catch 2026-05-06: 노드 내부 스크롤 폐기 + content-fit height. */
     max-height: none;
     height: auto;
   }
   .snn-pipeline-node--input { max-height: none; }
-  /* PR-H 사용자 catch 2026-05-09 + 사용자 catch 2026-05-10 (Request A):
-     "모바일 OUT 노드 마지막 row 영역 footer bar 영역 gap 0 — header bar 영역
-     INPUT 노드 사이 gap 영역 동일 spacing token mandatory". 직전 24px 영역
-     scroll bottom 시점 영역 시각 정합 0 catch. 본 정정 — last-child margin
-     영역 본격 폐기, 대신 .snn-pipeline-stage 영역 padding-bottom 영역 단일
-     source — scroll content 영역 padding 영역 robust catch (mobile Safari
-     영역 padding-bottom 영역 scroll content 영역 표시 정합).
-     stage 영역 mobile vertical flex 영역 stack — padding-bottom 영역 마지막
-     자식 (OUT) 영역 footer 사이 spacing 영역 정합. */
   .snn-pipeline-node-body {
-    /* 사용자 명시: 노드 내부 스크롤 폐기 — 자체 height fit. */
     overflow: visible;
     height: auto;
   }
   .snn-pipeline-node:hover { transform: none; }
-  /* 사용자 catch 2026-05-11 (반복 frustration): 직전 .snn-pipeline padding-bottom 48px
-     영역 mobile Safari iOS scroll container 영역 padding-bottom bug (WebKit 204098)
-     영역 last child 영역 padding 영역 scroll content 영역 누적 안 됨. 본격 fix 영역
-     OUT wrap 영역 직접 margin-bottom (위 line 497-499) — single source. 본 .snn-pipeline
-     영역 padding 영역 폐기 + scroll-padding-bottom 영역 add (scroll snap / focus 정합).
-     scroll-padding 영역 OUT margin-bottom 영역 동일 token (var(--pipe-gap-md)) 정합. */
+  /* WebKit 204098: scroll-padding-bottom 정합. */
   .snn-pipeline { scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pipe-gap-md)); }
 }
-/* admin minimalist v5 — tone glow / accent bar 폐기 (사용자 mandatory: gradient 0).
-   5 node 영역 동일 flat #0a0a0a + 1px gray-800 border 정합. position: relative 영역
-   active state 일부 보존 (top-level rule 정합). */
 .snn-pipeline-node {
   position: relative;
 }
 
-/* admin minimalist v5 — 학습 / flow active state 영역 단순 border-color 영역 변화만.
-   glow / box-shadow 영역 폐기 (사용자 mandatory: gradient/glow 0).
-   LLM 노드 영역 폐기 (2026-05-09 [2]) — 4-node selector. */
+/* 학습/flow active state — border-color 변화만. */
 .snn-pipeline.is-learning .snn-pipeline-node--learn,
 .snn-pipeline.is-flowing .snn-pipeline-node--infer,
 .snn-pipeline.is-flowing .snn-pipeline-node--out {
@@ -664,7 +435,6 @@
   display: flex;
   align-items: center;
   width: 100%;
-  /* polish v2 — header padding (sm × md). */
   padding: var(--pipe-gap-sm) var(--pipe-gap-md);
   background: transparent;
   border: 0;
@@ -684,25 +454,19 @@
 .snn-pipeline-node-title {
   font-weight: 700;
   letter-spacing: 0.12em;
-  /* readable v4 — title 14px (직전 12 영역 너무 작음 + 정합 본 부분 hierarchy). */
   font-size: var(--pipe-font-lg);
   color: var(--pipe-text);
 }
-/* cyan single tone — 4 노드 영역 동일 cyan light accent 영역 통일.
-   LLM 노드 영역 폐기 (2026-05-09 [2]). */
+/* 4 노드 title — cyan light accent, idle dim. */
 .snn-pipeline-node--input .snn-pipeline-node-title,
 .snn-pipeline-node--learn .snn-pipeline-node-title,
 .snn-pipeline-node--infer .snn-pipeline-node-title,
 .snn-pipeline-node--out   .snn-pipeline-node-title {
   color: rgb(var(--pipe-tone-cyan-light));
-  /* UX Polish PR2 Fix 3 (MEDIUM [M3]) — idle title 영역 dim 정합 (직전 모두 동일 — visual hierarchy 0). */
   opacity: 0.65;
   transition: opacity 200ms ease, color 200ms ease, text-shadow 200ms ease;
 }
-/* UX Polish PR2 Fix 3 (MEDIUM [M3], 2026-05-09): 활성 노드 title 색감 강조.
-   wrapper class (is-learn-active / is-infer-active / is-out-active) 영역
-   cascade — 단계별 (LEARN / INFER / OUT) 활성 노드 한정 강조.
-   기존 wrapper border glow 영역 보존, title 영역 hierarchy 영역 보강. */
+/* 활성 노드 title 강조 — is-learn/infer/out-active wrapper cascade. */
 .snn-pipeline-node-wrap.is-learn-active .snn-pipeline-node-title,
 .snn-pipeline-node-wrap.is-infer-active .snn-pipeline-node-title,
 .snn-pipeline-node-wrap.is-out-active   .snn-pipeline-node-title {
@@ -730,8 +494,6 @@
 .snn-pipeline-node-body {
   display: flex;
   flex-direction: column;
-  /* content-fit v4 — gap md (12) + padding 14×14 영역 정합 (사용자 catch "spacing rhythm").
-     flex grow 폐기 — 박스 영역 content fit (직전 stretch 영역 빈 영역 catch). */
   gap: var(--pipe-gap-md);
   padding: 14px var(--pipe-gap-md) var(--pipe-gap-md);
 }
@@ -744,7 +506,6 @@
   font-size: var(--pipe-font-sm);
   line-height: 1.3;
   padding: 1px 0;
-  /* 사용자 catch 2026-05-07: content 길이 변동 → 박스 크기 영향 차단. */
   min-width: 0;
   white-space: nowrap;
 }
@@ -759,7 +520,6 @@
   text-align: right;
   color: var(--pipe-text);
   font-size: var(--pipe-font-sm);
-  /* 사용자 catch: TEACHER suffix [5/5 stable] 길이 변동 — nowrap + ellipsis. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -784,7 +544,6 @@
   width: 100%;
 }
 
-/* INPUT — polish v2: gesture row + 16-dim 영역 6 gap (tight). */
 .snn-pipeline-input { display: flex; flex-direction: column; gap: 6px; }
 .snn-pipeline-cam {
   position: relative;
@@ -792,7 +551,6 @@
   background: #050505;
   border-radius: 3px;
   overflow: hidden;
-  /* fixed size — 사용자 catch (2026-05-05): active/empty 영역 동일 영역 4/3. */
   aspect-ratio: 4 / 3;
 }
 .snn-pipeline-cam.is-active,
@@ -805,9 +563,7 @@
   width: 100%; height: 100%;
   pointer-events: none; display: block;
 }
-/* 사용자 명시 (privacy / 시각 단순화): 카메라 영상은 숨기고 손 landmark
-   skeleton 만 표시. video element 는 DOM 에 살아있어 MediaPipe 가 frame
-   data 를 그대로 추출 — 추적 동작 영향 없음. */
+/* 카메라 video hidden — MediaPipe frame 추출은 유지, skeleton 만 표시. */
 .snn-pipeline-cam .snn-cam-video {
   object-fit: cover;
   opacity: 0;
@@ -823,7 +579,6 @@
   padding: var(--pipe-gap-sm);
   pointer-events: none;
 }
-/* 카메라 active 영역 placeholder 영역 hide (사용자 catch: 글씨 움직임 0). */
 .snn-pipeline-cam.is-active .snn-pipeline-cam-empty {
   display: none;
 }
@@ -858,15 +613,10 @@
   margin-top: 2px;
   line-height: 1.3;
 }
-/* PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
-   2026-05-10): NodeLearn multi-trial 수렴 hint 영역 dim modifier — 정직
-   한계 catch (mitigation only — Option A follow-up 영역 root fix). */
 .snn-pipeline-phase-sub--dim {
   opacity: 0.7;
 }
-/* phase indicator — monochrome (사용자 mandatory). lightness 단계:
-   idle (dim) → amber/orange (mid-light) → green (light) → blue (mid).
-   (직전 fuchsia EVOLVING tone + snn-evolving-pulse keyframe 폐기 — Sidebar Evolve 회수.) */
+/* phase indicator — monochrome. idle(dim) → amber → orange → green → blue. */
 .snn-pipeline-phase--idle   { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
 .snn-pipeline-phase--amber  { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.30); color: #f3f4f6; }
 .snn-pipeline-phase--orange { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.35); color: #f9fafb; }
@@ -888,7 +638,6 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* 사용자 catch 2026-05-07: cluster row 갯수 고정 (4) → fixed height. */
   min-height: calc(4 * 22px + 3 * 2px);
 }
 .snn-pipeline-cluster-row {
@@ -907,12 +656,7 @@
 .snn-pipeline-cluster-row.is-done-row {
   background: rgba(34, 197, 94, 0.05);
 }
-/* Backend audit fix #4 (UX-designer Part C, 2026-05-10): spawn pulse — 신규
-   ART expansion cluster row 영역 1500ms amber glow (auto-learn-progress amber
-   bar 영역 시각 일관성 정합). 1회 재생 후 parent 영역 setTimeout 영역 class
-   영역 자동 clear. prefers-reduced-motion 영역 animation 영역 disable.
-   composite-only animation — pseudo-element 영역 amber overlay 영역 opacity
-   only (Paint/Composite trigger 회피 catch — lint hint 정합). */
+/* spawn pulse — 신규 ART cluster row 1500ms amber glow, 1회 재생. */
 .snn-pipeline-cluster-row.is-spawn-pulse {
   position: relative;
   outline: 1px solid rgba(251, 191, 36, 0.7);
@@ -953,17 +697,12 @@
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  /* UX Polish PR2 Fix 4 (MEDIUM [M4], 2026-05-09): empty track 영역 alpha bump
-     0.08 → 0.14 + dashed inner border. untrained 4 cluster 모두 0/30 영역
-     사용자 catch 0 정정 — bar 자체가 보이도록 가시성 확보. */
   background: rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;
   position: relative;
 }
 .snn-pipeline-cluster-count {
-  /* 사용자 catch 2026-05-07: count 가 두 자리 (10/30 / 30/30) 일 때
-     영역 벗어남. 자연 폭 + nowrap + 적정 min-width. */
   min-width: 42px;
   text-align: right;
   font-family: ui-monospace, monospace;
@@ -998,8 +737,7 @@
   font-size: var(--pipe-font-xs);
   color: rgba(255,255,255,0.55);
 }
-/* 현재 자세 카드 — TRAINED 영역 winner 영역 본격 표시.
-   readable v4 — padding 8×12 (직전 6×10 대부분) + content-fit. */
+/* 현재 자세 카드 — winner 표시, content-fit. */
 .snn-pipeline-current {
   padding: var(--pipe-gap-sm) var(--pipe-gap-md);
   border-radius: 3px;
@@ -1036,7 +774,6 @@
   font-family: ui-monospace, monospace;
 }
 .snn-pipeline-current-value {
-  /* readable v4 — value 18px (직전 14 대부분 일부, hierarchy 강). */
   font-size: 18px;
   font-weight: 700;
   color: var(--pipe-text);
@@ -1046,12 +783,7 @@
 }
 .snn-pipeline-current.is-active .snn-pipeline-current-value { color: rgb(var(--pipe-tone-infer)); }
 
-/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement, 2026-05-10): consecutive
-   winner streak pill — Diehl & Cook 2015 winner stability indicator 정합.
-   - 1-2 frame: amber ('학습 중') / >= 3 frame: emerald ('stable').
-   - WCAG AA contrast — text on tinted bg.
-   - prefers-reduced-motion 영역 transition only (animation 영역 미사용 영역
-     별도 fallback 불필요). */
+/* winner streak pill — 1-2 frame: amber / ≥3 frame: emerald. */
 .snn-pipeline-streak-pill {
   display: flex;
   align-items: center;
@@ -1090,19 +822,8 @@
   color: #34d399;
 }
 
-/*
-  사용자 catch 2026-05-12 (exact-match-badge-hide-rates):
-    "패턴 4가 추론되는데 실제 수치가 맞는건가요? 0Hz 표시는 정확한 것인지?"
-  EXACT MATCH badge — forced winner (Carpenter-Grossberg 1987 ART resonance)
-  영역 deterministic lock 영역 시각 catch. fire rate 영역 stochasticity 영역
-  영역 영역 winner 영역 deterministic 영역 명시 영역 사용자 mental model 영역
-  정합 (정확도/안정도 100% 영역 modicum information 영역 fix).
-
-  green tone (deterministic / verified) — 학술 정합 ART resonance.
-  rate row 영역 "EXACT" pill 영역 winner card "EXACT MATCH (deterministic)" badge
-  모두 동일 class — visual consistency.
-*/
-/* INFER winner card 영역 winner label + EXACT badge 영역 vertical stack — overflow 회피 */
+/* EXACT MATCH badge — ART resonance deterministic winner. green tone. */
+/* winner label + badge vertical stack */
 .snn-pipeline-winner-stack {
   display: flex;
   flex-direction: column;
@@ -1131,14 +852,6 @@
   color: #34d399;
   white-space: nowrap;
   line-height: 1.2;
-  /*
-    2026-05-12 (exact-badge-clip-fix): flex-shrink 0 + 자연폭 보장 — 부모
-    컨테이너의 고정 width(32px / 30px / 42px)에 갇혀 텍스트가 잘리는 문제 수정.
-    overflow/text-overflow/min-width:0 제거 → 뱃지가 스스로 필요한 폭을 차지.
-    2026-05-13 (exact-badge-center-fix): justify-content center + text-align center
-    추가 — snn-pipeline-cluster-count(text-align:right) 와 병용 시 텍스트가
-    우측으로 치우쳐 보이는 문제 수정.
-  */
   flex-shrink: 0;
   text-align: center;
 }
@@ -1165,8 +878,6 @@
   background: rgba(255,255,255,0.06); overflow: hidden;
 }
 .snn-pipeline-rate-value {
-  /* 2026-05-12 (exact-badge-clip-fix): width 고정 → min-width 로 전환.
-     Hz 수치 표시 시에는 32px 최소폭 유지, exact-badge 표시 시에는 자연 폭 확보. */
   min-width: 32px; width: auto;
   text-align: right;
   font-family: ui-monospace, monospace; font-size: 9px;
@@ -1202,9 +913,7 @@
 .snn-pipeline-margin-meter.is-tie .snn-pipeline-margin-fill {
   background: rgba(255,255,255,0.18);
 }
-/* dotted threshold line — width var (--w) 영역 left position.
-   PR #187 polish — UX LOW-4 (audit 2026-05-10): contrast 영역 0.55 → 0.85 +
-   width 1px → 1.5px 영역 visual saliency 강화. */
+/* dotted threshold line — --w 기준 left position. */
 .snn-pipeline-margin-threshold {
   position: absolute;
   top: 0;
@@ -1215,17 +924,9 @@
   pointer-events: none;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   사용자 catch 2026-05-07: 학습 진행 / 추론 활성 시각 피드백 강화.
-   - phase transition fade+slide-in
-   - 학습 중 active cluster bar pulse + capturing dot
-   - 추론 tick spinner
-   - winner 변경 fade-in
-   - LEARN/INFER 노드 자체 glow
-   - saturation rate bar 색감 변경
-   ───────────────────────────────────────────────────────────────────────── */
+/* ── 학습/추론 시각 피드백 애니메이션 ─────────────────────── */
 
-/* 1) phase transition — UNTRAINED → LEARNING → PARTIAL → TRAINED 변경 시점 fade+slide-in */
+/* 1) phase transition fade+slide-in */
 .snn-pipeline-phase-transition {
   animation: snn-pipeline-phase-fade 360ms ease-out;
 }
@@ -1234,8 +935,7 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* 2) 학습 중 cluster bar 영역 capturing pulse — frame 1개 누적 시각 신호.
-      bumpKey 변경 영역 element 재생성 → animation 영역 1회 재생. */
+/* 2) cluster bar capturing pulse */
 .snn-pipeline-cluster-bar {
   position: relative;
 }
@@ -1266,15 +966,7 @@
 .snn-pipeline-tick-spinner--inline {
   display: none;
 }
-@keyframes snn-pipeline-tick-pulse {
-  0%, 100% { opacity: 0.35; transform: scale(0.85); }
-  50%      { opacity: 1.0;  transform: scale(1.15); }
-}
-
-/* STDP step LED — event-driven 1-shot pivot (사용자 catch 2026-05-09 B).
-   trial 변경 영역 mount key ↑ 영역 600ms fade-out animation 1회.
-   직전 (A) tick-spinner 영역 매 200ms tick 영역 깜빡거림 catch 영역 root fix.
-   prefers-reduced-motion 영역 instant fade. */
+/* STDP step LED — trial 변경 시 600ms fade-out 1회. */
 .snn-pipeline-stdp-led {
   display: inline-block;
   width: 8px;
@@ -1295,7 +987,7 @@
   .snn-pipeline-stdp-led { animation-duration: 0.01ms !important; }
 }
 
-/* 4) teacher row 영역 stable ready (5/5 stable + conf >= 0.6) — color emphasis. */
+/* 4) teacher stable ready */
 .snn-pipeline-row-value.is-stable-ready {
   color: rgb(var(--pipe-tone-cyan-light, 165 243 252));
   font-weight: 600;
@@ -1304,10 +996,6 @@
   color: #fca5a5;
   word-break: break-word;
 }
-/* PR #199 polish — UX HIGH (사용자 catch 2026-05-10): '비신뢰' suffix 영역
-   visual 강화 — warning badge tint + ⚠ glyph 영역 사용자 catch 영역 강. 직전
-   inline color (#fca5a5) 영역 tone subtle — 사용자 영역 추론 결과 신뢰 0
-   영역 명시 catch 부족 영역. */
 .snn-pipeline-row-warning-badge {
   display: inline-flex;
   align-items: center;
@@ -1326,15 +1014,11 @@
   font-size: 0.95em;
   line-height: 1;
 }
-/* PR #199 polish — UX LOW (사용자 catch 2026-05-10): fresh phase 영역 amber
-   tint catch — 학습 0 영역 catch 강 (직전 idle gray 영역 fresh vs awaiting
-   영역 시각 catch 0 영역). monochrome mandatory 영역 일부 영역 — 사용자
-   명시 요청 영역 우선. */
 .snn-pipeline-phase-label--fresh {
   color: #fbbf24;
 }
 
-/* 5) winner 변경 fade-in — key 변경 시 element 재생성 영역 animation 1회 재생. */
+/* 5) winner fade-in */
 .snn-pipeline-winner-fade {
   animation: snn-pipeline-winner-fade-in 360ms ease-out;
 }
@@ -1371,7 +1055,7 @@
     0 0 0 1px rgba(var(--pipe-tone-infer, 96 165 250), 0.30),
     0 0 14px rgba(var(--pipe-tone-infer, 96 165 250), 0.22);
 }
-/* 사용자 catch 2026-05-07: 결과 표시 시 OUT 노드 강조. */
+/* OUT 노드 활성 강조 */
 .snn-pipeline-node-wrap.is-out-active .snn-pipeline-node {
   border-color: rgba(132, 204, 22, 0.55);
   box-shadow:
@@ -1380,13 +1064,13 @@
   transition: border-color 220ms ease, box-shadow 220ms ease;
 }
 
-/* 7) edge 영역 학습 fast — INPUT→LEARN, LEARN→INFER 영역 학습 중 강 glow. */
+/* 7) edge learn-fast glow */
 .snn-pipeline-edge.is-learn-fast.is-active {
   color: rgba(var(--pipe-tone-learn, 251 191 36), 0.95);
   filter: drop-shadow(0 0 7px rgba(var(--pipe-tone-learn, 251 191 36), 0.7));
 }
 
-/* 8) saturation rate bar — 600Hz 도달 시점 색감 변경 catch (사용자 mandatory: 시각 피드백 한정). */
+/* 8) saturation rate bar */
 .snn-pipeline-fill-saturated {
   background: linear-gradient(90deg, #fbbf24, #fde68a);
   box-shadow: 0 0 4px rgba(251, 191, 36, 0.35) inset;
@@ -1396,7 +1080,7 @@
   font-weight: 600;
 }
 
-/* prefers-reduced-motion — animation 영역 instant (accessibility). */
+/* prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   .snn-pipeline-phase-transition,
   .snn-pipeline-cluster-bar-pulse,
@@ -1416,14 +1100,9 @@
 /* OUT */
 .snn-pipeline-out-winner {
   display: flex; justify-content: center;
-  /* content-fit v4 — vertical padding 4 (직전 6 대부분 일부). */
   padding: var(--pipe-gap-xs) 0;
 }
-/* F4 UX polish (4, 2026-05-11): winner cluster 전환 fade-in 100ms ease-in —
-   key={winnerKey} 영역 element 재생성 영역 fade-in animation 1회 재생.
-   직전 .snn-pipeline-winner-fade (360ms scale 영역) 영역 별도 path — 본 100ms
-   영역 subtle transition 영역 winner 영역 sequential 변경 영역 시각 catch.
-   prefers-reduced-motion 영역 0.01ms 영역 instant fallback. */
+/* winner 전환 fade-in 100ms */
 .snn-pipeline-out-winner--enter {
   animation: snn-pipeline-out-winner-fade-in 100ms ease-in;
 }
@@ -1432,15 +1111,11 @@
   to   { opacity: 1; }
 }
 .snn-pipeline-out-winner-empty {
-  /* readable v4 — empty placeholder 영역 dim 정합 (직전 18px 영역 너무 큼). */
   font-size: var(--pipe-font-md);
   color: var(--pipe-text-dim);
   letter-spacing: 0.04em;
 }
-/* F4 UX polish (1, 2026-05-11): "처리 중" dim pulse — winner 미해결 영역
-   "결과 없음" vs "처리 중" 영역 시각 구분 정합 (직전 "—" 영역 동일 시각 →
-   사용자 영역 추론 진행 영역 catch 0 영역 root cause). 1.2s ease-in-out infinite
-   영역 부드러운 호흡 — prefers-reduced-motion 영역 0.01ms 영역 static dim. */
+/* 추론 중 dim pulse */
 .snn-pipeline-out-winner-empty.is-inferring {
   animation: snn-pipeline-out-empty-pulse 1.2s ease-in-out infinite;
 }
@@ -1453,7 +1128,6 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--pipe-text);
   padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 3px;
-  /* readable v4 — winner btn 영역 16px (직전 14 일부 hierarchy ↑). */
   font-size: var(--pipe-font-title); font-weight: 600;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
@@ -1484,9 +1158,7 @@
   outline: none;
 }
 .snn-pipeline-out-input:focus { border-color: rgba(var(--pipe-tone-out), 0.85); }
-/* dense rows v4 (사용자 catch "OUT 4 라벨 일부 4 row 영역 fit 빈 영역 0").
-   직전 2x2 grid 영역 빈 영역 catch — 본 부분 단일 column 4 row 영역 dense + label
-   left + value right (visual hierarchy 영역 정합). */
+/* OUT count rows — single column, label left / value right. */
 .snn-pipeline-out-counts {
   display: flex;
   flex-direction: column;
@@ -1519,32 +1191,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.snn-pipeline-btn {
-  padding: 6px 10px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.18);
-  color: rgba(255,255,255,0.9);
-  border-radius: 3px; cursor: pointer; font-size: var(--pipe-font-sm);
-  font-family: inherit;
-  transition: background 0.15s, border-color 0.15s;
-}
-.snn-pipeline-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.35);
-}
-.snn-pipeline-btn:focus-visible {
-  outline: 2px solid rgba(var(--pipe-tone-infer), 0.6);
-  outline-offset: 2px;
-}
-.snn-pipeline-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-@media (pointer: coarse) {
-  .snn-pipeline-btn { padding: 10px var(--pipe-gap-md); }
-}
-
-/* LLM 노드 영역 폐기 (2026-05-09 [2]) — 직전 LLM 전용 selectors (snn-pipeline-field /
-   field-label / input-field / toggle / details / pre / llm-result / llm-ctrl-hint /
-   toast--ok / toast--fail) 영역 본격 제거.
-   .snn-pipeline-toast (base) 영역 보존 — PipelineCanvas trainStatus toast 영역 정합. */
 
 .snn-pipeline-toast {
   position: absolute;
@@ -1571,16 +1217,14 @@
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* phase 별 background — 사용자 catch v4 "너무 밝음" → 모든 phase 영역 #000 영역.
-   직전 lightness 단계 영역 catch — 본 부분 단조 deep black 영역 hierarchy 0. */
+/* phase background — 모두 #000 */
 .snn-pipeline.is-phase-untrained,
 .snn-pipeline.is-phase-learning,
 .snn-pipeline.is-phase-partial,
 .snn-pipeline.is-phase-trained,
 .snn-pipeline.is-phase-inference { background: #000000; }
 
-/* admin minimalist v5 — TRAINED phase 영역 LEARN 노드 단순 강조 (border 영역 변화 + ✓ badge).
-   glow / shadow 폐기. */
+/* TRAINED — LEARN 노드 border 강조 + ✓ badge */
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
   border-color: var(--pipe-border-strong);
 }
@@ -1593,38 +1237,25 @@
   font-weight: 700;
 }
 
-/* INFERENCE phase 영역 INFER 노드 영역 단순 border 영역. */
+/* INFERENCE — INFER 노드 border 강조 */
 .snn-pipeline.is-phase-inference .snn-pipeline-node--infer {
   border-color: var(--pipe-border-strong);
 }
 
-/* ─────────────────────────────────────────── Mobile (≤768px) ────────────────
-   본격 mobile pixel-perfect (2026-05-05) — 사용자 catch:
-   1. 카메라 4/3 영역 정합 (PC 영역 정합 — full-width × 4/3).
-   2. typography 14px+ a11y (cluster label 12px 일부).
-   3. touch target ≥32px ((pointer:coarse) 일부).
-   4. tight spacing — gap 12-14, padding 12. */
+/* ─── Mobile (≤768px) ───────────────────────────────────────── */
 @media (max-width: 768px) {
   .snn-pipeline {
     padding: var(--pipe-gap-sm);
   }
-  .snn-pipeline-flow {
-    gap: var(--pipe-gap-md);
-  }
-  /* mobile pixel-perfect — INPUT 카메라 영역 4/3 일부 (PC 영역 정합).
-     full-width × aspect 4/3 — 사용자 catch 2026-05-05. */
   .snn-pipeline-cam {
     aspect-ratio: 4 / 3;
   }
   .snn-pipeline-feat-bars { height: 36px; }
-  /* mobile pixel-perfect — typography 영역 14px+ a11y (사용자 catch).
-     단 cluster/rate label 영역 12px 일부 (밀집 영역 정합). */
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); letter-spacing: 0.10em; }
   .snn-pipeline-node-sub { font-size: var(--pipe-font-md); }
   .snn-pipeline-node-body { padding: var(--pipe-gap-md); gap: 10px; }
   .snn-pipeline-row { font-size: var(--pipe-font-md); }
   .snn-pipeline-row-label { font-size: var(--pipe-font-sm); }
-  /* INFER recent timestamp + OUT count value — mono 대부분 12px 정합 */
   .snn-pipeline-mono { font-size: var(--pipe-font-md); }
   .snn-pipeline-cluster-label { font-size: var(--pipe-font-md); width: 60px; }
   .snn-pipeline-cluster-count { font-size: var(--pipe-font-sm); }
@@ -1632,7 +1263,6 @@
   .snn-pipeline-rate-value { font-size: var(--pipe-font-sm); }
   .snn-pipeline-current-label { font-size: var(--pipe-font-sm); }
   .snn-pipeline-current-value { font-size: 16px; }
-  /* OUT — 4 라벨 영역 row 정합 (label fits + count 영역 ellipsis 영역). */
   .snn-pipeline-out-counts { gap: var(--pipe-gap-xs); }
   .snn-pipeline-out-count-row { font-size: var(--pipe-font-md); padding: 3px 0; }
   .snn-pipeline-out-count-label { font-size: var(--pipe-font-md); }
@@ -1645,29 +1275,20 @@
   .snn-pipeline-note,
   .snn-pipeline-warn,
   .snn-pipeline-hint { font-size: var(--pipe-font-md); }
-  /* hover scale 영역 — touch device 일부. */
   .snn-pipeline-node:hover { transform: none; }
-  /* touch target ≥32px — (pointer:coarse) 대부분, 본 부분 mobile width
-     대부분. button 대부분 padding 영역 32px catch. */
-  .snn-pipeline-btn { min-height: 32px; padding: var(--pipe-gap-sm) var(--pipe-gap-md); }
   .snn-pipeline-out-winner-btn { min-height: 36px; padding: var(--pipe-gap-sm) 14px; font-size: var(--pipe-font-xl); }
 }
 
-/* 더 작은 영역 (≤480px) — pixel-perfect mobile (375px viewport 정합).
-   사용자 catch — column layout + 깔끔 + 여백 0. cluster label 영역 12px 일부
-   (a11y exception per spec — 밀집 영역 정합 일부 12px 일부). */
+/* ─── Mobile (≤480px) ───────────────────────────────────────── */
 @media (max-width: 480px) {
   .snn-pipeline { padding: var(--pipe-gap-sm); }
   .snn-pipeline-cluster-label { width: 52px; font-size: var(--pipe-font-md); }
-  /* 2026-05-12 (exact-badge-clip-fix): 모바일 고정 width → min-width 전환.
-     exact-badge 표시 시 30px 고정폭에 갇혀 텍스트 잘림 방지. */
   .snn-pipeline-cluster-count { min-width: 30px; width: auto; font-size: var(--pipe-font-sm); }
   .snn-pipeline-rate-label { width: 52px; font-size: var(--pipe-font-md); }
   .snn-pipeline-rate-value { min-width: 30px; width: auto; font-size: var(--pipe-font-sm); }
   .snn-pipeline-node-sub { display: none; }
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); }
   .snn-pipeline-current-value { font-size: var(--pipe-font-title); }
-  /* 사용자 catch 2026-05-06: 480px viewport 영역 max-height 폐기 — content-fit. */
   .snn-pipeline-node { max-height: none; height: auto; }
   .snn-pipeline-node--input { max-height: none; }
   .snn-val-header { min-height: 44px; padding: 10px 0; }
@@ -1675,17 +1296,8 @@
   .snn-val-matrix-table th { padding: 2px; font-size: 9px; min-width: 16px; }
 }
 
-/* SummaryCard 영역 폐기 (2026-05-09 [1]) — dead module catch.
-   직전 .snn-summary-card / dashboard / cards / spark / delta variants 영역 본격 제거.
-   Editor.tsx 영역 import 0 catch (마운트 0). */
-
-/* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ─────────────
-   사용자 OS 영역 motion-reduce 설정 영역 정합 — 모든 keyframe + transition 영역
-   영역 0.01ms 영역 단축 (즉시 정지 일부 시각 변화 영역 보존). animation 영역
-   `none` 영역 0 — `0.01ms` 일부 frame 영역 1 대부분 영역 정합. */
+/* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ───────────── */
 @media (prefers-reduced-motion: reduce) {
-  .snn-pipeline-conn-dot,
-  .snn-pipeline-conn-dash,
   .snn-mode-progress-fill.is-active,
   .snn-pipeline-current.is-active,
   .snn-pipeline-rate-row.is-winner,
@@ -1694,12 +1306,10 @@
     animation-iteration-count: 1 !important;
   }
   .snn-pipeline-node,
-  .snn-pipeline-btn,
   .snn-pipeline-cluster-row,
   .snn-pipeline-rate-row,
   .snn-pipeline-current,
   .snn-pipeline-out-winner-btn,
-  .snn-pipeline-arrow,
   .snn-mode-progress-fill,
   .snn-feat-bar-fill {
     transition-duration: 0.01ms !important;
@@ -1766,12 +1376,7 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* PR #187 polish — UX MEDIUM-3 (audit 2026-05-10): LIVE 안내 span 영역 static
-   variant — button 영역 일치 layout 영역 cursor / hover 영역 회피.
-   사용자 catch 2026-05-10 (font-size 2회 정정):
-     - 1차 escalate: 11px (--pipe-font-xs) → 14px — 너무 큼 (사용자 catch).
-     - 2차 정정: 14px → 12px — 가독 + 작게 (WCAG mobile 12px floor 정합).
-   --static modifier 영역 LIVE info 영역만 사용 사실 grep 정합. */
+/* LIVE info span — cursor default, dashed border, 12px. */
 .snn-grid-train-all-btn--static {
   cursor: default;
   border-style: dashed;
@@ -1788,7 +1393,6 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 3px;
-  /* 사용자 catch 2026-05-07: 노드 너비 꽉차게 정사각형. max-width 폐기. */
   width: 100%;
   aspect-ratio: 1 / 1;
 }
@@ -1837,7 +1441,6 @@
   border: 1px solid var(--pipe-border);
   border-radius: 3px;
   color: var(--pipe-text);
-  /* 사용자 catch 2026-05-07: cluster btn 과 train btn 동일 height. */
   min-height: 32px;
   padding: 4px 10px;
   cursor: pointer;
@@ -1846,9 +1449,7 @@
 .snn-grid-preset-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
 }
-/* PR #187 polish — UX HIGH-1 (audit 2026-05-10): CameraInput 비활성 LIVE 안내
-   span 영역 className reuse — pointer cursor 영역 hover 영역 catch 회피.
-   .snn-grid-preset-btn--static = 비-button (display-only) 영역 정합. */
+/* display-only span variant — no hover/cursor. */
 .snn-grid-preset-btn--static {
   cursor: default;
   background: transparent;
@@ -1865,14 +1466,10 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* 사용자 catch 2026-05-09 (3 신규 catch): .snn-grid-preset-glyph 영역 사용 0
-   영역 dead CSS catch — PR #179 영역 GridInput / CameraInput 영역 button glyph
-   span 영역 제거 path 영역 본 class 영역 reference 0. 본 rule 영역 제거. */
 .snn-grid-preset-label {
   font-size: var(--pipe-font-xs);
   color: var(--pipe-text-dim);
   letter-spacing: 0.04em;
-  /* 좁은 폭에서 라벨이 glyph 와 겹치는 catch — overflow 정합. */
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1889,7 +1486,6 @@
   color: var(--pipe-text);
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.04em;
-  /* preset btn 정합 height. */
   min-height: 32px;
   padding: 4px 12px;
   cursor: pointer;
@@ -1927,9 +1523,7 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* UX-9 (PR #191 polish, 2026-05-10): 추론 button primary tone — INFERENCE
-   phase 정합 cyan border-glow 영역 본격 path 시각 강조. base .snn-grid-infer-btn
-   영역 위 영역 modifier 영역 stack — 기존 hover bg 정합. */
+/* 추론 button primary — cyan border-glow */
 .snn-grid-infer-btn--primary {
   border-color: rgba(34, 211, 238, 0.55);
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15);
@@ -1939,9 +1533,7 @@
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 12px rgba(34, 211, 238, 0.3);
 }
 
-/* UX-8 (PR #191 polish, 2026-05-10): 학습 reset visual danger separation —
-   weight-destructive action 영역 red border-glow + hover red bg 영역 시각
-   경고. base .snn-grid-reset-btn 영역 위 영역 modifier 영역 stack. */
+/* reset danger — red border-glow */
 .snn-grid-reset-btn--danger {
   border-color: rgba(239, 68, 68, 0.5);
   color: rgba(252, 165, 165, 0.95);
@@ -1952,8 +1544,7 @@
   color: rgba(254, 202, 202, 1);
 }
 
-/* coarse pointer (touch device) — WCAG 권장 touch target 정합. button
-   min-height 32px, preset row min-height 36px. 데스크톱 mouse 는 영향 0. */
+/* touch target min-height 36px (WCAG) */
 @media (pointer: coarse) {
   .snn-grid-preset-btn,
   .snn-grid-train-btn,
@@ -1969,14 +1560,7 @@
   }
 }
 
-/* Backend audit fix #4 (UX-designer Part A+B, 2026-05-10): vigilance slider +
-   novelty mode toggle. backend mode (engineMode='backend') 영역만 노출 —
-   collapse default 영역 '고급 옵션' 영역 펼침 시 노출. WCAG touch target
-   ≥ 44px (min-height 44 + slider/toggle 영역 32px+). */
-/* 사용자 catch 2026-05-10 (Request A): 고급 옵션 panel 영역 INPUT 노드
-   영역 width 영역 overflow 정정 — box-sizing border-box + width 100% +
-   max-width 100% + min-width 0 영역 cascade 정합 (slider/number-input 영역
-   flex-basis 영역 차지 영역 wrap 회피). */
+/* vigilance panel — backend mode '고급 옵션' 펼침 시 노출. */
 .snn-grid-vigilance-panel {
   display: flex;
   flex-direction: column;
@@ -2014,11 +1598,7 @@
   gap: 8px;
   font-size: 11px;
   color: var(--pipe-text-dim);
-  /* F4 UX polish (3, 2026-05-11): 44px touch target — checkbox visual 18px
-     영역 보존 단 label row 영역 hit-area 영역 ≥44px (WCAG 2.5.5 / pointer:coarse
-     영역 정합). 직전 32px 영역 mobile tap 영역 mis-tap 영역 root cause. align-items
-     영역 center 영역 swap — vertical center 영역 hit-area 영역 균등. */
-  min-height: 44px;
+  min-height: 44px; /* WCAG 2.5.5 touch target */
   align-items: center;
   cursor: pointer;
   width: 100%;
@@ -2086,9 +1666,7 @@
   color: var(--pipe-text);
   font-family: monospace;
   box-sizing: border-box;
-  /* Hide native spinner (up/down arrows) — vigilance input only.
-     User catch (2026-05-10): spinner 영역 hide, keyboard 입력 영역 유지. */
-  -moz-appearance: textfield;
+  -moz-appearance: textfield; /* hide native spinner */
   appearance: textfield;
 }
 .snn-grid-vigilance-number-input::-webkit-inner-spin-button,
@@ -2101,20 +1679,13 @@
   font-size: 10px;
   opacity: 0.6;
 }
-/* Audit Fix #9 (2026-05-10, UX-designer Catch A): 극단 ρ 영역 reactive
-   color modifier — amber-300 (≥0.9 폭증 위험) / gray-500 (≤0.1 신규 형성
-   거의 0). opacity 영역 base 0.6 영역 escalate (≥0.9 영역 0.95) 영역 시각
-   강조 — 위험 catch 영역 정합. */
+/* vigilance 극단값 색감 — danger(≥0.9): amber / muted(≤0.1): gray */
 .snn-grid-vigilance-foot-hint--danger {
   color: #fcd34d;
   opacity: 0.95;
 }
 .snn-grid-vigilance-foot-hint--muted {
-  /* F4 UX polish (5, 2026-05-11): gray-500 (#6b7280) opacity 0.7 영역 contrast
-     ≈ 3.3:1 (WCAG AA 4.5:1 미달 + AAA 영역 미달) → gray-400 (#9ca3af) opacity
-     0.85 영역 swap (≈ 4.6:1, AA pass). 직전 ≤0.1 vigilance hint 영역 거의
-     unreadable 영역 root cause. amber-300 (--danger) 영역 별도 정합 (high-contrast). */
-  color: #9ca3af;
+  color: #9ca3af; /* gray-400 — WCAG AA ≈4.6:1 */
   opacity: 0.85;
 }
 @media (pointer: coarse) {
@@ -2138,8 +1709,7 @@
   border-radius: 3px;
   background: var(--pipe-surface);
 }
-/* 사용자 catch 2026-05-07: ok / busy 시 한 줄 정합 (ellipsis). error 만
-   wrap (긴 에러 메시지는 두 줄 허용). */
+/* ok/busy — single line ellipsis. error — wrap. */
 .snn-grid-status--ok > span,
 .snn-grid-status--building > span,
 .snn-grid-status--training > span,
@@ -2168,11 +1738,7 @@
   color: #fbbf24;
   border-color: rgba(251, 191, 36, 0.5);
 }
-/* PR #196 polish (UX LOW-2, 2026-05-10): 'warning' kind 영역 amber pill 영역
-   visual cue — 낮은 confidence 영역 단순 text → 시각 escalate (Diehl & Cook
-   2015 winner margin 10% threshold 영역 정합 'low confidence' 정합).
-   .snn-grid-status--error 영역 정합 layout (align-items flex-start + word-break)
-   영역 hint secondary line 영역 wrap 정합. */
+/* warning — amber tint, wrap. */
 .snn-grid-status--warning {
   align-items: flex-start;
   color: #fbbf24;
@@ -2197,9 +1763,7 @@
   margin-top: 1px;
   word-break: break-word;
 }
-/* hint 동봉 시 ok/warning 영역 ellipsis nowrap 영역 override — 두 줄 wrap
-   정합 catch (직전 .snn-grid-status--ok > span 영역 nowrap+ellipsis 영역
-   secondary line 영역 truncate 회피). */
+/* hint 동봉 시 two-line wrap override */
 .snn-grid-status--ok:has(.snn-grid-status-hint),
 .snn-grid-status--warning:has(.snn-grid-status-hint) {
   align-items: flex-start;
@@ -2211,47 +1775,8 @@
   text-overflow: clip;
 }
 
-.snn-grid-rates {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 2px;
-}
-.snn-grid-rate-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--pipe-font-xs);
-}
-.snn-grid-rate-row.is-winner .snn-grid-rate-label,
-.snn-grid-rate-row.is-winner .snn-grid-rate-value {
-  color: #fff;
-  font-weight: 600;
-}
-.snn-grid-rate-label {
-  width: 14px;
-  font-family: ui-monospace, monospace;
-  color: var(--pipe-text-dim);
-  text-align: center;
-}
-.snn-grid-rate-bar {
-  flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 1px;
-  overflow: hidden;
-  position: relative;
-}
-.snn-grid-rate-value {
-  font-family: ui-monospace, monospace;
-  color: var(--pipe-text-dim);
-  width: 32px;
-  text-align: right;
-}
 
-/* Dialog component (2026-05-12): 사용자 catch "alert → dialog" — fade-in
-   keyframe. prefers-reduced-motion 정합 영역 tailwind 영역 'motion-safe:' prefix
-   영역 catch — 본 keyframe 영역 정의 영역만. */
+/* Dialog fade-in keyframe (tailwind motion-safe: prefix 정합). */
 @keyframes snn-dialog-fade {
   from { opacity: 0; }
   to { opacity: 1; }

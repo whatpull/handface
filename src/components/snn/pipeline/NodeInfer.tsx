@@ -113,7 +113,7 @@ export default function NodeInfer({
 
   // 사용자 catch 2026-05-11 (cluster-source-unify): winner 영역 hoist 영역 위 —
   // 본 위치 영역 saturated 영역만 catch 정합.
-  const saturated = winner.clusterRates.every((v) => v >= SATURATION_HZ);
+  const saturated = winner.clusterRates.length > 0 && winner.clusterRates.every((v) => v >= SATURATION_HZ);
 
   // history 영역 winner cluster 변경 시점 영역 누적 (last 10).
   // winnerKey ↑ — 변경 시 fade-in animation 재생 (사용자 catch 2026-05-07).

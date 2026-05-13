@@ -324,7 +324,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           observeMs: 150,
           maxClusters: 64,
         });
-        if (isCancelled) return;
+        if (cancelled) return;
         if (!r.ok) {
           setTrainStatus(`자동 학습 실패: ${r.reason || `HTTP ${r.status ?? '?'}`}`);
           return;

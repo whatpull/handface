@@ -14,7 +14,7 @@
 //   Partial Cue 4종 검증. 클라이언트 오케스트레이션, 순차 inject(stdp=false).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { onBackendEvent, type InputModeDetail, type GridInferDetail } from '@/lib/backend/events';
+import { onBackendEvent, type GridInferDetail } from '@/lib/backend/events';
 import {
   loadExemplars,
   subscribeExemplars,
@@ -137,7 +137,8 @@ function partialCue(feature: number[], keepRatio = 0.5): number[] {
 
 export default function NodeOut() {
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
-  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
+  // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
+  const { inputMode, winner, isAutoLearning } = usePipelineEvents();
   // 사용자 catch 2026-05-09 (Fix 1): substrate-aware exemplar load —
   // GRID(orientation) / CAMERA(gesture) 영역 별도 store. inputMode swap 영역
   // store 영역 reload 영역 carry-over 회피.
@@ -148,7 +149,6 @@ export default function NodeOut() {
     setExemplars(loadExemplars(substrate));
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
-  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
 
   // F4 UX polish (1) — "처리 중" 시각 신호. grid-infer started → true, finished/error
   // → false. winner 영역 미해결 ("—" placeholder) 영역 dim pulse animation 영역
@@ -160,10 +160,9 @@ export default function NodeOut() {
     else setIsInferring(false);
   }), []);
 
-  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
+  // PipelineEventContext: winner + isAutoLearning — inputMode 도 위에서 hoist.
   // HIGH #6 (사용자 catch 2026-05-11): isAutoLearning 영역 LEARN/INFER 영역
   // 동일 amber row 일관성 — "학습 중 — count 갱신 대기" 영역 hint visible.
-  const { winner, isAutoLearning } = usePipelineEvents();
 
   const winnerKey = winner.cluster !== null ? `out_${winner.cluster}_0` : null;
   const winnerEx = winnerKey ? exemplars[winnerKey] : undefined;

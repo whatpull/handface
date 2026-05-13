@@ -17,7 +17,6 @@ import {
   onBackendEvent,
   type HandFeatureDetail,
   type TrainingPhaseDetail,
-  type InputModeDetail,
   type GridTrainingDetail,
   type ClusterSpawnedDetail,
 } from '@/lib/backend/events';
@@ -103,10 +102,10 @@ export default function NodeLearn() {
   const [initState, setInitState] = useState<LocalSnnInitState | null>(null);
 
   // path Y: 입력 모드 + grid 학습 진행. NodeInput / GridInput 가 broadcast.
-  const [inputMode, setInputMode] = useState<'camera' | 'grid'>('grid');
+  // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
+  // TDZ 회피: inputMode 이 아래 useEffect 의존성(line ~121, ~331)보다 먼저 선언.
+  const { inputMode, lastDetail, autoLearnProgress, winner, winnerForcedExact } = usePipelineEvents();
   const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
-
-  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
 
   // 사용자 catch 2026-05-09 [2] (Fix 4): substrate-aware init state subscribe —
   // engineMode='live' + inputMode 영역 substrate kind 영역 sync. mount 영역 cache
@@ -341,7 +340,8 @@ export default function NodeLearn() {
   // 직전 LiveLearnPanel 영역 tick.winner (live-snn 영역 별도 산출) 영역 INFER 영역
   // PipelineEventContext.winner 영역 dual source 영역 mismatch 회피 — context winner
   // 영역 LiveLearnPanel 영역 prop 영역 통합.
-  const { lastDetail, autoLearnProgress, winner, winnerForcedExact } = usePipelineEvents();
+  // (inputMode / lastDetail / autoLearnProgress / winner / winnerForcedExact 영역
+  //  위 usePipelineEvents 호출 영역 hoist — 중복 선언 제거.)
 
   // Δw 산출 — lastDetail 변경 시점 영역 effect.
   // HIGH #4 정정 보존: synapses_changed (backend Δw list) 우선 — 첫 frame 영역 정합.

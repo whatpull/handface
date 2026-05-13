@@ -7,7 +7,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   onBackendEvent,
-  type InputModeDetail,
   type TrainingPhaseDetail,
 } from '@/lib/backend/events';
 import { useEngineMode } from '@/lib/snn/engine-mode';
@@ -30,11 +29,12 @@ import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
-  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
 
+  // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
   // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 사용자 명명
   // 우선 + fallback '패턴 N' (resolveClusterLabel 정합). substrate-aware
   // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
+  const { inputMode, winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
   const substrate: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
@@ -42,19 +42,8 @@ export default function NodeInfer() {
     return subscribeExemplars(substrate, setExemplars);
   }, [substrate]);
 
-  // PipelineEventContext 영역 derived winner — 4 노드 영역 공유 영역 정합.
-  // 사용자 catch 2026-05-10 (block-infer-during-learn): isAutoLearning 영역
-  // 학습 진행 중 catch — INFER 노드 상단 영역 visible "학습 중 — 추론 대기"
-  // hint mandatory (NodeOut "처리 중" 영역 동일 패턴).
-  // 사용자 catch 2026-05-11 (cluster-source-unify): hoist 영역 — winner 영역
-  // clusterLabels 영역 dependency catch (TDZ 회피).
-  const {
-    winner,
-    lastFiringTimestamp,
-    consecutiveWinnerCount,
-    isAutoLearning,
-    winnerForcedExact,
-  } = usePipelineEvents();
+  // PipelineEventContext 영역 derived winner + inputMode — 4 노드 영역 공유 영역 정합.
+  // (destructure 영역 위 — substrate 파생 전 선언 정합.)
 
   // Fix #19 (사용자 catch 2026-05-10): zero-init — 학습된 cluster 영역만 표시.
   // 직전 base 4 영역 무학습 시점 영역 stale '패턴 1..4' 영역 표시.
@@ -95,7 +84,6 @@ export default function NodeInfer() {
   const [engineMode] = useEngineMode();
   const isLiveMode = engineMode === 'live';
 
-  useEffect(() => onBackendEvent<InputModeDetail>('input-mode', (d) => setInputMode(d.mode)), []);
   // Online/offline detection — MediaPipe-only badge 표시 catch path.
   // SSR 영역 typeof navigator undefined → default true (online assume).
   const [online, setOnline] = useState<boolean>(

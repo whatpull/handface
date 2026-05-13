@@ -42,6 +42,11 @@ import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
 
 export interface PipelineEventState {
+  /**
+   * 현재 input mode — NodeInfer / NodeLearn / NodeOut 중복 'input-mode' 구독 hoist.
+   * 'grid' (orientation substrate) | 'camera' (gesture substrate). 기본값 'grid'.
+   */
+  inputMode: 'grid' | 'camera';
   /** Last neuron-firing payload (raw) — null 영역 미수신. */
   lastDetail: NeuronFiringDetail | null;
   /** 영역 frame 영역 timestamp (Date.now). null 영역 미수신. */
@@ -121,6 +126,7 @@ const EMPTY_WINNER: WinnerResult = {
 };
 
 const PipelineEventContext = createContext<PipelineEventState>({
+  inputMode: 'grid',
   lastDetail: null,
   lastFiringTimestamp: null,
   winner: EMPTY_WINNER,
@@ -136,6 +142,8 @@ const PipelineEventContext = createContext<PipelineEventState>({
 });
 
 export function PipelineEventProvider({ children }: { children: ReactNode }) {
+  // input-mode hoist — NodeInfer / NodeLearn / NodeOut 중복 구독 통합.
+  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
   // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
@@ -180,7 +188,9 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     // (NodeOut / NodeInfer / NodeLearn) 영역 winner reset 영역 정합 path.
     // 학술 정합: substrate isolation — substrate 영역 별도 회로 영역 winner
     // 영역 substrate switch 영역 무관.
-    const offInputMode = onBackendEvent<InputModeDetail>('input-mode', () => {
+    const offInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
+      // hoist: NodeInfer / NodeLearn / NodeOut 중복 setInputMode 통합 — 단일 listener.
+      setInputMode(d.mode);
       setDetail(null);
       setTs(null);
       // substrate switch 영역 progress map 영역 reset 정합 (다른 substrate
@@ -272,6 +282,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
   }, [ts, winner.cluster]);
 
   const value = useMemo<PipelineEventState>(() => ({
+    inputMode,
     lastDetail: detail,
     lastFiringTimestamp: ts,
     winner,
@@ -289,7 +300,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     autoLearnProgress,
     learningClusters,
     isAutoLearning: learningClusters.size > 0,
-  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters]);
+  }), [inputMode, detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters]);
 
   return (
     <PipelineEventContext.Provider value={value}>

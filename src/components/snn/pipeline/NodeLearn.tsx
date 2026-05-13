@@ -726,16 +726,20 @@ export default function NodeLearn() {
       {!isLiveMode && inputMode === 'camera' && (
         <>
           {/* P209: 학습된 패턴 수 + 마지막 액션 */}
-          <div className="snn-pipeline-row">
-            <span className="snn-pipeline-row-label">패턴</span>
-            <span className="snn-pipeline-row-value snn-pipeline-mono">
-              {clusterLabels.length}개 학습됨
-            </span>
-          </div>
+          {clusterLabels.length > 0 && (
+            <div className="snn-pipeline-row">
+              <span className="snn-pipeline-row-label">패턴</span>
+              <span className="snn-pipeline-row-value snn-pipeline-mono">
+                {effectivePhase === 'learning' && isLearning
+                  ? `${clusterLabels.length}개 · 학습 중`
+                  : `${clusterLabels.length}개 학습됨`}
+              </span>
+            </div>
+          )}
           {lastAutoAction && (
-            <div className="snn-pipeline-row snn-pipeline-row--wrap">
+            <div className={`snn-pipeline-row snn-pipeline-row--wrap${lastAutoAction.startsWith('⚠') ? ' snn-pipeline-action-row-error' : ''}`}>
               <span className="snn-pipeline-row-label">액션</span>
-              <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">
+              <span className={`snn-pipeline-row-value snn-pipeline-row-value--wrap${lastAutoAction.startsWith('⚠') ? ' snn-pipeline-row-error' : ''}`}>
                 {lastAutoAction}
               </span>
             </div>

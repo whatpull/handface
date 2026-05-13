@@ -638,7 +638,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: calc(4 * 22px + 3 * 2px);
+  min-height: 22px;
 }
 .snn-pipeline-cluster-row {
   display: flex; align-items: center; gap: 5px;
@@ -712,7 +712,7 @@
   flex-shrink: 0;
 }
 .snn-pipeline-fill-amber {
-  background: linear-gradient(90deg, #6b7280, #d1d5db);
+  background: linear-gradient(90deg, #92400e, #fbbf24);
 }
 .snn-pipeline-fill-green {
   background: linear-gradient(90deg, #9ca3af, #ffffff);

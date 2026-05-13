@@ -363,6 +363,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           // spawn_failed.
           const msg = d.spawn_error || '최대 cluster 수 도달 또는 학습 실패';
           setTrainStatus(`⚠ 패턴 학습 실패: ${msg}`);
+          setLastAutoAction('⚠ 패턴 학습 실패');
+          saveLastAction('⚠ 패턴 학습 실패');
         }
       } finally {
         autoTrainPendingRef.current = false;

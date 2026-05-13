@@ -167,10 +167,12 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
 
   // P208: synapses_changed delta 절댓값 합산 → log-scale intensity → 1500ms decay.
   useEffect(() => {
-    if (!lastDetail?.synapses_changed?.length) return;
+    if (!lastDetail) { setWeightIntensity(0); return; }   // Fix 1: null guard → immediate reset
+    if (!lastDetail.synapses_changed?.length) return;
     const totalDelta = lastDetail.synapses_changed.reduce(
       (s, c) => s + Math.abs(c.delta ?? 0), 0
     );
+    if (totalDelta === 0) return;   // Fix 2: skip setTimeout when no delta
     const intensity = Math.min(1, Math.log1p(totalDelta) / Math.log1p(50));
     setWeightIntensity(intensity);
     const t = setTimeout(() => setWeightIntensity(0), 1500);
@@ -595,7 +597,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
               const learnFast = (i === 0 || i === 1) && learnActive;
               return (
                 <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'} ${learnFast ? 'is-learn-fast' : ''}`}>
-                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? (learnFast ? 3.0 : 2.4) + weightIntensity * 1.6 : 1.6 + weightIntensity * 0.6} strokeOpacity={active ? 0.92 : 0.30 + weightIntensity * 0.20} fill="none" strokeLinecap="round" />
+                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? (learnFast ? 3.2 : 2.4) + weightIntensity * 1.6 : 1.6 + weightIntensity * 0.6} strokeOpacity={active ? 0.92 : 0.30 + weightIntensity * 0.20} fill="none" strokeLinecap="round" />
                   {active && (
                     <circle r={learnFast ? 5 : 4} className="snn-pipeline-edge-dot" fill="currentColor">
                       <animateMotion dur={learnFast ? '0.8s' : '1.5s'} repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">

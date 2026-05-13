@@ -350,8 +350,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         }, 0);
         const inputIsNovel = clusterPatternsRef.current.length === 0 || maxSim < 0.65;
         const r = await getClient().autoTrainOrSpawn(pattern, {
-          vigilanceThreshold: inputIsNovel ? 0.0 : 0.70,  // 입력이 다르면 강제 novel
-          minWinnerRateHz: inputIsNovel ? 0.0 : 25.0,      // 입력이 다르면 발화율 무시
+          vigilanceThreshold: inputIsNovel ? 1.01 : 0.70,  // 1.01 > max share(1.0) → 항상 novel
+          minWinnerRateHz: inputIsNovel ? 9999.0 : 25.0,   // 9999 > 실제 발화율 → 항상 novel
           trainIterations: 30,
           intensity: 3.0,
           observeMs: 150,

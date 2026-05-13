@@ -19,6 +19,18 @@
 //  - INFERENCE tick winner 영역 deriveWinner 의존 — cluster mean readout 정합.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+// 입력 공간 novelty 판단용 코사인 유사도 — 클러스터가 1개일 때도 다른 패턴을 spawn 가능하게.
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, magA = 0, magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  if (magA === 0 || magB === 0) return 0;
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
 // HIGH #3 정정: cluster winner 산출 단일 source.
@@ -141,6 +153,9 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   // INFERENCE winner 추적 — 변경 시 OUT count ↑.
   const lastInferenceWinnerRef = useRef<number | null>(null);
 
+  // P209 novelty fix: 클러스터 대표 패턴 메모리 — 입력 공간 유사도 비교용.
+  const clusterPatternsRef = useRef<Array<{ ci: number; pattern: number[] }>>([]);
+
   const trainingCompleteEmittedRef = useRef<boolean>(false);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -173,6 +188,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       learningArmedRef.current = false;
       lastInferenceWinnerRef.current = null;
       trainingCompleteEmittedRef.current = false;
+      clusterPatternsRef.current = [];
       patternCountRef.current = 0;
       phaseRef.current = 'untrained';
       setPatternCount(0);
@@ -327,9 +343,15 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       lastAutoTrainedAtRef.current = now;
       setTrainStatus('패턴 학습 중...');
       try {
+        // 입력 공간 novelty 판단 — 저장된 클러스터 대표 패턴과 코사인 유사도 비교.
+        // top_share=100% 고착 문제(클러스터 1개 시) 해결: SNN 발화 기반 novelty 보완.
+        const maxSim = clusterPatternsRef.current.reduce((max, cp) => {
+          return Math.max(max, cosineSimilarity(pattern, cp.pattern));
+        }, 0);
+        const inputIsNovel = clusterPatternsRef.current.length === 0 || maxSim < 0.65;
         const r = await getClient().autoTrainOrSpawn(pattern, {
-          vigilanceThreshold: 0.70,
-          minWinnerRateHz: 25.0,
+          vigilanceThreshold: inputIsNovel ? 0.0 : 0.70,  // 입력이 다르면 강제 novel
+          minWinnerRateHz: inputIsNovel ? 0.0 : 25.0,      // 입력이 다르면 발화율 무시
           trainIterations: 30,
           intensity: 3.0,
           observeMs: 150,
@@ -346,6 +368,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         if (action === 'spawned') {
           // spawn 쿨다운 시작 — 이후 5초간 runAutoTrain 진입 차단.
           lastSpawnTimeRef.current = Date.now();
+          // 대표 패턴 저장 — 이후 입력 공간 novelty 비교에 사용.
+          clusterPatternsRef.current.push({ ci, pattern: [...pattern] });
           const newCount = Math.max(patternCountRef.current, ci + 1);
           patternCountRef.current = newCount;
           savePatternCount(newCount);

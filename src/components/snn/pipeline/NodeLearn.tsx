@@ -76,7 +76,7 @@ function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
 
 // Fix 2 (MEDIUM): patternCount prop — camera path 실제 학습 패턴 수.
 // clusterLabels.length (exemplar 기반) 보다 정확 — autoTrainOrSpawn spawned 즉시 반영.
-export default function NodeLearn({ patternCount: patternCountProp }: { patternCount?: number }) {
+export default function NodeLearn({ patternCount: patternCountProp, onArmLearning }: { patternCount?: number; onArmLearning?: () => void }) {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
@@ -684,6 +684,18 @@ export default function NodeLearn({ patternCount: patternCountProp }: { patternC
             <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
+          {/* P209 fix: UNTRAINED + camera 모드에서만 "학습 시작" 버튼 표시.
+              armLearning() 호출 전까지 autoTrainOrSpawn 차단 — 명시적 시작. */}
+          {effectivePhase === 'untrained' && inputMode === 'camera' && onArmLearning && (
+            <button
+              type="button"
+              className="snn-pipeline-infer-enter-btn"
+              onClick={onArmLearning}
+              aria-label="자동 학습 시작"
+            >
+              학습 시작
+            </button>
+          )}
           <div className="snn-pipeline-cluster-list">
             {/* Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
                 empty placeholder (사용자 mental model "cluster 0개 시작" 정합). */}

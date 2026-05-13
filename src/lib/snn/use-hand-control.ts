@@ -132,6 +132,11 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   const lastAutoTrainedAtRef = useRef<number>(0);
   // P209: 진행 중 (pending) 호출 방지.
   const autoTrainPendingRef = useRef<boolean>(false);
+  // P209 fix: spawn 후 쿨다운 — 연쇄 무한 spawn 방지 (5초).
+  const lastSpawnTimeRef = useRef<number>(0);
+  // P209 fix: 명시적 학습 arm 플래그 — armLearning() 호출 전까지 autoTrainOrSpawn 차단.
+  // localStorage 에서 LEARNING/INFERENCE 복원 시 자동 arm (재진입 흐름 보존).
+  const learningArmedRef = useRef<boolean>(phase === 'learning' || phase === 'inference');
 
   // INFERENCE winner 추적 — 변경 시 OUT count ↑.
   const lastInferenceWinnerRef = useRef<number | null>(null);
@@ -164,6 +169,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       stableFrameAccRef.current = 0;
       lastAutoTrainedAtRef.current = 0;
       autoTrainPendingRef.current = false;
+      lastSpawnTimeRef.current = 0;
+      learningArmedRef.current = false;
       lastInferenceWinnerRef.current = null;
       trainingCompleteEmittedRef.current = false;
       patternCountRef.current = 0;
@@ -286,6 +293,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       isCancelled: boolean,
     ) => {
       if (isCancelled) return;
+      // 명시적 학습 arm 체크 — armLearning() 호출 전에는 autoTrainOrSpawn 차단.
+      if (!learningArmedRef.current) return;
+      // spawn 쿨다운 — spawned 후 5초간 autoTrainOrSpawn 전체 차단 (연쇄 무한 spawn 방지).
+      if (Date.now() - lastSpawnTimeRef.current < 5000) return;
       // gesture stability tracking.
       const hasGesture = gName !== null && gScore >= GESTURE_CONFIDENCE_MIN;
       if (hasGesture) {
@@ -319,7 +330,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         const r = await getClient().autoTrainOrSpawn(pattern, {
           vigilanceThreshold: 0.70,
           minWinnerRateHz: 25.0,
-          trainIterations: 10,
+          trainIterations: 30,
           intensity: 3.0,
           observeMs: 150,
           maxClusters: 64,
@@ -333,6 +344,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
         const action = d.action;
         const ci = d.cluster_idx;
         if (action === 'spawned') {
+          // spawn 쿨다운 시작 — 이후 5초간 runAutoTrain 진입 차단.
+          lastSpawnTimeRef.current = Date.now();
           const newCount = Math.max(patternCountRef.current, ci + 1);
           patternCountRef.current = newCount;
           savePatternCount(newCount);
@@ -392,6 +405,13 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     setPhase('inference');
   }, []);
 
+  // P209 fix: 명시적 학습 arm — 사용자가 학습 시작 버튼을 누를 때 호출.
+  // 이후 runAutoTrain 이 활성화되어 autoTrainOrSpawn 가 실행된다.
+  const armLearning = useCallback(() => {
+    learningArmedRef.current = true;
+    setTrainStatus('학습 준비 완료 — 카메라에 손을 보여주세요');
+  }, []);
+
   // 외부 반환 — trainStatus + lastAutoAction (NodeLearn 표시용).
-  return { trainStatus, lastAutoAction, patternCount, phase, enterInference };
+  return { trainStatus, lastAutoAction, patternCount, phase, enterInference, armLearning };
 }

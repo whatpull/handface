@@ -98,7 +98,7 @@ function deriveWinnerFromResponse(data: {
   cluster_rates?: number[];
   out_rates?: Record<string, number>;
 }): number | null {
-  if (data.winner_cluster !== null && data.winner_cluster !== undefined) {
+  if (data.winner_cluster !== null && data.winner_cluster !== undefined && data.winner_cluster >= 0) {
     return data.winner_cluster;
   }
   if (data.cluster_rates && data.cluster_rates.length > 0) {
@@ -223,57 +223,64 @@ export default function NodeOut() {
     const reproCorrect = new Array<boolean>(n).fill(false);
     const noiseCorrect = new Array<boolean>(n).fill(false);
     const partialCorrect = new Array<boolean>(n).fill(false);
+    // matrix[actual][predicted] — 3종 inject 모두 합산 (3× 샘플).
     const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
 
     const client = getClient();
 
-    // 순차 실행 — 백엔드 상태 충돌 방지.
-    for (let i = 0; i < n; i += 1) {
-      if (valAbortRef.current) break;
-      const { ci, feature } = patterns[i];
+    try {
+      // 순차 실행 — 백엔드 상태 충돌 방지.
+      for (let i = 0; i < n; i += 1) {
+        if (valAbortRef.current) break;
+        const { ci, feature } = patterns[i];
 
-      // Reproduction
-      const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 30, intensity: 1.0 });
-      done += 1; setValProgress({ done, total: totalSteps });
-      if (r1.ok) {
-        const w = deriveWinnerFromResponse(r1.data);
-        if (w === ci) reproCorrect[i] = true;
-        // confusion matrix — predicted column by cluster index in patterns array.
-        const predIdx = patterns.findIndex((p) => p.ci === w);
-        if (predIdx >= 0) matrix[i][predIdx] += 1;
+        // Reproduction
+        const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 30, intensity: 2.0 });
+        done += 1; setValProgress({ done, total: totalSteps });
+        if (r1.ok) {
+          const w = deriveWinnerFromResponse(r1.data);
+          if (w === ci) reproCorrect[i] = true;
+          const predIdx = patterns.findIndex((p) => p.ci === w);
+          if (predIdx >= 0) matrix[i][predIdx] += 1;
+        }
+
+        if (valAbortRef.current) break;
+
+        // Noise
+        const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 30, intensity: 2.0 });
+        done += 1; setValProgress({ done, total: totalSteps });
+        if (r2.ok) {
+          const w = deriveWinnerFromResponse(r2.data);
+          if (w === ci) noiseCorrect[i] = true;
+          const predIdx = patterns.findIndex((p) => p.ci === w);
+          if (predIdx >= 0) matrix[i][predIdx] += 1;
+        }
+
+        if (valAbortRef.current) break;
+
+        // Partial Cue
+        const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 30, intensity: 2.0 });
+        done += 1; setValProgress({ done, total: totalSteps });
+        if (r3.ok) {
+          const w = deriveWinnerFromResponse(r3.data);
+          if (w === ci) partialCorrect[i] = true;
+          const predIdx = patterns.findIndex((p) => p.ci === w);
+          if (predIdx >= 0) matrix[i][predIdx] += 1;
+        }
       }
 
-      if (valAbortRef.current) break;
-
-      // Noise
-      const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 30, intensity: 1.0 });
-      done += 1; setValProgress({ done, total: totalSteps });
-      if (r2.ok) {
-        const w = deriveWinnerFromResponse(r2.data);
-        if (w === ci) noiseCorrect[i] = true;
-      }
-
-      if (valAbortRef.current) break;
-
-      // Partial Cue
-      const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 30, intensity: 1.0 });
-      done += 1; setValProgress({ done, total: totalSteps });
-      if (r3.ok) {
-        const w = deriveWinnerFromResponse(r3.data);
-        if (w === ci) partialCorrect[i] = true;
-      }
+      const result: ValidationResult = {
+        repro:   { correct: reproCorrect.filter(Boolean).length,   total: n },
+        noise:   { correct: noiseCorrect.filter(Boolean).length,   total: n },
+        partial: { correct: partialCorrect.filter(Boolean).length, total: n },
+        matrix,
+        labels: patterns.map((p) => p.label),
+      };
+      setValResult(result);
+    } finally {
+      setValRunning(false);
+      setValProgress(null);
     }
-
-    const result: ValidationResult = {
-      repro:   { correct: reproCorrect.filter(Boolean).length,   total: n },
-      noise:   { correct: noiseCorrect.filter(Boolean).length,   total: n },
-      partial: { correct: partialCorrect.filter(Boolean).length, total: n },
-      matrix,
-      labels: patterns.map((p) => p.label),
-    };
-    setValResult(result);
-    setValRunning(false);
-    setValProgress(null);
   }, [exemplars, clusterCount, inputMode]);
 
   return (
@@ -339,7 +346,7 @@ export default function NodeOut() {
       <ValidationPanel
         clusterCount={clusterCount}
         exemplars={exemplars}
-        inputMode={inputMode}
+        isAutoLearning={isAutoLearning}
         valOpen={valOpen}
         setValOpen={setValOpen}
         valRunning={valRunning}
@@ -356,7 +363,7 @@ export default function NodeOut() {
 interface ValidationPanelProps {
   clusterCount: number;
   exemplars: OutExemplars;
-  inputMode: 'grid' | 'camera';
+  isAutoLearning: boolean;
   valOpen: boolean;
   setValOpen: (v: boolean) => void;
   valRunning: boolean;
@@ -400,7 +407,7 @@ function MetricBar({ label, correct, total }: { label: string; correct: number; 
 }
 
 function ValidationPanel({
-  clusterCount, exemplars, inputMode,
+  clusterCount, exemplars, isAutoLearning,
   valOpen, setValOpen, valRunning, valProgress, valResult, onRun,
 }: ValidationPanelProps) {
   // 유효한 feature 보유 패턴 수 계산.
@@ -415,7 +422,7 @@ function ValidationPanel({
     return n;
   }, [exemplars, clusterCount]);
 
-  const canRun = patternCount >= 2 && !valRunning;
+  const canRun = patternCount >= 2 && !valRunning && !isAutoLearning;
 
   return (
     <div className="snn-val-section">
@@ -424,7 +431,7 @@ function ValidationPanel({
         className="snn-val-header"
         role="button"
         tabIndex={0}
-        aria-expanded={valOpen}
+        aria-expanded={valOpen ? 'true' : 'false'}
         onClick={() => setValOpen(!valOpen)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setValOpen(!valOpen); } }}
       >
@@ -437,7 +444,7 @@ function ValidationPanel({
           disabled={!canRun}
           onClick={(e) => { e.stopPropagation(); if (!valOpen) setValOpen(true); onRun(); }}
           aria-label="검증 실행"
-          title={patternCount < 2 ? '패턴 2개 이상 필요' : '검증 실행'}
+          title={patternCount < 2 ? '패턴 2개 이상 필요' : isAutoLearning ? '학습 중 — 완료 후 실행' : '검증 실행'}
         >
           ▶ 실행
         </button>
@@ -477,18 +484,19 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
   const short = labels.map((l) => (l.length > 5 ? l.slice(0, 4) + '…' : l));
   return (
     <div className="snn-val-matrix">
-      <div className="snn-val-matrix-title">Confusion Matrix ({n}×{n})</div>
+      <div className="snn-val-matrix-title">Confusion Matrix (3× 샘플, {n}×{n})</div>
+      <div className="snn-val-matrix-scroll">
       <table className="snn-val-matrix-table" aria-label="confusion matrix">
         <thead>
           <tr>
-            <th aria-label="actual vs predicted" />
+            <th scope="col" aria-label="actual vs predicted">↓실제 / 예측→</th>
             {short.map((l, j) => <th key={j}>{l}</th>)}
           </tr>
         </thead>
         <tbody>
           {matrix.map((row, i) => (
             <tr key={i}>
-              <th scope="row" style={{ textAlign: 'left' }}>{short[i]}</th>
+              <th scope="row">{short[i]}</th>
               {row.map((val, j) => {
                 const cls = val > 0 && i === j
                   ? 'snn-val-cell--hit'
@@ -496,8 +504,8 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
                     ? 'snn-val-cell--miss'
                     : 'snn-val-cell--zero';
                 return (
-                  <td key={j} className={cls}>
-                    {i === j ? (val > 0 ? '✓' : '·') : (val > 0 ? '✗' : '·')}
+                  <td key={j} className={cls} aria-label={i === j ? `정답 ${val}` : `오답 ${val}`}>
+                    {val > 0 ? val : '·'}
                   </td>
                 );
               })}
@@ -505,6 +513,7 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

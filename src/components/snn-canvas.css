@@ -1670,6 +1670,9 @@
   /* 사용자 catch 2026-05-06: 480px viewport 영역 max-height 폐기 — content-fit. */
   .snn-pipeline-node { max-height: none; height: auto; }
   .snn-pipeline-node--input { max-height: none; }
+  .snn-val-header { min-height: 44px; padding: 10px 0; }
+  .snn-val-matrix-table td,
+  .snn-val-matrix-table th { padding: 2px; font-size: 9px; min-width: 16px; }
 }
 
 /* SummaryCard 영역 폐기 (2026-05-09 [1]) — dead module catch.
@@ -2268,13 +2271,20 @@
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
-  padding: 2px 0;
+  padding: 8px 0;
+  min-height: 36px;
+}
+.snn-val-header:focus-visible,
+.snn-val-run-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 .snn-val-title {
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: var(--pipe-text-dim);
+  color: var(--pipe-text);
   flex: 1;
 }
 .snn-val-toggle {
@@ -2324,7 +2334,7 @@
 .snn-val-metric-label {
   width: 52px;
   flex-shrink: 0;
-  color: var(--pipe-text-dim);
+  color: #9ca3af;
   font-size: var(--pipe-font-xs);
 }
 .snn-val-bar-track {
@@ -2362,6 +2372,9 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 4px;
+}
+.snn-val-matrix-scroll {
+  overflow-x: auto;
 }
 .snn-val-matrix-table {
   border-collapse: collapse;

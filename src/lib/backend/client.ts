@@ -95,6 +95,7 @@ interface FireResponse {
   cluster_rates?: number[];
   winner_cluster?: number | null;
   winner_margin?: number;
+  vectorized_path?: boolean;
 }
 
 // Backend v0.2.1-dynamic-cluster (audit fix #4) — POST /networks/{id}/cluster/vigilance
@@ -327,6 +328,7 @@ export class NeuronFaceClient {
       intensity?: number;
       observeMs?: number;
       stimulusDurationMs?: number;
+      vectorized?: boolean;
     } = {},
   ): Promise<Result<FireResponse>> {
     const net = await this.ensureNetwork();
@@ -355,6 +357,7 @@ export class NeuronFaceClient {
         target_out: opts.targetOut,
         supervisor_weight: 60,
         supervisor_delay_ms: 30,
+        vectorized: opts.vectorized ?? false,
       },
     });
     if (r.ok) emitBackendEvent<NeuronFiringDetail>('neuron-firing', r.data as NeuronFiringDetail);
@@ -399,6 +402,7 @@ export class NeuronFaceClient {
       stimulusDurationMs?: number;
       stdpMode?: 'pair' | 'triplet';
       deltaThreshold?: number;
+      vectorized?: boolean;
     } = {},
   ): Promise<Result<{
     ok: boolean;
@@ -413,6 +417,7 @@ export class NeuronFaceClient {
     synapses_total: number;
     reason?: string;
     prefix?: string;
+    vectorized_path?: boolean;
   }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
@@ -438,6 +443,7 @@ export class NeuronFaceClient {
       synapses_total: number;
       reason?: string;
       prefix?: string;
+      vectorized_path?: boolean;
     }>(`/networks/${net.data}/cluster_train_supervised`, {
       method: 'POST',
       body: {
@@ -454,6 +460,7 @@ export class NeuronFaceClient {
         stdp_mode: opts.stdpMode ?? 'pair',
         delta_threshold: opts.deltaThreshold ?? 0.01,
         auto_freeze_others: true,
+        vectorized: opts.vectorized ?? false,
       },
     });
     if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });

@@ -26,7 +26,14 @@ import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
 
-export default function NodeInfer() {
+// Fix 1 (HIGH): enterInference + currentPhase props — camera path INFERENCE 전환.
+export default function NodeInfer({
+  enterInference,
+  currentPhase,
+}: {
+  enterInference?: () => void;
+  currentPhase?: string;
+}) {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
 
@@ -205,6 +212,18 @@ export default function NodeInfer() {
         <div className="snn-pipeline-note" role="status" aria-live="polite">
           학습 중 — 추론 대기 (신규 패턴 30회 학습 진행 중)
         </div>
+      )}
+      {/* Fix 1 (HIGH): camera path INFERENCE phase 전환 버튼 — LEARNING 이상이고
+          아직 inference 미진입 시 표시. enterInference prop 필수. */}
+      {!isLiveMode && enterInference && currentPhase === 'learning' && (
+        <button
+          type="button"
+          className="snn-pipeline-infer-enter-btn"
+          onClick={enterInference}
+          aria-label="INFERENCE 모드로 전환"
+        >
+          추론 시작 (INFERENCE 전환)
+        </button>
       )}
       {!trained && (
         <div className="snn-pipeline-note">

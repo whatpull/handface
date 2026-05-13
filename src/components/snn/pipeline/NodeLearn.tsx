@@ -74,7 +74,9 @@ function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
   return 'OTHER';
 }
 
-export default function NodeLearn() {
+// Fix 2 (MEDIUM): patternCount prop — camera path 실제 학습 패턴 수.
+// clusterLabels.length (exemplar 기반) 보다 정확 — autoTrainOrSpawn spawned 즉시 반영.
+export default function NodeLearn({ patternCount: patternCountProp }: { patternCount?: number }) {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
@@ -726,13 +728,16 @@ export default function NodeLearn() {
       {!isLiveMode && inputMode === 'camera' && (
         <>
           {/* P209: 학습된 패턴 수 + 마지막 액션 */}
-          {clusterLabels.length > 0 && (
+          {/* Fix 2 (MEDIUM): patternCountProp (useHandControl 반환값) 우선 —
+              clusterLabels.length (exemplar 기반) 보다 spawned 즉시 정확 반영.
+              prop 미전달(grid mode 등) 시 clusterLabels.length fallback. */}
+          {(patternCountProp !== undefined ? patternCountProp > 0 : clusterLabels.length > 0) && (
             <div className="snn-pipeline-row">
               <span className="snn-pipeline-row-label">패턴</span>
               <span className="snn-pipeline-row-value snn-pipeline-mono">
                 {effectivePhase === 'learning' && isLearning
-                  ? `${clusterLabels.length}개 · 학습 중`
-                  : `${clusterLabels.length}개 학습됨`}
+                  ? `${patternCountProp ?? clusterLabels.length}개 · 학습 중`
+                  : `${patternCountProp ?? clusterLabels.length}개 학습됨`}
               </span>
             </div>
           )}

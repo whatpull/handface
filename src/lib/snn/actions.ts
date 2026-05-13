@@ -8,6 +8,10 @@ import { showDialog } from '@/components/ui/Dialog';
 const SNAPSHOT_KEY = 'handface.training.snapshot.v2';
 const CLUSTER_FRAMES_KEY = 'handface.cluster.frames.v1';
 const TRAINING_PHASE_KEY = 'handface.training.phase.v1';
+// Fix 3 (LOW): v2 key — use-hand-control.ts P209 schema 변경 정합.
+const TRAINING_PHASE_KEY_V2 = 'handface.training.phase.v2';
+const PATTERN_COUNT_KEY = 'handface.pattern.count.v1';
+const LAST_ACTION_KEY = 'handface.last.action.v1';
 const OUT_EXEMPLARS_KEY = 'handface.out.exemplars.v1';
 const NETWORK_KEY = 'handface.network.id';
 
@@ -54,6 +58,10 @@ export function createActions(h: ActionHooks) {
               localStorage.removeItem(SNAPSHOT_KEY);
               localStorage.removeItem(CLUSTER_FRAMES_KEY);
               localStorage.removeItem(TRAINING_PHASE_KEY);
+              // Fix 3 (LOW): v2 key + patternCount/lastAction key — use-hand-control.ts P209.
+              localStorage.removeItem(TRAINING_PHASE_KEY_V2);
+              localStorage.removeItem(PATTERN_COUNT_KEY);
+              localStorage.removeItem(LAST_ACTION_KEY);
               localStorage.removeItem(OUT_EXEMPLARS_KEY);
               localStorage.removeItem(NETWORK_KEY);
             } catch { /* quota / private mode — silent. */ }

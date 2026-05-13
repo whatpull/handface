@@ -549,8 +549,10 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   const renderNode = (id: NodeId): React.ReactNode => {
     switch (id) {
       case 'input': return <NodeInput cameraConnected={cameraConnected} />;
-      case 'learn': return <NodeLearn />;
-      case 'infer': return <NodeInfer />;
+      // Fix 2 (MEDIUM): patternCount prop 전달 — camera path 실제 학습 수.
+      case 'learn': return <NodeLearn patternCount={ctrl.patternCount} />;
+      // Fix 1 (HIGH): enterInference 전달 — camera INFERENCE phase 전환 버튼.
+      case 'infer': return <NodeInfer enterInference={ctrl.enterInference} currentPhase={ctrl.phase} />;
       case 'out': return <NodeOut />;
     }
   };

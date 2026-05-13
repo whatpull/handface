@@ -18,7 +18,7 @@
 //    너무 높으면 기존 cluster 로 몰림. 사용자 화면 검증 mandatory.
 //  - INFERENCE tick winner 영역 deriveWinner 의존 — cluster mean readout 정합.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
 // HIGH #3 정정: cluster winner 산출 단일 source.
@@ -359,6 +359,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           setLastAutoAction(actionLabel);
           saveLastAction(actionLabel);
           setTrainStatus(`↻ ${actionLabel}`);
+          // Fix 4 (LOW): reinforced 액션 NodeLearn 표시 — training-changed emit.
+          emitBackendEvent('training-changed', { action: 'reinforced', clusterIdx: ci, label: actionLabel });
         } else {
           // spawn_failed.
           const msg = d.spawn_error || '최대 cluster 수 도달 또는 학습 실패';
@@ -375,6 +377,13 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
     return () => { cancelled = true; };
   }, [autoCapture, cameraConnected]);
 
+  // Fix 1 (HIGH): INFERENCE phase 전환 — camera path 학습 후 명시 추론 모드 진입.
+  const enterInference = useCallback(() => {
+    savePhase('inference');
+    phaseRef.current = 'inference';
+    setPhase('inference');
+  }, []);
+
   // 외부 반환 — trainStatus + lastAutoAction (NodeLearn 표시용).
-  return { trainStatus, lastAutoAction, patternCount, phase };
+  return { trainStatus, lastAutoAction, patternCount, phase, enterInference };
 }

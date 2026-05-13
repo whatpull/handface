@@ -1146,6 +1146,32 @@
   outline: 2px solid rgba(var(--pipe-tone-infer), 0.6);
   outline-offset: 2px;
 }
+
+/* INFER enter button — snn-pipeline-out-winner-btn 구조 동일, INFER tone 사용. */
+.snn-pipeline-infer-enter-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--pipe-text);
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 3px;
+  font-size: var(--pipe-font-title); font-weight: 600;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.snn-pipeline-infer-enter-btn.is-named {
+  background: rgba(var(--pipe-tone-infer), 0.18);
+  border-color: rgba(var(--pipe-tone-infer), var(--pipe-tone-alpha-border));
+  color: white;
+}
+.snn-pipeline-infer-enter-btn:hover {
+  background: rgba(var(--pipe-tone-infer), 0.25);
+  border-color: rgba(var(--pipe-tone-infer), 0.6);
+}
+.snn-pipeline-infer-enter-btn:focus-visible {
+  outline: 2px solid rgba(var(--pipe-tone-infer), 0.6);
+  outline-offset: 2px;
+}
+
 .snn-pipeline-out-input {
   width: 100%;
   background: rgba(255,255,255,0.05);

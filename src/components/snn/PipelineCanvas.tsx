@@ -160,7 +160,22 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
     return () => clearTimeout(t);
   }, [resultActive]);
 
-  const { winnerCluster, lastFiringTimestamp } = usePipelineEvents();
+  // P208: synapses_changed delta 합산 → weight intensity (0~1, log scale).
+  const [weightIntensity, setWeightIntensity] = useState<number>(0);
+
+  const { winnerCluster, lastFiringTimestamp, lastDetail } = usePipelineEvents();
+
+  // P208: synapses_changed delta 절댓값 합산 → log-scale intensity → 1500ms decay.
+  useEffect(() => {
+    if (!lastDetail?.synapses_changed?.length) return;
+    const totalDelta = lastDetail.synapses_changed.reduce(
+      (s, c) => s + Math.abs(c.delta ?? 0), 0
+    );
+    const intensity = Math.min(1, Math.log1p(totalDelta) / Math.log1p(50));
+    setWeightIntensity(intensity);
+    const t = setTimeout(() => setWeightIntensity(0), 1500);
+    return () => clearTimeout(t);
+  }, [lastDetail]);
 
   // QA-CATCH-3 (HIGH) 정합 — event-driven 1-shot pivot (사용자 catch 2026-05-09 B):
   // PipelineCanvas 영역 Live mode aware. 직전 영역 grid-training / grid-infer
@@ -580,7 +595,7 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
               const learnFast = (i === 0 || i === 1) && learnActive;
               return (
                 <g key={`edge-${i}`} className={`snn-pipeline-edge ${active ? 'is-active' : 'is-idle'} ${learnFast ? 'is-learn-fast' : ''}`}>
-                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? (learnFast ? 3.0 : 2.4) : 1.6} fill="none" strokeLinecap="round" />
+                  <path className="snn-pipeline-edge-path" d={d} stroke="currentColor" strokeWidth={active ? (learnFast ? 3.0 : 2.4) + weightIntensity * 1.6 : 1.6 + weightIntensity * 0.6} strokeOpacity={active ? 0.92 : 0.30 + weightIntensity * 0.20} fill="none" strokeLinecap="round" />
                   {active && (
                     <circle r={learnFast ? 5 : 4} className="snn-pipeline-edge-dot" fill="currentColor">
                       <animateMotion dur={learnFast ? '0.8s' : '1.5s'} repeatCount="1" calcMode="spline" keySplines="0.4 0 0.2 1">

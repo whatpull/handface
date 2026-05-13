@@ -458,7 +458,7 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
             const r = await getClient().clusterTrainSupervised(boosted, cluster, {
               intensity: 3.0,
               observeMs: 150,
-              vectorized: false,
+              vectorized: true,
             });
             if (cancelled) return;
             if (r.ok && r.data.ok) {

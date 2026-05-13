@@ -363,10 +363,18 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
           emitBackendEvent('training-changed', { action: 'reinforced', clusterIdx: ci, label: actionLabel });
         } else {
           // spawn_failed.
-          const msg = d.spawn_error || '최대 cluster 수 도달 또는 학습 실패';
-          setTrainStatus(`⚠ 패턴 학습 실패: ${msg}`);
-          setLastAutoAction('⚠ 패턴 학습 실패');
-          saveLastAction('⚠ 패턴 학습 실패');
+          const rawMsg = d.spawn_error ?? '';
+          let msg: string;
+          if (rawMsg.includes('feature16 preset') || rawMsg.includes('in_feat')) {
+            msg = '초기화 필요 — 학습 reset 후 다시 시도';
+          } else if (rawMsg.includes('max_clusters') || rawMsg.includes('최대')) {
+            msg = `최대 패턴 수(${d.n_cluster_after ?? 64}개) 도달`;
+          } else {
+            msg = rawMsg || '패턴 학습 실패';
+          }
+          setTrainStatus(`⚠ ${msg}`);
+          setLastAutoAction(`⚠ ${msg}`);
+          saveLastAction(`⚠ ${msg}`);
         }
       } finally {
         autoTrainPendingRef.current = false;

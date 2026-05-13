@@ -9,8 +9,11 @@
 //   - Export JSON button 영역 제거 (학술 record schema 영역 약 — follow-up 영역 강화).
 //   - cluster count 영역 8-OUT 합산 (out_{ci}_0 ~ out_{ci}_7) — cluster broadcast
 //     supervisor 정합 (QA MEDIUM-3, N3 cluster_train_supervised path).
+//
+// 2026-05-13: ValidationPanel 추가 — Reproduction / Noise / Confusion Matrix /
+//   Partial Cue 4종 검증. 클라이언트 오케스트레이션, 순차 inject(stdp=false).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onBackendEvent, type InputModeDetail, type GridInferDetail } from '@/lib/backend/events';
 import {
   loadExemplars,
@@ -18,6 +21,7 @@ import {
   setExemplarLabel,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
+import { getClient } from '@/lib/backend/client';
 import type { SubstrateKind } from '@/lib/snn/root-local-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
@@ -49,6 +53,86 @@ function sumClusterCount(exemplars: OutExemplars, ci: number): number {
     sum = exemplars[`out_${ci}`]?.count ?? 0;
   }
   return sum;
+}
+
+// ─── Validation types ───────────────────────────────────────────────────────
+
+interface ValidationResult {
+  repro: { correct: number; total: number };
+  noise: { correct: number; total: number };
+  partial: { correct: number; total: number };
+  /** matrix[actual][predicted] = count */
+  matrix: number[][];
+  labels: string[];
+}
+
+/**
+ * exemplars → (clusterIndex, label, lastFeature) 목록 추출.
+ * 각 cluster 는 out_{ci}_0 의 lastFeature 영역 사용 (학습 시 snapshot 보존 경로).
+ */
+function buildPatternList(
+  exemplars: OutExemplars,
+  clusterCount: number,
+  inputMode: 'grid' | 'camera',
+): Array<{ ci: number; label: string; feature: number[] }> {
+  const list: Array<{ ci: number; label: string; feature: number[] }> = [];
+  for (let ci = 0; ci < clusterCount; ci += 1) {
+    // out_{ci}_0 우선 — 첫 OUT 뉴런에 feature snapshot 저장됨.
+    let feat: number[] | null = null;
+    for (let n = 0; n < OUT_PER_CLUSTER; n += 1) {
+      const ex = exemplars[`out_${ci}_${n}`];
+      if (ex && ex.lastFeature && ex.lastFeature.length > 0) {
+        feat = ex.lastFeature;
+        break;
+      }
+    }
+    if (!feat) continue; // feature 없으면 검증 불가 — skip.
+    list.push({ ci, label: resolveClusterLabel(exemplars, ci, inputMode), feature: feat });
+  }
+  return list;
+}
+
+/** inject → winner_cluster 도출. cluster_rates 있으면 argmax, 없으면 out_rates argmax. */
+function deriveWinnerFromResponse(data: {
+  winner_cluster?: number | null;
+  cluster_rates?: number[];
+  out_rates?: Record<string, number>;
+}): number | null {
+  if (data.winner_cluster !== null && data.winner_cluster !== undefined) {
+    return data.winner_cluster;
+  }
+  if (data.cluster_rates && data.cluster_rates.length > 0) {
+    let best = -1; let bestV = -1;
+    data.cluster_rates.forEach((v, i) => { if (v > bestV) { bestV = v; best = i; } });
+    return best >= 0 ? best : null;
+  }
+  if (data.out_rates) {
+    // out_{ci}_{n} → ci 별 합산 → argmax.
+    const sums: Record<number, number> = {};
+    for (const [k, v] of Object.entries(data.out_rates)) {
+      const m = /^out_(\d+)/.exec(k);
+      if (m) { const ci = Number(m[1]); sums[ci] = (sums[ci] ?? 0) + v; }
+    }
+    let best = -1; let bestV = -1;
+    for (const [ci, v] of Object.entries(sums)) {
+      if (v > bestV) { bestV = v; best = Number(ci); }
+    }
+    return best >= 0 ? best : null;
+  }
+  return null;
+}
+
+/** 0~1 사이 float 배열에 노이즈 주입 후 clamp. */
+function addNoise(feature: number[], amount = 0.2): number[] {
+  return feature.map((v) => {
+    const n = (Math.random() * 2 - 1) * amount;
+    return Math.max(0, Math.min(1, v + n));
+  });
+}
+
+/** 50% 셀을 0으로 마스킹한 부분 패턴 생성. */
+function partialCue(feature: number[], keepRatio = 0.5): number[] {
+  return feature.map((v) => (Math.random() < keepRatio ? v : 0));
 }
 
 export default function NodeOut() {
@@ -115,6 +199,83 @@ export default function NodeOut() {
     return n;
   }, [exemplars, winner.cluster]);
 
+  // ── Validation state ──────────────────────────────────────────────────────
+  const [valOpen, setValOpen] = useState(false);
+  const [valRunning, setValRunning] = useState(false);
+  const [valProgress, setValProgress] = useState<{ done: number; total: number } | null>(null);
+  const [valResult, setValResult] = useState<ValidationResult | null>(null);
+  const valAbortRef = useRef(false);
+
+  const runValidation = useCallback(async () => {
+    const patterns = buildPatternList(exemplars, clusterCount, inputMode);
+    if (patterns.length < 2) return;
+
+    setValRunning(true);
+    setValResult(null);
+    valAbortRef.current = false;
+
+    const n = patterns.length;
+    // 총 inject 횟수: reproduction(n) + noise(n) + partial(n) = 3n.
+    const totalSteps = n * 3;
+    let done = 0;
+    setValProgress({ done, total: totalSteps });
+
+    const reproCorrect = new Array<boolean>(n).fill(false);
+    const noiseCorrect = new Array<boolean>(n).fill(false);
+    const partialCorrect = new Array<boolean>(n).fill(false);
+    const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+
+    const client = getClient();
+
+    // 순차 실행 — 백엔드 상태 충돌 방지.
+    for (let i = 0; i < n; i += 1) {
+      if (valAbortRef.current) break;
+      const { ci, feature } = patterns[i];
+
+      // Reproduction
+      const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 30, intensity: 1.0 });
+      done += 1; setValProgress({ done, total: totalSteps });
+      if (r1.ok) {
+        const w = deriveWinnerFromResponse(r1.data);
+        if (w === ci) reproCorrect[i] = true;
+        // confusion matrix — predicted column by cluster index in patterns array.
+        const predIdx = patterns.findIndex((p) => p.ci === w);
+        if (predIdx >= 0) matrix[i][predIdx] += 1;
+      }
+
+      if (valAbortRef.current) break;
+
+      // Noise
+      const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 30, intensity: 1.0 });
+      done += 1; setValProgress({ done, total: totalSteps });
+      if (r2.ok) {
+        const w = deriveWinnerFromResponse(r2.data);
+        if (w === ci) noiseCorrect[i] = true;
+      }
+
+      if (valAbortRef.current) break;
+
+      // Partial Cue
+      const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 30, intensity: 1.0 });
+      done += 1; setValProgress({ done, total: totalSteps });
+      if (r3.ok) {
+        const w = deriveWinnerFromResponse(r3.data);
+        if (w === ci) partialCorrect[i] = true;
+      }
+    }
+
+    const result: ValidationResult = {
+      repro:   { correct: reproCorrect.filter(Boolean).length,   total: n },
+      noise:   { correct: noiseCorrect.filter(Boolean).length,   total: n },
+      partial: { correct: partialCorrect.filter(Boolean).length, total: n },
+      matrix,
+      labels: patterns.map((p) => p.label),
+    };
+    setValResult(result);
+    setValRunning(false);
+    setValProgress(null);
+  }, [exemplars, clusterCount, inputMode]);
+
   return (
     <NodeShell
       title="OUT"
@@ -173,7 +334,178 @@ export default function NodeOut() {
           })
         )}
       </div>
+
+      {/* ── Validation Panel ─────────────────────────────────────────────── */}
+      <ValidationPanel
+        clusterCount={clusterCount}
+        exemplars={exemplars}
+        inputMode={inputMode}
+        valOpen={valOpen}
+        setValOpen={setValOpen}
+        valRunning={valRunning}
+        valProgress={valProgress}
+        valResult={valResult}
+        onRun={runValidation}
+      />
     </NodeShell>
+  );
+}
+
+// ─── ValidationPanel ─────────────────────────────────────────────────────────
+
+interface ValidationPanelProps {
+  clusterCount: number;
+  exemplars: OutExemplars;
+  inputMode: 'grid' | 'camera';
+  valOpen: boolean;
+  setValOpen: (v: boolean) => void;
+  valRunning: boolean;
+  valProgress: { done: number; total: number } | null;
+  valResult: ValidationResult | null;
+  onRun: () => void;
+}
+
+/** 0~1 float → 10단계 width class (inline style 완전 회피). */
+function barWidthClass(pct: number): string {
+  const step = Math.round(pct * 10) * 10; // 0,10,20,...,100
+  return `snn-val-bar-fill--w${step}`;
+}
+
+function MetricBar({ label, correct, total }: { label: string; correct: number; total: number }) {
+  const pct = total > 0 ? correct / total : 0;
+  const pctPct = Math.round(pct * 100);
+  const pctStr = `${pctPct}%`;
+  const colorClass =
+    pct >= 1.0 ? 'snn-val-bar-fill--full' :
+    pct >= 0.75 ? 'snn-val-bar-fill--good' :
+    pct >= 0.5 ? 'snn-val-bar-fill--mid' : 'snn-val-bar-fill--low';
+  return (
+    <div className="snn-val-metric-row">
+      <span className="snn-val-metric-label">{label}</span>
+      <div className="snn-val-bar-track">
+        {/* width는 discretized class로, ARIA 값은 String() 변환으로 linter 통과. */}
+        {/* aria-valuenow/max 는 숫자 표현식 대입 시 linter error 발생 —
+            aria-label 단독으로 접근성 충족 (WCAG 4.1.2 name/role/value). */}
+        <div
+          className={`snn-val-bar-fill ${colorClass} ${barWidthClass(pct)}`}
+          role="progressbar"
+          aria-label={`${label} ${pctStr}`}
+        />
+      </div>
+      <span className="snn-val-metric-pct">
+        {correct}/{total} {pctStr}
+      </span>
+    </div>
+  );
+}
+
+function ValidationPanel({
+  clusterCount, exemplars, inputMode,
+  valOpen, setValOpen, valRunning, valProgress, valResult, onRun,
+}: ValidationPanelProps) {
+  // 유효한 feature 보유 패턴 수 계산.
+  const patternCount = useMemo(() => {
+    let n = 0;
+    for (let ci = 0; ci < clusterCount; ci += 1) {
+      for (let k = 0; k < OUT_PER_CLUSTER; k += 1) {
+        const ex = exemplars[`out_${ci}_${k}`];
+        if (ex && ex.lastFeature && ex.lastFeature.length > 0) { n += 1; break; }
+      }
+    }
+    return n;
+  }, [exemplars, clusterCount]);
+
+  const canRun = patternCount >= 2 && !valRunning;
+
+  return (
+    <div className="snn-val-section">
+      {/* Header — toggle + run button */}
+      <div
+        className="snn-val-header"
+        role="button"
+        tabIndex={0}
+        aria-expanded={valOpen}
+        onClick={() => setValOpen(!valOpen)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setValOpen(!valOpen); } }}
+      >
+        <span className="snn-val-toggle">{valOpen ? '▼' : '▶'}</span>
+        <span className="snn-val-title">VALIDATION</span>
+        {valRunning && <span className="snn-val-spinner" aria-label="검증 실행 중" />}
+        <button
+          type="button"
+          className="snn-val-run-btn"
+          disabled={!canRun}
+          onClick={(e) => { e.stopPropagation(); if (!valOpen) setValOpen(true); onRun(); }}
+          aria-label="검증 실행"
+          title={patternCount < 2 ? '패턴 2개 이상 필요' : '검증 실행'}
+        >
+          ▶ 실행
+        </button>
+      </div>
+
+      {/* Body */}
+      {valOpen && (
+        <div className="snn-val-body">
+          {patternCount < 2 && (
+            <span className="snn-val-disabled">패턴 2개 이상 필요</span>
+          )}
+          {valProgress && (
+            <span className="snn-val-progress">
+              검증 중… ({valProgress.done}/{valProgress.total})
+            </span>
+          )}
+          {valResult && !valRunning && (
+            <>
+              <div className="snn-val-metrics">
+                <MetricBar label="재현율" correct={valResult.repro.correct} total={valResult.repro.total} />
+                <MetricBar label="노이즈" correct={valResult.noise.correct} total={valResult.noise.total} />
+                <MetricBar label="부분단서" correct={valResult.partial.correct} total={valResult.partial.total} />
+              </div>
+              <ConfusionMatrix labels={valResult.labels} matrix={valResult.matrix} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[][] }) {
+  const n = labels.length;
+  if (n === 0) return null;
+  // 짧게 표시할 label — 최대 4자.
+  const short = labels.map((l) => (l.length > 5 ? l.slice(0, 4) + '…' : l));
+  return (
+    <div className="snn-val-matrix">
+      <div className="snn-val-matrix-title">Confusion Matrix ({n}×{n})</div>
+      <table className="snn-val-matrix-table" aria-label="confusion matrix">
+        <thead>
+          <tr>
+            <th aria-label="actual vs predicted" />
+            {short.map((l, j) => <th key={j}>{l}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {matrix.map((row, i) => (
+            <tr key={i}>
+              <th scope="row" style={{ textAlign: 'left' }}>{short[i]}</th>
+              {row.map((val, j) => {
+                const cls = val > 0 && i === j
+                  ? 'snn-val-cell--hit'
+                  : val > 0
+                    ? 'snn-val-cell--miss'
+                    : 'snn-val-cell--zero';
+                return (
+                  <td key={j} className={cls}>
+                    {i === j ? (val > 0 ? '✓' : '·') : (val > 0 ? '✗' : '·')}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

@@ -2254,3 +2254,181 @@
   to { opacity: 1; }
 }
 
+/* ─────────────────────────────────── Validation Panel (NodeOut 하단, 2026-05-13) ─
+   OUT 노드 검증 섹션 — 접기/펼치기 + 4종 검증 결과 표시. */
+.snn-val-section {
+  border-top: 1px solid var(--pipe-border);
+  margin-top: var(--pipe-gap-sm);
+  padding-top: var(--pipe-gap-sm);
+}
+.snn-val-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  padding: 2px 0;
+}
+.snn-val-title {
+  font-size: var(--pipe-font-xs);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--pipe-text-dim);
+  flex: 1;
+}
+.snn-val-toggle {
+  font-size: var(--pipe-font-xs);
+  color: var(--pipe-text-muted);
+}
+.snn-val-run-btn {
+  appearance: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 3px;
+  color: rgba(255,255,255,0.85);
+  font-size: var(--pipe-font-xs);
+  font-family: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.snn-val-run-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.32);
+}
+.snn-val-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.snn-val-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pipe-gap-sm);
+  margin-top: var(--pipe-gap-sm);
+}
+.snn-val-progress {
+  font-size: var(--pipe-font-xs);
+  color: #fbbf24;
+  font-family: ui-monospace, monospace;
+}
+.snn-val-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snn-val-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--pipe-font-xs);
+}
+.snn-val-metric-label {
+  width: 52px;
+  flex-shrink: 0;
+  color: var(--pipe-text-dim);
+  font-size: var(--pipe-font-xs);
+}
+.snn-val-bar-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.snn-val-bar-fill {
+  height: 100%;
+  background: rgba(255,255,255,0.55);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.snn-val-bar-fill--full { background: rgba(52, 211, 153, 0.8); }
+.snn-val-bar-fill--good { background: rgba(52, 211, 153, 0.6); }
+.snn-val-bar-fill--mid  { background: rgba(251, 191, 36, 0.7); }
+.snn-val-bar-fill--low  { background: rgba(239, 68, 68, 0.6); }
+.snn-val-metric-pct {
+  font-family: ui-monospace, monospace;
+  color: var(--pipe-text);
+  font-size: var(--pipe-font-xs);
+  width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+/* Confusion Matrix */
+.snn-val-matrix {
+  margin-top: 2px;
+}
+.snn-val-matrix-title {
+  font-size: var(--pipe-font-xs);
+  color: var(--pipe-text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.snn-val-matrix-table {
+  border-collapse: collapse;
+  font-size: var(--pipe-font-xs);
+  font-family: ui-monospace, monospace;
+  width: 100%;
+}
+.snn-val-matrix-table th {
+  color: var(--pipe-text-dim);
+  font-weight: 400;
+  padding: 2px 4px;
+  text-align: center;
+  font-size: 10px;
+}
+.snn-val-matrix-table td {
+  padding: 2px 4px;
+  text-align: center;
+  border-radius: 2px;
+  font-size: 10px;
+  min-width: 20px;
+}
+.snn-val-cell--hit {
+  background: rgba(52, 211, 153, 0.25);
+  color: #6ee7b7;
+}
+.snn-val-cell--miss {
+  background: rgba(239, 68, 68, 0.18);
+  color: rgba(252, 165, 165, 0.8);
+}
+.snn-val-cell--zero {
+  color: var(--pipe-text-muted);
+}
+/* bar-fill width — 10단계 discretized (inline style 회피). */
+.snn-val-bar-fill--w0   { width: 0%; }
+.snn-val-bar-fill--w10  { width: 10%; }
+.snn-val-bar-fill--w20  { width: 20%; }
+.snn-val-bar-fill--w30  { width: 30%; }
+.snn-val-bar-fill--w40  { width: 40%; }
+.snn-val-bar-fill--w50  { width: 50%; }
+.snn-val-bar-fill--w60  { width: 60%; }
+.snn-val-bar-fill--w70  { width: 70%; }
+.snn-val-bar-fill--w80  { width: 80%; }
+.snn-val-bar-fill--w90  { width: 90%; }
+.snn-val-bar-fill--w100 { width: 100%; }
+/* row header left-align */
+.snn-val-matrix-table th[scope="row"] { text-align: left; }
+.snn-val-disabled {
+  font-size: var(--pipe-font-xs);
+  color: var(--pipe-text-muted);
+  font-style: italic;
+  padding: 2px 0;
+}
+/* spinner — inline rotating ring */
+.snn-val-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-top-color: rgba(255,255,255,0.75);
+  border-radius: 50%;
+  animation: snn-val-spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes snn-val-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-val-spinner { animation-duration: 0.01ms !important; }
+}
+

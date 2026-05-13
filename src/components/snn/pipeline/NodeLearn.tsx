@@ -22,7 +22,6 @@ import {
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import {
-  GESTURE_LABEL_TO_CLUSTER,
   GESTURE_CONFIDENCE_MIN,
   GESTURE_STABLE_FRAMES,
 } from '@/lib/snn/use-hand-control';
@@ -79,6 +78,11 @@ export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
+  // P209: camera path 마지막 autoTrainOrSpawn 액션 표시.
+  const [lastAutoAction, setLastAutoAction] = useState<string>('');
+  useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
+    setPhase(d);
+  }), []);
   const prevWeights = useRef<Map<string, number>>(new Map());
 
   // PR3 (사용자 catch 2026-05-09): Live 모드 영역 engineMode hook + 최신 tick.
@@ -226,14 +230,21 @@ export default function NodeLearn() {
   const [regionRateIsProxy, setRegionRateIsProxy] = useState<boolean>(false);
   const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', setPhase), []);
+  // P209: camera path lastAutoAction — training-phase clusterFrames[0] 는 patternCount.
+  // 'cluster-spawned' event 로 lastAutoAction 텍스트 동기화.
+  useEffect(() => {
+    return onBackendEvent<{ clusterIdx: number; topShare: number; margin: number }>('cluster-spawned', (d) => {
+      setLastAutoAction(`패턴 ${d.clusterIdx + 1} 신규 형성`);
+    });
+  }, []);
+
   useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
     setTeacher(d);
-    // teacher stability tracking — use-hand-control 정합.
+    // P209: teacher stability tracking — 모든 gesture name 가 안정 후보.
+    // (GESTURE_LABEL_TO_CLUSTER 매핑 제약 폐기 — conf ≥0.6 + 연속 동일 name)
     const gName = d.gestureName ?? null;
     const gScore = d.gestureScore ?? 0;
-    const mappable = gName !== null && GESTURE_LABEL_TO_CLUSTER[gName] !== undefined;
-    if (mappable && gScore >= GESTURE_CONFIDENCE_MIN) {
+    if (gName !== null && gName !== 'None' && gScore >= GESTURE_CONFIDENCE_MIN) {
       if (gName === lastNameRef.current) {
         setStableCount((c) => Math.min(c + 1, GESTURE_STABLE_FRAMES));
       } else {
@@ -529,23 +540,30 @@ export default function NodeLearn() {
     const p = effectivePhase;
     const activeLabel = activeCluster >= 0 ? getClusterLabel(activeCluster, inputMode) : '';
     const activeCount = activeCluster >= 0 ? effectiveClusterFrames[activeCluster as 0|1|2|3] : 0;
+    // P209: camera path — untrained/learning hint 별도 문구.
+    const isCamera = inputMode === 'camera';
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
         label: 'UNTRAINED',
         tone: 'idle',
-        sub: 'awaiting input — grid preset 학습 또는 camera teacher',
-        // 사용자 catch 2026-05-09 (3 신규 catch): hint glyph (─│╲╱) 영역 본격
-        // 제거 — visual minimalism 정합. cluster N pattern label 영역 INPUT 노드
-        // 영역 표시 catch — hint 영역 short instruction only.
-        hint: 'INPUT 노드에서 4 패턴을 학습시키세요',
+        sub: isCamera
+          ? 'awaiting gesture — 손 자세를 보여주세요'
+          : 'awaiting input — grid preset 학습 또는 camera teacher',
+        hint: isCamera
+          ? '카메라에 손을 보여주세요. 안정적인 자세 감지 시 자동 학습 시작.'
+          : 'INPUT 노드에서 패턴을 학습시키세요',
       },
       learning: {
         label: 'LEARNING',
         tone: 'amber',
-        sub: 'R-STDP — capturing frames',
-        hint: activeLabel
-          ? `${activeLabel} 패턴 유지 (${activeCount}/${CLUSTER_TARGET})`
-          : 'capturing frames…',
+        sub: isCamera
+          ? 'autoTrainOrSpawn — 패턴 자동 형성 중'
+          : 'R-STDP — capturing frames',
+        hint: isCamera
+          ? '자세를 유지하세요. novel 패턴은 신규 형성, 기존 패턴은 강화.'
+          : (activeLabel
+              ? `${activeLabel} 패턴 유지 (${activeCount}/${CLUSTER_TARGET})`
+              : 'capturing frames…'),
       },
       partial: {
         label: 'PARTIAL',
@@ -564,32 +582,31 @@ export default function NodeLearn() {
       inference: {
         label: 'INFERENCE',
         tone: 'blue',
-        sub: 'STDP off · cluster mean readout',
+        sub: isCamera
+          ? 'inject stdp=off · cluster readout · 학습 동시 진행'
+          : 'STDP off · cluster mean readout',
         hint: '실시간 추론 — 입력을 주세요',
       },
     };
     return config[p];
   }, [effectivePhase, activeCluster, effectiveClusterFrames, inputMode]);
 
-  // teacher 라인 — 사용자 catch 2026-05-07: stable count visible.
-  // mappable + conf 통과 시 [N/5 stable] suffix → 학습 trigger 임박 사실 catch.
-  // 사용자 catch 2026-05-07: 매핑 안 된 자세 (예: Thumb_Up) 시 명시 hint 추가.
+  // P209: teacher 라인 — 모든 gesture name 가 학습 후보.
+  // conf ≥0.6 + 연속 stable → "name (conf%) [N/5 stable]" 표시.
   const teacherInfo = useMemo(() => {
-    if (!teacher) return { line: 'no signal', mappable: false, ready: false };
-    if (!teacher.hasHand) return { line: 'no hand', mappable: false, ready: false };
-    const name = teacher.gestureName || 'none';
+    if (!teacher) return { line: 'no signal', ready: false };
+    if (!teacher.hasHand) return { line: 'no hand', ready: false };
+    const name = teacher.gestureName && teacher.gestureName !== 'None'
+      ? teacher.gestureName : 'none';
     const conf = teacher.gestureScore ?? 0;
-    const mappable = !!teacher.gestureName && GESTURE_LABEL_TO_CLUSTER[teacher.gestureName] !== undefined;
-    const ready = mappable && conf >= GESTURE_CONFIDENCE_MIN && stableCount >= GESTURE_STABLE_FRAMES;
-    if (!mappable && teacher.gestureName) {
-      // camera teacher 매핑 안 된 자세 — Pointing_Up / Open_Palm / Closed_Fist
-      // / Victory 만 cluster id 로 mapping 가능. grid 입력은 매핑 무관.
-      return { line: `${name} ⚠ 미매핑 — 4 자세만 학습`, mappable: false, ready: false };
-    }
-    const stableSuffix = mappable && conf >= GESTURE_CONFIDENCE_MIN
-      ? ` [${stableCount}/${GESTURE_STABLE_FRAMES} stable]`
-      : '';
-    return { line: `${name} (${(conf * 100).toFixed(0)}%)${stableSuffix}`, mappable, ready };
+    const detectable = name !== 'none' && conf >= GESTURE_CONFIDENCE_MIN;
+    const ready = detectable && stableCount >= GESTURE_STABLE_FRAMES;
+    if (!detectable) return { line: `${name} (${(conf * 100).toFixed(0)}%) — 학습 대기`, ready: false };
+    const stableSuffix = ` [${stableCount}/${GESTURE_STABLE_FRAMES} stable]`;
+    return {
+      line: `${name} (${(conf * 100).toFixed(0)}%)${stableSuffix}`,
+      ready,
+    };
   }, [teacher, stableCount]);
 
   const stripActive = regionFired.V1 || regionFired.V2;
@@ -707,12 +724,29 @@ export default function NodeLearn() {
         </>
       )}
       {!isLiveMode && inputMode === 'camera' && (
-        <div className="snn-pipeline-row">
-          <span className="snn-pipeline-row-label">teacher</span>
-          <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
-            {teacherInfo.line}
-          </span>
-        </div>
+        <>
+          {/* P209: 학습된 패턴 수 + 마지막 액션 */}
+          <div className="snn-pipeline-row">
+            <span className="snn-pipeline-row-label">패턴</span>
+            <span className="snn-pipeline-row-value snn-pipeline-mono">
+              {clusterLabels.length}개 학습됨
+            </span>
+          </div>
+          {lastAutoAction && (
+            <div className="snn-pipeline-row snn-pipeline-row--wrap">
+              <span className="snn-pipeline-row-label">액션</span>
+              <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap">
+                {lastAutoAction}
+              </span>
+            </div>
+          )}
+          <div className="snn-pipeline-row">
+            <span className="snn-pipeline-row-label">teacher</span>
+            <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
+              {teacherInfo.line}
+            </span>
+          </div>
+        </>
       )}
       {!isLiveMode && gridProgress.lastResult && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">

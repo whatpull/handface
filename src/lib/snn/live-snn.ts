@@ -1016,15 +1016,15 @@ export class LiveSnn {
    */
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
     let registeredClusterId: number | null = null;
+    const ROUNDS = 6;
+    const CHUNK = 5;
+    const TOTAL = ROUNDS * CHUNK;
     try {
       const { newClusterId } = await this.expandClusterAsync(activeInputs);
       // MEDIUM #11 (2026-05-11): race-gate add — 진행 중 cluster id 영역 add.
       // emitTick incrementCount 영역 본 Set 영역 size>0 시점 영역 skip.
       this._autoLearnInFlight.add(newClusterId);
       registeredClusterId = newClusterId;
-      const ROUNDS = 6;
-      const CHUNK = 5;
-      const TOTAL = ROUNDS * CHUNK;
       let progress = 0;
       for (let round = 0; round < ROUNDS; round += 1) {
         for (let i = 0; i < CHUNK; i += 1) {
@@ -1075,6 +1075,17 @@ export class LiveSnn {
         message: `runAutoLearnLoop failed: ${msg}`,
         context: { trialToken: originalToken, activeInputs },
       });
+      // learningClusters 영구 고착 방지 — progress=total emit 영역 강제 cleanup.
+      // PipelineEventContext 영역 learningClusters Set 영역 cluster 영역 제거
+      // isAutoLearning 고착 → 두 번째 패턴 spawn 차단 버그 정정.
+      if (registeredClusterId !== null) {
+        emitBackendEvent<AutoLearnProgressDetail>('auto-learn-progress', {
+          trialToken: originalToken,
+          clusterId: registeredClusterId,
+          progress: TOTAL,
+          total: TOTAL,
+        });
+      }
     } finally {
       // MEDIUM #11 (2026-05-11): race-gate remove — 진행 종료 (성공/실패 무관)
       // 영역 cluster id 영역 unregister. emitTick incrementCount 영역 다음 frame

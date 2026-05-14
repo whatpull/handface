@@ -62,6 +62,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
 
 vi.mock('@/lib/snn/out-exemplars', () => ({
   incrementCount: mocks.mockIncrementCount,
+  loadExemplars: vi.fn().mockReturnValue({}),
 }));
 
 vi.mock('@/lib/backend/events', () => ({

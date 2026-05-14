@@ -137,3 +137,15 @@ export function clearExemplars(substrate: SubstrateKind): void {
     window.dispatchEvent(new CustomEvent(evtFor(substrate), { detail: {} }));
   }
 }
+
+// P(3) 2026-05-14: cluster 개별 삭제 — ci 에 해당하는 out_{ci}_* 키 전체 제거.
+// 백엔드 별도 삭제 API 없음 → 로컬 exemplar 에서만 제거. 다른 cluster 보존.
+export function removeClusterExemplar(ci: number, substrate: SubstrateKind): void {
+  const map = loadExemplars(substrate);
+  // out_{ci}_0 ~ out_{ci}_7 (OUT_PER_CLUSTER) + legacy out_{ci} 모두 삭제.
+  for (let n = 0; n < 8; n += 1) {
+    delete map[`out_${ci}_${n}`];
+  }
+  delete map[`out_${ci}`];
+  save(substrate, map);
+}

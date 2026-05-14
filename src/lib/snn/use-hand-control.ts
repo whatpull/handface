@@ -1,10 +1,11 @@
 // 카메라 기반 학습 훅 — PipelineCanvas (LEARN/INFER 노드) 가 직접 호출.
 // (CameraQuickControls 컴포넌트는 영구 폐기 — Pipeline view 통합)
 //
-// 본질 redesign v2 (P209 2026-05-13):
-//   고정 4-gesture 제약 폐기 → autoTrainOrSpawn 기반 무제한 패턴 학습.
-//   gestureStable (≥5 frames, conf ≥0.6) → 10 frame마다 autoTrainOrSpawn 호출.
-//   novel → 'spawned' / 기존 → 'reinforced' / 실패 → warn toast.
+// 지도 학습 redesign (P210 2026-05-14):
+//   P209 코사인 유사도 기반 novelty 판단 폐기 → MediaPipe gesture label 기반 지도 학습.
+//   gestureName + gScore ≥ 0.85 안정 → 기존 gesture: clusterTrainSupervised 강화.
+//                                       신규 gesture (≤5개): autoTrainOrSpawn 으로 spawn.
+//   localStorage 'handface.gesture.labelMap.v1' 에 gesture→clusterIdx 영구 보존.
 //
 // State machine (단순화):
 //   1. UNTRAINED   — 학습 0, 카메라/hand 감지만.
@@ -14,23 +15,11 @@
 // PARTIAL / TRAINED 미사용 (backward compat 보존 — events.ts type 유지).
 //
 // 정직 한계:
-//  - autoTrainOrSpawn 내부 vigilance threshold 0.70 — 너무 낮으면 novel 과다 spawn.
-//    너무 높으면 기존 cluster 로 몰림. 사용자 화면 검증 mandatory.
+//  - gesture label 미감지 (None/Unknown) 시 학습 skip — gesture confidence 0.85 미만도 skip.
 //  - INFERENCE tick winner 영역 deriveWinner 의존 — cluster mean readout 정합.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// 입력 공간 novelty 판단용 코사인 유사도 — 클러스터가 1개일 때도 다른 패턴을 spawn 가능하게.
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  if (magA === 0 || magB === 0) return 0;
-  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
-}
 import { getClient } from '@/lib/backend/client';
 import { onBackendEvent, emitBackendEvent, type HandFeatureDetail, type TrainingPhaseDetail } from '@/lib/backend/events';
 // HIGH #3 정정: cluster winner 산출 단일 source.
@@ -39,24 +28,52 @@ import { deriveWinner } from '@/lib/snn/winner-derivation';
 import { incrementCount } from '@/lib/snn/out-exemplars';
 
 // NodeLearn / NodeInfer 에서 teacher 표시 용으로 사용 — 매핑 체크 로직 재사용.
-// P209: 카메라 학습 path 는 더이상 GESTURE_LABEL_TO_CLUSTER 에 의존하지 않음.
-//        단 NodeLearn 이 import 하는 symbol 이므로 빈 맵으로 유지 (backward compat).
+// P210: gesture label → clusterIdx 매핑은 gestureLabelToClusterRef (런타임 + localStorage) 에서 관리.
+//        NodeLearn 이 import 하는 symbol 이므로 빈 맵으로 유지 (backward compat).
 export const GESTURE_LABEL_TO_CLUSTER: Record<string, number> = {};
 
 // path Y (2026-05-07) — orientation 4종으로 통일 (─ │ ╲ ╱).
 // INFERENCE phase 에서 winner cluster 라벨 표시용 — 사용자 네이밍 fallback.
 export const CLUSTER_TO_LABEL: Record<number, string> = {};
 
-// 제스처 안정 임계 — P209: confidence ≥0.6, ≥5 consecutive same-name frames.
-export const GESTURE_CONFIDENCE_MIN = 0.6;
+// 제스처 안정 임계 — P210: confidence ≥0.85 (지도 학습 — 라벨 신뢰도 높여야 오염 방지).
+export const GESTURE_CONFIDENCE_MIN = 0.85;
 export const GESTURE_STABLE_FRAMES = 5;
-// P209: cluster 당 target frame 수 — autoTrainOrSpawn 호출 주기 (10 frame마다).
+// cluster 당 target frame 수 — clusterTrainSupervised 호출 주기 (10 frame마다).
 export const CLUSTER_TARGET_FRAMES = 30;
 
-// P209: autoTrainOrSpawn 호출 주기 (stable frame 누적 단위).
+// autoTrainOrSpawn / clusterTrainSupervised 호출 주기 (stable frame 누적 단위).
 const AUTO_TRAIN_EVERY_FRAMES = 10;
-// P209: 동일 gesture에 대한 autoTrainOrSpawn 중복 호출 방지 debounce (ms).
+// 동일 gesture에 대한 학습 중복 호출 방지 debounce (ms).
 const AUTO_TRAIN_DEBOUNCE_MS = 500;
+// 최대 gesture → cluster 매핑 수 (신규 gesture spawn 상한).
+const MAX_GESTURE_CLUSTERS = 5;
+
+// P210: gesture label → clusterIdx localStorage 키.
+const GESTURE_LABEL_MAP_KEY = 'handface.gesture.labelMap.v1';
+
+function loadGestureLabelMap(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(GESTURE_LABEL_MAP_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, number>;
+    }
+  } catch { /* noop */ }
+  return {};
+}
+
+function saveGestureLabelMap(map: Record<string, number>) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(GESTURE_LABEL_MAP_KEY, JSON.stringify(map)); } catch { /* noop */ }
+}
+
+function clearGestureLabelMap() {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(GESTURE_LABEL_MAP_KEY); } catch { /* noop */ }
+}
 
 export type TrainingPhase = 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
 
@@ -153,8 +170,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
   // INFERENCE winner 추적 — 변경 시 OUT count ↑.
   const lastInferenceWinnerRef = useRef<number | null>(null);
 
-  // P209 novelty fix: 클러스터 대표 패턴 메모리 — 입력 공간 유사도 비교용.
-  const clusterPatternsRef = useRef<Array<{ ci: number; pattern: number[] }>>([]);
+  // P210: gesture label → clusterIdx 매핑 (지도 학습 핵심).
+  const gestureLabelToClusterRef = useRef<Record<string, number>>(loadGestureLabelMap());
+  // P210: 현재 안정 gesture의 최근 패턴 버퍼 — clusterTrainSupervised 배치용 (최대 8).
+  const recentPatternsRef = useRef<number[][]>([]);
 
   const trainingCompleteEmittedRef = useRef<boolean>(false);
 
@@ -188,7 +207,10 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       learningArmedRef.current = false;
       lastInferenceWinnerRef.current = null;
       trainingCompleteEmittedRef.current = false;
-      clusterPatternsRef.current = [];
+      // P210: gesture label map 초기화.
+      gestureLabelToClusterRef.current = {};
+      recentPatternsRef.current = [];
+      clearGestureLabelMap();
       patternCountRef.current = 0;
       phaseRef.current = 'untrained';
       setPatternCount(0);
@@ -301,7 +323,8 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       if (!cancelled) setTimeout(tick, TICK_MS);
     };
 
-    // autoTrainOrSpawn 호출 로직 — gesture stable ≥5 frames + debounce 통과 시.
+    // P210 지도 학습 로직 — gesture label 기반 supervised training.
+    // gesture stable ≥5 frames + confidence ≥0.85 + debounce 통과 시 호출.
     const runAutoTrain = async (
       pattern: number[],
       gName: string | null,
@@ -309,30 +332,39 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       isCancelled: boolean,
     ) => {
       if (isCancelled) return;
-      // 명시적 학습 arm 체크 — armLearning() 호출 전에는 autoTrainOrSpawn 차단.
+      // 명시적 학습 arm 체크 — armLearning() 호출 전에는 차단.
       if (!learningArmedRef.current) return;
-      // spawn 쿨다운 — spawned 후 5초간 autoTrainOrSpawn 전체 차단 (연쇄 무한 spawn 방지).
+      // spawn 쿨다운 — spawned 후 5초간 전체 차단 (연쇄 무한 spawn 방지).
       if (Date.now() - lastSpawnTimeRef.current < 5000) return;
-      // gesture stability tracking.
-      const hasGesture = gName !== null && gScore >= GESTURE_CONFIDENCE_MIN;
+      // gesture stability tracking — label + confidence ≥ GESTURE_CONFIDENCE_MIN 필수.
+      const hasGesture =
+        gName !== null &&
+        gName !== 'None' &&
+        gName !== 'Unknown' &&
+        gScore >= GESTURE_CONFIDENCE_MIN;
       if (hasGesture) {
         if (gName === lastGestureNameRef.current) {
           gestureStableCountRef.current += 1;
+          // 패턴 버퍼 누적 (최대 8개 유지 — FIFO).
+          recentPatternsRef.current.push([...pattern]);
+          if (recentPatternsRef.current.length > 8) recentPatternsRef.current.shift();
         } else {
           lastGestureNameRef.current = gName;
           gestureStableCountRef.current = 1;
           stableFrameAccRef.current = 0;
+          recentPatternsRef.current = [[...pattern]];
         }
       } else {
         lastGestureNameRef.current = null;
         gestureStableCountRef.current = 0;
         stableFrameAccRef.current = 0;
+        recentPatternsRef.current = [];
         return;
       }
       // 안정 조건 미충족.
       if (gestureStableCountRef.current < GESTURE_STABLE_FRAMES) return;
       stableFrameAccRef.current += 1;
-      // AUTO_TRAIN_EVERY_FRAMES 마다 autoTrainOrSpawn 호출.
+      // AUTO_TRAIN_EVERY_FRAMES 마다 호출.
       if (stableFrameAccRef.current % AUTO_TRAIN_EVERY_FRAMES !== 1) return;
       // debounce.
       const now = Date.now();
@@ -341,77 +373,88 @@ export function useHandControl(cameraConnected: boolean, autoLive = false, autoC
       if (autoTrainPendingRef.current) return;
       autoTrainPendingRef.current = true;
       lastAutoTrainedAtRef.current = now;
-      setTrainStatus('패턴 학습 중...');
+      setTrainStatus(`학습 중 [${gName}]...`);
+
+      const labelMap = gestureLabelToClusterRef.current;
+      const existingCluster = labelMap[gName!];
+      const patterns = recentPatternsRef.current.length > 0
+        ? recentPatternsRef.current
+        : [[...pattern]];
+
       try {
-        // 입력 공간 novelty 판단 — 저장된 클러스터 대표 패턴과 코사인 유사도 비교.
-        // top_share=100% 고착 문제(클러스터 1개 시) 해결: SNN 발화 기반 novelty 보완.
-        const maxSim = clusterPatternsRef.current.reduce((max, cp) => {
-          return Math.max(max, cosineSimilarity(pattern, cp.pattern));
-        }, 0);
-        const inputIsNovel = clusterPatternsRef.current.length === 0 || maxSim < 0.65;
-        const r = await getClient().autoTrainOrSpawn(pattern, {
-          vigilanceThreshold: inputIsNovel ? 1.01 : 0.70,  // 1.01 > max share(1.0) → 항상 novel
-          minWinnerRateHz: inputIsNovel ? 9999.0 : 25.0,   // 9999 > 실제 발화율 → 항상 novel
-          trainIterations: 30,
-          intensity: 3.0,
-          observeMs: 150,
-          maxClusters: 64,
-        });
-        if (cancelled) return;
-        if (!r.ok) {
-          setTrainStatus(`자동 학습 실패: ${r.reason || `HTTP ${r.status ?? '?'}`}`);
-          return;
-        }
-        const d = r.data;
-        const action = d.action;
-        const ci = d.cluster_idx;
-        if (action === 'spawned') {
-          // spawn 쿨다운 시작 — 이후 5초간 runAutoTrain 진입 차단.
-          lastSpawnTimeRef.current = Date.now();
-          // 대표 패턴 저장 — 이후 입력 공간 novelty 비교에 사용.
-          clusterPatternsRef.current.push({ ci, pattern: [...pattern] });
-          const newCount = Math.max(patternCountRef.current, ci + 1);
-          patternCountRef.current = newCount;
-          savePatternCount(newCount);
-          setPatternCount(newCount);
-          const actionLabel = `패턴 ${ci + 1} 신규 형성`;
-          setLastAutoAction(actionLabel);
-          saveLastAction(actionLabel);
-          setTrainStatus(`★ ${actionLabel} (share ${(d.top_share * 100).toFixed(0)}%)`);
-          // LEARNING phase 전환.
-          if (phaseRef.current === 'untrained') {
-            phaseRef.current = 'learning';
-            savePhase('learning');
-            setPhase('learning');
+        if (existingCluster !== undefined) {
+          // --- 기존 gesture: clusterTrainSupervised 로 강화 ---
+          const r = await getClient().clusterTrainSupervised(patterns, existingCluster, {
+            intensity: 3.0,
+            observeMs: 150,
+            vectorized: true,
+          });
+          if (isCancelled) return;
+          if (!r.ok) {
+            setTrainStatus(`지도 학습 실패 [${gName}]: ${r.reason || `HTTP ${r.status ?? '?'}`}`);
+            return;
           }
-        } else if (action === 'reinforced') {
-          // 기존 cluster 강화 — patternCount 는 새 cluster 생성 아니므로 유지.
-          const newCount = Math.max(patternCountRef.current, ci + 1);
-          if (newCount > patternCountRef.current) {
-            patternCountRef.current = newCount;
-            savePatternCount(newCount);
-            setPatternCount(newCount);
-          }
-          const actionLabel = `패턴 ${ci + 1} 강화 (Δw ${d.weight_changes_count})`;
+          const actionLabel = `[${gName}] → 패턴 ${existingCluster + 1} 강화 (Δw ${r.data.weight_changes_count})`;
           setLastAutoAction(actionLabel);
           saveLastAction(actionLabel);
           setTrainStatus(`↻ ${actionLabel}`);
-          // Fix 4 (LOW): reinforced 액션 NodeLearn 표시 — training-changed emit.
-          emitBackendEvent('training-changed', { action: 'reinforced', clusterIdx: ci, label: actionLabel });
-        } else {
-          // spawn_failed.
-          const rawMsg = d.spawn_error ?? '';
-          let msg: string;
-          if (rawMsg.includes('feature16 preset') || rawMsg.includes('in_feat')) {
-            msg = '초기화 필요 — 학습 reset 후 다시 시도';
-          } else if (rawMsg.includes('max_clusters') || rawMsg.includes('최대')) {
-            msg = `최대 패턴 수(${d.n_cluster_after ?? 64}개) 도달`;
-          } else {
-            msg = rawMsg || '패턴 학습 실패';
+          emitBackendEvent('training-changed', { action: 'reinforced', clusterIdx: existingCluster, label: actionLabel });
+        } else if (Object.keys(labelMap).length < MAX_GESTURE_CLUSTERS) {
+          // --- 신규 gesture: autoTrainOrSpawn 으로 새 cluster spawn ---
+          const avgPattern = patterns[0].map((_, i) =>
+            patterns.reduce((s, p) => s + p[i], 0) / patterns.length,
+          );
+          const r = await getClient().autoTrainOrSpawn(avgPattern, {
+            vigilanceThreshold: 0.0,   // 0.0 → 항상 novel spawn
+            minWinnerRateHz: 0.0,      // 0.0 → rate 조건 무시
+            trainIterations: 30,
+            intensity: 3.0,
+            observeMs: 150,
+            maxClusters: MAX_GESTURE_CLUSTERS,
+          });
+          if (isCancelled) return;
+          if (!r.ok) {
+            setTrainStatus(`제스처 spawn 실패 [${gName}]: ${r.reason || `HTTP ${r.status ?? '?'}`}`);
+            return;
           }
-          setTrainStatus(`⚠ ${msg}`);
-          setLastAutoAction(`⚠ ${msg}`);
-          saveLastAction(`⚠ ${msg}`);
+          const d = r.data;
+          if (d.action === 'spawned') {
+            lastSpawnTimeRef.current = Date.now();
+            const ci = d.cluster_idx;
+            // gesture → clusterIdx 매핑 저장.
+            gestureLabelToClusterRef.current = { ...labelMap, [gName!]: ci };
+            saveGestureLabelMap(gestureLabelToClusterRef.current);
+            const newCount = Math.max(patternCountRef.current, ci + 1);
+            patternCountRef.current = newCount;
+            savePatternCount(newCount);
+            setPatternCount(newCount);
+            const actionLabel = `[${gName}] → 패턴 ${ci + 1} 신규 형성`;
+            setLastAutoAction(actionLabel);
+            saveLastAction(actionLabel);
+            setTrainStatus(`★ ${actionLabel} (share ${(d.top_share * 100).toFixed(0)}%)`);
+            if (phaseRef.current === 'untrained') {
+              phaseRef.current = 'learning';
+              savePhase('learning');
+              setPhase('learning');
+            }
+          } else {
+            // spawn_failed 또는 reinforced (MAX_GESTURE_CLUSTERS 도달 후 내부 매칭).
+            const rawMsg = d.spawn_error ?? '';
+            let msg: string;
+            if (rawMsg.includes('feature16 preset') || rawMsg.includes('in_feat')) {
+              msg = '초기화 필요 — 학습 reset 후 다시 시도';
+            } else if (rawMsg.includes('max_clusters') || rawMsg.includes('최대')) {
+              msg = `최대 패턴 수(${MAX_GESTURE_CLUSTERS}개) 도달`;
+            } else {
+              msg = rawMsg || `제스처 매핑 실패 [${gName}]`;
+            }
+            setTrainStatus(`⚠ ${msg}`);
+            setLastAutoAction(`⚠ ${msg}`);
+            saveLastAction(`⚠ ${msg}`);
+          }
+        } else {
+          // MAX_GESTURE_CLUSTERS 도달 — 알 수 없는 새 gesture 무시.
+          setTrainStatus(`⚠ 최대 ${MAX_GESTURE_CLUSTERS}개 제스처 매핑 도달 — [${gName}] 무시됨`);
         }
       } finally {
         autoTrainPendingRef.current = false;

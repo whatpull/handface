@@ -36,8 +36,9 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
       className="hidden md:flex flex-wrap items-center gap-1 border-b border-white/5 bg-[#0d0d10]/95 px-3 py-2"
     >
       <div className={groupCls}>
-        <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === 'Reset'}>
-          <Icon kind="reset" /> 초기화
+        {/* P(4) 2026-05-14: "초기화" → "전체 리셋" — 네트워크+exemplar+gesture 통합 */}
+        <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === '전체 리셋'}>
+          <Icon kind="reset" /> 전체 리셋
         </button>
         <button
           type="button"

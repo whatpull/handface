@@ -54,9 +54,9 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
         <Icon kind="save" />
         저장
       </button>
-      <button type="button" className={slot} onClick={p.onReset} aria-label="초기화">
+      <button type="button" className={slot} onClick={p.onReset} aria-label="전체 리셋">
         <Icon kind="reset" />
-        초기화
+        전체 리셋
       </button>
       <button type="button" className={slot} onClick={p.onOpenSettings} aria-label="설정">
         <Icon kind="settings" />

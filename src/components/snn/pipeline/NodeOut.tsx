@@ -19,6 +19,7 @@ import {
   loadExemplars,
   subscribeExemplars,
   setExemplarLabel,
+  removeClusterExemplar,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import { getClient } from '@/lib/backend/client';
@@ -321,6 +322,12 @@ export default function NodeOut() {
           </span>
         )}
       </div>
+      {/* P(3) 2026-05-14: 패턴 >= 5 시 학습 비활성 경고 */}
+      {clusterCount >= 5 && (
+        <div className="snn-pipeline-note" role="status" aria-live="polite">
+          최대 5개 패턴 도달 — 학습 비활성. 패턴을 삭제 후 재학습하세요.
+        </div>
+      )}
       <div className="snn-pipeline-out-counts">
         {clusterCount === 0 ? (
           <div className="snn-pipeline-out-count-row snn-pipeline-out-count-row--empty">
@@ -335,6 +342,16 @@ export default function NodeOut() {
               <div key={ci} className="snn-pipeline-out-count-row">
                 <span className="snn-pipeline-out-count-label">{label}</span>
                 <span className="snn-pipeline-out-count-value">{count}</span>
+                {/* P(3) 2026-05-14: 개별 삭제 버튼 */}
+                <button
+                  type="button"
+                  className="snn-pipeline-out-count-delete"
+                  aria-label={`${label} 삭제`}
+                  title={`${label} 삭제`}
+                  onClick={() => removeClusterExemplar(ci, substrate)}
+                >
+                  ×
+                </button>
               </div>
             );
           })

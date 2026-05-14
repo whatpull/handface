@@ -149,8 +149,8 @@ function addNoise(feature: number[], amount = 0.2): number[] {
   });
 }
 
-/** 50% 셀을 0으로 마스킹한 부분 패턴 생성. */
-function partialCue(feature: number[], keepRatio = 0.5): number[] {
+/** 25% 셀을 0으로 마스킹한 부분 패턴 생성 (75% 유지). */
+function partialCue(feature: number[], keepRatio = 0.75): number[] {
   return feature.map((v) => (Math.random() < keepRatio ? v : 0));
 }
 

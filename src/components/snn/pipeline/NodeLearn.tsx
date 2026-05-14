@@ -15,16 +15,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   onBackendEvent,
-  type HandFeatureDetail,
   type TrainingPhaseDetail,
   type GridTrainingDetail,
   type ClusterSpawnedDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
-import {
-  GESTURE_CONFIDENCE_MIN,
-  GESTURE_STABLE_FRAMES,
-} from '@/lib/snn/use-hand-control';
 import { useEngineMode } from '@/lib/snn/engine-mode';
 import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
 import {
@@ -74,14 +69,10 @@ function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
   return 'OTHER';
 }
 
-// Fix 2 (MEDIUM): patternCount prop — camera path 실제 학습 패턴 수.
-// clusterLabels.length (exemplar 기반) 보다 정확 — autoTrainOrSpawn spawned 즉시 반영.
-export default function NodeLearn({ patternCount: patternCountProp, onArmLearning }: { patternCount?: number; onArmLearning?: () => void }) {
+// NodeLearn — 그리드 학습 전용. 카메라 모드에서는 추론만 가능.
+export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
-  const [teacher, setTeacher] = useState<HandFeatureDetail | null>(null);
   const [delta, setDelta] = useState({ ltp: 0, ltd: 0, changed: 0 });
-  // P209: camera path 마지막 autoTrainOrSpawn 액션 표시.
-  const [lastAutoAction, setLastAutoAction] = useState<string>('');
   useEffect(() => onBackendEvent<TrainingPhaseDetail>('training-phase', (d) => {
     setPhase(d);
   }), []);
@@ -190,12 +181,6 @@ export default function NodeLearn({ patternCount: patternCountProp, onArmLearnin
     });
   }), []);
 
-  // 사용자 catch 2026-05-07: teacher stable 카운트 — use-hand-control 내부 ref 비공개,
-  // 본 컴포넌트 자체로 동일 logic 재현 (gesture name 연속 + conf >= GESTURE_CONFIDENCE_MIN).
-  // "Open_Palm 72% [3/5 stable]" 형식 시각 피드백 — 학습 진행 사실 catch 강화.
-  const [stableCount, setStableCount] = useState<number>(0);
-  const lastNameRef = useRef<string | null>(null);
-
   // 학습 batch supervised 진행 시점 표시 — clusterFrames 변경 영역 1500ms pulse trigger.
   // 사용자 catch: 학습 진행 사실 영역 시각 catch 강화 — capturing 도중 활성 cluster bar 강 pulse.
   const [capturingPulse, setCapturingPulse] = useState<number>(0); // increment counter (key change for re-trigger).
@@ -232,32 +217,6 @@ export default function NodeLearn({ patternCount: patternCountProp, onArmLearnin
   const [regionRateIsProxy, setRegionRateIsProxy] = useState<boolean>(false);
   const fireTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // P209: camera path lastAutoAction — training-phase clusterFrames[0] 는 patternCount.
-  // 'cluster-spawned' event 로 lastAutoAction 텍스트 동기화.
-  useEffect(() => {
-    return onBackendEvent<{ clusterIdx: number; topShare: number; margin: number }>('cluster-spawned', (d) => {
-      setLastAutoAction(`패턴 ${d.clusterIdx + 1} 신규 형성`);
-    });
-  }, []);
-
-  useEffect(() => onBackendEvent<HandFeatureDetail>('hand-feature', (d) => {
-    setTeacher(d);
-    // P209: teacher stability tracking — 모든 gesture name 가 안정 후보.
-    // (GESTURE_LABEL_TO_CLUSTER 매핑 제약 폐기 — conf ≥0.6 + 연속 동일 name)
-    const gName = d.gestureName ?? null;
-    const gScore = d.gestureScore ?? 0;
-    if (gName !== null && gName !== 'None' && gScore >= GESTURE_CONFIDENCE_MIN) {
-      if (gName === lastNameRef.current) {
-        setStableCount((c) => Math.min(c + 1, GESTURE_STABLE_FRAMES));
-      } else {
-        lastNameRef.current = gName;
-        setStableCount(1);
-      }
-    } else {
-      lastNameRef.current = null;
-      setStableCount(0);
-    }
-  }), []);
 
   // clusterFrames 증가 영역 — capturing pulse trigger (batch supervised 진행 시각화).
   useEffect(() => {
@@ -593,24 +552,6 @@ export default function NodeLearn({ patternCount: patternCountProp, onArmLearnin
     return config[p];
   }, [effectivePhase, activeCluster, effectiveClusterFrames, inputMode]);
 
-  // P209: teacher 라인 — 모든 gesture name 가 학습 후보.
-  // conf ≥0.6 + 연속 stable → "name (conf%) [N/5 stable]" 표시.
-  const teacherInfo = useMemo(() => {
-    if (!teacher) return { line: 'no signal', ready: false };
-    if (!teacher.hasHand) return { line: 'no hand', ready: false };
-    const name = teacher.gestureName && teacher.gestureName !== 'None'
-      ? teacher.gestureName : 'none';
-    const conf = teacher.gestureScore ?? 0;
-    const detectable = name !== 'none' && conf >= GESTURE_CONFIDENCE_MIN;
-    const ready = detectable && stableCount >= GESTURE_STABLE_FRAMES;
-    if (!detectable) return { line: `${name} (${(conf * 100).toFixed(0)}%) — 학습 대기`, ready: false };
-    const stableSuffix = ` [${stableCount}/${GESTURE_STABLE_FRAMES} stable]`;
-    return {
-      line: `${name} (${(conf * 100).toFixed(0)}%)${stableSuffix}`,
-      ready,
-    };
-  }, [teacher, stableCount]);
-
   const stripActive = regionFired.V1 || regionFired.V2;
   const phaseTone = phaseInfo.tone;
   const isLearning = phaseTone === 'amber' || phaseTone === 'orange';
@@ -684,17 +625,11 @@ export default function NodeLearn({ patternCount: patternCountProp, onArmLearnin
             <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
-          {/* P209 fix: UNTRAINED + camera 모드에서만 "학습 시작" 버튼 표시.
-              armLearning() 호출 전까지 autoTrainOrSpawn 차단 — 명시적 시작. */}
-          {effectivePhase === 'untrained' && inputMode === 'camera' && onArmLearning && (
-            <button
-              type="button"
-              className="snn-pipeline-infer-enter-btn"
-              onClick={onArmLearning}
-              aria-label="자동 학습 시작"
-            >
-              학습 시작
-            </button>
+          {/* 카메라 모드 — 패턴 학습 불가 안내. GRID 모드 사용 권장. */}
+          {inputMode === 'camera' && (
+            <div className="snn-pipeline-hint snn-pipeline-hint--warn">
+              카메라 모드에서는 패턴 학습 불가 — GRID 모드를 사용하세요
+            </div>
           )}
           <div className="snn-pipeline-cluster-list">
             {/* Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
@@ -738,36 +673,11 @@ export default function NodeLearn({ patternCount: patternCountProp, onArmLearnin
         </>
       )}
       {!isLiveMode && inputMode === 'camera' && (
-        <>
-          {/* P209: 학습된 패턴 수 + 마지막 액션 */}
-          {/* Fix 2 (MEDIUM): patternCountProp (useHandControl 반환값) 우선 —
-              clusterLabels.length (exemplar 기반) 보다 spawned 즉시 정확 반영.
-              prop 미전달(grid mode 등) 시 clusterLabels.length fallback. */}
-          {(patternCountProp !== undefined ? patternCountProp > 0 : clusterLabels.length > 0) && (
-            <div className="snn-pipeline-row">
-              <span className="snn-pipeline-row-label">패턴</span>
-              <span className="snn-pipeline-row-value snn-pipeline-mono">
-                {effectivePhase === 'learning' && isLearning
-                  ? `${patternCountProp ?? clusterLabels.length}개 · 학습 중`
-                  : `${patternCountProp ?? clusterLabels.length}개 학습됨`}
-              </span>
-            </div>
-          )}
-          {lastAutoAction && (
-            <div className={`snn-pipeline-row snn-pipeline-row--wrap${lastAutoAction.startsWith('⚠') ? ' snn-pipeline-action-row-error' : ''}`}>
-              <span className="snn-pipeline-row-label">액션</span>
-              <span className={`snn-pipeline-row-value snn-pipeline-row-value--wrap${lastAutoAction.startsWith('⚠') ? ' snn-pipeline-row-error' : ''}`}>
-                {lastAutoAction}
-              </span>
-            </div>
-          )}
-          <div className="snn-pipeline-row">
-            <span className="snn-pipeline-row-label">teacher</span>
-            <span className={`snn-pipeline-row-value ${teacherInfo.ready ? 'is-stable-ready' : ''}`}>
-              {teacherInfo.line}
-            </span>
-          </div>
-        </>
+        <div className="snn-pipeline-row">
+          <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap snn-pipeline-row-value--dim">
+            카메라 모드 — 추론만 가능 (GRID에서 학습)
+          </span>
+        </div>
       )}
       {!isLiveMode && gridProgress.lastResult && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">

@@ -543,6 +543,9 @@
   word-break: break-word;
   width: 100%;
 }
+.snn-pipeline-row-value--dim {
+  opacity: 0.65;
+}
 
 .snn-pipeline-input { display: flex; flex-direction: column; gap: 6px; }
 .snn-pipeline-cam {

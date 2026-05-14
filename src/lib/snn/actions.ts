@@ -13,10 +13,9 @@ const TRAINING_PHASE_KEY_V2 = 'handface.training.phase.v2';
 const PATTERN_COUNT_KEY = 'handface.pattern.count.v1';
 const LAST_ACTION_KEY = 'handface.last.action.v1';
 const OUT_EXEMPLARS_KEY = 'handface.out.exemplars.v1';
-// P(3) 2026-05-14: substrate-split exemplar keys + gesture label map (P210).
+// P(3) 2026-05-14: substrate-split exemplar keys.
 const OUT_EXEMPLARS_ORIENTATION_KEY = 'handface.out.exemplars.v1.orientation';
 const OUT_EXEMPLARS_GESTURE_KEY = 'handface.out.exemplars.v1.gesture';
-const GESTURE_LABEL_MAP_KEY = 'handface.gesture.labelMap.v1';
 const NETWORK_KEY = 'handface.network.id';
 // settings keys — 절대 삭제 금지 (endpoint / apiKey 보존).
 // const ENDPOINT_KEY = 'handface.settings.endpoint';
@@ -49,7 +48,6 @@ export function createActions(h: ActionHooks) {
         message:
           '· 학습된 weight 모두 손실\n' +
           '· OUT 패턴 exemplar 초기화\n' +
-          '· gesture label 매핑 초기화\n' +
           '· UNTRAINED phase 복귀\n' +
           '· 설정(endpoint/API키)은 유지됩니다\n\n계속할까요?',
         confirmLabel: '전체 리셋',
@@ -69,10 +67,9 @@ export function createActions(h: ActionHooks) {
               localStorage.removeItem(LAST_ACTION_KEY);
               // legacy single-key exemplar (migration 이전 path).
               localStorage.removeItem(OUT_EXEMPLARS_KEY);
-              // P(3/4) 2026-05-14: substrate-split exemplar keys + gesture label map.
+              // P(3) 2026-05-14: substrate-split exemplar keys.
               localStorage.removeItem(OUT_EXEMPLARS_ORIENTATION_KEY);
               localStorage.removeItem(OUT_EXEMPLARS_GESTURE_KEY);
-              localStorage.removeItem(GESTURE_LABEL_MAP_KEY);
               localStorage.removeItem(NETWORK_KEY);
             } catch { /* quota / private mode — silent. */ }
             // out-exemplars-changed event — NodeOut 즉시 반영 (orientation + gesture 양쪽).

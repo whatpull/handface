@@ -44,7 +44,7 @@ import type {
   TriggerErrorPayload,
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
-import { incrementCount } from './out-exemplars';
+import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 
 // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역 substrate
@@ -1041,6 +1041,22 @@ export class LiveSnn {
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
+    // Fix 1 (2026-05-15): MAX_CLUSTERS=5 hard limit — expandCluster 호출 전
+    // 현재 exemplar cluster 수 확인. 5개 이상이면 spawn 차단 (toast 알림).
+    const MAX_CLUSTERS = 5;
+    {
+      const exNow = loadExemplars(this.substrateKind);
+      let curCount = 0;
+      for (const k of Object.keys(exNow)) {
+        const m = /^out_(\d+)_\d+$/.exec(k);
+        if (m) { const ci = Number(m[1]) + 1; if (ci > curCount) curCount = ci; }
+      }
+      if (curCount >= MAX_CLUSTERS) {
+        console.warn('[LiveSnn] runAutoLearnLoop: MAX_CLUSTERS reached, spawn blocked.');
+        showToast({ kind: 'error', message: `최대 ${MAX_CLUSTERS}개 패턴 도달 — 패턴을 삭제 후 재학습하세요.` });
+        return;
+      }
+    }
     let registeredClusterId: number | null = null;
     const ROUNDS = 6;
     const CHUNK = 5;

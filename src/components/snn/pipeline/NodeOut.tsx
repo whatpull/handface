@@ -223,7 +223,16 @@ export default function NodeOut() {
   const valAbortRef = useRef(false);
 
   const runValidation = useCallback(async () => {
-    const patterns = buildPatternList(exemplars, clusterCount);
+    // Fix 2 (2026-05-15): exemplar 전용 cluster 수로 패턴 목록 구성 —
+    // winner.cluster floor 를 제외해 삭제된 cluster 가 iteration 에 포함되지
+    // 않도록 보장. buildPatternList 는 feature 없는 ci 를 skip 하지만,
+    // exemplar-pure count 가 가장 정확한 범위를 제공.
+    let exClusterCount = 0;
+    for (const k of Object.keys(exemplars)) {
+      const m = /^out_(\d+)_\d+$/.exec(k);
+      if (m) { const ci = Number(m[1]) + 1; if (ci > exClusterCount) exClusterCount = ci; }
+    }
+    const patterns = buildPatternList(exemplars, exClusterCount);
     if (patterns.length < 2) return;
 
     setValRunning(true);
@@ -299,7 +308,7 @@ export default function NodeOut() {
       setValRunning(false);
       setValProgress(null);
     }
-  }, [exemplars, clusterCount]);
+  }, [exemplars]);
 
   return (
     <NodeShell

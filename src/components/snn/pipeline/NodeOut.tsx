@@ -23,6 +23,8 @@ import {
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import { getClient } from '@/lib/backend/client';
+import { getLiveSnn } from '@/lib/snn/live-snn';
+import { getEngineMode } from '@/lib/snn/engine-mode';
 import type { SubstrateKind } from '@/lib/snn/root-local-snn';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
@@ -113,6 +115,30 @@ function deriveWinnerFromResponse(data: {
     return best >= 0 ? best : null;
   }
   return null;
+}
+
+/**
+ * 단일 패턴 inject 후 winner cluster 반환.
+ * - Live 모드: 로컬 SNN worker (inferOnceForValidation) — HTTP backend 무관.
+ * - Backend 모드: HTTP inject_feature16 endpoint (기존 경로).
+ * 양쪽 모두 { ok, winner } 형태로 정규화.
+ */
+async function injectOnePattern(
+  pattern: number[],
+  engineMode: 'live' | 'backend',
+): Promise<{ ok: boolean; winner: number | null }> {
+  if (engineMode === 'live') {
+    try {
+      const { winner } = await getLiveSnn().inferOnceForValidation(pattern);
+      return { ok: true, winner };
+    } catch {
+      return { ok: false, winner: null };
+    }
+  }
+  // backend mode — HTTP inject_feature16.
+  const r = await getClient().injectPattern(pattern, { stdp: false, observeMs: 80, intensity: 3.0 });
+  if (!r.ok) return { ok: false, winner: null };
+  return { ok: true, winner: deriveWinnerFromResponse(r.data) };
 }
 
 /** 0~1 사이 float 배열에 노이즈 주입 후 clamp. */
@@ -216,22 +242,21 @@ export default function NodeOut() {
     // matrix[actual][predicted] — 3종 inject 모두 합산 (3× 샘플).
     const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
 
-    const client = getClient();
+    // Live 모드 — 로컬 SNN worker inject (HTTP backend 무관).
+    // Backend 모드 — HTTP inject_feature16 (기존 경로).
+    const engineMode = getEngineMode();
 
     try {
-      // 순차 실행 — 백엔드 상태 충돌 방지.
+      // 순차 실행 — 로컬 SNN / 백엔드 상태 충돌 방지.
       for (let i = 0; i < n; i += 1) {
         if (valAbortRef.current) break;
         const { ci, feature } = patterns[i];
 
         // Reproduction
-        // intensity: 3.0 / observeMs: 80 — 학습(3.0/150) 정합. 2.0 영역 sub-threshold
-        // (V1 firing 부족, OUT cluster silent) 실험 확인 → 3.0 으로 통일.
-        // observeMs 80: 학습(150)과 실시간 추론 사이 밸런스 — 발화 수렴 충분 + 빠른 순회.
-        const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 80, intensity: 3.0 });
+        const r1 = await injectOnePattern(feature, engineMode);
         done += 1; setValProgress({ done, total: totalSteps });
         if (r1.ok) {
-          const w = deriveWinnerFromResponse(r1.data);
+          const w = r1.winner;
           if (w === ci) reproCorrect[i] = true;
           const predIdx = patterns.findIndex((p) => p.ci === w);
           if (predIdx >= 0) matrix[i][predIdx] += 1;
@@ -240,10 +265,10 @@ export default function NodeOut() {
         if (valAbortRef.current) break;
 
         // Noise
-        const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 80, intensity: 3.0 });
+        const r2 = await injectOnePattern(addNoise(feature), engineMode);
         done += 1; setValProgress({ done, total: totalSteps });
         if (r2.ok) {
-          const w = deriveWinnerFromResponse(r2.data);
+          const w = r2.winner;
           if (w === ci) noiseCorrect[i] = true;
           const predIdx = patterns.findIndex((p) => p.ci === w);
           if (predIdx >= 0) matrix[i][predIdx] += 1;
@@ -252,10 +277,10 @@ export default function NodeOut() {
         if (valAbortRef.current) break;
 
         // Partial Cue
-        const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 80, intensity: 3.0 });
+        const r3 = await injectOnePattern(partialCue(feature), engineMode);
         done += 1; setValProgress({ done, total: totalSteps });
         if (r3.ok) {
-          const w = deriveWinnerFromResponse(r3.data);
+          const w = r3.winner;
           if (w === ci) partialCorrect[i] = true;
           const predIdx = patterns.findIndex((p) => p.ci === w);
           if (predIdx >= 0) matrix[i][predIdx] += 1;

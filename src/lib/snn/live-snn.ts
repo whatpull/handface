@@ -704,6 +704,32 @@ export class LiveSnn {
   }
 
   /**
+   * Validation 전용 — 로컬 SNN worker 에 pattern 1회 inject 후 cluster firing
+   * rates 반환. STDP off (학습 0). triggerOnce 와 동일 path 단 emitTick /
+   * incrementCount / saveDebounced 영역 모두 skip (side-effect 없음).
+   *
+   * @param pattern  16-dim [0,1] feature vector.
+   * @returns        winner cluster id (null=silent), rates 배열.
+   */
+  async inferOnceForValidation(
+    pattern: number[],
+  ): Promise<{ winner: number | null; rates: number[] }> {
+    // patternRef 임시 교체 후 복원 — buildInjectEvents 영역 patternRef 의존.
+    const saved = this.patternRef.slice();
+    this.setPattern(pattern);
+    try {
+      const root = await getRootLocalSnnFor(this.substrateKind);
+      await root.client.resetHomeostatic();
+      const cfr = await this.runStep(root, 0); // stdpGain=0
+      const winner = cfr.winner >= 0 ? cfr.winner : null;
+      return { winner, rates: cfr.rates };
+    } finally {
+      // patternRef 복원 — live tick 영역 side-effect 방지.
+      this.patternRef = saved;
+    }
+  }
+
+  /**
    * PR-K (사용자 catch 2026-05-09 catch 1): ART unsupervised auto-learn —
    * "추론 버튼이 곧 학습 적용(자동) = 처음 만나는 패턴일 경우 30회 자동 학습
    * 후, 패턴 기억".

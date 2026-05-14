@@ -225,7 +225,10 @@ export default function NodeOut() {
         const { ci, feature } = patterns[i];
 
         // Reproduction
-        const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 30, intensity: 2.0 });
+        // intensity: 3.0 / observeMs: 80 — 학습(3.0/150) 정합. 2.0 영역 sub-threshold
+        // (V1 firing 부족, OUT cluster silent) 실험 확인 → 3.0 으로 통일.
+        // observeMs 80: 학습(150)과 실시간 추론 사이 밸런스 — 발화 수렴 충분 + 빠른 순회.
+        const r1 = await client.injectPattern(feature, { stdp: false, observeMs: 80, intensity: 3.0 });
         done += 1; setValProgress({ done, total: totalSteps });
         if (r1.ok) {
           const w = deriveWinnerFromResponse(r1.data);
@@ -237,7 +240,7 @@ export default function NodeOut() {
         if (valAbortRef.current) break;
 
         // Noise
-        const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 30, intensity: 2.0 });
+        const r2 = await client.injectPattern(addNoise(feature), { stdp: false, observeMs: 80, intensity: 3.0 });
         done += 1; setValProgress({ done, total: totalSteps });
         if (r2.ok) {
           const w = deriveWinnerFromResponse(r2.data);
@@ -249,7 +252,7 @@ export default function NodeOut() {
         if (valAbortRef.current) break;
 
         // Partial Cue
-        const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 30, intensity: 2.0 });
+        const r3 = await client.injectPattern(partialCue(feature), { stdp: false, observeMs: 80, intensity: 3.0 });
         done += 1; setValProgress({ done, total: totalSteps });
         if (r3.ok) {
           const w = deriveWinnerFromResponse(r3.data);

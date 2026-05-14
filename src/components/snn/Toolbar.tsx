@@ -2,15 +2,10 @@
 
 import { useState } from 'react';
 import { createActions } from '@/lib/snn/actions';
-import { useEngineMode, type EngineMode } from '@/lib/snn/engine-mode';
 
 // 직전 ViewMode (pipeline / region) 영역 폐기됨 — 사용자 명시 영역 단일 통합 view.
-// (neuron drawflow 472 sampling 영역 직전 영역 폐기 — 데이터 정합 0.)
-//
-// 사용자 catch 2026-05-09 (no-new-UI 규칙): 새 페이지/라우트 금지 — root
-// /handface/ 의 업그레이드만. 본 Toolbar 에 Engine 토글 (backend / live)
-// 추가해 학습/추론 실행 엔진 swap. Live 5차 (2026-05-09): 직전 'local' batch
-// path 폐기 영역 토글 영역 ('backend' / 'live') 단일 분기 정합.
+// Engine 토글 (Backend/Live) 제거 — Live 고정 (2026-05-15).
+// 전체 리셋 버튼 제거 — NodeInput의 "학습 reset" 단일화 (2026-05-15).
 
 interface ToolbarProps {
   onStatusChange?: (msg: string) => void;
@@ -23,12 +18,14 @@ const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs
 
 export default function Toolbar({ onStatusChange }: ToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [engine, setEngine] = useEngineMode();
   const actions = createActions({
     busy,
     setBusy,
     status: (m) => onStatusChange?.(m),
   });
+
+  // actions 참조 유지 (save 등 미래 확장 대비) — reset은 NodeInput 단일.
+  void actions;
 
   return (
     <div
@@ -36,10 +33,6 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
       className="hidden md:flex flex-wrap items-center gap-1 border-b border-white/5 bg-[#0d0d10]/95 px-3 py-2"
     >
       <div className={groupCls}>
-        {/* P(4) 2026-05-14: "초기화" → "전체 리셋" — 네트워크+exemplar+gesture 통합 */}
-        <button type="button" className={btnCls} onClick={actions.reset} disabled={busy === '전체 리셋'}>
-          <Icon kind="reset" /> 전체 리셋
-        </button>
         <button
           type="button"
           className={btnCls}
@@ -49,53 +42,6 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
           <Icon kind="layout" /> 레이아웃 초기화
         </button>
       </div>
-      <div className="ml-auto flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-white/40">엔진</span>
-        <EngineSegmented value={engine} onChange={setEngine} />
-      </div>
-    </div>
-  );
-}
-
-const segBaseCls = 'inline-flex items-center gap-1.5 px-2 py-1 text-[11px] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60';
-// UX Polish PR2 Fix 5 (MEDIUM [M5], 2026-05-09): Live/Backend mode 별 색감 차별.
-//   직전 두 mode 모두 violet — 시각 차별 0. Live 영역 red tint (실시간 신호) +
-//   Backend 영역 violet tint (rev15 검증 path) — 색감 의미 정합.
-const segOnLiveCls = 'bg-red-500/25 text-white border border-red-400/45';
-const segOnBackendCls = 'bg-violet-500/30 text-white border border-violet-400/40';
-const segOffCls = 'text-white/55 hover:text-white hover:bg-white/10 border border-transparent';
-
-// Fix 1 (CRITICAL [C1]): MobileBottomBar 에서 동일 토글 재사용 위해 export.
-//   직전 inline component → 모바일에서 engine 토글 catch 0 (Toolbar `hidden md:flex`).
-export function EngineSegmented({ value, onChange }: { value: EngineMode; onChange: (m: EngineMode) => void }) {
-  const isLive = value === 'live';
-  const isBackend = value === 'backend';
-  return (
-    <div
-      role="group"
-      aria-label="실행 엔진 선택"
-      className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-black/30 p-0.5"
-    >
-      <button
-        type="button"
-        aria-pressed={isLive ? 'true' : 'false'}
-        className={`${segBaseCls} ${isLive ? segOnLiveCls : segOffCls}`}
-        onClick={() => onChange('live')}
-        title="항상 동작 SNN — 즉시 학습 + 추론 (Hebbian, R-STDP). SNN 본질 정합 (default)."
-      >
-        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
-        Live
-      </button>
-      <button
-        type="button"
-        aria-pressed={isBackend ? 'true' : 'false'}
-        className={`${segBaseCls} ${isBackend ? segOnBackendCls : segOffCls}`}
-        onClick={() => onChange('backend')}
-        title="HF Spaces 백엔드 batch (rev15 검증된 path — 학술 검증)"
-      >
-        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-violet-400" />
-        Backend
-      </button>
     </div>
   );
 }
@@ -103,22 +49,10 @@ export function EngineSegmented({ value, onChange }: { value: EngineMode; onChan
 function Icon({ kind }: { kind: string }) {
   const c = 'h-3.5 w-3.5';
   switch (kind) {
-    case 'reset':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
-        </svg>
-      );
     case 'layout':
       return (
         <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-        </svg>
-      );
-    case 'play':
-      return (
-        <svg className={c} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
-          <polygon points="6 4 20 12 6 20 6 4" />
         </svg>
       );
     default:

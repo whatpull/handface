@@ -53,9 +53,7 @@ export function createActions(h: ActionHooks) {
         cancelLabel: '취소',
         onConfirm: () => {
           void run('전체 리셋', async () => {
-            // 1. backend 회로 baseline 재구성.
-            const r = await getClient().rebuildToBaseline();
-            // 2. frontend localStorage 영역 학습 state 폐기 (settings 제외).
+            // localStorage 학습 state 폐기 (settings 제외).
             try {
               localStorage.removeItem(SNAPSHOT_KEY);
               localStorage.removeItem(CLUSTER_FRAMES_KEY);
@@ -72,10 +70,10 @@ export function createActions(h: ActionHooks) {
             } catch { /* quota / private mode — silent. */ }
             // out-exemplars-changed event — NodeOut 즉시 반영.
             window.dispatchEvent(new CustomEvent('handface:out-exemplars-changed:orientation', { detail: {} }));
-            // 3. training-cleared event emit — auto-snapshot listener 영역 정합.
+            // training-cleared event emit — auto-snapshot listener 영역 정합.
             emitBackendEvent('training-cleared', undefined);
-            h.status(r.ok ? '✓ 전체 리셋 완료 — 학습 데이터 폐기, 다시 학습 가능' : `✗ 전체 리셋: ${r.reason}`);
-            // 4. circuit-changed 영역 PipelineCanvas remount + useHandControl phase reload.
+            h.status('✓ 전체 리셋 완료 — 학습 데이터 폐기, 다시 학습 가능');
+            // circuit-changed 영역 PipelineCanvas remount + useHandControl phase reload.
             emitBackendEvent('circuit-changed', undefined);
           });
         },

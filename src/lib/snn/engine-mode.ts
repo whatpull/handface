@@ -12,7 +12,7 @@
 //
 // localStorage persist — 새로고침 후에도 같은 모드 유지.
 
-import { useEffect, useState } from 'react';
+// React import removed — hook simplified to static 'live' return.
 
 export type EngineMode = 'backend' | 'live';
 
@@ -110,30 +110,10 @@ export function getEngineMode(): EngineMode {
   return readMode();
 }
 
-// React hook — 현재 모드 + setter. localStorage / cross-tab 동기화 정합.
+// React hook — 항상 'live' 고정 반환. Backend 토글 UI 제거에 따라 단순화.
+// hook 시그니처 유지 (호출자 타입 변경 없음).
 export function useEngineMode(): [EngineMode, (m: EngineMode) => void] {
-  const [mode, setMode] = useState<EngineMode>(() => readMode());
-
-  useEffect(() => {
-    const onChange = (e: Event) => {
-      const detail = (e as CustomEvent<EngineMode>).detail;
-      if (detail === 'backend' || detail === 'live') setMode(detail);
-    };
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setMode(readMode());
-    };
-    window.addEventListener(CHANGE_EVENT, onChange as EventListener);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, onChange as EventListener);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  const set = (m: EngineMode) => {
-    setMode(m);
-    setEngineMode(m);
-  };
-
-  return [mode, set];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const noop = (_m: EngineMode) => { /* live 고정 — setter no-op */ };
+  return ['live', noop];
 }

@@ -373,6 +373,20 @@ export default function NodeLearn() {
       const fromActive = (byActive[region] || []).length;
       if (fromActive > counts[region]) counts[region] = fromActive;
     }
+    // proxy fallback: rates_by_region Hz > 0 이지만 active count = 0 인 경우
+    // (Live mode v1FireCount=0 / backend active_neurons_by_region 미동봉) —
+    // Hz 비율로 regionTotals 에서 발화 뉴런 수 추정.
+    // isProxy flag 는 기존 rates_by_region_is_proxy 기반 — 본 path 별도 set 0.
+    for (const region of ['V1', 'V2'] as const) {
+      if (counts[region] === 0) {
+        const hz = byRegionRate[region] || 0;
+        const total = regionTotals[region];
+        if (hz > 0 && total > 0) {
+          const fraction = Math.min(1, hz / REGION_HZ_MAX);
+          counts[region] = Math.max(1, Math.round(total * fraction));
+        }
+      }
+    }
     setRegionActive(counts);
     // 사용자 catch 2026-05-09 [3]: regionRateHz 영역 sync — mean Hz mini-bar 영역
     // 정합. Live tick 영역 V1/V2 Hz 영역 rates_by_region 영역 동봉 (live-snn.ts:391).
@@ -394,7 +408,7 @@ export default function NodeLearn() {
         }, FIRE_DURATION_MS);
       }
     }
-  }, [lastDetail]);
+  }, [lastDetail, regionTotals]);
 
   // Cleanup — fire timers 영역 unmount 시점 1회 정리.
   useEffect(() => {

@@ -760,7 +760,17 @@ export class NeuronFaceClient {
         delta_threshold: opts.deltaThreshold ?? 0.01,
       },
     });
-    if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    if (r.ok) {
+      emitBackendEvent('training-changed', { trained: r.data.trained });
+      // V1/V2 strip 업데이트 — 학습 완료 시점 firing 데이터가 있으면 neuron-firing emit.
+      const d = r.data;
+      if (d.rates_by_region || d.active_neurons_by_region) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          rates_by_region: d.rates_by_region,
+          active_neurons_by_region: d.active_neurons_by_region,
+        } as NeuronFiringDetail);
+      }
+    }
     return r;
   }
 

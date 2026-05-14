@@ -26,14 +26,7 @@ import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
 
-// Fix 1 (HIGH): enterInference + currentPhase props — camera path INFERENCE 전환.
-export default function NodeInfer({
-  enterInference,
-  currentPhase,
-}: {
-  enterInference?: () => void;
-  currentPhase?: string;
-}) {
+export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
   const [history, setHistory] = useState<number[]>([]);
 
@@ -41,8 +34,8 @@ export default function NodeInfer({
   // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 사용자 명명
   // 우선 + fallback '패턴 N' (resolveClusterLabel 정합). substrate-aware
   // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
-  const { inputMode, winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
-  const substrate: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
+  const substrate: SubstrateKind = 'orientation';
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));
@@ -71,8 +64,8 @@ export default function NodeInfer({
       }
     }
     if (winnerCluster !== null && winnerCluster + 1 > n) n = winnerCluster + 1;
-    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode, winnerCluster]);
+    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, 'grid'));
+  }, [exemplars, winnerCluster]);
 
   // PR-K (Phase 5, 사용자 catch 2026-05-09 catch 3): fresh state init —
   // trial=0 + initState='fresh' 영역 winner card hide. NodeLearn LiveLearnPanel
@@ -190,7 +183,7 @@ export default function NodeInfer({
 
       {!online && (
         <div className="snn-pipeline-warn">
-          ⚠ MediaPipe only — offline (SNN 영역 0, 학습 진행 0)
+          ⚠ Offline — backend 연결 필요 (SNN 추론 불가)
         </div>
       )}
       {/* 사용자 catch 2026-05-11 (perf F2-c — cluster cap hint): cluster N
@@ -212,18 +205,6 @@ export default function NodeInfer({
         <div className="snn-pipeline-note" role="status" aria-live="polite">
           학습 중 — 추론 대기 (신규 패턴 30회 학습 진행 중)
         </div>
-      )}
-      {/* Fix 1 (HIGH): camera path INFERENCE phase 전환 버튼 — LEARNING 이상이고
-          아직 inference 미진입 시 표시. enterInference prop 필수. */}
-      {!isLiveMode && enterInference && currentPhase === 'learning' && (
-        <button
-          type="button"
-          className="snn-pipeline-infer-enter-btn"
-          onClick={enterInference}
-          aria-label="INFERENCE 모드로 전환"
-        >
-          추론 시작 (INFERENCE 전환)
-        </button>
       )}
       {!trained && (
         <div className="snn-pipeline-note">

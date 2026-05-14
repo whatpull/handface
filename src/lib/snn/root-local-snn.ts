@@ -25,7 +25,6 @@ import {
   type LocalSNNStatus,
   type WorkerLike,
 } from '@/lib/snn-runtime';
-import { GESTURE_CLUSTER_ACTIVE_INPUTS } from '@/lib/mediapipe/feature-encoder';
 import { showToast } from '@/components/ui/Toast';
 import { clearExemplars } from './out-exemplars';
 
@@ -76,10 +75,10 @@ function netIdFor(kind: SubstrateKind): string {
   return `root-pipeline-${kind}`;
 }
 
-function clusterActiveInputsFor(kind: SubstrateKind): number[][] {
-  return kind === 'gesture'
-    ? GESTURE_CLUSTER_ACTIVE_INPUTS
-    : ORIENTATION_CLUSTER_ACTIVE_INPUTS;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function clusterActiveInputsFor(_kind: SubstrateKind): number[][] {
+  // orientation 전용 고정 — 카메라/gesture 제거 (2026-05-14).
+  return ORIENTATION_CLUSTER_ACTIVE_INPUTS;
 }
 
 export interface RootLocalSnn {
@@ -197,7 +196,7 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     //   fix-baseline-mismatch (PR-I, 2026-05-10): 직전 학습 weight 영역 fix
     //     직전 영역 stale lock-in 영역 reset (n13 mitigation 정합).
     onStaleCacheReset: (reason) => {
-      const label = kind === 'gesture' ? '제스처' : '방향';
+      const label = '방향';
       const message = reason === 'schema-mismatch'
         ? `${label} 회로: 회로 schema 정정 위해 학습 가중치 reset — 재학습 필요`
         : reason === 'fix-baseline-mismatch'

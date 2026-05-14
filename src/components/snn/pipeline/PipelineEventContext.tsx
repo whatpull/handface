@@ -34,7 +34,6 @@ import {
 import {
   onBackendEvent,
   type NeuronFiringDetail,
-  type InputModeDetail,
   type AutoLearnProgressDetail,
   type GridInferDetail,
 } from '@/lib/backend/events';
@@ -43,10 +42,9 @@ import { WINNER_MARGIN } from './shared';
 
 export interface PipelineEventState {
   /**
-   * 현재 input mode — NodeInfer / NodeLearn / NodeOut 중복 'input-mode' 구독 hoist.
-   * 'grid' (orientation substrate) | 'camera' (gesture substrate). 기본값 'grid'.
+   * input mode — 항상 'grid' (orientation substrate). 카메라 입력 제거.
    */
-  inputMode: 'grid' | 'camera';
+  inputMode: 'grid';
   /** Last neuron-firing payload (raw) — null 영역 미수신. */
   lastDetail: NeuronFiringDetail | null;
   /** 영역 frame 영역 timestamp (Date.now). null 영역 미수신. */
@@ -142,8 +140,8 @@ const PipelineEventContext = createContext<PipelineEventState>({
 });
 
 export function PipelineEventProvider({ children }: { children: ReactNode }) {
-  // input-mode hoist — NodeInfer / NodeLearn / NodeOut 중복 구독 통합.
-  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
+  // inputMode 항상 'grid' — 카메라 입력 제거.
+  const inputMode = 'grid' as const;
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
   // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
@@ -167,34 +165,10 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
       setDetail(d);
       setTs(Date.now());
     });
-    // 사용자 catch 2026-05-06: no hand 상태 → 추론 결과 초기화. hand-feature event 의
-    // hasHand=false 시점에 detail/ts 초기화하여 NodeInfer winner stale 잔존 catch 회피.
-    const offHand = onBackendEvent<{ hasHand?: boolean }>('hand-feature', (d) => {
-      if (d && d.hasHand === false) {
-        setDetail(null);
-        setTs(null);
-      }
-    });
     // training-cleared (Reset) 시점에도 명시 초기화.
     const offCleared = onBackendEvent('training-cleared', () => {
       setDetail(null);
       setTs(null);
-      setAutoLearnProgress(new Map());
-      setLearningClusters(new Set());
-    });
-    // 사용자 catch 2026-05-09 (Fix 3 — HIGH): input-mode swap (GRID ↔ CAMERA)
-    // 시점 영역 lastDetail / ts 영역 reset — 직전 GRID 추론 winner 영역 CAMERA
-    // mode 영역 stale 표시 catch 회피. PipelineEventContext 영역 모든 자손
-    // (NodeOut / NodeInfer / NodeLearn) 영역 winner reset 영역 정합 path.
-    // 학술 정합: substrate isolation — substrate 영역 별도 회로 영역 winner
-    // 영역 substrate switch 영역 무관.
-    const offInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
-      // hoist: NodeInfer / NodeLearn / NodeOut 중복 setInputMode 통합 — 단일 listener.
-      setInputMode(d.mode);
-      setDetail(null);
-      setTs(null);
-      // substrate switch 영역 progress map 영역 reset 정합 (다른 substrate
-      // 영역 cluster id 영역 의미 다름 — stale read 회피).
       setAutoLearnProgress(new Map());
       setLearningClusters(new Set());
     });
@@ -237,9 +211,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     });
     return () => {
       off();
-      offHand();
       offCleared();
-      offInputMode();
       offAutoLearn();
       offGridInfer();
       mountedRef.current = false;
@@ -300,7 +272,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     autoLearnProgress,
     learningClusters,
     isAutoLearning: learningClusters.size > 0,
-  }), [inputMode, detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters]);
+  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters]);
 
   return (
     <PipelineEventContext.Provider value={value}>

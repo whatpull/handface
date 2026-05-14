@@ -13,9 +13,8 @@ const TRAINING_PHASE_KEY_V2 = 'handface.training.phase.v2';
 const PATTERN_COUNT_KEY = 'handface.pattern.count.v1';
 const LAST_ACTION_KEY = 'handface.last.action.v1';
 const OUT_EXEMPLARS_KEY = 'handface.out.exemplars.v1';
-// P(3) 2026-05-14: substrate-split exemplar keys.
+// orientation-only exemplar key (카메라/gesture 제거 2026-05-14).
 const OUT_EXEMPLARS_ORIENTATION_KEY = 'handface.out.exemplars.v1.orientation';
-const OUT_EXEMPLARS_GESTURE_KEY = 'handface.out.exemplars.v1.gesture';
 const NETWORK_KEY = 'handface.network.id';
 // settings keys — 절대 삭제 금지 (endpoint / apiKey 보존).
 // const ENDPOINT_KEY = 'handface.settings.endpoint';
@@ -67,14 +66,12 @@ export function createActions(h: ActionHooks) {
               localStorage.removeItem(LAST_ACTION_KEY);
               // legacy single-key exemplar (migration 이전 path).
               localStorage.removeItem(OUT_EXEMPLARS_KEY);
-              // P(3) 2026-05-14: substrate-split exemplar keys.
+              // orientation exemplar key.
               localStorage.removeItem(OUT_EXEMPLARS_ORIENTATION_KEY);
-              localStorage.removeItem(OUT_EXEMPLARS_GESTURE_KEY);
               localStorage.removeItem(NETWORK_KEY);
             } catch { /* quota / private mode — silent. */ }
-            // out-exemplars-changed event — NodeOut 즉시 반영 (orientation + gesture 양쪽).
+            // out-exemplars-changed event — NodeOut 즉시 반영.
             window.dispatchEvent(new CustomEvent('handface:out-exemplars-changed:orientation', { detail: {} }));
-            window.dispatchEvent(new CustomEvent('handface:out-exemplars-changed:gesture', { detail: {} }));
             // 3. training-cleared event emit — auto-snapshot listener 영역 정합.
             emitBackendEvent('training-cleared', undefined);
             h.status(r.ok ? '✓ 전체 리셋 완료 — 학습 데이터 폐기, 다시 학습 가능' : `✗ 전체 리셋: ${r.reason}`);

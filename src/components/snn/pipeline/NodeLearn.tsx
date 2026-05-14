@@ -112,7 +112,7 @@ export default function NodeLearn() {
       setInitState(null);
       return;
     }
-    const kind: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+    const kind: SubstrateKind = 'orientation';
     setInitState(getLastLocalSnnInitState(kind));
     return subscribeLocalSnnInitState((state) => {
       if (state.kind === kind) setInitState(state);
@@ -270,9 +270,8 @@ export default function NodeLearn() {
       const v2Total = v2PerCluster * clusterCount;
       setRegionTotals({ V1: v1Total, V2: v2Total });
 
-      // mount-time prebuild — input-mode default 'grid' = orientation substrate.
-      // input-mode 변경 시 별도 effect 영역 substrate kind 갱신 + 재 prebuild.
-      const kind: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+      // mount-time prebuild — orientation substrate 고정.
+      const kind: SubstrateKind = 'orientation';
       let cancelled = false;
       void getRootLocalSnnFor(kind).catch((e) => {
         if (!cancelled) {
@@ -302,7 +301,7 @@ export default function NodeLearn() {
       cancelled = true;
       off();
     };
-  }, [engineMode, inputMode, clusterCount]);
+  }, [engineMode, clusterCount]);
 
   // PipelineEventContext 영역 lastDetail 영역 — neuron-firing 영역 단일 source.
   // PR #203 polish (UX HIGH 2026-05-10): autoLearnProgress Map 영역 신규 ART
@@ -423,34 +422,25 @@ export default function NodeLearn() {
   // grid: gridProgress.activeCluster (R-STDP 진행 중인 cluster).
   // camera: count 가 가장 적고 < TARGET 인 cluster.
   const activeCluster = useMemo(() => {
-    if (inputMode === 'grid') return gridProgress.activeCluster ?? -1;
-    if (!phase) return -1;
-    const incomplete: Array<{ ci: number; n: number }> = [];
-    for (let ci = 0; ci < 4; ci++) {
-      const n = phase.clusterFrames[ci as 0|1|2|3];
-      if (n < CLUSTER_TARGET) incomplete.push({ ci, n });
-    }
-    if (incomplete.length === 0) return -1;
-    incomplete.sort((a, b) => b.n - a.n); // 가장 진행도 높은 미완 cluster 우선 안내.
-    return incomplete[0].ci;
-  }, [inputMode, gridProgress.activeCluster, phase]);
+    return gridProgress.activeCluster ?? -1;
+  }, [gridProgress.activeCluster]);
 
   // mode 별 effective phase / clusterFrames — render 흐름 단일화.
   // PR audit fix (Fix 5 — LOW): react-hooks/exhaustive-deps warning 정정 —
   // conditional derived value 영역 useMemo 래핑 영역 deps reference stability
   // 보장 (직전 phase?.clusterFrames default-fallback object 영역 매 render
   // 새 reference catch — phaseInfo useMemo 영역 매 render invalidate).
-  const effectivePhase = inputMode === 'grid' ? gridPhase : (phase?.phase ?? 'untrained');
+  const effectivePhase = gridPhase;
   const effectiveClusterFrames = useMemo(
-    () => (inputMode === 'grid' ? gridClusterFrames : (phase?.clusterFrames ?? { 0: 0, 1: 0, 2: 0, 3: 0 })),
-    [inputMode, gridClusterFrames, phase?.clusterFrames],
+    () => gridClusterFrames,
+    [gridClusterFrames],
   );
 
   // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 OUT exemplar
   // 영역 사용자 명명 영역 우선 + fallback '패턴 N' (resolveClusterLabel 정합).
   // substrate-aware exemplar subscribe (NodeOut mirror) — 사용자 RenameButton
   // 영역 명명 영역 NodeLearn 영역 즉시 sync.
-  const substrate: SubstrateKind = inputMode === 'camera' ? 'gesture' : 'orientation';
+  const substrate: SubstrateKind = 'orientation';
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));
@@ -494,37 +484,27 @@ export default function NodeLearn() {
       exemplarMax = winner.cluster;
     }
     const n = Math.max(exemplarMax + 1, 0);
-    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, inputMode));
-  }, [exemplars, inputMode, winner.cluster]);
+    return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, 'grid'));
+  }, [exemplars, winner.cluster]);
 
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
-    const activeLabel = activeCluster >= 0 ? getClusterLabel(activeCluster, inputMode) : '';
+    const activeLabel = activeCluster >= 0 ? getClusterLabel(activeCluster, 'grid') : '';
     const activeCount = activeCluster >= 0 ? effectiveClusterFrames[activeCluster as 0|1|2|3] : 0;
-    // P209: camera path — untrained/learning hint 별도 문구.
-    const isCamera = inputMode === 'camera';
     const config: Record<string, { label: string; tone: string; sub: string; hint: string }> = {
       untrained: {
         label: 'UNTRAINED',
         tone: 'idle',
-        sub: isCamera
-          ? 'awaiting gesture — 손 자세를 보여주세요'
-          : 'awaiting input — grid preset 학습 또는 camera teacher',
-        hint: isCamera
-          ? '카메라에 손을 보여주세요. 안정적인 자세 감지 시 자동 학습 시작.'
-          : 'INPUT 노드에서 패턴을 학습시키세요',
+        sub: 'awaiting input — grid preset 학습',
+        hint: 'INPUT 노드에서 패턴을 학습시키세요',
       },
       learning: {
         label: 'LEARNING',
         tone: 'amber',
-        sub: isCamera
-          ? 'autoTrainOrSpawn — 패턴 자동 형성 중'
-          : 'R-STDP — capturing frames',
-        hint: isCamera
-          ? '자세를 유지하세요. novel 패턴은 신규 형성, 기존 패턴은 강화.'
-          : (activeLabel
-              ? `${activeLabel} 패턴 유지 (${activeCount}/${CLUSTER_TARGET})`
-              : 'capturing frames…'),
+        sub: 'R-STDP — capturing frames',
+        hint: activeLabel
+          ? `${activeLabel} 패턴 유지 (${activeCount}/${CLUSTER_TARGET})`
+          : 'capturing frames…',
       },
       partial: {
         label: 'PARTIAL',
@@ -543,14 +523,12 @@ export default function NodeLearn() {
       inference: {
         label: 'INFERENCE',
         tone: 'blue',
-        sub: isCamera
-          ? 'inject stdp=off · cluster readout · 학습 동시 진행'
-          : 'STDP off · cluster mean readout',
+        sub: 'STDP off · cluster mean readout',
         hint: '실시간 추론 — 입력을 주세요',
       },
     };
     return config[p];
-  }, [effectivePhase, activeCluster, effectiveClusterFrames, inputMode]);
+  }, [effectivePhase, activeCluster, effectiveClusterFrames]);
 
   const stripActive = regionFired.V1 || regionFired.V2;
   const phaseTone = phaseInfo.tone;
@@ -625,12 +603,6 @@ export default function NodeLearn() {
             <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
-          {/* 카메라 모드 — 패턴 학습 불가 안내. GRID 모드 사용 권장. */}
-          {inputMode === 'camera' && (
-            <div className="snn-pipeline-hint snn-pipeline-hint--warn">
-              카메라 모드에서는 패턴 학습 불가 — GRID 모드를 사용하세요
-            </div>
-          )}
           <div className="snn-pipeline-cluster-list">
             {/* Fix #19 (2026-05-10): zero-init — clusterLabels.length === 0 영역
                 empty placeholder (사용자 mental model "cluster 0개 시작" 정합). */}
@@ -672,13 +644,6 @@ export default function NodeLearn() {
           </div>
         </>
       )}
-      {!isLiveMode && inputMode === 'camera' && (
-        <div className="snn-pipeline-row">
-          <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap snn-pipeline-row-value--dim">
-            카메라 모드 — 추론만 가능 (GRID에서 학습)
-          </span>
-        </div>
-      )}
       {!isLiveMode && gridProgress.lastResult && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">last</span>
@@ -688,7 +653,7 @@ export default function NodeLearn() {
           </span>
         </div>
       )}
-      {!isLiveMode && inputMode === 'grid' && gridProgress.lastError && (
+      {!isLiveMode && gridProgress.lastError && (
         <div className="snn-pipeline-row snn-pipeline-row--wrap">
           <span className="snn-pipeline-row-label">error</span>
           <span className="snn-pipeline-row-value snn-pipeline-row-value--wrap snn-pipeline-row-error">

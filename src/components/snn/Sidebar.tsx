@@ -1,49 +1,25 @@
 'use client';
 
-// Sidebar — camera toggle + settings 두 버튼.
-// 직전 validation / evolve 버튼 폐기 (사용자 명시 — "사이드 메뉴 불필요").
-//   validation: ValidationPanel 자체 폐기.
-//   evolve: EVOLVING phase 자체 폐기 — lifelong learning 진입점 회수.
+// Sidebar — Settings 버튼. 카메라 입력 제거 (2026-05-14).
 //
 // UX Polish PR2 Fix 1 (HIGH [H3], 2026-05-09): 모바일 좌측 48px 항상 visible 정정.
-//   PipelineCanvas 모바일 vertical flex (snn-canvas.css:138 @media max-width 900px)
-//   대비 — Sidebar 만 좌측 고정 catch. `hidden md:flex` swap — 모바일 카메라/Settings
-//   버튼은 MobileBottomBar 가 흡수.
+//   `hidden md:flex` — 모바일 카메라/Settings 버튼은 MobileBottomBar 가 흡수.
 
 interface SidebarProps {
-  cameraConnected: boolean;
-  onToggleCamera: () => void;
   onOpenSettings: () => void;
 }
 
-export default function Sidebar({
-  cameraConnected, onToggleCamera, onOpenSettings,
-}: SidebarProps) {
-  const btn = (active: boolean) =>
+export default function Sidebar({ onOpenSettings }: SidebarProps) {
+  const btn =
     `flex h-9 w-9 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white ` +
-    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 ` +
-    (active ? 'bg-violet-500/25 text-violet-200 ring-1 ring-violet-400/40' : '');
+    `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60`;
   return (
     <aside className="hidden md:flex w-12 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-[#0d0d10]/95 py-3">
       <button
         type="button"
-        title={cameraConnected ? 'Disable camera' : 'Enable camera'}
-        aria-label="Toggle camera"
-        aria-pressed={cameraConnected ? 'true' : 'false'}
-        className={btn(cameraConnected)}
-        onClick={onToggleCamera}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
-      </button>
-      <div className="my-1 h-px w-6 bg-white/10" aria-hidden />
-      <button
-        type="button"
         title="Settings"
         aria-label="Settings"
-        className={btn(false)}
+        className={btn}
         onClick={onOpenSettings}
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

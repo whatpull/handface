@@ -1,12 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
-import HandTrackerHost from '@/components/snn/HandTrackerHost';
 import { HandFaceLogo } from '@/components/handface-logo';
 import { onBackendEvent, type TrainingPhaseDetail } from '@/lib/backend/events';
 import { createActions } from '@/lib/snn/actions';
@@ -28,7 +27,6 @@ const PHASE_KO: Record<TrainingPhaseDetail['phase'], string> = {
 };
 
 export default function Editor() {
-  const [cameraConnected, setCameraConnected] = useState(false);
   // 통합 view — Pipeline (5-node) + Region cascade (4-box) 영역 단일 화면.
   // 직전 ViewMode toggle (pipeline/region) 영역 폐기 — 사용자 명시 "region과 pipeline을
   //   합쳐주면 좋겠습니다" 정합.
@@ -47,10 +45,6 @@ export default function Editor() {
     () => createActions({ busy, setBusy, status: setStatus }),
     [busy],
   );
-
-  // HandTrackerHost 영역 onError 영역 stable callback — useEffect dep 영역 매 render
-  // restart 회피 (HandTrackerHost 영역 active/onFrame/onError dep 영역 stale catch).
-  const onCameraError = useCallback((m: string) => setStatus(`✗ camera: ${m}`), []);
 
   useEffect(() => {
     // 사용자 catch 2026-05-06: 학습 완료 직후 자동 reset 발생 — circuit-changed → canvasNonce++ →
@@ -101,7 +95,7 @@ export default function Editor() {
     const raf = window.requestAnimationFrame(() => {
       showToast({
         kind: 'info',
-        message: '🔴 Live 모드 — 자세를 잡으면 즉시 학습이 시작됩니다. 카메라를 먼저 활성화하세요.',
+        message: 'Live 모드 — GRID 패턴을 그리면 즉시 학습이 시작됩니다.',
         duration: 7000,
       });
       try {
@@ -127,7 +121,7 @@ export default function Editor() {
     const onOffline = () => {
       showToast({
         kind: 'warning',
-        message: 'Offline — MediaPipe-only 사실 (SNN 대부분 학습 진행 0)',
+        message: 'Offline — backend 연결 필요 (SNN 학습/추론 불가)',
         duration: 6000,
       });
     };
@@ -183,8 +177,6 @@ export default function Editor() {
       </header>
       <div className="flex flex-1 min-h-0">
         <Sidebar
-          cameraConnected={cameraConnected}
-          onToggleCamera={() => setCameraConnected((v) => !v)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <main className="relative flex flex-1 flex-col min-w-0">
@@ -192,14 +184,6 @@ export default function Editor() {
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <PipelineCanvas
               key={`pipeline-${canvasNonce}`}
-              cameraConnected={cameraConnected}
-            />
-            {/* HandTrackerHost — 본 컴포넌트 영역 selector (#snn-cam-video / #snn-cam-skel
-                / .snn-feat-bars) 영역 polling — Pipeline view 영역 mount 정합. */}
-            <HandTrackerHost
-              key={`htrack-${canvasNonce}`}
-              active={cameraConnected}
-              onError={onCameraError}
             />
           </div>
           {status && (
@@ -214,8 +198,6 @@ export default function Editor() {
           <MobileBottomBar
             onSave={mobileActions.save}
             onReset={mobileActions.reset}
-            cameraConnected={cameraConnected}
-            onToggleCamera={() => setCameraConnected((v) => !v)}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         </main>

@@ -28,13 +28,6 @@ import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import { getClusterLabel, OUT_PER_CLUSTER, resolveClusterLabel } from './shared';
 
-// 사용자 catch 2026-05-09 (Fix 1): inputMode 영역 substrate kind mapping —
-// GRID = orientation, CAMERA = gesture. out-exemplars store 영역 segregation
-// 정합 (substrate isolation root cause 정정).
-function substrateForInputMode(mode: 'grid' | 'camera'): SubstrateKind {
-  return mode === 'camera' ? 'gesture' : 'orientation';
-}
-
 /**
  * cluster ci 영역 count 합산:
  *   - 우선: out_{ci}_0 ~ out_{ci}_7 sum (N3 cluster broadcast supervisor 정합).
@@ -74,7 +67,6 @@ interface ValidationResult {
 function buildPatternList(
   exemplars: OutExemplars,
   clusterCount: number,
-  inputMode: 'grid' | 'camera',
 ): Array<{ ci: number; label: string; feature: number[] }> {
   const list: Array<{ ci: number; label: string; feature: number[] }> = [];
   for (let ci = 0; ci < clusterCount; ci += 1) {
@@ -88,7 +80,7 @@ function buildPatternList(
       }
     }
     if (!feat) continue; // feature 없으면 검증 불가 — skip.
-    list.push({ ci, label: resolveClusterLabel(exemplars, ci, inputMode), feature: feat });
+    list.push({ ci, label: resolveClusterLabel(exemplars, ci, 'grid'), feature: feat });
   }
   return list;
 }
@@ -139,11 +131,9 @@ function partialCue(feature: number[], keepRatio = 0.5): number[] {
 export default function NodeOut() {
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
   // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
-  const { inputMode, winner, isAutoLearning } = usePipelineEvents();
-  // 사용자 catch 2026-05-09 (Fix 1): substrate-aware exemplar load —
-  // GRID(orientation) / CAMERA(gesture) 영역 별도 store. inputMode swap 영역
-  // store 영역 reload 영역 carry-over 회피.
-  const substrate = useMemo<SubstrateKind>(() => substrateForInputMode(inputMode), [inputMode]);
+  const { winner, isAutoLearning } = usePipelineEvents();
+  // orientation substrate 고정 — 카메라 입력 제거.
+  const substrate: SubstrateKind = 'orientation';
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
 
   useEffect(() => {
@@ -168,7 +158,7 @@ export default function NodeOut() {
   const winnerKey = winner.cluster !== null ? `out_${winner.cluster}_0` : null;
   const winnerEx = winnerKey ? exemplars[winnerKey] : undefined;
   const winnerLabel = winner.cluster !== null
-    ? (winnerEx?.label || getClusterLabel(winner.cluster, inputMode))
+    ? (winnerEx?.label || getClusterLabel(winner.cluster, 'grid'))
     : null;
 
   // Fix #19 (사용자 catch 2026-05-10): UI zero-init — 학습된 cluster 영역만
@@ -207,7 +197,7 @@ export default function NodeOut() {
   const valAbortRef = useRef(false);
 
   const runValidation = useCallback(async () => {
-    const patterns = buildPatternList(exemplars, clusterCount, inputMode);
+    const patterns = buildPatternList(exemplars, clusterCount);
     if (patterns.length < 2) return;
 
     setValRunning(true);
@@ -281,7 +271,7 @@ export default function NodeOut() {
       setValRunning(false);
       setValProgress(null);
     }
-  }, [exemplars, clusterCount, inputMode]);
+  }, [exemplars, clusterCount]);
 
   return (
     <NodeShell
@@ -337,7 +327,7 @@ export default function NodeOut() {
         ) : (
           Array.from({ length: clusterCount }, (_, ci) => ci).map((ci) => {
             const count = sumClusterCount(exemplars, ci);
-            const label = resolveClusterLabel(exemplars, ci, inputMode);
+            const label = resolveClusterLabel(exemplars, ci, 'grid');
             return (
               <div key={ci} className="snn-pipeline-out-count-row">
                 <span className="snn-pipeline-out-count-label">{label}</span>

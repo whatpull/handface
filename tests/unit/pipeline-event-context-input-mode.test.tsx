@@ -1,15 +1,10 @@
-// PipelineEventContext — input-mode swap 영역 lastDetail reset 검증 (Fix 3).
-//
-// 사용자 catch 2026-05-09 [1]: GRID 추론 winner 영역 CAMERA mode 영역 carry-over.
-// root cause — PipelineEventContext 영역 input-mode listener 0 → 자손 (NodeOut /
-// NodeInfer / NodeLearn) 영역 stale winner 표시.
-//
-// PE1: neuron-firing emit 후 input-mode swap 영역 detail/winner 영역 reset.
-// PE2: hand-feature hasHand=false 영역 reset (직전 path 영역 보존 검증).
-// PE3: training-cleared 영역 reset (직전 path 영역 보존 검증).
+// PipelineEventContext — training-cleared 영역 lastDetail reset 검증.
+// 카메라/input-mode swap 테스트 제거 (카메라 입력 제거 2026-05-14).
+// hand-feature reset 제거 (hand-feature listener 제거됨).
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, act } from '@testing-library/react';
+import { vi } from 'vitest';
 
 const eventListeners = new Map<string, Array<(d: unknown) => void>>();
 
@@ -50,58 +45,8 @@ afterEach(() => {
   eventListeners.clear();
 });
 
-describe('PipelineEventContext — input-mode reset (Fix 3)', () => {
-  it('PE1: neuron-firing 후 input-mode swap 영역 detail/winner 영역 reset', () => {
-    render(
-      <PipelineEventProvider>
-        <Probe />
-      </PipelineEventProvider>,
-    );
-    expect(screen.getByTestId('winner').textContent).toBe('null');
-    expect(screen.getByTestId('hasDetail').textContent).toBe('no');
-
-    // neuron-firing emit — winner=2 영역 set.
-    act(() => {
-      emit('neuron-firing', {
-        cluster_rates: [0, 0, 12, 0],
-        winner_cluster: 2,
-        winner_margin: 1.0,
-      });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('2');
-    expect(screen.getByTestId('hasDetail').textContent).toBe('yes');
-
-    // input-mode swap (GRID → CAMERA) 영역 detail/winner reset.
-    act(() => {
-      emit('input-mode', { mode: 'camera' });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('null');
-    expect(screen.getByTestId('hasDetail').textContent).toBe('no');
-  });
-
-  it('PE2: hand-feature hasHand=false 영역 reset (regression catch — 직전 path)', () => {
-    render(
-      <PipelineEventProvider>
-        <Probe />
-      </PipelineEventProvider>,
-    );
-    act(() => {
-      emit('neuron-firing', {
-        cluster_rates: [12, 0, 0, 0],
-        winner_cluster: 0,
-        winner_margin: 1.0,
-      });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('0');
-
-    act(() => {
-      emit('hand-feature', { hasHand: false });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('null');
-    expect(screen.getByTestId('hasDetail').textContent).toBe('no');
-  });
-
-  it('PE3: training-cleared 영역 reset (regression catch — 직전 path)', () => {
+describe('PipelineEventContext — training-cleared reset', () => {
+  it('PE3: training-cleared 영역 detail/winner reset', () => {
     render(
       <PipelineEventProvider>
         <Probe />
@@ -120,26 +65,6 @@ describe('PipelineEventContext — input-mode reset (Fix 3)', () => {
       emit('training-cleared', {});
     });
     expect(screen.getByTestId('winner').textContent).toBe('null');
-  });
-
-  it('PE4: input-mode swap (CAMERA → GRID) 영역 동일 reset path', () => {
-    render(
-      <PipelineEventProvider>
-        <Probe />
-      </PipelineEventProvider>,
-    );
-    act(() => {
-      emit('neuron-firing', {
-        cluster_rates: [0, 0, 0, 12],
-        winner_cluster: 3,
-        winner_margin: 1.0,
-      });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('3');
-
-    act(() => {
-      emit('input-mode', { mode: 'grid' });
-    });
-    expect(screen.getByTestId('winner').textContent).toBe('null');
+    expect(screen.getByTestId('hasDetail').textContent).toBe('no');
   });
 });

@@ -44,9 +44,7 @@ import {
   usePipelineEvents,
 } from './pipeline/PipelineEventContext';
 
-interface Props {
-  cameraConnected: boolean;
-}
+// 카메라 입력 제거 (2026-05-14) — Props 단순화.
 
 // 4 노드 키 — drawflow node id 정합. LLM 노드 영역 폐기 (사용자 명시 2026-05-09 [2]).
 type NodeId = 'input' | 'learn' | 'infer' | 'out';
@@ -113,16 +111,16 @@ function savePositions(pos: PositionMap) {
   }
 }
 
-export default function PipelineCanvas({ cameraConnected }: Props) {
+export default function PipelineCanvas() {
   return (
     <PipelineEventProvider>
-      <PipelineCanvasInner cameraConnected={cameraConnected} />
+      <PipelineCanvasInner />
     </PipelineEventProvider>
   );
 }
 
-function PipelineCanvasInner({ cameraConnected }: Props) {
-  const ctrl = useHandControl(cameraConnected, true, true);
+function PipelineCanvasInner() {
+  const ctrl = useHandControl();
 
   const [phase, setPhase] = useState<string>('untrained');
   // 사용자 catch 2026-05-06: 학습 진행 중 connector active glow — clusterFrames 변경 영역 trigger.
@@ -548,11 +546,10 @@ function PipelineCanvasInner({ cameraConnected }: Props) {
   // node renderer — 4 노드 분기 (LLM 폐기 — 사용자 명시 2026-05-09 [2]).
   const renderNode = (id: NodeId): React.ReactNode => {
     switch (id) {
-      case 'input': return <NodeInput cameraConnected={cameraConnected} />;
+      case 'input': return <NodeInput />;
       // Fix 2 (MEDIUM): patternCount prop 전달 — camera path 실제 학습 수.
       case 'learn': return <NodeLearn />;
-      // Fix 1 (HIGH): enterInference 전달 — camera INFERENCE phase 전환 버튼.
-      case 'infer': return <NodeInfer enterInference={ctrl.enterInference} currentPhase={ctrl.phase} />;
+      case 'infer': return <NodeInfer />;
       case 'out': return <NodeOut />;
     }
   };

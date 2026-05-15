@@ -150,25 +150,41 @@ export class Neuron {
       this.v = this.vReset;
       return;
     }
+    const current = this.drainCurrent(t);
+    const dv = ((-(this.v - this.vRest) + current) / this.tauM) * dt;
+    this.v += dv;
+  }
+
+  /**
+   * SoA fast-path 지원: pending inputs 에서 현재 스텝(t)에 도달한 것만
+   * 드레인하여 합산 current 를 반환한다. v 업데이트는 하지 않으므로 호출자가
+   * Float32Array SoA 버퍼에서 직접 dv 를 계산할 수 있다.
+   *
+   * refractory 판단은 호출자(NeuralNetwork.run SoA loop)가 담당하므로
+   * 이 메서드는 무조건 드레인+합산만 수행한다.
+   */
+  drainCurrent(t: number): number {
     let current = 0.0;
-    const remainW: number[] = [];
-    const remainT: number[] = [];
     const nmdaActive = this.nmdaEnabled && this.v > this.nmdaThreshold;
-    for (let i = 0; i < this.pendingArrivals.length; i += 1) {
+    const arrLen = this.pendingArrivals.length;
+    if (arrLen === 0) return 0.0;
+    let remainHead = 0;
+    for (let i = 0; i < arrLen; i += 1) {
       const arrival = this.pendingArrivals[i];
       const w = this.pendingWeights[i];
       if (arrival <= t) {
         if (nmdaActive && w > 0) current += w * this.nmdaGain;
         else current += w;
       } else {
-        remainW.push(w);
-        remainT.push(arrival);
+        // compact in-place: 남은 것만 앞으로 이동
+        this.pendingArrivals[remainHead] = arrival;
+        this.pendingWeights[remainHead] = w;
+        remainHead += 1;
       }
     }
-    this.pendingWeights = remainW;
-    this.pendingArrivals = remainT;
-    const dv = ((-(this.v - this.vRest) + current) / this.tauM) * dt;
-    this.v += dv;
+    this.pendingArrivals.length = remainHead;
+    this.pendingWeights.length = remainHead;
+    return current;
   }
 
   fire(t: number, dt: number, stdpEnabled: boolean = false, stdpGain: number = 1.0): boolean {

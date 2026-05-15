@@ -100,8 +100,100 @@ export class NeuralNetwork {
   t = 0.0;
   defaultDt: number;
 
+  // ── SoA (Struct of Arrays) 버퍼 — LIF integrate fast-path ──
+  // addNeuron / restore 시 grow, run() inner loop 에서 직접 인덱스 접근.
+  // 각 배열의 길이는 neurons.length 와 동일하게 유지된다.
+  //
+  // Float32Array: v, vRest, vReset, tauM, refractory, lastSpikeTime,
+  //               nmdaThreshold, nmdaGain, inputBuf (per-step current)
+  // Uint8Array:   nmdaEnabled (0|1), inRefractory flag (per-step)
+  private _soaN = 0; // 현재 SoA 버퍼에 유효한 뉴런 수
+  private _vBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _vRestBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _vResetBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _tauMBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _refracBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _lastSpikeBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _nmdaEnabledBuf: Uint8Array<ArrayBuffer> = new Uint8Array(0) as Uint8Array<ArrayBuffer>;
+  private _nmdaThreshBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _nmdaGainBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
+  private _inputBuf: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>; // drainCurrent 결과 임시 보관
+
   constructor(opts: NetworkOptions = {}) {
     this.defaultDt = opts.defaultDtMs ?? 0.1;
+  }
+
+  /**
+   * SoA 버퍼를 뉴런 배열과 동기화한다.
+   * addNeuron 직후 또는 restore 완료 후 호출된다.
+   * 기존 데이터는 copy되므로 incremental grow 도 안전하다.
+   */
+  private _growSoA(newSize: number): void {
+    if (newSize <= this._soaN) return;
+    const growF32 = (old: Float32Array<ArrayBuffer>): Float32Array<ArrayBuffer> => {
+      const next = new Float32Array(newSize) as Float32Array<ArrayBuffer>;
+      next.set(old);
+      return next;
+    };
+    const growU8 = (old: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> => {
+      const next = new Uint8Array(newSize) as Uint8Array<ArrayBuffer>;
+      next.set(old);
+      return next;
+    };
+    this._vBuf = growF32(this._vBuf);
+    this._vRestBuf = growF32(this._vRestBuf);
+    this._vResetBuf = growF32(this._vResetBuf);
+    this._tauMBuf = growF32(this._tauMBuf);
+    this._refracBuf = growF32(this._refracBuf);
+    this._lastSpikeBuf = growF32(this._lastSpikeBuf);
+    this._nmdaEnabledBuf = growU8(this._nmdaEnabledBuf);
+    this._nmdaThreshBuf = growF32(this._nmdaThreshBuf);
+    this._nmdaGainBuf = growF32(this._nmdaGainBuf);
+    this._inputBuf = growF32(this._inputBuf);
+    this._soaN = newSize;
+  }
+
+  /** 뉴런 하나를 SoA 버퍼의 인덱스 idx 슬롯에 기록한다. */
+  private _writeSoASlot(idx: number, n: Neuron): void {
+    this._vBuf[idx] = n.v;
+    this._vRestBuf[idx] = n.vRest;
+    this._vResetBuf[idx] = n.vReset;
+    this._tauMBuf[idx] = n.tauM;
+    this._refracBuf[idx] = n.refractory;
+    // lastSpikeTime: NEGATIVE_INFINITY → -1e38 (Float32 범위 내 sentinel)
+    this._lastSpikeBuf[idx] = isFinite(n.lastSpikeTime) ? n.lastSpikeTime : -1e38;
+    this._nmdaEnabledBuf[idx] = n.nmdaEnabled ? 1 : 0;
+    this._nmdaThreshBuf[idx] = n.nmdaThreshold;
+    this._nmdaGainBuf[idx] = n.nmdaGain;
+  }
+
+  /**
+   * SoA 버퍼의 v / lastSpikeTime 을 Neuron 객체로부터 일괄 동기화한다.
+   * run() 시작 시점에 호출되어 직전 fire() 에서 변경된 값들을 반영한다.
+   */
+  private _syncSoAFromNeurons(): void {
+    const neurons = this.neurons;
+    const N = neurons.length;
+    const vBuf = this._vBuf;
+    const lsBuf = this._lastSpikeBuf;
+    for (let i = 0; i < N; i += 1) {
+      const n = neurons[i];
+      vBuf[i] = n.v;
+      lsBuf[i] = isFinite(n.lastSpikeTime) ? n.lastSpikeTime : -1e38;
+    }
+  }
+
+  /**
+   * SoA 버퍼의 v 를 Neuron 객체로 역동기화한다.
+   * SoA integrate pass 완료 후 fire() 가 최신 v 를 읽을 수 있게 한다.
+   */
+  private _syncVToNeurons(): void {
+    const neurons = this.neurons;
+    const N = neurons.length;
+    const vBuf = this._vBuf;
+    for (let i = 0; i < N; i += 1) {
+      neurons[i].v = vBuf[i];
+    }
   }
 
   size(): number {
@@ -124,6 +216,9 @@ export class NeuralNetwork {
     const idx = this.neurons.length;
     this.neurons.push(neuron);
     this.byName.set(neuron.name, idx);
+    // SoA 버퍼 확장 + 슬롯 초기화
+    this._growSoA(idx + 1);
+    this._writeSoASlot(idx, neuron);
     return idx;
   }
 
@@ -162,17 +257,78 @@ export class NeuralNetwork {
   }
 
   // 시뮬레이션 진전. stdpEnabled=true 시 모든 fire 에 STDP 적용.
+  //
+  // SoA fast-path (P211): integrate 단계를 Float32Array 기반 연속 메모리로 실행.
+  // 3-pass per step:
+  //   Pass 1 — drainCurrent(t): OOP 객체에서 pending inputs 드레인 → inputBuf[i]
+  //   Pass 2 — SoA LIF dv: Float32Array 인덱스 연산으로 vBuf[i] 업데이트 (hot loop)
+  //   Pass 3 — fire(): OOP 유지 (STDP / homeostatic / propagate 복잡도)
+  //   Pass 4 — syncV: fire() 가 변경한 v / lastSpikeTime 을 SoA 버퍼에 역동기화
   run(durationMs: number, opts: { dtMs?: number; stdpEnabled?: boolean; stdpGain?: number } = {}): void {
     const dt = opts.dtMs ?? this.defaultDt;
     const stdp = opts.stdpEnabled ?? false;
     const gain = opts.stdpGain ?? 1.0;
     const steps = Math.max(0, Math.floor(durationMs / dt));
+    if (steps === 0) return;
+
+    const neurons = this.neurons;
+    const N = neurons.length;
+
+    // SoA 버퍼가 neurons 배열과 크기가 다를 경우 재동기화 (expandCluster 후 첫 run).
+    if (this._soaN < N) {
+      const prevSoAN = this._soaN;
+      this._growSoA(N);
+      // addNeuron 에서 못 채운 슬롯 초기화 (방어 코드 — 정상 경로에서는 0 iter)
+      for (let i = prevSoAN; i < N; i += 1) this._writeSoASlot(i, neurons[i]);
+    }
+
+    // run() 시작 전 SoA v + lastSpikeTime 동기화 (직전 run 이후 외부 변경 반영).
+    this._syncSoAFromNeurons();
+
+    // 로컬 alias — JIT 최적화 친화적 (V8 deopt 회피)
+    const vBuf = this._vBuf;
+    const vRestBuf = this._vRestBuf;
+    const vResetBuf = this._vResetBuf;
+    const tauMBuf = this._tauMBuf;
+    const refracBuf = this._refracBuf;
+    const lastSpikeBuf = this._lastSpikeBuf;
+    const inputBuf = this._inputBuf;
+
     for (let i = 0; i < steps; i += 1) {
       const t = this.t + i * dt;
-      // integrate → fire 분리 호출 (Python step() 와 동등).
-      for (const n of this.neurons) n.integrate(t, dt);
-      for (const n of this.neurons) n.fire(t, dt, stdp, gain);
+
+      // Pass 1: pending inputs 드레인 → inputBuf (OOP — 시냅스 그래프 의존)
+      for (let ni = 0; ni < N; ni += 1) {
+        inputBuf[ni] = neurons[ni].drainCurrent(t);
+      }
+
+      // Pass 2: SoA LIF integrate — 연속 메모리 인덱스 연산 (hot loop)
+      for (let ni = 0; ni < N; ni += 1) {
+        if (t - lastSpikeBuf[ni] < refracBuf[ni]) {
+          // refractory — v 를 vReset 으로 클램프
+          vBuf[ni] = vResetBuf[ni];
+        } else {
+          const v = vBuf[ni];
+          const dv = ((-(v - vRestBuf[ni]) + inputBuf[ni]) / tauMBuf[ni]) * dt;
+          vBuf[ni] = v + dv;
+        }
+      }
+
+      // Pass 3: SoA v → Neuron.v 역동기화 후 fire() (OOP — STDP/homeostatic/propagate)
+      this._syncVToNeurons();
+      for (let ni = 0; ni < N; ni += 1) {
+        if (neurons[ni].fire(t, dt, stdp, gain)) {
+          // fire() 가 v, lastSpikeTime 을 변경했으므로 SoA 버퍼 즉시 갱신
+          vBuf[ni] = neurons[ni].v;
+          lastSpikeBuf[ni] = neurons[ni].lastSpikeTime;
+        }
+      }
     }
+
+    // SoA 최종 v 를 Neuron 객체에 반영 (run 종료 후 외부가 n.v 로 읽는 경우 대비).
+    // fire() pass 에서 이미 syncV 했으므로 lastStep 의 v 만 추가 반영.
+    this._syncVToNeurons();
+
     this.t += steps * dt;
   }
 

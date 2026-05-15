@@ -162,6 +162,10 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
     // 영역 비교 → novel 시점 영역 30 trial chunked reinforce 영역 자동 trigger
     // (worker push event 영역 별도 emit).
     render(<GridInput />);
+    // isGridEmpty() early-return 방지 — 픽셀 1개 이상 on 상태여야 triggerWithVigilance
+    // 까지 도달. pixel 0 클릭 → grid[0] = 1 (non-empty).
+    const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
+    fireEvent.click(pixels[0]);
     const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);
     await Promise.resolve();

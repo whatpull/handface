@@ -395,6 +395,10 @@ export default function GridInput() {
     const CHUNK = 10;
     const totals = [0, 0, 0, 0];
     const trained = [0, 0, 0, 0];
+    // V1/V2 갱신용 — 루프 중 마지막으로 수신한 firing 데이터 보존.
+    // backend 가 rates_by_region 를 미동봉 시에도 루프 완료 시점에 1회
+    // neuron-firing 을 emit (NodeLearn V1/V2 strip 고착 방지).
+    let lastFiringDetail: Partial<NeuronFiringDetail> = {};
     for (let round = 0; round < ROUNDS; round += 1) {
       for (let cid = 0; cid < 4; cid += 1) {
         const pattern = ORIENTATION_PRESETS[cid];
@@ -416,14 +420,25 @@ export default function GridInput() {
           kind: 'progress', cluster: cid as 0 | 1 | 2 | 3,
           framesDone: framesDoneNorm, framesTotal: 30,
         });
+        // V1/V2 데이터가 있으면 즉시 emit + 마지막 데이터 보존.
+        // client.ts clusterTrainRStdp 도 동일 조건 emit — 중복 emit 은
+        // PipelineEventContext 가 마지막 값으로 덮어쓰므로 무해.
         if (r.data.rates_by_region || r.data.active_neurons_by_region) {
-          emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          const detail: Partial<NeuronFiringDetail> = {
             rates_by_region: r.data.rates_by_region,
             active_neurons_by_region: r.data.active_neurons_by_region,
-          });
+          };
+          lastFiringDetail = detail;
+          emitBackendEvent<NeuronFiringDetail>('neuron-firing', detail as NeuronFiringDetail);
         }
       }
     }
+    // Grid 학습 완료 — 루프 종료 시점에 neuron-firing 1회 강제 emit.
+    // backend 가 rates_by_region 을 미동봉한 경우에도 NodeLearn V1/V2 strip
+    // 이 최소 1회 갱신되도록 보장 (fix: V1/V2 항상 0 고착 방지).
+    // lastFiringDetail 이 비어있으면 빈 payload 로 emit — strip 을 0 으로
+    // 명시 리셋 (학습 완료 후 silent 상태 정직 표시).
+    emitBackendEvent<NeuronFiringDetail>('neuron-firing', lastFiringDetail as NeuronFiringDetail);
     const accs = totals.map((c, i) => trained[i] > 0 ? Math.round(c / trained[i] * 100) : 0);
     setStatus({
       kind: 'ok',

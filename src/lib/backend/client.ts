@@ -418,6 +418,8 @@ export class NeuronFaceClient {
     reason?: string;
     prefix?: string;
     vectorized_path?: boolean;
+    rates_by_region?: Record<string, number>;
+    active_neurons_by_region?: Record<string, string[]>;
   }>> {
     const net = await this.ensureNetwork();
     if (!net.ok) return net;
@@ -444,6 +446,8 @@ export class NeuronFaceClient {
       reason?: string;
       prefix?: string;
       vectorized_path?: boolean;
+      rates_by_region?: Record<string, number>;
+      active_neurons_by_region?: Record<string, string[]>;
     }>(`/networks/${net.data}/cluster_train_supervised`, {
       method: 'POST',
       body: {
@@ -463,7 +467,18 @@ export class NeuronFaceClient {
         vectorized: opts.vectorized ?? false,
       },
     });
-    if (r.ok) emitBackendEvent('training-changed', { trained: r.data.trained });
+    if (r.ok) {
+      emitBackendEvent('training-changed', { trained: r.data.trained });
+      // V1/V2 strip 갱신 — 학습 완료 시점 firing 데이터가 있으면 neuron-firing emit.
+      // backend 가 rates_by_region 을 동봉 시 NodeLearn V1/V2 cascade strip 즉시 갱신.
+      const d = r.data;
+      if (d.rates_by_region || d.active_neurons_by_region) {
+        emitBackendEvent<NeuronFiringDetail>('neuron-firing', {
+          rates_by_region: d.rates_by_region,
+          active_neurons_by_region: d.active_neurons_by_region,
+        } as NeuronFiringDetail);
+      }
+    }
     return r;
   }
 

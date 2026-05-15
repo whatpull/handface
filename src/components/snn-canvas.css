@@ -117,6 +117,46 @@
   .snn-pipeline { overflow-y: auto; overflow-x: hidden; }
 }
 
+/* [A] auto-learn 진행률 패널 — 신규 패턴 30회 학습 중 N/30 진행바. */
+.snn-pipeline-auto-learn-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px var(--pipe-gap-sm);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 3px;
+  background: rgba(251, 191, 36, 0.05);
+}
+.snn-pipeline-auto-learn-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 4px;
+  column-gap: 6px;
+  row-gap: 2px;
+  align-items: center;
+}
+.snn-pipeline-auto-learn-label {
+  font-size: var(--pipe-font-xs);
+  color: #fbbf24;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snn-pipeline-auto-learn-count {
+  font-size: var(--pipe-font-xs);
+  color: rgba(251, 191, 36, 0.8);
+  text-align: right;
+  flex-shrink: 0;
+}
+.snn-pipeline-auto-learn-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
 /* LEARN 노드 내부 V1/V2 cortical region strip */
 .snn-pipeline-learn-region-strip {
   display: flex;
@@ -1403,6 +1443,28 @@
   display: flex;
   flex-direction: column;
   gap: var(--pipe-gap-sm);
+}
+/* [C] 학습 완료 flash — 30회 완료 시 1200ms 녹색 glow.
+   opacity 애니메이션 only (GPU compositor — paint/layout trigger 0).
+   ::after pseudo-element 영역 green ring 영역 opacity fade. */
+.snn-grid-input {
+  position: relative;
+}
+.snn-grid-input.is-learn-done::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 4px;
+  border: 2px solid rgba(52, 211, 153, 0.8);
+  pointer-events: none;
+  animation: snn-learn-done-flash 1200ms ease-out forwards;
+}
+@keyframes snn-learn-done-flash {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-grid-input.is-learn-done::after { animation: none; opacity: 0.5; }
 }
 .snn-grid-train-all-btn {
   appearance: none;

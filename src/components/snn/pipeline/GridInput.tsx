@@ -90,6 +90,10 @@ function emptyGrid(): number[] {
   return new Array<number>(16).fill(0);
 }
 
+function isGridEmpty(g: number[]): boolean {
+  return g.every((v) => v <= 0.5);
+}
+
 // Backend audit fix #4 (UX-designer 권고): vigilance slider + novelty mode toggle.
 // Carpenter-Grossberg 1987 ART vigilance ρ — 0.05~0.95 범위 (보수적 0.95 / 관대
 // 0.05). default 0.7 영역 backend `app.py:3163` (vigilance_threshold default
@@ -136,6 +140,8 @@ export default function GridInput() {
   // 결과 unreliable 영역 사용자 catch. PipelineEventContext 영역 single-source
   // (auto-learn-progress event 영역 derived).
   const { isAutoLearning } = usePipelineEvents();
+  // [C] 학습 완료 flash — 30회 완료 시 1200ms 동안 is-learn-done class 부여.
+  const [learnDoneFlash, setLearnDoneFlash] = useState<boolean>(false);
 
   // Backend audit fix #4 (UX-designer 권고 Part A+B): vigilance slider + novelty
   // 모드 토글. backend mode (engineMode='backend') 영역만 노출 — Live mode
@@ -453,6 +459,15 @@ export default function GridInput() {
       });
       return;
     }
+    // [B] 빈 그리드 추론 방지 — 셀이 하나도 선택 안 됨.
+    if (isGridEmpty(grid)) {
+      setStatus({
+        kind: 'warning',
+        message: '패턴 없음 — 추론 불가',
+        hint: '그리드에 셀을 하나 이상 선택한 후 추론하세요.',
+      });
+      return;
+    }
     setStatus({ kind: 'inferring' });
     emitBackendEvent<GridInferDetail>('grid-infer', { kind: 'started' });
 
@@ -575,6 +590,15 @@ export default function GridInput() {
       });
       return;
     }
+    // [B] 빈 그리드 추론 방지 — 셀이 하나도 선택 안 됨.
+    if (isGridEmpty(grid)) {
+      setStatus({
+        kind: 'warning',
+        message: '패턴 없음 — 추론 불가',
+        hint: '그리드에 셀을 하나 이상 선택한 후 추론하세요.',
+      });
+      return;
+    }
     setStatus({ kind: 'inferring' });
     // QA round 4 fix #13 (2026-05-10): Live mode 영역 'grid-infer' started
     // emit 영역 mandatory — PipelineEventContext 영역 reset trigger 영역
@@ -676,6 +700,9 @@ export default function GridInput() {
             message: `${label} 자동 학습 완료 (30 trial)`,
             hint: 'ART vigilance 영역 신규 cluster 영역 자동 형성',
           });
+          // [C] 학습 완료 flash — 1200ms 동안 is-learn-done 시각 피드백.
+          setLearnDoneFlash(true);
+          setTimeout(() => setLearnDoneFlash(false), 1200);
         }
       }
     });
@@ -684,7 +711,7 @@ export default function GridInput() {
   const isLiveMode = engineMode === 'live';
 
   return (
-    <div className="snn-grid-input">
+    <div className={`snn-grid-input${learnDoneFlash ? ' is-learn-done' : ''}`}>
       {!isLiveMode && (
         <>
           {/* 사용자 catch 2026-05-09 [1]: '회로 빌드 (orientation)' button 제거 —

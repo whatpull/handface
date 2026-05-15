@@ -101,7 +101,7 @@ export default function NodeLearn() {
   // path Y: 입력 모드 + grid 학습 진행. NodeInput / GridInput 가 broadcast.
   // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
   // TDZ 회피: inputMode 이 아래 useEffect 의존성(line ~121, ~331)보다 먼저 선언.
-  const { inputMode, lastDetail, autoLearnProgress, winner, winnerForcedExact } = usePipelineEvents();
+  const { inputMode, lastDetail, autoLearnProgress, isAutoLearning, winner, winnerForcedExact } = usePipelineEvents();
   const [gridProgress, setGridProgress] = useState<GridProgress>(INITIAL_GRID_PROGRESS);
 
   // 사용자 catch 2026-05-09 [2] (Fix 4): substrate-aware init state subscribe —
@@ -599,6 +599,8 @@ export default function NodeLearn() {
           initState={initState}
           winner={winner}
           winnerForcedExact={winnerForcedExact}
+          autoLearnProgress={autoLearnProgress}
+          isAutoLearning={isAutoLearning}
         />
       ) : (
         <>
@@ -701,6 +703,8 @@ function LiveLearnPanel({
   initState,
   winner,
   winnerForcedExact,
+  autoLearnProgress,
+  isAutoLearning,
 }: {
   tick: LiveTickDetail | null;
   clusterLabels: readonly string[];
@@ -713,6 +717,9 @@ function LiveLearnPanel({
   // PipelineEventContext 영역 단일 source. true 영역 winner card 영역 "EXACT MATCH"
   // badge replace + LiveRateRow 영역 winner row Hz 영역 hide → "EXACT" pill.
   winnerForcedExact: boolean;
+  // [A] 학습 진행률 — PipelineEventContext.autoLearnProgress + isAutoLearning.
+  autoLearnProgress: Map<number, number>;
+  isAutoLearning: boolean;
 }) {
   // STDP pulse LED — trial 변경 시 mount key ↑ 영역 animation 1회 재생.
   // tick === null 영역 0 — 첫 trial 도달 시점부터 pulse.
@@ -914,6 +921,28 @@ function LiveLearnPanel({
           />
         ))}
       </div>
+      {/* [A] 학습 진행률 표시 — isAutoLearning 영역 신규 패턴 30회 자동 학습 중
+          auto-learn-progress 이벤트 기반. Map 영역 clusterId→progress 영역 순회.
+          TOTAL=30 영역 LEARN/INFER 정합 (runAutoLearnLoop TOTAL=6×5).
+          --w CSS var 영역 ref 기반 setProperty (inline style 회피 — fillRef 패턴
+          ClusterRow / LiveRateRow 정합). */}
+      {isAutoLearning && autoLearnProgress.size > 0 && (
+        <div className="snn-pipeline-auto-learn-progress" role="status" aria-live="polite">
+          {Array.from(autoLearnProgress.entries()).map(([clusterId, progress]) => {
+            const TOTAL = 30;
+            if (progress >= TOTAL) return null;
+            const clusterLabel = clusterLabels[clusterId] ?? `패턴 ${clusterId + 1}`;
+            return (
+              <AutoLearnProgressRow
+                key={clusterId}
+                label={clusterLabel}
+                progress={progress}
+                total={TOTAL}
+              />
+            );
+          })}
+        </div>
+      )}
       {/* 사용자 catch 2026-05-09 [2] (Fix 4): DB visibility footer status row —
           fresh / hydrated 영역 정직 표시 (사용자 mental model 영역 직접 정합). */}
       {dbHint && (
@@ -1015,6 +1044,36 @@ function RegionStripBox({ region, total, active, rateHz, fired, isProxy = false 
       <span className="snn-pipeline-learn-region-hz-value snn-pipeline-mono">
         {hzPrefix}{rateHz.toFixed(0)}Hz
       </span>
+    </div>
+  );
+}
+
+// [A] AutoLearnProgressRow — 자동 학습 진행 중 N/30 진행바.
+// --w CSS var 영역 ref.setProperty (inline style 회피 — ClusterRow 패턴 정합).
+function AutoLearnProgressRow({ label, progress, total }: {
+  label: string;
+  progress: number;
+  total: number;
+}) {
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (fillRef.current) {
+      const pct = Math.min(100, total > 0 ? Math.round((progress / total) * 100) : 0);
+      fillRef.current.style.setProperty('--w', `${pct}%`);
+    }
+  }, [progress, total]);
+  return (
+    <div className="snn-pipeline-auto-learn-row">
+      <span className="snn-pipeline-auto-learn-label">학습 중 {label}</span>
+      <span className="snn-pipeline-auto-learn-count snn-pipeline-mono">
+        {progress}/{total}
+      </span>
+      <div className="snn-pipeline-auto-learn-bar">
+        <div
+          ref={fillRef}
+          className="snn-mode-progress-fill snn-pipeline-fill-amber is-active"
+        />
+      </div>
     </div>
   );
 }

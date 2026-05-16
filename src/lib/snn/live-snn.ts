@@ -1043,9 +1043,9 @@ export class LiveSnn {
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
-    // Fix 1 (2026-05-15): MAX_CLUSTERS=5 hard limit — expandCluster 호출 전
-    // 현재 exemplar cluster 수 확인. 5개 이상이면 spawn 차단 (toast 알림).
-    const MAX_CLUSTERS = 5;
+    // Fix 1 (2026-05-15): MAX_CLUSTERS hard limit — expandCluster 호출 전
+    // 현재 exemplar cluster 수 확인. 상한 이상이면 spawn 차단 (toast 알림).
+    const MAX_CLUSTERS = 8;
     {
       const exNow = loadExemplars(this.substrateKind);
       let curCount = 0;

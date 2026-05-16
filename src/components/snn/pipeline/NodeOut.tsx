@@ -156,6 +156,14 @@ function partialCue(feature: number[], keepRatio = 0.75): number[] {
   return feature.map((v) => (Math.random() < keepRatio ? v : 0));
 }
 
+/** 패턴 수에 따른 단계별 성능 힌트 메시지. 3개 이하 → null (표시 불필요). */
+function patternQualityHint(count: number): string | null {
+  if (count <= 3) return null;
+  if (count <= 5) return '패턴이 많을수록 부분 단서 정확도가 낮아질 수 있습니다.';
+  if (count <= 7) return '6-7패턴: 재현율/노이즈는 유지되나 부분 단서 저하 예상.';
+  return '최대 8개 도달 — 학습 비활성. 패턴 삭제 후 재학습하세요.';
+}
+
 export default function NodeOut() {
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
   // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
@@ -351,10 +359,10 @@ export default function NodeOut() {
           </span>
         )}
       </div>
-      {/* P(3) 2026-05-14: 패턴 >= 5 시 학습 비활성 경고 */}
-      {clusterCount >= 5 && (
+      {/* 패턴 수에 따른 단계별 성능 안내 (4개 이상부터 표시) */}
+      {patternQualityHint(clusterCount) && (
         <div className="snn-pipeline-note" role="status" aria-live="polite">
-          최대 5개 패턴 도달 — 학습 비활성. 패턴을 삭제 후 재학습하세요.
+          {patternQualityHint(clusterCount)}
         </div>
       )}
       <div className="snn-pipeline-out-counts">
@@ -490,6 +498,7 @@ function ValidationPanel({
         </button>
         {valRunning && <span className="snn-val-spinner" aria-label="검증 실행 중" />}
         {valRunning ? (
+          // 최대 8개 패턴 × 3종(재현/노이즈/부분단서) = 최대 24 inject — 취소로 중단 가능.
           <button
             type="button"
             className="snn-val-run-btn snn-val-cancel-btn"

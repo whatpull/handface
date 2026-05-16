@@ -47,7 +47,7 @@ export interface N13PresetResult {
   neuronsAdded: number;
   synapsesAdded: number;
   vThreshold: number;
-  inputDim: 16;
+  inputDim: 32;
   // dynamic — clusterActiveInputs.length (0 if zero-init).
   outClusters: number;
   outTotal: number;
@@ -55,13 +55,77 @@ export interface N13PresetResult {
   preset: 'n13_orientation';
 }
 
+// 32-dim disjoint feature — raw 16 + 16 derived (row/col/quadrant/diagonal).
+// 수평/수직 패턴 혼동 root fix: row 합계 feature → cluster 0 전담,
+// col 합계 feature → cluster 1 전담 → WTA 분리 보장.
+//   [0..15]  : raw cell (row-major, 4×4)
+//   [16..19] : row sums (row0..3) / 4    — 수평선 강조
+//   [20..23] : col sums (col0..3) / 4    — 수직선 강조
+//   [24..27] : quadrant averages (TL/TR/BL/BR)
+//   [28]     : main diagonal (0,5,10,15) / 4
+//   [29]     : anti diagonal (3,6,9,12)  / 4
+//   [30]     : middle horizontal rows (row1+row2) / 8
+//   [31]     : middle vertical cols (col1+col2) / 8
+export const N_INPUT = 32 as const;
+
+export function compute32DimFeature(raw16: number[]): number[] {
+  const f = raw16.slice(); // [0..15]
+  // row sums [16..19]
+  for (let r = 0; r < 4; r += 1) {
+    let s = 0;
+    for (let c = 0; c < 4; c += 1) s += (raw16[r * 4 + c] > 0.5 ? 1 : 0);
+    f.push(s / 4);
+  }
+  // col sums [20..23]
+  for (let c = 0; c < 4; c += 1) {
+    let s = 0;
+    for (let r = 0; r < 4; r += 1) s += (raw16[r * 4 + c] > 0.5 ? 1 : 0);
+    f.push(s / 4);
+  }
+  // quadrant averages [24..27]: TL/TR/BL/BR (each 2×2)
+  const quads = [
+    [0, 1, 4, 5],   // TL
+    [2, 3, 6, 7],   // TR
+    [8, 9, 12, 13], // BL
+    [10, 11, 14, 15], // BR
+  ];
+  for (const idxs of quads) {
+    let s = 0;
+    for (const i of idxs) s += (raw16[i] > 0.5 ? 1 : 0);
+    f.push(s / 4);
+  }
+  // main diagonal [28]: 0,5,10,15
+  f.push(((raw16[0] > 0.5 ? 1 : 0) + (raw16[5] > 0.5 ? 1 : 0) + (raw16[10] > 0.5 ? 1 : 0) + (raw16[15] > 0.5 ? 1 : 0)) / 4);
+  // anti diagonal [29]: 3,6,9,12
+  f.push(((raw16[3] > 0.5 ? 1 : 0) + (raw16[6] > 0.5 ? 1 : 0) + (raw16[9] > 0.5 ? 1 : 0) + (raw16[12] > 0.5 ? 1 : 0)) / 4);
+  // middle horizontal rows [30]: row1(4..7)+row2(8..11) / 8
+  {
+    let s = 0;
+    for (let i = 4; i < 12; i += 1) s += (raw16[i] > 0.5 ? 1 : 0);
+    f.push(s / 8);
+  }
+  // middle vertical cols [31]: col1(1,5,9,13)+col2(2,6,10,14) / 8
+  {
+    const midColIdx = [1, 5, 9, 13, 2, 6, 10, 14];
+    let s = 0;
+    for (const i of midColIdx) s += (raw16[i] > 0.5 ? 1 : 0);
+    f.push(s / 8);
+  }
+  return f; // length === 32
+}
+
 // 4-cluster orientation 기본 매핑 — test / explicit caller 영역만 사용.
 // runtime 영역 zero-init (clusterActiveInputs=[]) 영역 default.
+// 32-dim disjoint feature 기반 (compute32DimFeature 정합):
+//   cluster 0 (─ horizontal): row sum features [16..19] — 수평 강조
+//   cluster 1 (│ vertical):   col sum features [20..23] — 수직 강조
+//   cluster 2 (╲ diag-back):  main diag [28] + quadrant TL/BR [24,27]
+//   cluster 3 (╱ diag-fore):  anti diag [29] + quadrant TR/BL [25,26]
 export const LEGACY_FOUR_CLUSTER_INPUTS: number[][] = [
-  [4, 5, 6, 7], //   ─ horizontal: row 1
-  [1, 5, 9, 13], //  │ vertical: col 1
-  [0, 5, 10, 15], // ╲ diag-back
-  [3, 6, 9, 12], //  ╱ diag-fore
+  [16, 17, 18, 19], //   ─ horizontal: row sums
+  [20, 21, 22, 23], //   │ vertical: col sums
+  [28, 24, 27], //       ╲ diag-back: main diag + TL/BR quadrant
+  [29, 25, 26], //       ╱ diag-fore: anti diag + TR/BL quadrant
 ];
 
 // per-cluster pool size (expandCluster 영역 신규 cluster spawn 영역 정합).
@@ -96,8 +160,9 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
   const rng = new SeededRandom(seed);
 
   // ── 뉴런 등록 ──
+  // 32-dim disjoint feature: raw 16 + derived 16 (compute32DimFeature 정합).
   const inputs: string[] = [];
-  for (let i = 0; i < 16; i += 1) inputs.push(`in_feat_${i}`);
+  for (let i = 0; i < N_INPUT; i += 1) inputs.push(`in_feat_${i}`);
   const v1L4e: string[] = [];
   for (let i = 0; i < V1_L4E; i += 1) v1L4e.push(`v1_L4_E_${i}`);
   const v1L4i: string[] = [];
@@ -162,7 +227,7 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
     const localV1 = v1L4e.slice(V1_L4_PER_SUB * ci, V1_L4_PER_SUB * (ci + 1));
     const activeIdx = clusterActive[ci];
     const inactiveIdx: number[] = [];
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0; i < N_INPUT; i += 1) {
       if (!activeIdx.includes(i)) inactiveIdx.push(i);
     }
     for (const ai of activeIdx) {
@@ -315,7 +380,7 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
     neuronsAdded: net.size(),
     synapsesAdded: net.synapses.length - beforeSyn,
     vThreshold,
-    inputDim: 16,
+    inputDim: 32,
     outClusters: N_CLUSTER,
     outTotal: OUT_TOTAL,
     homeostaticNeurons: homeostaticNames.length,

@@ -44,6 +44,7 @@ import type {
   TriggerErrorPayload,
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
+import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
 import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 
@@ -1006,10 +1007,11 @@ export class LiveSnn {
       // mismatch 영역 vigilanceMismatch 영역 outer scope 영역 이미 산출 정합 —
       // 동일 condition 영역 spawn path 영역 trigger.
       if (vigilanceMismatch) {
-        // active inputs 영역 pattern 영역 v > 0.5 binary catch.
+        // 32-dim 확장 후 active inputs 추출 — in_feat_0..31 기반 정합.
+        const feat32 = pattern.length === 16 ? compute32DimFeature(pattern) : pattern;
         const activeInputs: number[] = [];
-        for (let i = 0; i < pattern.length; i += 1) {
-          if (pattern[i] > 0.5) activeInputs.push(i);
+        for (let i = 0; i < feat32.length; i += 1) {
+          if (feat32[i] > 0.5) activeInputs.push(i);
         }
         // activeInputs 영역 0 영역 silent pattern (사용자 영역 빈 grid 영역
         // 추론 button click) — auto-learn skip + emit dummy reinforce push
@@ -1206,9 +1208,12 @@ export class LiveSnn {
     durationMs: number;
     stepMs: number;
   }> {
+    // 16-dim raw → 32-dim 확장 (compute32DimFeature). 이미 32-dim이면 그대로.
+    const raw = this.patternRef;
+    const feat = raw.length === 16 ? compute32DimFeature(raw) : raw;
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
-    for (let i = 0; i < 16; i += 1) {
-      const v = this.patternRef[i];
+    for (let i = 0; i < feat.length; i += 1) {
+      const v = feat[i];
       if (v <= 0.5) continue;
       out.push({
         neuron: `in_feat_${i}`,

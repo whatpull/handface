@@ -45,7 +45,7 @@ export interface ClusterRegistry {
   v2L23PerSub: number;
   v2L5PerSub: number;
   outPerCluster: number;
-  inputDim: number; // 16 (n13 default).
+  inputDim: number; // 32 (n13 32-dim disjoint feature).
 }
 
 export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): ClusterRegistry {
@@ -96,7 +96,7 @@ export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): Cl
     v2L23PerSub: N13Pools.V2_L23_PER_SUB,
     v2L5PerSub: N13Pools.V2_L5_PER_SUB,
     outPerCluster: N13Pools.OUT_PER_CLUSTER,
-    inputDim: 16,
+    inputDim: 32,
   };
 }
 
@@ -205,7 +205,7 @@ export function inferClusterRegistry(neuronNames: Iterable<string>): ClusterRegi
     v2L23PerSub,
     v2L5PerSub,
     outPerCluster,
-    inputDim: 16,
+    inputDim: 32,
   };
 }
 

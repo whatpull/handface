@@ -10,7 +10,7 @@ import {
   inferClusterRegistry,
   type ClusterRegistry,
 } from './art';
-import { buildN13OrientationPreset } from './builders/n13-orientation';
+import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './builders/n13-orientation';
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import type {
@@ -147,8 +147,9 @@ const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
 // 영역 정합) — 본 path 영역 length only 영역 catch (값 영역 worker-core 영역
 // inject events 영역 v <= 0.5 filter 영역 정합).
 function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
-  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
-    throw new Error('invalid pattern (expected length 16 array)');
+  // 16-dim raw (UI 입력) 또는 32-dim pre-expanded (worker 내부 변환 후) 모두 허용.
+  if (!Array.isArray(p.pattern) || (p.pattern.length !== 16 && p.pattern.length !== N_INPUT)) {
+    throw new Error(`invalid pattern (expected length 16 or ${N_INPUT} array)`);
   }
   if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
     throw new Error('invalid repeats (expected 1..10)');
@@ -165,8 +166,9 @@ function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
 }
 
 function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void {
-  if (!Array.isArray(p.pattern) || p.pattern.length !== 16) {
-    throw new Error('invalid pattern (expected length 16 array)');
+  // 16-dim raw (UI 입력) 또는 32-dim pre-expanded 모두 허용.
+  if (!Array.isArray(p.pattern) || (p.pattern.length !== 16 && p.pattern.length !== N_INPUT)) {
+    throw new Error(`invalid pattern (expected length 16 or ${N_INPUT} array)`);
   }
   // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
   // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장
@@ -523,7 +525,7 @@ export class SNNWorkerCore {
     if (!monitor) throw new Error('monitor 부재 — build 후에 호출하세요');
     // PR #203 polish (LOW SEC 2026-05-10): activeInputs invariant —
     //   - length > 0 (empty 영역 throw, 본 path 영역).
-    //   - length <= inputDim (16 for n13) — caller (live-snn.runAutoLearnLoop)
+    //   - length <= inputDim (32 for n13 32-dim) — caller (live-snn.runAutoLearnLoop)
     //     영역 16-vec pattern 영역 v > 0.5 binary catch 영역 자연 정합 (Set
     //     영역 unique + bounded). out-of-range 영역 expandCluster 영역 신뢰
     //     (caller 영역 trusted in-process — worker RPC 영역 외부 unsanitized
@@ -561,8 +563,12 @@ export class SNNWorkerCore {
     // OUT layer 영역 only normalize 적용 — V1_L23 / V2_L5 영역 cluster sub-pool
     // 영역 정합 catch 영역 동일 적용 가능 단 본 path 영역 OUT winner mismatch
     // 영역 root cause 영역 catch 영역 OUT only.
-    const activeIdx: Set<number> | null = payload.pattern
-      ? new Set(payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+    // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
+    const patternFeat = payload.pattern
+      ? (payload.pattern.length === 16 ? compute32DimFeature(payload.pattern) : payload.pattern)
+      : null;
+    const activeIdx: Set<number> | null = patternFeat
+      ? new Set(patternFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
       : null;
     const rawRates = registry.slots.map((slot) => {
       const names =
@@ -770,8 +776,10 @@ export class SNNWorkerCore {
       // time 영역 net.t 정합 (직전 buggy time:0 영역 net.t 누적 영역 모든 stale
       // impulse 영역 1-step burst collapse → V1 attenuated → OUT silent).
       const tNow = net.t;
-      // 1. inject(pattern) — 활성도 > 0.5 dim 만 사용 (binary 정합).
-      const events = pattern
+      // 1. inject(pattern) — 16-dim raw를 32-dim으로 확장 후 활성도 > 0.5 dim 주입.
+      // 이미 32-dim이면 그대로 사용 (double-expansion 방지).
+      const feat = pattern.length === 16 ? compute32DimFeature(pattern) : pattern;
+      const events = feat
         .map((v, i) => {
           if (v <= 0.5) return null;
           return {
@@ -979,9 +987,12 @@ export class SNNWorkerCore {
     const net = this.requireNet();
     const monitor = this.monitor!;
     const registry = this.registry!;
-    // 활성 idx 영역 catch (v > 0.5 binary 정합 — buildInjectEventsLocal 정합).
-    const activeIdx: Set<number> | null = pattern
-      ? new Set(pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+    // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
+    const featForMeasure = pattern
+      ? (pattern.length === 16 ? compute32DimFeature(pattern) : pattern)
+      : null;
+    const activeIdx: Set<number> | null = featForMeasure
+      ? new Set(featForMeasure.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
       : null;
     const rawRates = registry.slots.map((slot) => {
       let sum = 0;
@@ -1161,8 +1172,12 @@ export class SNNWorkerCore {
       // |I ∩ T| / |I ∪ T|. reinforce 영역 supervised target 영역 catch 영역
       // vigilance 영역 직접 적용 0 단 protocol 정합 catch 영역 동일 field 영역 emit.
       const reinforceRegistry = this.requireRegistry();
+      // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
+      const reinforceFeat = payload.pattern.length === 16
+        ? compute32DimFeature(payload.pattern)
+        : payload.pattern;
       const reinforceActiveIdx = new Set(
-        payload.pattern.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
+        reinforceFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
       );
       let reinforceInputMatch = 1.0;
       // 사용자 catch 2026-05-12 (exact-match-stability-fix): exact match 영역
@@ -1253,15 +1268,18 @@ export class SNNWorkerCore {
     }
   }
 
-  // triggerBackground inject events helper — pattern 영역 16-dim 영역 in_feat_*
-  // 영역 sustained injection 영역 정합 (live-snn buildInjectEvents 영역 동일).
+  // triggerBackground inject events helper — 16-dim raw 입력을 32-dim으로
+  // 자동 확장 후 in_feat_* sustained injection (live-snn buildInjectEvents 정합).
+  // 이미 32-dim이면 그대로 사용 (double-expansion 방지).
   private buildInjectEventsLocal(
     payload: TriggerBackgroundPayload,
     currentT: number,
   ): Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> {
+    const raw = payload.pattern;
+    const feat = raw.length === 16 ? compute32DimFeature(raw) : raw;
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
-    for (let i = 0; i < 16; i += 1) {
-      const v = payload.pattern[i] ?? 0;
+    for (let i = 0; i < N_INPUT; i += 1) {
+      const v = feat[i] ?? 0;
       if (v <= 0.5) continue;
       out.push({
         neuron: `in_feat_${i}`,

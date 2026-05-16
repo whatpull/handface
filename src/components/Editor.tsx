@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
@@ -8,7 +8,6 @@ import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import { HandFaceLogo } from '@/components/handface-logo';
 import { onBackendEvent } from '@/lib/backend/events';
-import { createActions } from '@/lib/snn/actions';
 import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
 import { ToastProvider, showToast } from '@/components/ui/Toast';
 import { DialogProvider } from '@/components/ui/Dialog';
@@ -17,14 +16,7 @@ import './snn-canvas.css';
 export default function Editor() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
-  const [busy, setBusy] = useState<string | null>(null);
   const [canvasNonce, setCanvasNonce] = useState(0);
-
-  // 모바일 bottom-bar 가 사용할 액션 (Toolbar 와 동일).
-  const mobileActions = useMemo(
-    () => createActions({ busy, setBusy, status: setStatus }),
-    [busy],
-  );
 
   useEffect(() => {
     const off = onBackendEvent('training-cleared', () => {
@@ -120,8 +112,6 @@ export default function Editor() {
             </div>
           )}
           <MobileBottomBar
-            onSave={mobileActions.save}
-            onReset={mobileActions.reset}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         </main>

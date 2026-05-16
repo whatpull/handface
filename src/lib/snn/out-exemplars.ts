@@ -1,4 +1,4 @@
-// OUT 노드별 사용자 라벨 영구 저장 — substrate prefix split (orientation/gesture).
+// OUT 노드별 사용자 라벨 영구 저장 — substrate prefix 별도 store.
 // NodeOut 영역 RenameButton (winner cluster 영역 표시 + 사용자 명명) 영역만 사용 사실 —
 // recordExemplar / clearExemplars / displayLabel 폐기 (caller 0, dead code sweep).
 //
@@ -6,9 +6,9 @@
 // 유지되는 현상". root cause — 단일 KEY 영역 substrate 영역 GRID/CAMERA 영역
 // cluster count 영역 carry-over.
 //
-// 정정: KEY_PREFIX + substrate suffix (orientation/gesture) 별도 store 분리.
+// 정정: KEY_PREFIX + substrate suffix 별도 store 분리.
 // migration: 기존 단일 KEY 영역 1회 idempotent split — orientation 영역 default
-// hydrate (사용자 직전 GRID 학습 보존), gesture 영역 fresh empty 시작.
+// hydrate (사용자 직전 GRID 학습 보존).
 //
 // API: substrate kind 영역 명시 mandatory (caller 영역 inputMode 영역 derive 정합).
 
@@ -36,9 +36,8 @@ function evtFor(substrate: SubstrateKind): string {
   return `${EVT_PREFIX}:${substrate}`;
 }
 
-// 1회 idempotent migration — 기존 단일 KEY 영역 substrate 별도 store 영역 split.
+// 1회 idempotent migration — 기존 단일 KEY 영역 orientation store 영역 split.
 //   orientation 영역 default hydrate (사용자 직전 GRID 학습 영역 보존)
-//   gesture 영역 fresh empty (CAMERA path 영역 별도 학습 영역 mandatory)
 // 정직 한계: 직전 카메라 학습 영역 사용자 영역 별도 분류 0 영역 — 본 migration 영역
 // orientation 영역 default 영역 catch 영역 사용자 catch 영역 정정 본격 (주된 사용자
 // path 영역 GRID 영역 정합).
@@ -136,6 +135,14 @@ export function clearExemplars(substrate: SubstrateKind): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(evtFor(substrate), { detail: {} }));
   }
+}
+
+/**
+ * 외부에서 직렬화된 exemplar map 을 통째로 교체 저장.
+ * Import JSON 복원 경로 전용 — 기존 내용을 overwrite 함.
+ */
+export function restoreExemplars(substrate: SubstrateKind, map: OutExemplars): void {
+  save(substrate, map);
 }
 
 // P(3) 2026-05-14: cluster 개별 삭제 — ci 에 해당하는 out_{ci}_* 키 전체 제거.

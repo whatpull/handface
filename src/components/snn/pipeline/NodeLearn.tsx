@@ -112,7 +112,7 @@ export default function NodeLearn() {
       setInitState(null);
       return;
     }
-    const kind: SubstrateKind = 'orientation';
+    const kind = 'orientation' as const satisfies SubstrateKind;
     setInitState(getLastLocalSnnInitState(kind));
     return subscribeLocalSnnInitState((state) => {
       if (state.kind === kind) setInitState(state);
@@ -271,7 +271,7 @@ export default function NodeLearn() {
       setRegionTotals({ V1: v1Total, V2: v2Total });
 
       // mount-time prebuild — orientation substrate 고정.
-      const kind: SubstrateKind = 'orientation';
+      const kind = 'orientation' as const satisfies SubstrateKind;
       let cancelled = false;
       void getRootLocalSnnFor(kind).catch((e) => {
         if (!cancelled) {
@@ -454,7 +454,7 @@ export default function NodeLearn() {
   // 영역 사용자 명명 영역 우선 + fallback '패턴 N' (resolveClusterLabel 정합).
   // substrate-aware exemplar subscribe (NodeOut mirror) — 사용자 RenameButton
   // 영역 명명 영역 NodeLearn 영역 즉시 sync.
-  const substrate: SubstrateKind = 'orientation';
+  const substrate = 'orientation' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));

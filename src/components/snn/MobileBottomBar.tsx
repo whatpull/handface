@@ -1,12 +1,8 @@
 'use client';
 
-// MobileBottomBar — 저장/Engine 토글 제거 (2026-05-15).
-// Reset(전체 리셋) 제거 — NodeInput의 "학습 reset" 단일화.
-// Settings 슬롯만 유지.
+// MobileBottomBar — Settings 슬롯만 유지 (저장/리셋 제거 2026-05-15).
 
 interface MobileBottomBarProps {
-  onSave?: () => void;
-  onReset?: () => void;
   onOpenSettings: () => void;
 }
 
@@ -16,9 +12,6 @@ const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
 
 export default function MobileBottomBar(p: MobileBottomBarProps) {
-  // onSave / onReset props 유지 (Editor.tsx 호출부 타입 호환) — 슬롯은 제거.
-  void p.onSave;
-  void p.onReset;
   return (
     <nav
       role="toolbar"

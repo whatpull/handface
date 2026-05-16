@@ -20,7 +20,9 @@ import {
   subscribeExemplars,
   setExemplarLabel,
   removeClusterExemplar,
+  restoreExemplars,
   type OutExemplars,
+  type OutExemplar,
 } from '@/lib/snn/out-exemplars';
 import { getClient } from '@/lib/backend/client';
 import { getLiveSnn } from '@/lib/snn/live-snn';
@@ -158,8 +160,8 @@ export default function NodeOut() {
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
   // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
   const { winner, isAutoLearning } = usePipelineEvents();
-  // orientation substrate 고정 — 카메라 입력 제거.
-  const substrate: SubstrateKind = 'orientation';
+  // orientation substrate 고정 — 단일 운용.
+  const substrate = 'orientation' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
 
   useEffect(() => {
@@ -385,6 +387,9 @@ export default function NodeOut() {
         )}
       </div>
 
+      {/* ── Export / Import row ──────────────────────────────────────────── */}
+      <ExportImportRow substrate={substrate} exemplars={exemplars} />
+
       {/* ── Validation Panel ─────────────────────────────────────────────── */}
       <ValidationPanel
         clusterCount={clusterCount}
@@ -396,6 +401,7 @@ export default function NodeOut() {
         valProgress={valProgress}
         valResult={valResult}
         onRun={runValidation}
+        valAbortRef={valAbortRef}
       />
     </NodeShell>
   );
@@ -413,6 +419,7 @@ interface ValidationPanelProps {
   valProgress: { done: number; total: number } | null;
   valResult: ValidationResult | null;
   onRun: () => void;
+  valAbortRef: React.RefObject<boolean>;
 }
 
 /** 0~1 float → 10단계 width class (inline style 완전 회피). */
@@ -451,7 +458,7 @@ function MetricBar({ label, correct, total }: { label: string; correct: number; 
 
 function ValidationPanel({
   clusterCount, exemplars, isAutoLearning,
-  valOpen, setValOpen, valRunning, valProgress, valResult, onRun,
+  valOpen, setValOpen, valRunning, valProgress, valResult, onRun, valAbortRef,
 }: ValidationPanelProps) {
   // 유효한 feature 보유 패턴 수 계산.
   const patternCount = useMemo(() => {
@@ -469,28 +476,41 @@ function ValidationPanel({
 
   return (
     <div className="snn-val-section">
-      {/* Header — toggle + run button */}
-      <div
-        className="snn-val-header"
-        role="button"
-        tabIndex={0}
-        aria-expanded={valOpen ? 'true' : 'false'}
-        onClick={() => setValOpen(!valOpen)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setValOpen(!valOpen); } }}
-      >
-        <span className="snn-val-toggle">{valOpen ? '▼' : '▶'}</span>
-        <span className="snn-val-title">VALIDATION</span>
-        {valRunning && <span className="snn-val-spinner" aria-label="검증 실행 중" />}
+      {/* Header — toggle button + action button (sibling, not nested) */}
+      <div className="snn-val-header">
         <button
           type="button"
-          className="snn-val-run-btn"
-          disabled={!canRun}
-          onClick={(e) => { e.stopPropagation(); if (!valOpen) setValOpen(true); onRun(); }}
-          aria-label="검증 실행"
-          title={patternCount < 2 ? '패턴 2개 이상 필요' : isAutoLearning ? '학습 중 — 완료 후 실행' : '검증 실행'}
+          className="snn-val-toggle-btn"
+          aria-expanded={valOpen}
+          aria-label={valOpen ? 'VALIDATION 접기' : 'VALIDATION 펼치기'}
+          onClick={() => setValOpen(!valOpen)}
         >
-          ▶ 실행
+          <span className="snn-val-toggle">{valOpen ? '▼' : '▶'}</span>
+          <span className="snn-val-title">VALIDATION</span>
         </button>
+        {valRunning && <span className="snn-val-spinner" aria-label="검증 실행 중" />}
+        {valRunning ? (
+          <button
+            type="button"
+            className="snn-val-run-btn snn-val-cancel-btn"
+            onClick={() => { valAbortRef.current = true; }}
+            aria-label="검증 취소"
+            title="검증 취소"
+          >
+            ■ 취소
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="snn-val-run-btn"
+            disabled={!canRun}
+            onClick={() => { if (!valOpen) setValOpen(true); onRun(); }}
+            aria-label="검증 실행"
+            title={patternCount < 2 ? '패턴 2개 이상 필요' : isAutoLearning ? '학습 중 — 완료 후 실행' : '검증 실행'}
+          >
+            ▶ 실행
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -557,6 +577,147 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
         </tbody>
       </table>
       </div>
+    </div>
+  );
+}
+
+// ─── Export / Import helpers ─────────────────────────────────────────────────
+
+interface ExportSchema {
+  version: '1.0';
+  exportedAt: string;
+  substrate: string;
+  patterns: Array<{
+    key: string;
+    label: string | null;
+    count: number;
+    lastFeature: number[];
+    lastAt: number;
+  }>;
+}
+
+function exportPatterns(substrate: string, exemplars: OutExemplars): void {
+  const exportData: ExportSchema = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    substrate,
+    patterns: Object.entries(exemplars).map(([key, ex]) => ({
+      key,
+      label: ex.label,
+      count: ex.count,
+      lastFeature: ex.lastFeature,
+      lastAt: ex.lastAt,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `handface-patterns-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseImportFile(
+  raw: string,
+): { ok: true; map: OutExemplars } | { ok: false; error: string } {
+  try {
+    const data = JSON.parse(raw) as Partial<ExportSchema>;
+    if (!data || typeof data !== 'object') return { ok: false, error: 'JSON 형식 오류' };
+    if (data.version !== '1.0') return { ok: false, error: `지원하지 않는 버전: ${data.version}` };
+    if (!Array.isArray(data.patterns)) return { ok: false, error: 'patterns 배열 없음' };
+    const map: OutExemplars = {};
+    for (const p of data.patterns) {
+      if (typeof p.key !== 'string') continue;
+      const entry: OutExemplar = {
+        count: typeof p.count === 'number' ? p.count : 0,
+        lastFeature: Array.isArray(p.lastFeature) ? p.lastFeature : [],
+        lastAt: typeof p.lastAt === 'number' ? p.lastAt : Date.now(),
+        label: typeof p.label === 'string' ? p.label : null,
+      };
+      map[p.key] = entry;
+    }
+    return { ok: true, map };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ─── ExportImportRow component ───────────────────────────────────────────────
+
+function ExportImportRow({
+  substrate,
+  exemplars,
+}: {
+  substrate: import('@/lib/snn/root-local-snn').SubstrateKind;
+  exemplars: OutExemplars;
+}) {
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const hasPatterns = Object.keys(exemplars).length > 0;
+
+  const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const raw = ev.target?.result;
+      if (typeof raw !== 'string') return;
+      const result = parseImportFile(raw);
+      if (!result.ok) {
+        alert(`불러오기 실패: ${result.error}`);
+        return;
+      }
+      const incoming = Object.keys(result.map).length;
+      if (incoming === 0) {
+        alert('불러올 패턴이 없습니다.');
+        return;
+      }
+      const existing = Object.keys(exemplars).length;
+      if (
+        existing > 0 &&
+        !window.confirm(
+          `기존 패턴 ${existing}개가 불러온 ${incoming}개로 교체됩니다.\n계속하시겠습니까?`,
+        )
+      ) {
+        return;
+      }
+      restoreExemplars(substrate, result.map);
+    };
+    reader.readAsText(file);
+    // reset so same file can be re-selected
+    e.target.value = '';
+  }, [exemplars, substrate]);
+
+  return (
+    <div className="snn-out-io-row">
+      <button
+        type="button"
+        className="snn-out-io-btn"
+        disabled={!hasPatterns}
+        title={hasPatterns ? '패턴 JSON 다운로드' : '학습된 패턴 없음'}
+        aria-label="패턴 내보내기"
+        onClick={() => exportPatterns(substrate, exemplars)}
+      >
+        ⬇ 내보내기
+      </button>
+      <button
+        type="button"
+        className="snn-out-io-btn"
+        title="JSON 파일에서 패턴 불러오기"
+        aria-label="패턴 불러오기"
+        onClick={() => importRef.current?.click()}
+      >
+        ⬆ 불러오기
+      </button>
+      <input
+        ref={importRef}
+        type="file"
+        accept="application/json,.json"
+        className="snn-out-io-file-input"
+        aria-hidden="true"
+        title="패턴 JSON 파일 선택"
+        onChange={handleImport}
+      />
     </div>
   );
 }

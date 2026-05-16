@@ -35,7 +35,7 @@ export default function NodeInfer() {
   // 우선 + fallback '패턴 N' (resolveClusterLabel 정합). substrate-aware
   // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
   const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
-  const substrate: SubstrateKind = 'orientation';
+  const substrate = 'orientation' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));

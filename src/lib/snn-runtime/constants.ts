@@ -1,6 +1,6 @@
 // Pure TypeScript LIF + pair-STDP runtime — neuronface modules/neuron.py 포팅.
-// rev15 anchor (Phase E, 2026-05-07 catch) 기준. Triplet / NMDA / eligibility-only 는
-// Phase C5 (지속 성장) 단계에서 추가 예정.
+// rev15 anchor (Phase E, 2026-05-07 catch) 기준.
+// pair-STDP 전용 운용 중 (Triplet/NMDA 미구현).
 //
 // 파라미터 출처: modules/neuron.py — 값과 의미를 그대로 보존하여 Python 실측과
 // 비교 가능하게 유지한다.

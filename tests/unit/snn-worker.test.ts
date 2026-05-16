@@ -67,7 +67,7 @@ describe('snn-worker — build + 기본 RPC', () => {
     expect(r.preset).toBe('n13_orientation');
     expect(r.outClusters).toBe(4);
     expect(r.outTotal).toBe(32);
-    expect(r.inputDim).toBe(16);
+    expect(r.inputDim).toBe(32);
     expect(r.neuronsAdded).toBeGreaterThan(800);
     expect(core.getNetForTest()).not.toBeNull();
   });

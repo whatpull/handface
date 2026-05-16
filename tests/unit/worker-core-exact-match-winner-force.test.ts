@@ -44,6 +44,13 @@ interface InternalCore {
 const TOP_HALF_ACTIVE = [0, 1, 2, 3, 4, 5, 6, 7];
 const BOTTOM_HALF_ACTIVE = [8, 9, 10, 11, 12, 13, 14, 15];
 
+// 32-dim 확장 helper — 16-dim raw pattern 뒤에 0 × 16 영역 append.
+// clusterFiringRates payload 영역 32-dim pass 시 compute32DimFeature 미적용 →
+// activeIdx 영역 raw indices 만 포함 → clusterActiveInputs exact match 정합.
+function pad32(raw16: number[]): number[] {
+  return [...raw16, ...new Array(16).fill(0)];
+}
+
 const TOP_HALF_PATTERN = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
 const BOTTOM_HALF_PATTERN = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1];
 
@@ -109,7 +116,7 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
       const cfrRes = core.handle({
         id: 200 + trial,
         type: 'clusterFiringRates',
-        payload: { windowMs: 50, layer: 'OUT', pattern: BOTTOM_HALF_PATTERN },
+        payload: { windowMs: 50, layer: 'OUT', pattern: pad32(BOTTOM_HALF_PATTERN) },
       });
       expect(cfrRes.ok).toBe(true);
       const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -138,7 +145,7 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
       const cfrRes = core.handle({
         id: 400 + trial,
         type: 'clusterFiringRates',
-        payload: { windowMs: 50, layer: 'OUT', pattern: TOP_HALF_PATTERN },
+        payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_HALF_PATTERN) },
       });
       expect(cfrRes.ok).toBe(true);
       const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -192,7 +199,7 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
       const cfrRes = core.handle({
         id: 1000 + trial,
         type: 'clusterFiringRates',
-        payload: { windowMs: 50, layer: 'OUT', pattern: TOP_HALF_PATTERN },
+        payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_HALF_PATTERN) },
       });
       expect(cfrRes.ok).toBe(true);
       const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -242,7 +249,7 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
     const exactRes = core.handle({
       id: 1400,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_HALF_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_HALF_PATTERN) },
     });
     expect(exactRes.ok).toBe(true);
     const exactCfr = (exactRes as { ok: true; result: CfrResult }).result;
@@ -255,7 +262,7 @@ describe('worker-core — exact-match winner force (사용자 catch 2026-05-12)'
     const nonExactRes = core.handle({
       id: 1600,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: DIAGONAL_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(DIAGONAL_PATTERN) },
     });
     expect(nonExactRes.ok).toBe(true);
     const nonExactCfr = (nonExactRes as { ok: true; result: CfrResult }).result;

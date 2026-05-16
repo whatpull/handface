@@ -40,6 +40,13 @@ const LEFT_RIGHT_COLS_PATTERN = [
   1, 0, 0, 1, // row 3
 ];
 
+// 32-dim 확장 helper — 16-dim raw pattern 뒤에 0 × 16 영역 append.
+// clusterFiringRates payload 영역 32-dim pass 시 compute32DimFeature 미적용 →
+// activeIdx 영역 raw indices 만 포함 → clusterActiveInputs exact match 정합.
+function pad32(raw16: number[]): number[] {
+  return [...raw16, ...new Array(16).fill(0)];
+}
+
 describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)', () => {
   it('R1 [identical]: cluster T=[1,5,9,13] + input [1,5,9,13] → inputMatch=1.0 (vigilance pass + reinforce)', () => {
     const core = new SNNWorkerCore();
@@ -69,7 +76,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: VERTICAL_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(VERTICAL_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -270,7 +277,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_ROW_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -317,7 +324,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_ROW_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -362,7 +369,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_TWO_ROWS_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_TWO_ROWS_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -441,7 +448,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: JITTER_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(JITTER_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -532,7 +539,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: TOP_ROW_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(TOP_ROW_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -620,7 +627,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: VERTICAL_PLUS_ONE },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(VERTICAL_PLUS_ONE) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
@@ -664,7 +671,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     const cfrRes = core.handle({
       id: 5,
       type: 'clusterFiringRates',
-      payload: { windowMs: 50, layer: 'OUT', pattern: VERTICAL_PATTERN },
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(VERTICAL_PATTERN) },
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;

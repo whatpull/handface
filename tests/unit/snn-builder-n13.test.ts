@@ -28,12 +28,12 @@ describe('snn-builder-n13 — 토폴로지', () => {
     expect(r1.synapsesAdded).toBe(r2.synapsesAdded);
   });
 
-  it('Fix #20: default (zero-init) 영역 INPUT 16 영역만 — base cluster pool 0', () => {
+  it('Fix #20: default (zero-init) 영역 INPUT 32 영역만 — base cluster pool 0', () => {
     const r = buildN13OrientationPreset({ seed: 57 });
-    expect(r.neuronsAdded).toBe(16);
+    expect(r.neuronsAdded).toBe(32);
     expect(r.outClusters).toBe(0);
     expect(r.outTotal).toBe(0);
-    expect(r.inputDim).toBe(16);
+    expect(r.inputDim).toBe(32);
     expect(r.preset).toBe('n13_orientation');
     // synapses 영역 0 — base cluster pool 0 → cascade 영역 0 iteration.
     expect(r.synapsesAdded).toBe(0);
@@ -45,7 +45,7 @@ describe('snn-builder-n13 — 토폴로지', () => {
     expect(r1.synapsesAdded).not.toBe(r2.synapsesAdded);
   });
 
-  it('LEGACY 4-cluster 빌드 — 뉴런 수 = 16 + 128 + 256 + 128 + 128 + 96 + 64 + 32 = 848', () => {
+  it('LEGACY 4-cluster 빌드 — 뉴런 수 = 32 + 128 + 256 + 128 + 128 + 96 + 64 + 32 = 864', () => {
     const r = buildN13OrientationPreset({ clusterActiveInputs: LEGACY_FOUR_CLUSTER_INPUTS });
     const v1L4 = N13Pools.V1_L4_PER_SUB * 4;
     const v1L4I = N13Pools.V1_L4I_PER_SUB * 4;
@@ -54,10 +54,10 @@ describe('snn-builder-n13 — 토폴로지', () => {
     const v2L23 = N13Pools.V2_L23_PER_SUB * 4;
     const v2L5 = N13Pools.V2_L5_PER_SUB * 4;
     const outTotal = N13Pools.OUT_PER_CLUSTER * 4;
-    expect(r.neuronsAdded).toBe(16 + v1L4 + v1L4I + v1L23 + v2L4 + v2L23 + v2L5 + outTotal);
+    expect(r.neuronsAdded).toBe(32 + v1L4 + v1L4I + v1L23 + v2L4 + v2L23 + v2L5 + outTotal);
     expect(r.outClusters).toBe(4);
     expect(r.outTotal).toBe(32);
-    expect(r.inputDim).toBe(16);
+    expect(r.inputDim).toBe(32);
     expect(r.preset).toBe('n13_orientation');
   });
 
@@ -68,7 +68,7 @@ describe('snn-builder-n13 — 토폴로지', () => {
       const k = n.region ?? 'NULL';
       counts.set(k, (counts.get(k) ?? 0) + 1);
     }
-    expect(counts.get('INPUT')).toBe(16);
+    expect(counts.get('INPUT')).toBe(32);
     expect(counts.get('V1')).toBe(
       (N13Pools.V1_L4_PER_SUB + N13Pools.V1_L4I_PER_SUB + N13Pools.V1_L23_PER_SUB) * 4,
     );
@@ -119,8 +119,10 @@ describe('snn-builder-n13 — cluster_active_inputs', () => {
       return n;
     };
 
-    expect(countCluster0Dense(def.net, 'in_feat_4')).toBeGreaterThan(20); // active in LEGACY
-    expect(countCluster0Dense(def.net, 'in_feat_0')).toBeLessThan(5); // inactive in LEGACY
+    // LEGACY cluster 0 active = [16,17,18,19] (row sum features) → in_feat_16 dense.
+    // in_feat_4 (raw cell 4) not in LEGACY cluster 0 active set → sparse.
+    expect(countCluster0Dense(def.net, 'in_feat_16')).toBeGreaterThan(20); // active in LEGACY
+    expect(countCluster0Dense(def.net, 'in_feat_4')).toBeLessThan(5); // inactive in LEGACY
     expect(countCluster0Dense(gesture.net, 'in_feat_0')).toBeGreaterThan(20); // active in gesture
   });
 

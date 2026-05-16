@@ -140,7 +140,8 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     // = 31 RPC catch (sequential).
     await new Promise((r) => setTimeout(r, 200));
     expect(mocks.mockExpandCluster).toHaveBeenCalledTimes(1);
-    expect(mocks.mockExpandCluster).toHaveBeenCalledWith({ activeInputs: [4, 5, 6, 7] });
+    // 32-dim 확장 후 active indices: raw [4,5,6,7] + row1 sum feature [17]
+    expect(mocks.mockExpandCluster).toHaveBeenCalledWith({ activeInputs: [4, 5, 6, 7, 17] });
     // 30 trial = 5 chunk × 6 round.
     expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(30);
     // 첫 reinforce payload 영역 newClusterId=4 (mockExpandCluster 정합) target.
@@ -301,7 +302,8 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // handleTriggerComplete 영역 vigilance miss path 영역 dispatch → expandCluster
       // 호출. pre-fix 영역 fail (expandCluster 호출 0).
       expect(localExpandCluster).toHaveBeenCalledTimes(1);
-      expect(localExpandCluster).toHaveBeenCalledWith({ activeInputs: [4, 5, 6, 7] });
+      // 32-dim 확장 후 active indices: raw [4,5,6,7] + row1 sum feature [17]
+      expect(localExpandCluster).toHaveBeenCalledWith({ activeInputs: [4, 5, 6, 7, 17] });
 
       live.dispose();
     } finally {

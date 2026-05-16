@@ -4,6 +4,9 @@
 // 와 핸들러 (worker-core) 는 별도 파일로 분리해 단위 테스트 가능하게 한다.
 
 import type { InjectEvent, NetworkSnapshot } from './network';
+import type { StdpMode } from './neuron';
+// StdpMode 를 인터페이스에서 사용하기 위해 import. 공개 re-export는 index.ts (neuron.ts 직접 경로) 에서.
+export type { StdpMode };
 
 // ── 요청 ──
 // build : NeuralNetwork 를 빌드 (n13 orientation default 또는 custom).
@@ -59,6 +62,8 @@ export interface RunPayload {
   dtMs?: number;
   stdpEnabled?: boolean;
   stdpGain?: number;
+  // 'pair' (default, Bi & Poo 1998) | 'triplet' (Pfister & Gerstner 2006).
+  stdpMode?: StdpMode;
 }
 
 export interface FiringRatesPayload {
@@ -107,6 +112,8 @@ export interface ClusterTrainRStdpPayload {
   rewardGain?: number;
   // 오답 cluster winner 일 시 STDP gain. default 0.5 (벌).
   punishGain?: number;
+  // STDP 규칙 선택. default 'pair'.
+  stdpMode?: StdpMode;
 }
 
 // PR fix/live-mode-time-and-restore — region-level firing rate (V1/V2 etc).
@@ -155,6 +162,8 @@ export interface TriggerBackgroundPayload {
   repeats: number; // default 3 — Risk 4 mitigation.
   resetThreshold: boolean;
   trialToken: number;
+  // STDP 규칙 선택. default 'pair'. stdpGain=0 시 무관 (stdp 비활성).
+  stdpMode?: StdpMode;
 }
 
 // triggerComplete push payload — main thread 영역 emitTick 영역 직접 reuse.
@@ -184,6 +193,8 @@ export interface ReinforceBackgroundPayload {
   observeMs: number;
   stimulusDurationMs: number;
   trialToken: number;
+  // STDP 규칙 선택. default 'pair'.
+  stdpMode?: StdpMode;
 }
 
 // QA FINDING-4 fix (2026-05-10): triggerError push payload — handleTriggerBackground

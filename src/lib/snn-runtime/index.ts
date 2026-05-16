@@ -11,7 +11,7 @@
 //  - builders/n13-orientation.ts        rev15 정합 4 cluster slot 회로 빌더
 
 export * from './constants';
-export { Neuron, Synapse, type SpikeListener } from './neuron';
+export { Neuron, Synapse, type SpikeListener, type StdpMode } from './neuron';
 export {
   NeuralNetwork,
   type InjectEvent,

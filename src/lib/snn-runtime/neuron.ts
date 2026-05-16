@@ -9,8 +9,9 @@
 //  - NMDA dendritic plateau (Session 37 Phase 1 D140) — opt-in, default off.
 //  - homeostatic threshold (Phase E1, Diehl & Cook 2015) — opt-in, default off.
 //
-// 여전히 비포팅:
-//  - Triplet STDP — pair 만 활성, rev15 anchor 정합.
+// P212 추가:
+//  - Triplet STDP (Pfister & Gerstner 2006) — pair/triplet stdpMode 플래그 선택.
+//  - preTrace2 / postTrace2 (느린 trace, tau_x / tau_y) Neuron 객체에 유지.
 
 import {
   ELIGIBILITY_TAU_MS,
@@ -24,10 +25,16 @@ import {
   SYNAPSE_DELAY_MS,
   SYNAPSE_PSP_DURATION_MS,
   TAU_M_DEFAULT_MS,
+  TRIPLET_A_MINUS_2,
+  TRIPLET_A_PLUS_2,
+  TRIPLET_TAU_X,
+  TRIPLET_TAU_Y,
   V_RESET_DEFAULT,
   V_REST_DEFAULT,
   V_THRESHOLD_DEFAULT,
 } from './constants';
+
+export type StdpMode = 'pair' | 'triplet';
 
 export type SpikeListener = (neuron: Neuron, t: number) => void;
 
@@ -105,10 +112,16 @@ export class Neuron {
   homeostaticIncrement = 0.5;
   homeostaticDecay = 0.999;
 
-  // STDP 누적 trace
+  // STDP 누적 trace — pair (빠른 trace)
   preTrace = 0.0;
   postTrace = 0.0;
   lastSpikeTimeForTrace: number | null = null;
+
+  // Triplet STDP 느린 trace (Pfister & Gerstner 2006)
+  // preTrace2 : tau_x 시상수의 pre-synaptic slow trace (LTD 3rd-spike interaction)
+  // postTrace2: tau_y 시상수의 post-synaptic slow trace (LTP 3rd-spike interaction)
+  preTrace2 = 0.0;
+  postTrace2 = 0.0;
 
   // 연결 구조
   outgoing: Synapse[] = [];
@@ -187,7 +200,13 @@ export class Neuron {
     return current;
   }
 
-  fire(t: number, dt: number, stdpEnabled: boolean = false, stdpGain: number = 1.0): boolean {
+  fire(
+    t: number,
+    dt: number,
+    stdpEnabled: boolean = false,
+    stdpGain: number = 1.0,
+    stdpMode: StdpMode = 'pair',
+  ): boolean {
     const effectiveThreshold = this.homeostaticEnabled
       ? this.vThreshold + this.thresholdOffset
       : this.vThreshold;
@@ -204,14 +223,24 @@ export class Neuron {
     for (const l of this.listeners) l(this, t);
     if (stdpEnabled) {
       this.updateTraces(t);
-      this.applyPairStdp(t, stdpGain);
+      if (stdpMode === 'triplet') {
+        this.applyTripletStdp(t, stdpGain);
+      } else {
+        this.applyPairStdp(t, stdpGain);
+      }
     }
     return true;
   }
 
-  step(t: number, dt: number, stdpEnabled: boolean = false, stdpGain: number = 1.0): void {
+  step(
+    t: number,
+    dt: number,
+    stdpEnabled: boolean = false,
+    stdpGain: number = 1.0,
+    stdpMode: StdpMode = 'pair',
+  ): void {
     this.integrate(t, dt);
-    this.fire(t, dt, stdpEnabled, stdpGain);
+    this.fire(t, dt, stdpEnabled, stdpGain, stdpMode);
   }
 
   propagate(spikeTime: number, dt: number): void {
@@ -243,14 +272,84 @@ export class Neuron {
   private updateTraces(t: number): void {
     const last = this.lastSpikeTimeForTrace;
     if (last === null) {
+      // 첫 spike — 빠른 trace 초기화
       this.preTrace = 1.0;
       this.postTrace = 1.0;
+      // 느린 trace (triplet) 도 동일하게 초기화
+      this.preTrace2 = 1.0;
+      this.postTrace2 = 1.0;
     } else {
       const lag = t - last;
+      // 빠른 trace (pair 기반, tau_plus / tau_minus)
       this.preTrace = decayed(this.preTrace, lag, STDP_TAU_PLUS_MS) + 1.0;
       this.postTrace = decayed(this.postTrace, lag, STDP_TAU_MINUS_MS) + 1.0;
+      // 느린 trace (triplet 전용, tau_x / tau_y)
+      this.preTrace2 = decayed(this.preTrace2, lag, TRIPLET_TAU_X) + 1.0;
+      this.postTrace2 = decayed(this.postTrace2, lag, TRIPLET_TAU_Y) + 1.0;
     }
     this.lastSpikeTimeForTrace = t;
+  }
+
+  /**
+   * Triplet STDP (Pfister & Gerstner 2006, nearest-neighbor rule).
+   *
+   * LTP (post fires — causal, incoming synapses):
+   *   dw = A_plus * x_pre_fast * (A_plus_2 + r_post_slow)
+   *   x_pre_fast: pre 빠른 trace (tau_plus), r_post_slow: post 느린 trace (tau_y)
+   *   → post-pre-post triplet 시 r_post_slow 누적 → LTP 추가 강화.
+   *
+   * LTD (post fires → pre fires later, outgoing synapses):
+   *   dw = A_minus * y_post_fast * (A_minus_2 + o_pre_slow)
+   *   y_post_fast: post 빠른 trace (tau_minus), o_pre_slow: pre 느린 trace (tau_x)
+   *   → pre-post-pre triplet 시 o_pre_slow 누적 → LTD 추가 강화.
+   *
+   * Eligibility trace 업데이트는 pair STDP 와 동일한 방식 유지.
+   */
+  private applyTripletStdp(t: number, gain: number): void {
+    // LTP — incoming excitatory 시냅스의 pre 빠른 trace × (A_plus_2 + post 느린 trace)
+    for (const syn of this.incoming) {
+      if (syn.weight <= 0.0) continue;
+      if (syn.frozen) continue;
+      const synGain = gain * syn.stdpGainMultiplier;
+      const pre = syn.pre;
+      if (pre.lastSpikeTimeForTrace === null) continue;
+      const lag = t - pre.lastSpikeTimeForTrace;
+      if (lag < 0.0) continue;
+      const xPreFast = decayed(pre.preTrace, lag, STDP_TAU_PLUS_MS);
+      // post 느린 trace: this(post)는 updateTraces 직후이므로 lag=0 → 그대로
+      const rPostSlow = this.postTrace2;
+      const ltp = STDP_A_PLUS * synGain * xPreFast * (TRIPLET_A_PLUS_2 + rPostSlow) * (STDP_W_MAX - syn.weight);
+      syn.weight = clipWeight(syn.weight + ltp);
+
+      const eligLag = t - syn.lastEligibilityUpdateMs;
+      if (eligLag > 0) {
+        syn.eligibilityTrace = decayed(syn.eligibilityTrace, eligLag, ELIGIBILITY_TAU_MS);
+      }
+      syn.eligibilityTrace += ltp;
+      syn.lastEligibilityUpdateMs = t;
+    }
+    // LTD — outgoing excitatory 시냅스의 post 빠른 trace × (A_minus_2 + pre 느린 trace)
+    for (const syn of this.outgoing) {
+      if (syn.weight <= 0.0) continue;
+      if (syn.frozen) continue;
+      const synGain = gain * syn.stdpGainMultiplier;
+      const post = syn.post;
+      if (post.lastSpikeTimeForTrace === null) continue;
+      const lag = t - post.lastSpikeTimeForTrace;
+      if (lag < 0.0) continue;
+      const yPostFast = decayed(post.postTrace, lag, STDP_TAU_MINUS_MS);
+      // pre 느린 trace: this(pre)는 updateTraces 직후이므로 lag=0 → 그대로
+      const oPreSlow = this.preTrace2;
+      const ltd = STDP_A_MINUS * synGain * yPostFast * (TRIPLET_A_MINUS_2 + oPreSlow) * (syn.weight - STDP_W_MIN);
+      syn.weight = clipWeight(syn.weight - ltd);
+
+      const eligLag = t - syn.lastEligibilityUpdateMs;
+      if (eligLag > 0) {
+        syn.eligibilityTrace = decayed(syn.eligibilityTrace, eligLag, ELIGIBILITY_TAU_MS);
+      }
+      syn.eligibilityTrace -= ltd;
+      syn.lastEligibilityUpdateMs = t;
+    }
   }
 
   private applyPairStdp(t: number, gain: number): void {

@@ -432,6 +432,7 @@ export class SNNWorkerCore {
       dtMs: payload.dtMs,
       stdpEnabled: payload.stdpEnabled,
       stdpGain: payload.stdpGain,
+      stdpMode: payload.stdpMode,
     });
     return { t: net.t, durationMs: payload.durationMs };
   }
@@ -855,7 +856,7 @@ export class SNNWorkerCore {
       // — race 0.
       const savedMultipliers = this.applyClusterRewardMask(targetCi);
       try {
-        net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain });
+        net.run(observeMs, { dtMs, stdpEnabled: true, stdpGain: gain, stdpMode: payload.stdpMode });
       } finally {
         this.restoreClusterRewardMask(savedMultipliers);
       }
@@ -1071,6 +1072,7 @@ export class SNNWorkerCore {
           dtMs: 0.1,
           stdpEnabled,
           stdpGain: payload.stdpGain,
+          stdpMode: payload.stdpMode,
         });
         // QA HIGH PRIMARY (FINDING-1) fix (2026-05-10): pattern 영역 전달 영역
         // input cardinality normalize 영역 catch (Wiesel 1981 정합).
@@ -1143,6 +1145,7 @@ export class SNNWorkerCore {
         observeMs: payload.observeMs,
         stimulusDurationMs: payload.stimulusDurationMs,
         intensity: payload.intensity,
+        stdpMode: payload.stdpMode,
       });
       // QA CAUSE B fix (2026-05-10): push payload cfr 영역 measure pass 영역 catch.
       // 직전 reward pass 영역 STDP mutation 직후 영역 별도 clusterFiringRates 호출

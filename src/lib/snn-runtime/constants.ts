@@ -32,3 +32,15 @@ export const SYNAPSE_DELAY_MS = 1.0;
 
 // ── Eligibility trace decay (R-STDP 사전 누적, Frémaux & Gerstner 2016) ──
 export const ELIGIBILITY_TAU_MS = 200.0;
+
+// ── Triplet STDP (Pfister & Gerstner 2006) ──
+// Nearest-neighbor triplet rule:
+//   LTP: A_plus  * postTrace1 * (A_plus_2  + preTrace2)  — post-pre-post 강화
+//   LTD: A_minus * preTrace1  * (A_minus_2 + postTrace2) — pre-post-pre 강화
+// tau_y (TRIPLET_TAU_Y): slow post-synaptic trace (LTP 3rd-spike interaction).
+// tau_x (TRIPLET_TAU_X): slow pre-synaptic  trace (LTD 3rd-spike interaction).
+// A_plus_2 / A_minus_2: triplet amplitude weights (보수적 설정 — pair 의 1/2 수준).
+export const TRIPLET_A_PLUS_2 = 0.006;   // nearest-neighbor LTP triplet 가중치
+export const TRIPLET_A_MINUS_2 = 0.003;  // nearest-neighbor LTD triplet 가중치
+export const TRIPLET_TAU_Y = 40.0;       // slow post-trace time constant (ms)
+export const TRIPLET_TAU_X = 40.0;       // slow pre-trace  time constant (ms)

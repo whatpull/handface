@@ -2,7 +2,7 @@
 // modules/network.py 의 NeuralNetwork 와 같은 책임 (add_neuron / connect /
 // inject / run / snapshot) 을 갖되, 브라우저 친화적 API 로 다듬는다.
 
-import { Neuron, Synapse, type SpikeListener } from './neuron';
+import { Neuron, Synapse, type SpikeListener, type StdpMode } from './neuron';
 
 export interface NetworkOptions {
   defaultDtMs?: number;
@@ -264,10 +264,14 @@ export class NeuralNetwork {
   //   Pass 2 — SoA LIF dv: Float32Array 인덱스 연산으로 vBuf[i] 업데이트 (hot loop)
   //   Pass 3 — fire(): OOP 유지 (STDP / homeostatic / propagate 복잡도)
   //   Pass 4 — syncV: fire() 가 변경한 v / lastSpikeTime 을 SoA 버퍼에 역동기화
-  run(durationMs: number, opts: { dtMs?: number; stdpEnabled?: boolean; stdpGain?: number } = {}): void {
+  //
+  // stdpMode: 'pair' (default, Bi & Poo 1998) | 'triplet' (Pfister & Gerstner 2006).
+  // trace2 버퍼는 Neuron 객체에 유지됨 — SoA는 LIF integrate 전용.
+  run(durationMs: number, opts: { dtMs?: number; stdpEnabled?: boolean; stdpGain?: number; stdpMode?: StdpMode } = {}): void {
     const dt = opts.dtMs ?? this.defaultDt;
     const stdp = opts.stdpEnabled ?? false;
     const gain = opts.stdpGain ?? 1.0;
+    const mode: StdpMode = opts.stdpMode ?? 'pair';
     const steps = Math.max(0, Math.floor(durationMs / dt));
     if (steps === 0) return;
 
@@ -317,7 +321,7 @@ export class NeuralNetwork {
       // Pass 3: SoA v → Neuron.v 역동기화 후 fire() (OOP — STDP/homeostatic/propagate)
       this._syncVToNeurons();
       for (let ni = 0; ni < N; ni += 1) {
-        if (neurons[ni].fire(t, dt, stdp, gain)) {
+        if (neurons[ni].fire(t, dt, stdp, gain, mode)) {
           // fire() 가 v, lastSpikeTime 을 변경했으므로 SoA 버퍼 즉시 갱신
           vBuf[ni] = neurons[ni].v;
           lastSpikeBuf[ni] = neurons[ni].lastSpikeTime;

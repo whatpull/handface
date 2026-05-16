@@ -1,22 +1,43 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Sidebar from '@/components/snn/Sidebar';
 import Toolbar from '@/components/snn/Toolbar';
 import PipelineCanvas from '@/components/snn/PipelineCanvas';
 import SettingsPanel from '@/components/snn/SettingsPanel';
 import MobileBottomBar from '@/components/snn/MobileBottomBar';
 import { HandFaceLogo } from '@/components/handface-logo';
-import { onBackendEvent } from '@/lib/backend/events';
+import { onBackendEvent, emitBackendEvent } from '@/lib/backend/events';
 import { installAutoSnapshot } from '@/lib/snn/auto-snapshot';
 import { ToastProvider, showToast } from '@/components/ui/Toast';
 import { DialogProvider } from '@/components/ui/Dialog';
+import {
+  isEmbedMode,
+  postToParent,
+  type InboundMessage,
+  type OutboundMessage,
+} from '@/lib/embed-mode';
+import {
+  loadExemplars,
+} from '@/lib/snn/out-exemplars';
+import {
+  resolveClusterLabel,
+} from '@/components/snn/pipeline/shared';
+import type { ClusterSpawnedDetail, GridInferDetail } from '@/lib/backend/events';
 import './snn-canvas.css';
 
 export default function Editor() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [canvasNonce, setCanvasNonce] = useState(0);
+
+  // embed 모드: isEmbedMode() 는 client-only (SSR safe — typeof window guard 내부).
+  // useState 초기값 false → useEffect 에서 실제 값으로 교체 (hydration mismatch 회피).
+  const [embedMode, setEmbedMode] = useState(false);
+  useEffect(() => { setEmbedMode(isEmbedMode()); }, []);
+
+  // embed 모드: 마지막 grid-infer 결과 캐시 — PK_REQUEST_VERIFY 응답용.
+  const lastVerifyRef = useRef<OutboundMessage | null>(null);
 
   useEffect(() => {
     const off = onBackendEvent('training-cleared', () => {
@@ -26,6 +47,81 @@ export default function Editor() {
     installAutoSnapshot();
     return off;
   }, []);
+
+  // embed 모드: cluster-spawned → PK_PATTERN_LEARNED.
+  useEffect(() => {
+    if (!embedMode) return;
+    return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
+      const exemplars = loadExemplars('orientation');
+      const label = resolveClusterLabel(exemplars, d.clusterIdx, 'grid');
+      postToParent({ type: 'PK_PATTERN_LEARNED', patternId: d.clusterIdx, label });
+    });
+  }, [embedMode]);
+
+  // embed 모드: grid-infer finished/error → PK_VERIFIED / PK_UNVERIFIED.
+  useEffect(() => {
+    if (!embedMode) return;
+    return onBackendEvent<GridInferDetail>('grid-infer', (d) => {
+      if (d.kind === 'started') return;
+      if (d.kind === 'error') {
+        const msg: OutboundMessage = { type: 'PK_UNVERIFIED', reason: d.message ?? 'infer-error' };
+        lastVerifyRef.current = msg;
+        postToParent(msg);
+        return;
+      }
+      // finished
+      const winnerCluster = d.winnerCluster ?? null;
+      if (winnerCluster === null) {
+        const msg: OutboundMessage = { type: 'PK_UNVERIFIED', reason: 'no-winner' };
+        lastVerifyRef.current = msg;
+        postToParent(msg);
+        return;
+      }
+      const exemplars = loadExemplars('orientation');
+      const label = resolveClusterLabel(exemplars, winnerCluster, 'grid');
+      // consecutiveWinnerCount 는 PipelineEventContext 내부 — 여기서는
+      // grid-infer 단일 결과이므로 EXACT (deterministic single-shot 추론).
+      const msg: OutboundMessage = {
+        type: 'PK_VERIFIED',
+        patternId: winnerCluster,
+        label,
+        confidence: 'EXACT',
+      };
+      lastVerifyRef.current = msg;
+      postToParent(msg);
+    });
+  }, [embedMode]);
+
+  // embed 모드: inbound postMessage 처리.
+  useEffect(() => {
+    if (!embedMode) return;
+    // PK_READY 송출 — 앱 마운트 완료 알림.
+    postToParent({ type: 'PK_READY' });
+
+    const handler = (e: MessageEvent) => {
+      // origin 화이트리스트 Phase 2에서 추가 — 현재 '*' (모든 origin).
+      const data = e.data as InboundMessage;
+      if (!data || typeof data.type !== 'string') return;
+      switch (data.type) {
+        case 'PK_INIT':
+          // config 수신 — 현재 PK_READY 재송출로 응답 (Phase 1).
+          postToParent({ type: 'PK_READY' });
+          break;
+        case 'PK_RESET':
+          emitBackendEvent('training-cleared', undefined);
+          break;
+        case 'PK_REQUEST_VERIFY':
+          if (lastVerifyRef.current) {
+            postToParent(lastVerifyRef.current);
+          } else {
+            postToParent({ type: 'PK_UNVERIFIED', reason: 'not-yet-verified' });
+          }
+          break;
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [embedMode]);
 
   // UX Polish PR1 Fix 3: 첫 방문자 Live 모드 onboarding.
   useEffect(() => {
@@ -77,26 +173,30 @@ export default function Editor() {
     <ToastProvider>
     <DialogProvider>
     <div className="flex h-dvh w-dvw flex-col bg-[#0a0a0c] text-white">
-      <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
-        <HandFaceLogo size={24} />
-        <span className="text-sm font-semibold tracking-wider">HandFace</span>
-        <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
-        <div className="ml-auto flex items-center gap-2 text-[11px]">
-          <span
-            className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-black/30 px-2 py-0.5"
-            aria-label="엔진: Live"
-          >
-            <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-red-500" />
-            <span className="text-white/85">Live</span>
-          </span>
-        </div>
-      </header>
+      {!embedMode && (
+        <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
+          <HandFaceLogo size={24} />
+          <span className="text-sm font-semibold tracking-wider">HandFace</span>
+          <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
+          <div className="ml-auto flex items-center gap-2 text-[11px]">
+            <span
+              className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-black/30 px-2 py-0.5"
+              aria-label="엔진: Live"
+            >
+              <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-red-500" />
+              <span className="text-white/85">Live</span>
+            </span>
+          </div>
+        </header>
+      )}
       <div className="flex flex-1 min-h-0">
-        <Sidebar
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
+        {!embedMode && (
+          <Sidebar
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        )}
         <main className="relative flex flex-1 flex-col min-w-0">
-          <Toolbar onStatusChange={setStatus} />
+          {!embedMode && <Toolbar onStatusChange={setStatus} />}
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <PipelineCanvas
               key={`pipeline-${canvasNonce}`}
@@ -111,12 +211,16 @@ export default function Editor() {
               {status}
             </div>
           )}
-          <MobileBottomBar
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
+          {!embedMode && (
+            <MobileBottomBar
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          )}
         </main>
       </div>
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {!embedMode && (
+        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
     </DialogProvider>
     </ToastProvider>

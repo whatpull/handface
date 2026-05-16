@@ -12,15 +12,29 @@
 //   PK_READY           | 앱 마운트 완료.
 //   PK_PATTERN_LEARNED | cluster-spawned (신규 패턴 형성) 시.
 //   PK_VERIFIED        | grid-infer finished + winner 확정 시.
+//                        workersApiUrl 필드: Workers API 검증 엔드포인트 URL
+//                        (NEXT_PUBLIC_PK_WORKERS_URL 환경변수가 설정된 경우).
 //   PK_UNVERIFIED      | grid-infer error 또는 winner null 시.
 //
 // 보안: window.parent !== window 체크 (iframe 내부에서만 전송).
 //        origin 화이트리스트는 Phase 2에서 추가 (현재 '*').
 
+// Workers API base URL — set NEXT_PUBLIC_PK_WORKERS_URL in .env.local or
+// Vercel/GitHub Actions environment to point at the deployed Cloudflare Worker.
+// Example: https://patternkey-api.<subdomain>.workers.dev
+export const WORKERS_API_URL = process.env.NEXT_PUBLIC_PK_WORKERS_URL || '';
+
 export type OutboundMessage =
   | { type: 'PK_READY' }
   | { type: 'PK_PATTERN_LEARNED'; patternId: number; label: string }
-  | { type: 'PK_VERIFIED'; patternId: number; label: string; confidence: 'EXACT' | 'STABLE' }
+  | {
+      type: 'PK_VERIFIED';
+      patternId: number;
+      label: string;
+      confidence: 'EXACT' | 'STABLE';
+      /** Workers API 검증 엔드포인트 URL. NEXT_PUBLIC_PK_WORKERS_URL 미설정 시 빈 문자열. */
+      workersApiUrl: string;
+    }
   | { type: 'PK_UNVERIFIED'; reason: string };
 
 export type InboundMessage =

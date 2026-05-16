@@ -14,6 +14,7 @@ import { DialogProvider } from '@/components/ui/Dialog';
 import {
   isEmbedMode,
   postToParent,
+  WORKERS_API_URL,
   type InboundMessage,
   type OutboundMessage,
 } from '@/lib/embed-mode';
@@ -86,6 +87,7 @@ export default function Editor() {
         patternId: winnerCluster,
         label,
         confidence: 'EXACT',
+        workersApiUrl: WORKERS_API_URL,
       };
       lastVerifyRef.current = msg;
       postToParent(msg);

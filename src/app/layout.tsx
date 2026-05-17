@@ -14,7 +14,7 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: 'HandFace — Neural Network Editor',
   description: 'Bio-SNN visualization & node editor framework',
-  icons: { icon: '/favicon.svg' },
+  icons: { icon: '/favicon.svg', shortcut: '/favicon.svg' },
 };
 
 export default function RootLayout({

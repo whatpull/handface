@@ -28,7 +28,7 @@ export function HandFaceLogo({
       style={style}
     >
       <g className="hf-logo-svg">
-        <rect width="32" height="32" rx="7" fill="#7c3aed"/>
+        <rect width="32" height="32" rx="4" fill="#7c3aed"/>
         <rect x="5"  y="5"  width="10" height="10" rx="2.5" fill="white" fillOpacity="0.9"/>
         <rect x="17" y="5"  width="10" height="10" rx="2.5" fill="white" fillOpacity="0.4"/>
         <rect x="5"  y="17" width="10" height="10" rx="2.5" fill="white" fillOpacity="0.4"/>

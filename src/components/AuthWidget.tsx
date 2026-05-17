@@ -218,7 +218,7 @@ export default function AuthWidget() {
       {/* 로고 */}
       <div className="mb-8 flex items-center gap-2">
         <div
-          className="w-8 h-8 bg-violet-700 rounded-lg flex items-center justify-center"
+          className="w-8 h-8 bg-violet-700 rounded flex items-center justify-center"
           aria-hidden="true"
         >
           <svg

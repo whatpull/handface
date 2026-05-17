@@ -4,10 +4,10 @@
 
 /* ─── Design tokens ──────────────────────────────────────────── */
 :root {
-  /* radius */
-  --pipe-radius-sm: 3px;
-  --pipe-radius-md: 3px;
-  --pipe-radius-lg: 3px;
+  /* radius — PatternKey style: rounded cards */
+  --pipe-radius-sm: 8px;
+  --pipe-radius-md: 12px;
+  --pipe-radius-lg: 16px;
 
   /* spacing */
   --pipe-gap-xs: 4px;
@@ -25,40 +25,40 @@
   --pipe-font-title: 16px;
   --pipe-font-value: 20px;
 
-  /* monochrome palette — legacy name 보존, 모두 white/gray redirect */
-  --pipe-tone-cyan: 255, 255, 255;        /* white main (legacy name 보존) */
-  --pipe-tone-cyan-light: 209, 213, 219;  /* gray-300 light accent */
-  --pipe-tone-cyan-dark: 75, 85, 99;      /* gray-600 dark accent */
-  --pipe-tone-input: 255, 255, 255;   /* legacy → white */
-  --pipe-tone-learn: 255, 255, 255;   /* legacy → white */
-  --pipe-tone-infer: 255, 255, 255;   /* legacy → white */
-  --pipe-tone-out: 255, 255, 255;     /* legacy → white */
+  /* PatternKey violet palette — replaces legacy monochrome */
+  --pipe-tone-cyan: 167, 139, 250;        /* violet-400 (active accent) */
+  --pipe-tone-cyan-light: 167, 139, 250;  /* violet-400 */
+  --pipe-tone-cyan-dark: 109, 40, 217;    /* violet-700 dark */
+  --pipe-tone-input: 167, 139, 250;   /* violet-400 */
+  --pipe-tone-learn: 251, 191, 36;    /* amber — keep for learn phase */
+  --pipe-tone-infer: 167, 139, 250;   /* violet-400 */
+  --pipe-tone-out: 167, 139, 250;     /* violet-400 */
 
   /* tone alpha layers */
-  --pipe-tone-alpha-glow: 0.18;
-  --pipe-tone-alpha-border: 0.28;
-  --pipe-tone-alpha-bg: 0.04;
+  --pipe-tone-alpha-glow: 0.22;
+  --pipe-tone-alpha-border: 0.40;
+  --pipe-tone-alpha-bg: 0.08;
 
-  /* text — gray-300 main (AAA) / gray-500 dim (AA) / gray-600 muted */
-  --pipe-text: #d1d5db;
-  --pipe-text-dim: #6b7280;
-  --pipe-text-muted: #4b5563;
+  /* text — white main / #8888aa dim / #4a4a5a very dim (PatternKey spec) */
+  --pipe-text: #e2e2f0;
+  --pipe-text-dim: #8888aa;
+  --pipe-text-muted: #4a4a5a;
 
-  /* surfaces */
-  --pipe-bg: #000000;
-  --pipe-surface: #0a0a0a;
-  --pipe-hover: #141414;
+  /* surfaces — PatternKey dark palette */
+  --pipe-bg: #0a0a0f;
+  --pipe-surface: #18181f;
+  --pipe-hover: #1e1e28;
 
-  /* border palette — gray-800 (#1f1f1f) main + gray-700 strong + gray-900 subtle. */
-  --pipe-border: #1f1f1f;
-  --pipe-border-strong: #2a2a2a;
-  --pipe-border-subtle: #141414;
+  /* border palette — PatternKey #2a2a38 main */
+  --pipe-border: #2a2a38;
+  --pipe-border-strong: #3a3a4a;
+  --pipe-border-subtle: #1e1e28;
 
   /* shadow */
   --pipe-shadow-sm: none;
   --pipe-shadow-md: none;
-  --pipe-shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --pipe-shadow-glow: none;
+  --pipe-shadow-lg: 0 0 0 1px rgba(167, 139, 250, 0.06);
+  --pipe-shadow-glow: 0 4px 16px rgba(124, 58, 237, 0.4);
 }
 
 /* 카메라 미러링 */
@@ -89,7 +89,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(180deg, #f3f4f6 0%, #d1d5db 100%);
+  background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
   border-radius: 1px;
   height: 0%;
   transition: height 80ms linear;
@@ -99,6 +99,8 @@
 .snn-mode-progress-fill {
   width: var(--w, 0%);
   height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  border-radius: 999px;
   transition: width 120ms linear;
 }
 
@@ -106,7 +108,7 @@
 .snn-pipeline {
   position: absolute;
   inset: 0;
-  background: #000000;
+  background: #0a0a0f;
   overflow: hidden;
   padding: var(--pipe-gap-md);
   display: flex;
@@ -274,7 +276,7 @@
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(167, 139, 250, 0.06) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: 0 0;
   border: 1px solid var(--pipe-border);
@@ -337,7 +339,7 @@
   padding: 4px 10px;
   background: var(--pipe-surface);
   border: 1px solid var(--pipe-border);
-  border-radius: 3px;
+  border-radius: var(--pipe-radius-sm);
   color: var(--pipe-text);
   font-family: var(--pipe-font-mono, monospace);
   font-size: var(--pipe-font-xs);
@@ -414,7 +416,7 @@
 .snn-pipeline-node {
   background: var(--pipe-surface);
   border: 1px solid var(--pipe-border);
-  border-radius: 3px;
+  border-radius: var(--pipe-radius-lg);
   min-width: 0;
   height: max-content;
   display: flex;
@@ -426,7 +428,7 @@
   transition: border-color 160ms ease, background 160ms ease;
 }
 .snn-pipeline-node:hover {
-  background: #0e0e0e;
+  background: var(--pipe-hover);
   border-color: var(--pipe-border-strong);
 }
 @media (max-width: 900px) {
@@ -458,11 +460,11 @@
 .snn-pipeline.is-flowing .snn-pipeline-node--infer,
 .snn-pipeline.is-flowing .snn-pipeline-node--out {
   border-color: var(--pipe-border-strong);
-  background: #0e0e0e;
+  background: var(--pipe-hover);
 }
 
 .snn-pipeline-node-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--pipe-border);
   display: flex;
   align-items: baseline;
   gap: var(--pipe-gap-sm);
@@ -591,8 +593,8 @@
 .snn-pipeline-cam {
   position: relative;
   width: 100%;
-  background: #050505;
-  border-radius: 3px;
+  background: #0d0d14;
+  border-radius: var(--pipe-radius-md);
   overflow: hidden;
   aspect-ratio: 4 / 3;
 }
@@ -758,11 +760,12 @@
   background: linear-gradient(90deg, #92400e, #fbbf24);
 }
 .snn-pipeline-fill-green {
-  background: linear-gradient(90deg, #9ca3af, #ffffff);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.18) inset;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.35) inset;
 }
 .snn-pipeline-fill-cyan {
-  background: linear-gradient(90deg, #6b7280, #e5e7eb);
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  border-radius: 999px;
 }
 .snn-mode-progress-fill.is-active {
   animation: snn-pipeline-fill-pulse 1.6s ease-in-out infinite;
@@ -1167,10 +1170,10 @@
   50%      { opacity: 0.95; }
 }
 .snn-pipeline-out-winner-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid #2a2a38;
   color: var(--pipe-text);
-  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 3px;
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 8px;
   font-size: var(--pipe-font-title); font-weight: 600;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
@@ -1192,10 +1195,10 @@
 
 /* INFER enter button — snn-pipeline-out-winner-btn 구조 동일, INFER tone 사용. */
 .snn-pipeline-infer-enter-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid #2a2a38;
   color: var(--pipe-text);
-  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 3px;
+  padding: var(--pipe-gap-sm) var(--pipe-gap-md); border-radius: 8px;
   font-size: var(--pipe-font-title); font-weight: 600;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
@@ -1217,9 +1220,9 @@
 
 .snn-pipeline-out-input {
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background: rgba(124, 58, 237, 0.08);
   border: 1px solid rgba(var(--pipe-tone-out), var(--pipe-tone-alpha-border));
-  border-radius: 3px;
+  border-radius: 8px;
   color: white;
   padding: 6px var(--pipe-gap-sm);
   font-size: var(--pipe-font-lg);
@@ -1316,9 +1319,9 @@
   bottom: var(--pipe-gap-md);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 17, 23, 0.95);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 3px;
+  background: rgba(24, 24, 31, 0.97);
+  border: 1px solid #2a2a38;
+  border-radius: var(--pipe-radius-sm);
   padding: 6px var(--pipe-gap-md);
   font-family: ui-monospace, monospace;
   font-size: var(--pipe-font-xs);
@@ -1336,12 +1339,12 @@
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* phase background — 모두 #000 */
+/* phase background — PatternKey #0a0a0f */
 .snn-pipeline.is-phase-untrained,
 .snn-pipeline.is-phase-learning,
 .snn-pipeline.is-phase-partial,
 .snn-pipeline.is-phase-trained,
-.snn-pipeline.is-phase-inference { background: #000000; }
+.snn-pipeline.is-phase-inference { background: #0a0a0f; }
 
 /* TRAINED — LEARN 노드 border 강조 + ✓ badge */
 .snn-pipeline.is-phase-trained .snn-pipeline-node--learn {
@@ -1442,7 +1445,7 @@
   align-items: center;
   gap: 0;
   border: 1px solid var(--pipe-border);
-  border-radius: 3px;
+  border-radius: var(--pipe-radius-sm);
   overflow: hidden;
   align-self: flex-start;
   background: var(--pipe-surface);
@@ -1464,8 +1467,8 @@
   color: var(--pipe-text);
 }
 .snn-input-mode-btn.is-active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: rgba(124, 58, 237, 0.25);
+  color: #a78bfa;
 }
 .snn-input-mode-btn + .snn-input-mode-btn {
   border-left: 1px solid var(--pipe-border);
@@ -1500,18 +1503,19 @@
 }
 .snn-grid-train-all-btn {
   appearance: none;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--pipe-border-strong);
-  border-radius: 3px;
-  color: var(--pipe-text);
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 8px;
+  color: #a78bfa;
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.04em;
   padding: 6px 10px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 .snn-grid-train-all-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(124, 58, 237, 0.28);
+  border-color: rgba(167, 139, 250, 0.65);
 }
 .snn-grid-train-all-btn:disabled {
   opacity: 0.5;
@@ -1539,19 +1543,20 @@
 }
 .snn-grid-pixel {
   appearance: none;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--pipe-border);
-  border-radius: 2px;
+  background: #18181f;
+  border: 2px solid #2a2a38;
+  border-radius: 12px;
   cursor: pointer;
   padding: 0;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 .snn-grid-pixel:hover:not(:disabled) {
-  border-color: var(--pipe-border-strong);
+  border-color: #5b21b6;
 }
 .snn-grid-pixel.is-on {
-  background: linear-gradient(180deg, #f3f4f6 0%, #d1d5db 100%);
-  border-color: #d1d5db;
+  background: #7c3aed;
+  border-color: #a78bfa;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
 }
 .snn-grid-pixel:disabled {
   opacity: 0.7;
@@ -1578,17 +1583,18 @@
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(124, 58, 237, 0.06);
   border: 1px solid var(--pipe-border);
-  border-radius: 3px;
+  border-radius: 8px;
   color: var(--pipe-text);
   min-height: 32px;
   padding: 4px 10px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 .snn-grid-preset-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(124, 58, 237, 0.14);
+  border-color: rgba(167, 139, 250, 0.35);
 }
 /* display-only span variant — no hover/cursor. */
 .snn-grid-preset-btn--static {
@@ -1621,19 +1627,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--pipe-border-strong);
-  border-radius: 3px;
-  color: var(--pipe-text);
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 8px;
+  color: #a78bfa;
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.04em;
   min-height: 32px;
   padding: 4px 12px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 .snn-grid-train-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(124, 58, 237, 0.28);
+  border-color: rgba(167, 139, 250, 0.65);
 }
 
 .snn-grid-actions {
@@ -1644,45 +1651,54 @@
 .snn-grid-reset-btn {
   appearance: none;
   flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--pipe-border-strong);
-  border-radius: 3px;
-  color: var(--pipe-text);
+  background: transparent;
+  border: 1px solid var(--pipe-border);
+  border-radius: 8px;
+  color: var(--pipe-text-dim);
   font-size: var(--pipe-font-xs);
   letter-spacing: 0.04em;
   padding: 6px 10px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .snn-grid-infer-btn {
-  background: rgba(255, 255, 255, 0.1);
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #ffffff;
 }
 .snn-grid-infer-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.18);
+  background: #6d28d9;
+  border-color: #6d28d9;
 }
 .snn-grid-reset-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--pipe-border-strong);
+  color: var(--pipe-text);
 }
 
-/* 추론 button primary — cyan border-glow */
+/* 추론 button primary — violet style */
 .snn-grid-infer-btn--primary {
-  border-color: rgba(34, 211, 238, 0.55);
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15);
+  background: #7c3aed;
+  border-color: #a78bfa;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
 }
 .snn-grid-infer-btn--primary:hover:not(:disabled) {
-  border-color: rgba(34, 211, 238, 0.85);
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 12px rgba(34, 211, 238, 0.3);
+  background: #6d28d9;
+  border-color: #a78bfa;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
 }
 
-/* reset danger — red border-glow */
+/* reset danger — red border */
 .snn-grid-reset-btn--danger {
+  background: transparent;
   border-color: rgba(239, 68, 68, 0.5);
-  color: rgba(252, 165, 165, 0.95);
+  color: #ef4444;
 }
 .snn-grid-reset-btn--danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.8);
-  color: rgba(254, 202, 202, 1);
+  color: #fca5a5;
 }
 
 /* touch target min-height 36px (WCAG) */
@@ -1847,7 +1863,7 @@
   min-height: 28px;
   padding: 6px 8px;
   border: 1px solid var(--pipe-border);
-  border-radius: 3px;
+  border-radius: var(--pipe-radius-sm);
   background: var(--pipe-surface);
 }
 /* ok/busy — single line ellipsis. error — wrap. */

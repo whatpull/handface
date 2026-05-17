@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root {
-  /* deeper black v2 (2026-05-05 사용자 catch "너무 밝음") — body #000 + foreground gray-300.
-     직전 #0a0a0c (slight gray) + #ededed (near-white) 영역 white 100% 영역 가독성 catch.
-     본 부분 #000 + #d1d5db (gray-300) 영역 contrast ~13:1 (AAA pass) + 차분 정합. */
-  --background: #000000;
-  --foreground: #d1d5db;
+  /* PatternKey 팔레트 통일 (2026-05-18): #0a0a0f 배경 + #e2e2f0 전경.
+     직전 #000 + #d1d5db. PatternKey Auth Widget 스타일 정합 — violet accent.
+     contrast #e2e2f0 on #0a0a0f ≈ 14:1 (AAA pass). */
+  --background: #0a0a0f;
+  --foreground: #e2e2f0;
 }
 
 html, body {

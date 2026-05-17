@@ -217,15 +217,7 @@ export default function Editor() {
           <HandFaceLogo size={24} />
           <span className="text-sm font-semibold tracking-wider">HandFace</span>
           <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
-          <div className="ml-auto flex items-center gap-2 text-[11px]">
-            <span
-              className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-black/30 px-2 py-0.5"
-              aria-label="엔진: Live"
-            >
-              <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-red-500" />
-              <span className="text-white/85">Live</span>
-            </span>
-          </div>
+          <div className="ml-auto" />
         </header>
       )}
       <div className="flex flex-1 min-h-0">

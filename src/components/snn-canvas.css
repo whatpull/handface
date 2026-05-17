@@ -5,9 +5,9 @@
 /* ─── Design tokens ──────────────────────────────────────────── */
 :root {
   /* radius — PatternKey style: rounded cards */
-  --pipe-radius-sm: 8px;
-  --pipe-radius-md: 12px;
-  --pipe-radius-lg: 16px;
+  --pipe-radius-sm: 4px;
+  --pipe-radius-md: 4px;
+  --pipe-radius-lg: 4px;
 
   /* spacing */
   --pipe-gap-xs: 4px;
@@ -1545,7 +1545,7 @@
   appearance: none;
   background: #18181f;
   border: 2px solid #2a2a38;
-  border-radius: 12px;
+  border-radius: 4px;
   cursor: pointer;
   padding: 0;
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;

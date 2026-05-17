@@ -26,6 +26,7 @@ export const WORKERS_API_URL = process.env.NEXT_PUBLIC_PK_WORKERS_URL || '';
 
 export type OutboundMessage =
   | { type: 'PK_READY' }
+  | { type: 'PK_REGISTERED' }
   | { type: 'PK_PATTERN_LEARNED'; patternId: number; label: string }
   | {
       type: 'PK_VERIFIED';
@@ -35,8 +36,14 @@ export type OutboundMessage =
       /** Workers API 검증 엔드포인트 URL. NEXT_PUBLIC_PK_WORKERS_URL 미설정 시 빈 문자열. */
       workersApiUrl: string;
     }
+  | {
+      type: 'PK_VERIFIED';
+      confidence: 'EXACT';
+      similarity: number;
+    }
   | { type: 'PK_UNVERIFIED'; reason: string }
-  | { type: 'PK_FAILED'; reason: string };
+  | { type: 'PK_FAILED'; reason: string }
+  | { type: 'PK_FAILED'; similarity: number };
 
 export type InboundMessage =
   | { type: 'PK_INIT'; config?: { theme?: 'dark'; maxPatterns?: number } }

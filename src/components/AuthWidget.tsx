@@ -1,181 +1,216 @@
 'use client';
 
-// AuthWidget — PatternKey 인증 전용 UI (?embed=true&mode=auth 진입).
-// 파이프라인 노드 없이 4×4 그리드 + 상태 메시지만 표시.
+// AuthWidget — 1패턴 전용 인증 위젯 (?embed=true&mode=auth 진입).
+// SNN 불필요 — localStorage + Jaccard 유사도 비교만 사용.
 //
-// 상태 흐름:
-//   [idle]      → "패턴을 그린 후 확인을 누르세요"
-//   [learning]  → 첫 방문: "새 패턴을 등록합니다" (30회 자동 학습)
-//   [verifying] → "패턴 확인 중..."
-//   [success]   → "인증 완료" (초록)
-//   [error]     → "패턴이 일치하지 않습니다" (빨강)
+// 상태 흐름 (등록):
+//   register_idle → 그리드 그리기 → [등록하기] → register_done → 2초 후 verify_idle
+// 상태 흐름 (인증):
+//   verify_idle → 그리드 그리기 → [확인] → success | failed
 //
 // postMessage API:
-//   PK_READY     — 위젯 로드 완료
-//   PK_VERIFIED  — 인증 성공 { patternId, label, confidence }
-//   PK_FAILED    — 패턴 불일치
+//   PK_REGISTERED — 등록 완료
+//   PK_VERIFIED   — 인증 성공 { confidence, similarity }
+//   PK_FAILED     — 인증 실패 { similarity }
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getLiveSnn, onLiveTick } from '@/lib/snn/live-snn';
-import { onBackendEvent } from '@/lib/backend/events';
-import type { AutoLearnProgressDetail } from '@/lib/backend/events';
-import { loadExemplars } from '@/lib/snn/out-exemplars';
-import { resolveClusterLabel } from '@/components/snn/pipeline/shared';
 import { postToParent } from '@/lib/embed-mode';
 import './snn-canvas.css';
 
-// ART vigilance — 정확 일치 전용 (binary equality).
-const AUTH_VIGILANCE = 1.0;
-// 신규 패턴 자동 학습 횟수.
-const LEARN_TOTAL = 30;
+const AUTH_KEY = 'patternkey.auth.cells'; // number[] (16개, 0 or 1)
+const JACCARD_THRESHOLD = 0.75;
+const MIN_ACTIVE_CELLS = 4;
 
-type AuthStatus = 'idle' | 'learning' | 'verifying' | 'success' | 'error';
+// ---------------------------------------------------------------------------
+// Storage helpers
+// ---------------------------------------------------------------------------
+
+function loadAuthPattern(): number[] | null {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(AUTH_KEY) : null;
+    return raw ? (JSON.parse(raw) as number[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveAuthPattern(cells: number[]): void {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(cells));
+}
+
+function clearAuthPattern(): void {
+  localStorage.removeItem(AUTH_KEY);
+}
+
+// ---------------------------------------------------------------------------
+// Similarity
+// ---------------------------------------------------------------------------
+
+function jaccardSimilarity(a: number[], b: number[]): number {
+  let intersection = 0;
+  let union = 0;
+  for (let i = 0; i < 16; i++) {
+    if (a[i] || b[i]) union++;
+    if (a[i] && b[i]) intersection++;
+  }
+  return union === 0 ? 0 : intersection / union;
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type AuthStatus =
+  | 'register_idle'
+  | 'registering'
+  | 'register_done'
+  | 'verify_idle'
+  | 'verifying'
+  | 'success'
+  | 'failed';
 
 function emptyGrid(): number[] {
   return new Array<number>(16).fill(0);
 }
 
-function isGridEmpty(g: number[]): boolean {
-  return g.every((v) => v <= 0.5);
+function activeCellCount(g: number[]): number {
+  return g.reduce((s, v) => s + (v > 0.5 ? 1 : 0), 0);
 }
 
-// 학습된 패턴 슬롯이 하나라도 있으면 true.
-function hasLearnedPatterns(): boolean {
-  if (typeof window === 'undefined') return false;
-  const exemplars = loadExemplars('orientation');
-  return Object.keys(exemplars).length > 0;
-}
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function AuthWidget() {
   const [grid, setGrid] = useState<number[]>(() => emptyGrid());
-  const [authStatus, setAuthStatus] = useState<AuthStatus>('idle');
-  const [progress, setProgress] = useState(0);
-  const pendingTokenRef = useRef<number | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(() =>
+    loadAuthPattern() ? 'verify_idle' : 'register_idle',
+  );
+  const [lastSimilarity, setLastSimilarity] = useState<number | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // PK_READY 송출 — 위젯 마운트 완료.
   useEffect(() => {
     postToParent({ type: 'PK_READY' });
-  }, []);
-
-  // Live SNN tick listener — triggerWithVigilance 결과 수신.
-  useEffect(() => {
-    return onLiveTick((d) => {
-      if (d.source === 'trigger' && d.trialToken !== undefined) {
-        if (pendingTokenRef.current !== d.trialToken) return;
-
-        if (d.vigilanceMismatch) {
-          // 신규 패턴 — 자동 학습 시작. progress는 auto-learn-progress 이벤트로 갱신.
-          setAuthStatus('learning');
-          setProgress(0);
-        } else if (d.winner < 0) {
-          // winner 없음 → 불일치.
-          pendingTokenRef.current = null;
-          setAuthStatus('error');
-          postToParent({ type: 'PK_UNVERIFIED', reason: 'no-winner' });
-        } else {
-          // 패턴 일치 → 인증 성공.
-          pendingTokenRef.current = null;
-          const exemplars = loadExemplars('orientation');
-          const label = resolveClusterLabel(exemplars, d.winner, 'grid');
-          setAuthStatus('success');
-          postToParent({
-            type: 'PK_VERIFIED',
-            patternId: d.winner,
-            label,
-            confidence: 'EXACT',
-            workersApiUrl: '',
-          });
-        }
-      }
-    });
-  }, []);
-
-  // auto-learn-progress 구독 — 학습 진행 및 완료 수신.
-  useEffect(() => {
-    return onBackendEvent<AutoLearnProgressDetail>('auto-learn-progress', (d) => {
-      if (pendingTokenRef.current !== d.trialToken) return;
-
-      setProgress(Math.min(d.progress, LEARN_TOTAL));
-
-      if (d.progress >= d.total) {
-        pendingTokenRef.current = null;
-        const exemplars = loadExemplars('orientation');
-        const label = resolveClusterLabel(exemplars, d.clusterId, 'grid');
-        setAuthStatus('success');
-        postToParent({
-          type: 'PK_VERIFIED',
-          patternId: d.clusterId,
-          label,
-          confidence: 'EXACT',
-          workersApiUrl: '',
-        });
-      }
-    });
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
   }, []);
 
   const toggleCell = useCallback((i: number) => {
     setGrid((g) => {
       const next = g.slice();
       next[i] = next[i] > 0.5 ? 0 : 1;
-      try {
-        getLiveSnn().setPattern(next);
-      } catch {
-        // SSR / 미초기화 — 무시.
-      }
       return next;
     });
   }, []);
 
   const clearGrid = useCallback(() => {
     setGrid(emptyGrid());
-    setAuthStatus('idle');
-    setProgress(0);
+    setLastSimilarity(null);
+    setAuthStatus((s) => {
+      if (s === 'register_idle' || s === 'registering' || s === 'register_done')
+        return 'register_idle';
+      return 'verify_idle';
+    });
   }, []);
 
-  const handleConfirm = useCallback(() => {
-    if (authStatus === 'learning' || authStatus === 'verifying') return;
-    if (isGridEmpty(grid)) return;
+  // 등록
+  const handleRegister = useCallback(() => {
+    if (activeCellCount(grid) < MIN_ACTIVE_CELLS) return;
+    setAuthStatus('registering');
+    saveAuthPattern(grid.map((v) => (v > 0.5 ? 1 : 0)));
+    postToParent({ type: 'PK_REGISTERED' });
+    setAuthStatus('register_done');
+    resetTimerRef.current = setTimeout(() => {
+      setGrid(emptyGrid());
+      setAuthStatus('verify_idle');
+    }, 2000);
+  }, [grid]);
+
+  // 인증
+  const handleVerify = useCallback(() => {
+    if (authStatus === 'verifying') return;
+    if (activeCellCount(grid) < MIN_ACTIVE_CELLS) return;
 
     setAuthStatus('verifying');
-    setProgress(0);
+    const stored = loadAuthPattern();
+    if (!stored) {
+      // 패턴이 사라진 경우 — 등록 모드로 복귀.
+      setAuthStatus('register_idle');
+      return;
+    }
 
-    try {
-      const live = getLiveSnn();
-      live.setPattern(grid);
-      const { trialToken } = live.triggerWithVigilance(grid, AUTH_VIGILANCE);
-      pendingTokenRef.current = trialToken;
+    const input = grid.map((v) => (v > 0.5 ? 1 : 0));
+    const sim = jaccardSimilarity(stored, input);
+    setLastSimilarity(sim);
 
-      // safety-net 10s — worker hang 방지.
-      setTimeout(() => {
-        if (pendingTokenRef.current === trialToken) {
-          pendingTokenRef.current = null;
-          setAuthStatus((s) =>
-            s === 'verifying' || s === 'learning' ? 'error' : s,
-          );
-        }
-      }, 10000);
-    } catch {
-      setAuthStatus('error');
+    if (sim >= JACCARD_THRESHOLD) {
+      setAuthStatus('success');
+      postToParent({ type: 'PK_VERIFIED', confidence: 'EXACT', similarity: sim });
+    } else {
+      setAuthStatus('failed');
+      postToParent({ type: 'PK_FAILED', similarity: sim });
     }
   }, [grid, authStatus]);
 
-  const isBusy = authStatus === 'learning' || authStatus === 'verifying';
+  // 패턴 재설정 (confirm 필요)
+  const handleReset = useCallback(() => {
+    const ok =
+      typeof window !== 'undefined' &&
+      window.confirm('등록된 패턴을 삭제하고 다시 등록하시겠습니까?');
+    if (!ok) return;
+    clearAuthPattern();
+    setGrid(emptyGrid());
+    setLastSimilarity(null);
+    setAuthStatus('register_idle');
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Derived display values
+  // ---------------------------------------------------------------------------
+
+  const isRegisterMode =
+    authStatus === 'register_idle' ||
+    authStatus === 'registering' ||
+    authStatus === 'register_done';
+
+  const isBusy = authStatus === 'registering' || authStatus === 'verifying';
+
+  const activeCount = activeCellCount(grid);
+  const canSubmit = activeCount >= MIN_ACTIVE_CELLS && !isBusy;
 
   const statusMessage = (() => {
     switch (authStatus) {
-      case 'idle':
-        return hasLearnedPatterns()
-          ? '패턴을 그린 후 확인을 누르세요'
-          : '새 패턴을 그려 등록하세요';
-      case 'learning':
-        return '새 패턴을 등록합니다';
+      case 'register_idle':
+        return '나만의 패턴을 등록하세요';
+      case 'registering':
+        return '등록 중...';
+      case 'register_done':
+        return '패턴이 등록됐습니다';
+      case 'verify_idle':
+        return '등록한 패턴을 그려서 인증하세요';
       case 'verifying':
-        return '패턴 확인 중...';
+        return '확인 중...';
       case 'success':
         return '인증 완료';
-      case 'error':
+      case 'failed':
         return '패턴이 일치하지 않습니다';
     }
+  })();
+
+  const statusColor = (() => {
+    if (authStatus === 'success' || authStatus === 'register_done') return 'text-green-400';
+    if (authStatus === 'failed') return 'text-red-400';
+    return 'text-[#8888aa]';
+  })();
+
+  const subMessage = (() => {
+    if (authStatus === 'register_idle')
+      return '이 패턴을 기억해두세요 — 다음 방문 시 인증에 사용됩니다';
+    if (authStatus === 'failed' && lastSimilarity !== null)
+      return `유사도 ${Math.round(lastSimilarity * 100)}% — 다시 시도하세요`;
+    return null;
   })();
 
   return (
@@ -204,21 +239,19 @@ export default function AuthWidget() {
 
       {/* 안내 텍스트 */}
       <p
-        className={`text-sm mb-6 text-center ${
-          authStatus === 'success'
-            ? 'text-green-400'
-            : authStatus === 'error'
-              ? 'text-red-400'
-              : 'text-[#8888aa]'
-        }`}
+        className={`text-sm mb-1 text-center font-medium ${statusColor}`}
         role="status"
         aria-live="polite"
         aria-atomic="true"
       >
         {statusMessage}
       </p>
+      {subMessage && (
+        <p className="text-xs text-[#6666888] mb-5 text-center">{subMessage}</p>
+      )}
+      {!subMessage && <div className="mb-5" />}
 
-      {/* 4×4 그리드 */}
+      {/* 4x4 그리드 */}
       <div
         className="grid grid-cols-4 gap-2 mb-6"
         aria-label="4x4 패턴 그리드"
@@ -229,7 +262,7 @@ export default function AuthWidget() {
             key={i}
             type="button"
             onClick={() => toggleCell(i)}
-            disabled={isBusy}
+            disabled={isBusy || authStatus === 'register_done' || authStatus === 'success'}
             aria-label={`셀 ${i + 1} — ${active > 0.5 ? '켜짐' : '꺼짐'}`}
             aria-pressed={active > 0.5}
             className={`w-14 h-14 rounded-xl border-2 transition-all ${
@@ -241,62 +274,81 @@ export default function AuthWidget() {
         ))}
       </div>
 
-      {/* 학습 진행 표시 (learning 상태) — data-pct 10단계 quantize로 inline style 회피 */}
-      {authStatus === 'learning' && (
-        <div className="w-full max-w-xs mb-4">
-          <div
-            className="auth-progress-track"
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin={0}
-            aria-valuemax={LEARN_TOTAL}
-            aria-label={`패턴 학습 중 ${progress}/${LEARN_TOTAL}`}
-          >
-            <div
-              className="auth-progress-fill"
-              data-pct={String(Math.round((progress / LEARN_TOTAL) * 10) * 10)}
-            />
-          </div>
-          <p className="text-xs text-[#8888aa] mt-1 text-center">
-            패턴 학습 중 {progress}/{LEARN_TOTAL}
-          </p>
-        </div>
-      )}
-
-      {/* 결과 표시 */}
-      {authStatus === 'success' && (
-        <div className="text-green-400 text-lg font-semibold mb-4">
-          인증 완료
-        </div>
-      )}
-      {authStatus === 'error' && (
-        <div className="text-red-400 text-sm mb-4">
-          패턴이 일치하지 않습니다
-        </div>
+      {/* 활성 셀 수 힌트 (최소 조건 미달 시) */}
+      {activeCount > 0 && activeCount < MIN_ACTIVE_CELLS && (
+        <p className="text-xs text-[#8888aa] mb-3">
+          최소 {MIN_ACTIVE_CELLS}개 선택 필요 (현재 {activeCount}개)
+        </p>
       )}
 
       {/* 버튼 */}
-      <div className="flex gap-3">
+      {!isBusy && authStatus !== 'register_done' && authStatus !== 'success' && (
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={clearGrid}
+            className="px-4 py-2 text-sm text-[#8888aa] border border-[#2a2a38] rounded-lg hover:border-[#3a3a48] transition-colors"
+          >
+            지우기
+          </button>
+          {isRegisterMode ? (
+            <button
+              type="button"
+              onClick={handleRegister}
+              disabled={!canSubmit}
+              className="px-6 py-2 text-sm font-semibold bg-violet-700 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              등록하기
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleVerify}
+              disabled={!canSubmit}
+              className="px-6 py-2 text-sm font-semibold bg-violet-700 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              확인
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 처리 중 표시 */}
+      {isBusy && (
+        <p className="text-xs text-[#8888aa] mt-1">처리 중...</p>
+      )}
+
+      {/* 인증 실패 시 재시도 안내 */}
+      {authStatus === 'failed' && (
         <button
           type="button"
           onClick={clearGrid}
-          disabled={isBusy}
-          className="px-4 py-2 text-sm text-[#8888aa] border border-[#2a2a38] rounded-lg hover:border-[#3a3a48] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="mt-4 px-4 py-2 text-sm text-[#8888aa] border border-[#2a2a38] rounded-lg hover:border-[#3a3a48] transition-colors"
         >
-          지우기
+          다시 시도
         </button>
+      )}
+
+      {/* 인증 성공 표시 */}
+      {authStatus === 'success' && (
+        <div className="mt-2 text-green-400 text-2xl font-bold select-none">
+          &#10003;
+        </div>
+      )}
+
+      {/* 패턴 재설정 (인증 모드 하단 — 작게) */}
+      {!isRegisterMode && authStatus !== 'success' && (
         <button
           type="button"
-          onClick={handleConfirm}
-          disabled={isBusy || isGridEmpty(grid)}
-          className="px-6 py-2 text-sm font-semibold bg-violet-700 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          onClick={handleReset}
+          className="mt-8 text-xs text-[#4a4a5a] hover:text-[#8888aa] transition-colors underline underline-offset-2"
         >
-          {isBusy ? '처리 중...' : '확인'}
+          패턴 재설정
         </button>
-      </div>
+      )}
 
       {/* 하단 브랜딩 */}
-      <p className="mt-8 text-xs text-[#4a4a5a]">
+      <p className="mt-6 text-xs text-[#4a4a5a]">
         패턴은 이 기기에만 저장됩니다 · PatternKey
       </p>
     </div>

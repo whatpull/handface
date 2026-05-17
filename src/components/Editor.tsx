@@ -195,8 +195,8 @@ export default function Editor() {
       {embedMode && !authMode && (
         <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[#2a2a38]">
           {/* PatternKey 4-grid 로고 */}
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-violet-700 flex-shrink-0">
-            <svg viewBox="0 0 18 18" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-violet-700 flex-shrink-0">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="1" y="1" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.9"/>
               <rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.4"/>
               <rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.4"/>

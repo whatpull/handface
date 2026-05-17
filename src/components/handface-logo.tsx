@@ -29,10 +29,11 @@ export function HandFaceLogo({
     >
       <g className="hf-logo-svg">
         <rect width="32" height="32" rx="4" fill="#7c3aed"/>
-        <rect x="5"  y="5"  width="10" height="10" rx="2.5" fill="white" fillOpacity="0.9"/>
-        <rect x="17" y="5"  width="10" height="10" rx="2.5" fill="white" fillOpacity="0.4"/>
-        <rect x="5"  y="17" width="10" height="10" rx="2.5" fill="white" fillOpacity="0.4"/>
-        <rect x="17" y="17" width="10" height="10" rx="2.5" fill="white" fillOpacity="0.9"/>
+        {/* 18×18 그리드를 7px 여백으로 배치 — Auth Widget 동일 비율 */}
+        <rect x="7"  y="7"  width="8" height="8" rx="1.5" fill="white" fillOpacity="0.9"/>
+        <rect x="17" y="7"  width="8" height="8" rx="1.5" fill="white" fillOpacity="0.4"/>
+        <rect x="7"  y="17" width="8" height="8" rx="1.5" fill="white" fillOpacity="0.4"/>
+        <rect x="17" y="17" width="8" height="8" rx="1.5" fill="white" fillOpacity="0.9"/>
       </g>
     </svg>
   );

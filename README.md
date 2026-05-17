@@ -1,5 +1,11 @@
 # HandFace
 
+[![MIT License](https://img.shields.io/badge/License-MIT-violet)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
+> 브라우저에서 동작하는 Bio-SNN 기반 패턴 인식 엔진.
+> 패턴이 서버에 전송되지 않습니다 (in-browser Live 모드 기준).
+
 4×4 그리드 패턴 → SNN 학습 → 추론 시각화.
 
 브라우저의 4×4 orientation 그리드로 그린 패턴을 Spiking Neural Network 가 직접 학습하고, 그 추론 결과를 5-노드 파이프라인 UI 로 시각화하는 실험용 프론트엔드.
@@ -204,7 +210,17 @@ src/
 
 ---
 
-## 5. License
+## 5. Contributing
+
+버그 리포트, 기능 제안, 연구 아이디어, PR 모두 환영합니다.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 방법 + 커밋 컨벤션
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — 커뮤니티 행동 강령
+- Issue 템플릿: [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) / [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) / [Research Idea](.github/ISSUE_TEMPLATE/research_idea.md)
+
+---
+
+## 6. License
 
 MIT.
 

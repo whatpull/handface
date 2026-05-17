@@ -35,7 +35,8 @@ export type OutboundMessage =
       /** Workers API 검증 엔드포인트 URL. NEXT_PUBLIC_PK_WORKERS_URL 미설정 시 빈 문자열. */
       workersApiUrl: string;
     }
-  | { type: 'PK_UNVERIFIED'; reason: string };
+  | { type: 'PK_UNVERIFIED'; reason: string }
+  | { type: 'PK_FAILED'; reason: string };
 
 export type InboundMessage =
   | { type: 'PK_INIT'; config?: { theme?: 'dark'; maxPatterns?: number } }
@@ -45,6 +46,12 @@ export type InboundMessage =
 export function isEmbedMode(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('embed') === 'true';
+}
+
+export function isAuthMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  const p = new URLSearchParams(window.location.search);
+  return p.get('embed') === 'true' && p.get('mode') === 'auth';
 }
 
 export function postToParent(msg: OutboundMessage): void {

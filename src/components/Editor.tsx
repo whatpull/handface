@@ -13,11 +13,13 @@ import { ToastProvider, showToast } from '@/components/ui/Toast';
 import { DialogProvider } from '@/components/ui/Dialog';
 import {
   isEmbedMode,
+  isAuthMode,
   postToParent,
   WORKERS_API_URL,
   type InboundMessage,
   type OutboundMessage,
 } from '@/lib/embed-mode';
+import AuthWidget from '@/components/AuthWidget';
 import {
   loadExemplars,
 } from '@/lib/snn/out-exemplars';
@@ -36,6 +38,10 @@ export default function Editor() {
   // useState 초기값 false → useEffect 에서 실제 값으로 교체 (hydration mismatch 회피).
   const [embedMode, setEmbedMode] = useState(false);
   useEffect(() => { setEmbedMode(isEmbedMode()); }, []);
+
+  // auth 모드: ?embed=true&mode=auth 진입 시 AuthWidget 전용 렌더링.
+  const [authMode, setAuthMode] = useState(false);
+  useEffect(() => { setAuthMode(isAuthMode()); }, []);
 
   // embed 모드: 마지막 grid-infer 결과 캐시 — PK_REQUEST_VERIFY 응답용.
   const lastVerifyRef = useRef<OutboundMessage | null>(null);
@@ -170,6 +176,17 @@ export default function Editor() {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
+
+  // auth 모드: 파이프라인 전체 대신 AuthWidget 단독 렌더링.
+  if (authMode) {
+    return (
+      <ToastProvider>
+        <DialogProvider>
+          <AuthWidget />
+        </DialogProvider>
+      </ToastProvider>
+    );
+  }
 
   return (
     <ToastProvider>

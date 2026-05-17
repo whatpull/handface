@@ -194,18 +194,13 @@ export default function Editor() {
     <div className={`flex h-dvh w-dvw flex-col ${embedMode ? 'bg-[#0a0a0f]' : 'bg-[#0a0a0c]'} text-white`}>
       {embedMode && !authMode && (
         <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[#2a2a38]">
-          {/* PatternKey 로고 */}
+          {/* PatternKey 4-grid 로고 */}
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-700 flex-shrink-0">
-            <svg viewBox="0 0 32 32" className="w-4 h-4" fill="none">
-              <circle cx="16" cy="16" r="4.5" stroke="white" strokeWidth="1.8"/>
-              <line x1="16" y1="4"  x2="16" y2="8"  stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="16" y1="24" x2="16" y2="28" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="4"  y1="16" x2="8"  y2="16" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="24" y1="16" x2="28" y2="16" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="7.5"  y1="7.5"  x2="10.3" y2="10.3" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="21.7" y1="21.7" x2="24.5" y2="24.5" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="7.5"  y1="24.5" x2="10.3" y2="21.7" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="21.7" y1="10.3" x2="24.5" y2="7.5"  stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+            <svg viewBox="0 0 18 18" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.9"/>
+              <rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.4"/>
+              <rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.4"/>
+              <rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.9"/>
             </svg>
           </div>
           <span className="text-sm font-semibold text-white">PatternKey</span>

@@ -7,7 +7,7 @@
 > 브라우저에서 동작하는 Bio-SNN 기반 패턴 인식 엔진.
 > **패턴이 서버에 전송되지 않습니다** — 모든 학습과 추론이 브라우저 내부에서 실행됩니다.
 
-라이브: <https://whatpull.github.io/handface/>
+라이브: <https://handface.whatpull.com>
 
 ---
 
@@ -29,7 +29,7 @@ INPUT → LEARN → INFER → OUT
 
 ```bash
 # 접속
-open https://whatpull.github.io/handface/
+open https://handface.whatpull.com
 
 # 로컬 개발
 npm install && npm run dev   # http://localhost:3000
@@ -89,10 +89,10 @@ raw 16-dim (그리드 셀) + 파생 16-dim
 
 ```html
 <!-- 사용자 인증 위젯 -->
-<iframe src="https://whatpull.github.io/handface/?embed=true&mode=auth" />
+<iframe src="https://handface.whatpull.com/?embed=true&mode=auth" />
 
 <!-- 개발자 파이프라인 뷰 -->
-<iframe src="https://whatpull.github.io/handface/?embed=true" />
+<iframe src="https://handface.whatpull.com/?embed=true" />
 ```
 
 ```js
@@ -161,7 +161,7 @@ src/
       client.ts                 # neuronface REST client (research 모드)
 ```
 
-**배포:** `main` push → GitHub Actions → GitHub Pages (`/handface`)
+**배포:** `main` push → GitHub Actions → GitHub Pages (`handface.whatpull.com`)
 
 ---
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createActions } from '@/lib/snn/actions';
+import CloudSyncButton from '@/components/CloudSyncButton';
 
 // 직전 ViewMode (pipeline / region) 영역 폐기됨 — 사용자 명시 영역 단일 통합 view.
 // Engine 토글 (Backend/Live) 제거 — Live 고정 (2026-05-15).
@@ -41,6 +42,9 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
         >
           <Icon kind="layout" /> 레이아웃 초기화
         </button>
+      </div>
+      <div className="ml-auto">
+        <CloudSyncButton />
       </div>
     </div>
   );

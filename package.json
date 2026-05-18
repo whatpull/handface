@@ -14,6 +14,7 @@
     "deploy": "next build && touch out/.nojekyll && gh-pages -d out -t"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.0",
     "@xyflow/react": "^12.10.2",
     "next": "15.1.6",
     "react": "^19.0.0",

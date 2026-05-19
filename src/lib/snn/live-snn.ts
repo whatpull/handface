@@ -1109,11 +1109,20 @@ export class LiveSnn {
           // P215b (2026-05-19) — 2단계 augmentation 영역 reinforce 영역 적용.
           // 30 frame 영역 2분할:
           //   전반 1/2 (idx 0~14): 원본 영역 유지 (cluster anchor 영역 확립)
-          //   후반 1/2 (idx 15~29): 노이즈 5% → 12.5% 점진 (노이즈 견고성 회복)
+          //   후반 1/2 (idx 15~29): 노이즈 점진 (노이즈 견고성 회복)
           // 마지막 frame (isFinal) 영역 원본 영역 유지 — featSnap commit
           // semantic 영역 out-exemplars store 영역 원본 패턴 영역 영구화 정합.
           // 학술 정합: noise injection (Goodfellow 2014) regularization 영역
           // ANN training augmentation 영역 정합.
+          //
+          // P215i (2026-05-20) — 노이즈 범위 영역 5-12.5% → 3-7.5% 영역 축소.
+          // root cause analysis 영역 N=8 partial cue 영역 ceiling 영역 cluster
+          // receptive field 영역 노이즈 augmentation 영역 확장 영역 inter-cluster
+          // overlap 영역 증가 — 특히 T⊃Top row / L⊃Left col 영역 subset/superset
+          // 관계 영역 cluster 영역 receptive field overlap 영역 amplify. 노이즈
+          // range 영역 축소 영역 cluster 영역 좁힘 영역 partial cue 영역 정확도
+          // 영역 ↑ 영역 시도 영역 (trade-off: noise tolerance 영역 약간 ↓ 영역
+          // 가능). 12.5% 영역 ANN augmentation 영역 typical 5-10% 영역 약간 높음.
           const globalIdx = round * CHUNK + i;
           const half = TOTAL / 2; // 15
           let reinforcePattern: number[];
@@ -1121,9 +1130,9 @@ export class LiveSnn {
             // 전반 1/2 + 마지막 frame 영역 원본 영역 유지.
             reinforcePattern = this.patternRef.slice();
           } else {
-            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1 영역 5% → 12.5%.
+            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1 영역 3% → 7.5%.
             const t = (globalIdx - half) / half;
-            const noiseLevel = 0.05 + t * 0.075;
+            const noiseLevel = 0.03 + t * 0.045;
             reinforcePattern = addSmallNoise(this.patternRef, noiseLevel);
           }
           await root.client.reinforceBackground({

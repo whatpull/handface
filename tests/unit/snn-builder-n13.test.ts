@@ -183,7 +183,10 @@ describe('snn-builder-n13 — WTA / 격리', () => {
     // PR-I (사용자 catch 2026-05-09 — 수평/수직 영역 다른 cluster winner 정정,
     // 2026-05-10): WTA inhibition -4.0 → -8.0 영역 강화 (Diehl & Cook 2015
     // strong inhibitory pool 정합).
-    expect(crossNegMin).toBe(-8.0);
+    // P215d (2026-05-19): -8.0 → -10.0 영역 추가 강화 — P215b 노이즈
+    // augmentation 영역 cluster receptive field 영역 확장 영역 cluster 간
+    // overlap risk 영역 lateral inhibition 영역 ratio 영역 보강.
+    expect(crossNegMin).toBe(-10.0);
   });
 
   it('LEGACY 4-cluster — OUT cluster 내부 mutual excitation (positive weight)', () => {

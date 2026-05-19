@@ -339,12 +339,18 @@ export function buildN13OrientationPreset(opts: N13PresetOptions = {}): N13Prese
   // (§3.2, lateral inhibition weight 영역 typical excitatory 5-10× 범위) 영역
   // ratio 정합. follow-up PR (Option A — 32-dim disjoint feature engineering)
   // 영역 본격 root fix.
+  // P215d (2026-05-19) — WTA margin 강화 -8.0 → -10.0. 노이즈 인풋 영역
+  // 명확한 winner 영역 도출 영역 receptive field 분리 영역 추가 강화 — P215b
+  // 노이즈 augmentation 영역 cluster receptive field 영역 확장 영역 cluster
+  // 간 overlap 증가 영역 risk 영역 lateral inhibition 영역 ratio 영역 보강.
+  // Diehl & Cook 2015 typical excitatory:inhibitory ratio 영역 12.0:10.0 영역
+  // 약 1:0.83 영역 정합 (excit 12.0 → inhib 10.0).
   for (let ci = 0; ci < N_CLUSTER; ci += 1) {
     for (let cj = 0; cj < N_CLUSTER; cj += 1) {
       if (ci === cj) continue;
       for (const s of outClusters[ci]) {
         for (const t of outClusters[cj]) {
-          net.connect(s, t, -8.0, 0.5);
+          net.connect(s, t, -10.0, 0.5);
         }
       }
     }

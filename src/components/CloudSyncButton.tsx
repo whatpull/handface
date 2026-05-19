@@ -64,7 +64,7 @@ export default function CloudSyncButton() {
         title={`기기 ID: ${deviceId}`}
         className="flex items-center gap-1.5 rounded border border-[#2a2a38] bg-[#18181f] px-3 py-1.5 text-xs text-[#8888aa] hover:text-white hover:border-violet-700 transition-colors disabled:opacity-50"
       >
-        {status === 'saving' ? '저장 중…' : status === 'saved' ? `☁ 저장됨 ${lastSaved ?? ''}` : '☁ 백업'}
+        {status === 'saving' ? '저장 중…' : status === 'saved' ? `저장됨 ${lastSaved ?? ''}` : '백업'}
       </button>
 
       {/* 복원 버튼 */}
@@ -74,7 +74,7 @@ export default function CloudSyncButton() {
         className="rounded border border-[#2a2a38] px-2 py-1.5 text-xs text-[#8888aa] hover:text-white transition-colors"
         title="다른 기기에서 패턴 불러오기"
       >
-        ↓ 복원
+        복원
       </button>
 
       {/* 복원 입력창 */}

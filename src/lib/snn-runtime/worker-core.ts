@@ -115,6 +115,36 @@ function findExactMatchCluster(
   return -1;
 }
 
+// P215a (2026-05-19) — 유사 패턴 absorption 정정 (input-space Hamming distance
+// aux vigilance):
+//   사용자 catch (P214a 결과 patternToCluster=[0,0,0,1,2], 5개 유사 패턴 영역
+//   3개 흡수): exact-match miss + Jaccard fallback (>= 0.5) 영역 1-2 bit
+//   영역 다른 input 영역 cluster template 영역 jaccardFallbackPassed=true →
+//   inputMatch 영역 jaccard value 영역 catch → caller vigilance (0.15) 영역
+//   pass → spawn skip → 신규 cluster 영역 안 만들어짐 → 사용자 mental model
+//   "조금이라도 다르면 다른 패턴" (2026-05-12 exact-equality policy) 위배.
+//
+//   root cause: Jaccard 영역 set ratio (0..1) 영역 absolute bit difference 영역
+//   미반영 — 4-bit input + 5-bit template (1-bit diff) 영역 jaccard=4/5=0.8,
+//   8-bit input + 9-bit template (1-bit diff) 영역 jaccard=8/9=0.89. 영역 0.5
+//   threshold 영역 pass — 영역 작은 input 영역 1-bit diff 영역 fallback pass.
+//
+//   fix: Hamming distance (|A ⊕ B|) 영역 absolute bit count 영역 정합 — 1-bit
+//   이상 다른 input 영역 fallback skip 영역 spawn 강제. exact equality vigilance
+//   (2026-05-12) 영역 강화 — Jaccard fallback path 영역 exact match 직전 영역
+//   "거의 동일" (0-bit diff = exact) 영역 catch path 영역 사실 영역 dead code
+//   사실. 영역 본 fix 영역 fallback 영역 영원 비활성 — exact match 영역 강제.
+//
+//   학술 정합: Hamming 1950 absolute bit difference — ART vigilance 영역 set
+//   similarity (Jaccard) 영역 보완 영역 absolute novelty signal (사용자 명시
+//   "조금이라도 다르면 다른 패턴" mental model 영역 정합).
+//
+// 정직 한계: 본 threshold 영역 1 — 1-bit diff 영역 spawn 강제. 더 큰 threshold
+// (예: 2) 영역 "1-bit 같은 cluster, 2-bit 영역 별 cluster" 영역 mental model
+// 영역 정합 영역 ㄴ 사용자 P214a 영역 기대 [0,1,2,3,4] (모든 패턴 별 cluster)
+// 영역 1-bit threshold 영역 합치.
+const MIN_NOVEL_HAMMING_BITS = 1;
+
 // PR #192 polish (SEC-2): handle() type whitelist — defense-in-depth.
 // 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
 // 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
@@ -662,7 +692,16 @@ export class SNNWorkerCore {
           }
           const union = inputSize + templateSize - intersection;
           const jaccard = union > 0 ? intersection / union : 0;
-          if (jaccard >= 0.5) {
+          // P215a (2026-05-19) — Hamming aux vigilance gate:
+          //   Jaccard ratio (0..1) 영역 fallback pass 영역 absolute bit
+          //   difference 영역 미반영 → 1-bit diff 영역 작은 input 영역 jaccard
+          //   영역 0.5+ 영역 false-positive familiarity. Hamming distance
+          //   (|A ⊕ B| = |I| + |T| - 2|I ∩ T|) 영역 absolute bit count 영역
+          //   catch — MIN_NOVEL_HAMMING_BITS 영역 이상 영역 input 영역 fallback
+          //   skip 영역 spawn 강제. 사용자 mental model "조금이라도 다르면 다른
+          //   패턴" (2026-05-12 exact equality policy) 영역 정합.
+          const hamming = inputSize + templateSize - 2 * intersection;
+          if (jaccard >= 0.5 && hamming < MIN_NOVEL_HAMMING_BITS) {
             // fire-rate winner cluster 영역 활성 유지 — 신규 cluster spawn 회피.
             // inputMatch 영역 Jaccard value 영역 catch — caller vigilance gate
             //   (default 0.15) 영역 pass 정합 + 강화 path 영역 동일 trigger.

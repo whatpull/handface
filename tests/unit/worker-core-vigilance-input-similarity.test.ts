@@ -11,6 +11,12 @@
 // binary set comparison (16-bit binary grid 영역 deterministic frontend input).
 // 폐기: PR #233 noise tolerance (Fuzzy ART ρ=0.5) + PR #235 Tversky size_penalty —
 // 사용자 명시 "조금이라도 다르면" + "완벽 일치" 정합.
+//
+// P215a (2026-05-19) 갱신: Jaccard 0.5 fallback path 영역 Hamming aux vigilance
+//   gate 영역 강화 — 1-bit+ diff 영역 fallback skip → inputMatch=0 → spawn 강제.
+//   R6/R7/R10/R12/R13/R14 영역 직전 Jaccard fallback value (0.5/0.6/0.8) 영역
+//   사실 영역 → 영역 inputMatch=0 (spawn) 영역 사실 (사용자 P214a 유사 패턴
+//   absorption root cause 정정 — patternToCluster [0,0,0,1,2] → [0,1,2,3,4]).
 
 import { describe, expect, it } from 'vitest';
 
@@ -281,20 +287,15 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 fire-rate winner emerge +
-    //   Jaccard = 4/8 = 0.5 영역 fallback path 영역 vigilance pass → inputMatch
-    //   영역 Jaccard value (0.5) 영역 emit (사용자 의도 — fire rate winner
-    //   cluster 영역 영역 영역 영역 강화 mandatory).
-    if (cfr.winner < 0) {
-      expect(cfr.inputMatch).toBe(0);
-    } else {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: subset (|I|=4 ≠ |T|=8,
+    //   Hamming=4) 영역 fallback skip → inputMatch=0 → spawn 강제 (사용자
+    //   mental model "조금이라도 다르면 다른 패턴" exact equality policy 정합).
+    //   직전 Jaccard 0.5 fallback 영역 영역 영역 → P214a 유사 패턴 absorption
+    //   root cause 영역 정정.
+    expect(cfr.inputMatch).toBe(0);
   });
 
-  it('R7 [superset, 4/2]: cluster T=[0,1] + input [0..3] (superset) → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
+  it('R7 [superset, 4/2]: cluster T=[0,1] + input [0..3] (superset, Hamming=2) → P215a inputMatch=0 (spawn)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -328,15 +329,10 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I|=4 ≠ |T|=2) 단 fire-rate winner emerge +
-    //   Jaccard = 2/4 = 0.5 영역 fallback path 영역 vigilance pass.
-    if (cfr.winner < 0) {
-      expect(cfr.inputMatch).toBe(0);
-    } else {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: superset (|I|=4 ≠ |T|=2,
+    //   Hamming=2) 영역 fallback skip → inputMatch=0 → spawn 강제. 직전 Jaccard
+    //   0.5 fallback 영역 영역 영역 → P214a 유사 패턴 absorption root cause 정정.
+    expect(cfr.inputMatch).toBe(0);
   });
 
   it('R8 [identical, 8/8]: cluster T=[0..7] + input [0..7] → inputMatch=1.0 (vigilance pass)', () => {
@@ -452,18 +448,12 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I ∩ T|=3 ≠ 4) 단 fire-rate winner emerge +
-    //   Jaccard = 3/5 = 0.6 영역 fallback path 영역 vigilance pass → inputMatch
-    //   영역 Jaccard value (0.6) 영역 emit. 직전 PR #236 strict equality 영역
-    //   1-cell noise 영역 spawn 사실 — 본 path 영역 fire-rate winner cluster 영역
-    //   영역 영역 영역 영역 강화 (cross-fire input → reinforce) 사용자 의도 정합.
-    if (cfr.winner >= 0) {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.6, 3);
-    } else {
-      expect(cfr.inputMatch).toBe(0);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: 1-cell noise (|I|=|T|=4
+    //   단 |I ∩ T|=3, Hamming=2) 영역 fallback skip → inputMatch=0 → spawn 강제.
+    //   사용자 mental model "조금이라도 다르면 다른 패턴" 정합 (P214a 유사
+    //   패턴 absorption root cause 정정 — 1-cell noise 영역 영역 영역 cluster
+    //   spawn → 5 유사 패턴 [0,1,2,3,4] 정합).
+    expect(cfr.inputMatch).toBe(0);
   });
 
   it('R11 [2-cell noise]: cluster T=[1,5,9,13] + input [1,5,8,12] → inputMatch=0.0 (spawn — Jaccard 2/6=0.33 < 0.5)', () => {
@@ -509,7 +499,7 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     }
   });
 
-  it('R12 [subset boundary, 4/8]: cluster T=[0..7] + input [0..3] → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
+  it('R12 [subset boundary, 4/8]: cluster T=[0..7] + input [0..3] (Hamming=4) → P215a inputMatch=0 (spawn)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -543,16 +533,13 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 Jaccard = 4/8 = 0.5 영역
-    //   fallback path 영역 vigilance pass.
-    if (cfr.winner >= 0) {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: subset (|I|=4 ≠ |T|=8,
+    //   Hamming=4) 영역 fallback skip → inputMatch=0 → spawn 강제 (exact
+    //   equality policy 정합).
+    expect(cfr.inputMatch).toBe(0);
   });
 
-  it('R13 [subset cross]: cluster T=[1,2,4,5,6,9,10,13] (8 cells) + input [5,6,9,10] (4 subset) → inputMatch=Jaccard 0.5 (fire-rate fallback)', () => {
+  it('R13 [subset cross]: cluster T=[1,2,4,5,6,9,10,13] (8 cells) + input [5,6,9,10] (4 subset, Hamming=4) → P215a inputMatch=0 (spawn)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -586,18 +573,12 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I|=4 ≠ |T|=8) 단 Jaccard = 4/8 = 0.5 영역
-    //   fallback path 영역 vigilance pass.
-    if (cfr.winner >= 0) {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-    } else {
-      expect(cfr.inputMatch).toBe(0);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: subset (|I|=4 ≠ |T|=8,
+    //   Hamming=4) 영역 fallback skip → inputMatch=0 → spawn 강제.
+    expect(cfr.inputMatch).toBe(0);
   });
 
-  it('R14 [superset, 5/4]: cluster T=[1,5,9,13] + input [1,5,9,13,14] (1 extra) → inputMatch=Jaccard 0.8 (fire-rate fallback)', () => {
+  it('R14 [superset, 5/4]: cluster T=[1,5,9,13] + input [1,5,9,13,14] (Hamming=1) → P215a inputMatch=0 (spawn)', () => {
     const core = new SNNWorkerCore();
     const buildRes = core.handle({
       id: 1,
@@ -631,15 +612,11 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
-    //   exact equality 영역 miss (|I|=5 ≠ |T|=4) 단 Jaccard = 4/5 = 0.8 영역
-    //   fallback path 영역 vigilance pass — 1-cell extension 영역 학습 cluster
-    //   영역 영역 영역 영역 영역 강화 (사용자 catch 2026-05-12 fire-rate winner
-    //   cluster 강화 mandatory).
-    if (cfr.winner >= 0) {
-      expect(cfr.winner).toBe(0);
-      expect(cfr.inputMatch).toBeCloseTo(0.8, 3);
-    }
+    // P215a (2026-05-19) — Hamming aux vigilance gate: 1-cell extension
+    //   (|I|=5 ≠ |T|=4, Hamming=1) 영역 fallback skip → inputMatch=0 → spawn
+    //   강제. 사용자 mental model "조금이라도 다르면 다른 패턴" 정합 (P214a
+    //   1-bit diff 영역 별도 cluster spawn → [0,1,2,3,4]).
+    expect(cfr.inputMatch).toBe(0);
   });
 
   // R15: exact identical case full assertion — pass + reinforce path 정합.
@@ -681,5 +658,90 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     // vigilance pass invariant — caller (LiveSnn / GridInput) 영역 inputMatch < 1.0
     // 영역 mismatch 영역 처리 → 본 case 영역 reinforce path 진입 정합.
     expect(cfr.inputMatch >= 1.0).toBe(true);
+  });
+
+  // P215a (2026-05-19) — 유사 패턴 absorption 정정 (Hamming aux vigilance):
+  //   사용자 P214a: 5 유사 패턴 (2×2 base + 1-2 픽셀 차이) → patternToCluster
+  //   [0,0,0,1,2] (3개 흡수, 재현율 60%). root cause: Jaccard 0.5 fallback 영역
+  //   1-2 bit diff 영역 vigilance pass → spawn skip. fix: Hamming aux gate
+  //   영역 1-bit+ diff 영역 fallback skip → inputMatch=0 → spawn 강제.
+  it('R16 [P215a 1-bit diff = spawn]: cluster T=[0,1,4,5] (2×2 base) + input [0,1,4,5,8] (1-bit add) → inputMatch=0 (spawn)', () => {
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 4, 5]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    // P214a SIMILAR_PATTERNS[2] — base + 아래 1픽셀.
+    const BASE_PLUS_ONE = [1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0];
+
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = BASE_PLUS_ONE
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(BASE_PLUS_ONE) },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    // Hamming = |I| + |T| - 2|I ∩ T| = 5 + 4 - 2*4 = 1. Hamming >= 1 → fallback
+    //   skip → inputMatch=0 → vigilance miss → spawn (사용자 P214a 기대 정합).
+    // 직전 (P214a 영역 root cause) Jaccard = 4/5 = 0.8 → fallback pass → 흡수.
+    expect(cfr.inputMatch).toBe(0);
+  });
+
+  it('R16b [P215a exact match preserved]: cluster T=[0,1,4,5] + input [0,1,4,5] → inputMatch=1.0 (exact, vigilance pass)', () => {
+    // P215a Hamming gate 영역 exact match path 영역 영역 영역 보존 — 동일 input
+    //   (Hamming=0) 영역 inputMatch=1.0 + winner deterministic 영역 정합.
+    const core = new SNNWorkerCore();
+    const buildRes = core.handle({
+      id: 1,
+      type: 'build',
+      payload: { preset: 'n13_orientation', seed: 42, clusterActiveInputs: [[0, 1, 4, 5]] },
+    });
+    expect(buildRes.ok).toBe(true);
+
+    const BASE_PATTERN = [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    core.handle({ id: 2, type: 'resetHomeostatic' });
+    const events = BASE_PATTERN
+      .map((v, i) => (v > 0.5 ? {
+        neuron: `in_feat_${i}`,
+        weight: 25 * v,
+        time: 0,
+        durationMs: 30,
+        stepMs: 0.1,
+      } : null))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    core.handle({ id: 3, type: 'inject', payload: { events } });
+    core.handle({
+      id: 4,
+      type: 'run',
+      payload: { durationMs: 50, dtMs: 0.1, stdpEnabled: false },
+    });
+    const cfrRes = core.handle({
+      id: 5,
+      type: 'clusterFiringRates',
+      payload: { windowMs: 50, layer: 'OUT', pattern: pad32(BASE_PATTERN) },
+    });
+    expect(cfrRes.ok).toBe(true);
+    const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
+    expect(cfr.winner).toBe(0);
+    expect(cfr.inputMatch).toBeCloseTo(1.0, 3);
   });
 });

@@ -200,9 +200,12 @@ describe('snapshot-activeinputs-persist — Part A (schema v3 round-trip)', () =
 });
 
 describe('snapshot-activeinputs-persist — Part B (fire-rate fallback Jaccard >= 0.5)', () => {
-  it('V1: fire-rate winner + exact match 0 + Jaccard >= 0.5 → fallback winner emerge (vigilance pass)', () => {
-    // cluster 0 영역 TOP_HALF (8 cells). input 영역 TOP 4 cells (subset).
-    // Jaccard(I=[0..3], T=[0..7]) = 4/8 = 0.5 → fallback vigilance pass.
+  it('V1: P215a (2026-05-19) — Jaccard fallback Hamming gate → subset input → inputMatch=0 (spawn)', () => {
+    // cluster 0 영역 TOP_HALF (8 cells). input 영역 TOP 4 cells (subset, Hamming=4).
+    // P215a Hamming aux vigilance gate: Hamming >= 1 → fallback skip → inputMatch=0
+    //   → spawn 강제. 직전 Jaccard 0.5 fallback path 영역 영역 → P214a 유사
+    //   패턴 absorption root cause 정정 (사용자 mental model "조금이라도 다르면
+    //   다른 패턴" 정합).
     const core = new SNNWorkerCore();
     core.handle({
       id: 1,
@@ -223,12 +226,10 @@ describe('snapshot-activeinputs-persist — Part B (fire-rate fallback Jaccard >
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // exact match 0 (|I|=4 ≠ |T|=8) → fire-rate fallback path.
+    // exact match 0 (|I|=4 ≠ |T|=8) → fire-rate path. P215a Hamming gate →
+    //   fallback skip → inputMatch=0 (직전 Jaccard 0.5 fallback 영역 영역).
     expect(cfr.forcedExact).toBe(false);
-    if (cfr.winner >= 0) {
-      // Jaccard = 4/8 = 0.5 → fallback path 영역 vigilance pass + inputMatch=0.5.
-      expect(cfr.inputMatch).toBeCloseTo(0.5, 3);
-    }
+    expect(cfr.inputMatch).toBe(0);
   });
 
   it('V2: fire-rate winner + Jaccard < 0.5 → spawn (보존 — 신규 cluster 자연 spawn)', () => {

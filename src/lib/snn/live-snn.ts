@@ -1062,7 +1062,11 @@ export class LiveSnn {
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
     // Fix 1 (2026-05-15): MAX_CLUSTERS hard limit — expandCluster 호출 전
     // 현재 exemplar cluster 수 확인. 상한 이상이면 spawn 차단 (toast 알림).
-    const MAX_CLUSTERS = 8;
+    // P215e (2026-05-19): 8 → 16 확장. N=9 학습 시 9번째 패턴 영역 cluster
+    // spawn 영역 차단 영역 patternToCluster 영역 prev cluster 영역 흡수 영역
+    // 부분단서 무너지는 root cause 영역 fix. n13-orientation builder 영역
+    // N_CLUSTER dynamic + worker validate cap 0..63 영역 16 << 64 안전 영역.
+    const MAX_CLUSTERS = 16;
     {
       const exNow = loadExemplars(this.substrateKind);
       let curCount = 0;

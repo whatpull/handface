@@ -201,8 +201,10 @@ function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void
     throw new Error(`invalid pattern (expected length 16 or ${N_INPUT} array)`);
   }
   // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
-  // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장
-  // (8 cluster × 8 OUT 영역 자연 상한 — UI 영역 Live mode cluster cap 정합).
+  // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장.
+  // P215e (2026-05-19): MAX_CLUSTERS 8 → 16 확장 (live-snn.ts) — 16 cluster
+  // 영역 cluster_idx 0..15 영역 cap 0..63 안전 영역 유지 (worker layer 영역
+  // sanity guard 영역 retain).
   if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 63) {
     throw new Error('invalid targetCluster (expected 0..63)');
   }

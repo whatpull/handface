@@ -64,6 +64,17 @@ export default function P213Panel() {
     URL.revokeObjectURL(url);
   };
 
+  const [copied, setCopied] = useState(false);
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(results, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('clipboard fail:', e);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-[#2a2a38] bg-[#18181f] p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -107,13 +118,20 @@ export default function P213Panel() {
         <div className="mt-6 space-y-6">
           <MetricsTable results={results} />
           <ConfusionMatrices results={results} />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={copyJson}
+              className="rounded border border-violet-700 bg-violet-950/30 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-900/40"
+            >
+              {copied ? '복사됨 ✓' : 'JSON 복사'}
+            </button>
             <button
               type="button"
               onClick={downloadJson}
               className="text-xs text-violet-400 hover:text-violet-300"
             >
-              ↓ 결과 JSON 다운로드
+              ↓ JSON 다운로드
             </button>
             <span className="text-xs text-[#666688]">{results.length} step measured</span>
           </div>

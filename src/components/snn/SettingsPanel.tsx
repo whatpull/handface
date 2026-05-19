@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/backend/client';
 import { emitBackendEvent } from '@/lib/backend/events';
 import {
@@ -18,11 +18,76 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   // UX Polish PR1 Fix 2 (HIGH [H1], 2026-05-09): 한국어 status 일관 정합.
   const [status, setStatus] = useState('미시험');
 
+  // UX P0 fix (2026-05-20): WCAG 2.1.2 — Escape key + Tab focus trap + initial
+  // focus 영역 dialog mandatory. Dialog.tsx 영역 generic system 영역 form
+  // lifecycle + status state 영역 보존 mandatory path 영역 직접 구현 path.
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const firstFieldRef = useRef<HTMLInputElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     const s = loadBackendSettings();
     setEndpoint(s.endpoint);
     setApiKey(s.apiKey);
   }, []);
+
+  // Mount: previously-focused element catch + initial focus → endpoint input.
+  // Unmount: focus restore (WCAG 2.4.3 Focus Order).
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document !== 'undefined') {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    }
+    const raf = window.requestAnimationFrame(() => {
+      firstFieldRef.current?.focus();
+      firstFieldRef.current?.select();
+    });
+    return () => {
+      window.cancelAnimationFrame(raf);
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+        try { prev.focus(); } catch { /* ignore */ }
+      }
+    };
+  }, [open]);
+
+  // Keyboard: Escape close + Tab focus trap. IME composition (한국어 입력 중)
+  // 영역 Escape skip — Dialog.tsx 영역 정합.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (e.isComposing) return;
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const root = dialogRef.current;
+        if (!root) return;
+        const focusable = root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (active === first || !root.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (active === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   const save = async () => {
     const url = normalizeEndpoint(endpoint);
@@ -60,8 +125,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40" onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-label="설정"
         className="m-4 w-[360px] max-w-full rounded border border-white/10 bg-[#0f1117] p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -80,6 +147,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           <label className="block">
             <span className="mb-1 block text-[11px] uppercase tracking-wider text-white/50">엔드포인트</span>
             <input
+              ref={firstFieldRef}
               type="text"
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}

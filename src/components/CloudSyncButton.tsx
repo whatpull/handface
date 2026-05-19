@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getOrCreateDeviceId, saveBackup, loadBackup } from '@/lib/cloud-backup';
 import { loadExemplars, setExemplarLabel } from '@/lib/snn/out-exemplars';
 import { showToast } from '@/components/ui/Toast';
@@ -11,9 +11,54 @@ export default function CloudSyncButton() {
   const [showRestore, setShowRestore] = useState(false);
   const [restoreCode, setRestoreCode] = useState('');
 
+  // UX P0 fix (2026-05-20): WCAG 2.1.2 — popover 영역 Escape + outside-click +
+  // role 영역 mandatory. modal 0 영역 aria-modal="false" + role="dialog" path.
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
+  const restoreToggleRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
   }, []);
+
+  // Popover open: initial focus → restore input. Escape key 영역 close +
+  // focus restore → toggle button (WCAG 2.4.3).
+  useEffect(() => {
+    if (!showRestore) return;
+    const raf = window.requestAnimationFrame(() => {
+      restoreInputRef.current?.focus();
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (e.isComposing) return;
+        e.preventDefault();
+        setShowRestore(false);
+        restoreToggleRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showRestore]);
+
+  // Outside-click handler — mousedown 영역 popover ref 외부 영역 시점 영역
+  // close. mousedown event path — click event 영역 outside-handler 영역 race
+  // condition 회피 (showToast 영역 ToastProvider 정합).
+  useEffect(() => {
+    if (!showRestore) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      // popover 자체 + toggle 버튼 외부 path → close.
+      if (popoverRef.current?.contains(target)) return;
+      if (restoreToggleRef.current?.contains(target)) return;
+      setShowRestore(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [showRestore]);
 
   const handleSave = useCallback(async () => {
     setStatus('saving');
@@ -69,22 +114,33 @@ export default function CloudSyncButton() {
 
       {/* 복원 버튼 */}
       <button
+        ref={restoreToggleRef}
         type="button"
         onClick={() => setShowRestore(v => !v)}
+        aria-expanded={showRestore ? 'true' : 'false'}
+        aria-haspopup="dialog"
         className="rounded border border-[#2a2a38] px-2 py-1.5 text-xs text-[#8888aa] hover:text-white transition-colors"
         title="다른 기기에서 패턴 불러오기"
       >
         복원
       </button>
 
-      {/* 복원 입력창 */}
+      {/* 복원 입력창 — popover (modal 0). WCAG 2.1.2 — Escape + outside-click. */}
       {showRestore && (
-        <div className="absolute top-8 right-0 z-50 rounded-lg border border-[#2a2a38] bg-[#18181f] p-3 shadow-xl w-64">
+        <div
+          ref={popoverRef}
+          role="dialog"
+          aria-modal="false"
+          aria-label="복원 옵션"
+          className="absolute top-8 right-0 z-50 rounded-lg border border-[#2a2a38] bg-[#18181f] p-3 shadow-xl w-64"
+        >
           <p className="text-xs text-[#8888aa] mb-2">기기 ID를 입력하거나 비워두면 현재 기기 백업을 불러옵니다</p>
           <input
+            ref={restoreInputRef}
             value={restoreCode}
             onChange={e => setRestoreCode(e.target.value)}
             placeholder={deviceId.slice(0, 16) + '…'}
+            aria-label="복원할 기기 ID"
             className="w-full rounded border border-[#2a2a38] bg-[#0f0f13] px-2 py-1.5 text-xs text-white placeholder-[#4a4a5a] outline-none focus:border-violet-600 mb-2"
           />
           <div className="flex gap-2">

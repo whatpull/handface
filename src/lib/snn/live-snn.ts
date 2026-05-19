@@ -78,6 +78,22 @@ function clearTrialCount(kind: SubstrateKind): void {
   } catch { /* noop */ }
 }
 
+// P215b (2026-05-19) — 학습 시 노이즈 augmentation 영역 노이즈 견고성 회복.
+// reinforce 30 frame 영역 후반 절반 영역 ±amount 범위 영역 작은 노이즈 영역 주입
+// → cluster receptive field 영역 자연 확장 (P215a Hamming gate 영역 너무 엄격한
+// 분리 영역 노이즈 내성 60→40% 저하 영역 회복). spawn 결정 경로 영역 영향 없음
+// (reinforceBackground 영역 targetCluster 명시 supervised — vigilance gate
+// bypass). 학술 정합: Goodfellow et al. 2014 noise injection 영역 regularization
+// 영역 ANN training augmentation 영역 정합. 5~12.5% 점진 증가 영역 패턴 정체성
+// 영역 훼손 없는 범위 영역 cap.
+function addSmallNoise(pattern: number[], amount: number): number[] {
+  return pattern.map((v) => {
+    const delta = (Math.random() - 0.5) * 2 * amount;
+    const next = v + delta;
+    return next < 0 ? 0 : next > 1 ? 1 : next;
+  });
+}
+
 export interface LiveTickDetail {
   rates: number[];
   winner: number; // -1 = silent
@@ -1080,8 +1096,22 @@ export class LiveSnn {
           const trialToken = isFinal ? originalToken : ++this._trialTokenSeq;
           const root = await getRootLocalSnnFor(this.substrateKind);
           await this.ensurePushHandler(root);
+          // P215b (2026-05-19) — 후반 절반 영역 노이즈 augmentation 영역 적용.
+          // global progress index (round * CHUNK + i) 영역 TOTAL/2 (=15) 이상
+          // 영역 fr 영역 5% → 12.5% 점진 증가 영역 노이즈 주입. 마지막 frame
+          // (isFinal) 영역 원본 영역 유지 — featSnap commit semantic 영역 신규
+          // cluster 영역 원본 패턴 영역 영구화 정합 (out-exemplars 영역 store
+          // 영역 노이즈 변형 영역 stale 회피).
+          const globalIdx = round * CHUNK + i;
+          const useNoise = globalIdx >= TOTAL / 2 && !isFinal;
+          const noiseLevel = useNoise
+            ? 0.05 + (globalIdx - TOTAL / 2) * 0.005
+            : 0;
+          const reinforcePattern = useNoise
+            ? addSmallNoise(this.patternRef, noiseLevel)
+            : this.patternRef.slice();
           await root.client.reinforceBackground({
-            pattern: this.patternRef.slice(),
+            pattern: reinforcePattern,
             targetCluster: newClusterId,
             rewardGain: 0.8,
             punishGain: 0.2,

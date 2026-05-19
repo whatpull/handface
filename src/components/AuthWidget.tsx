@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { postToParent } from '@/lib/embed-mode';
+import { saveBackup as saveCloudBackup, loadBackup } from '@/lib/cloud-backup';
 import './snn-canvas.css';
 
 const AUTH_KEY = 'patternkey.auth.cells'; // number[] (16개, 0 or 1)
@@ -87,6 +88,8 @@ export default function AuthWidget() {
     loadAuthPattern() ? 'verify_idle' : 'register_idle',
   );
   const [lastSimilarity, setLastSimilarity] = useState<number | null>(null);
+  const [showCloudRestore, setShowCloudRestore] = useState(false);
+  const [cloudCode, setCloudCode] = useState('');
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // PK_READY 송출 — 위젯 마운트 완료.
@@ -119,9 +122,12 @@ export default function AuthWidget() {
   const handleRegister = useCallback(() => {
     if (activeCellCount(grid) < MIN_ACTIVE_CELLS) return;
     setAuthStatus('registering');
-    saveAuthPattern(grid.map((v) => (v > 0.5 ? 1 : 0)));
+    const cells = grid.map((v) => (v > 0.5 ? 1 : 0));
+    saveAuthPattern(cells);
     postToParent({ type: 'PK_REGISTERED' });
     setAuthStatus('register_done');
+    // 등록 완료 후 클라우드 자동 백업 (fire-and-forget — 실패 무시).
+    saveCloudBackup({ auth_pattern: cells }, 1).catch(() => {});
     resetTimerRef.current = setTimeout(() => {
       setGrid(emptyGrid());
       setAuthStatus('verify_idle');
@@ -165,6 +171,18 @@ export default function AuthWidget() {
     setLastSimilarity(null);
     setAuthStatus('register_idle');
   }, []);
+
+  // 클라우드에서 패턴 불러오기
+  const handleCloudRestore = useCallback(async () => {
+    const result = await loadBackup(cloudCode.trim());
+    if (result?.found && result.exemplars?.auth_pattern) {
+      const pattern = result.exemplars.auth_pattern as number[];
+      saveAuthPattern(pattern);
+      setAuthStatus('verify_idle');
+      setShowCloudRestore(false);
+      setCloudCode('');
+    }
+  }, [cloudCode]);
 
   // ---------------------------------------------------------------------------
   // Derived display values
@@ -336,15 +354,41 @@ export default function AuthWidget() {
         </div>
       )}
 
-      {/* 패턴 재설정 (인증 모드 하단 — 작게) */}
+      {/* 패턴 재설정 + 클라우드 복원 (인증 모드 하단 — 작게) */}
       {!isRegisterMode && authStatus !== 'success' && (
-        <button
-          type="button"
-          onClick={handleReset}
-          className="mt-8 text-xs text-[#4a4a5a] hover:text-[#8888aa] transition-colors underline underline-offset-2"
-        >
-          패턴 재설정
-        </button>
+        <div className="mt-8 flex flex-col items-center gap-1">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-xs text-[#4a4a5a] hover:text-[#8888aa] transition-colors underline underline-offset-2"
+          >
+            패턴 재설정
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCloudRestore((v) => !v)}
+            className="text-xs text-[#4a4a5a] hover:text-[#8888aa] transition-colors mt-1"
+          >
+            다른 기기의 패턴 불러오기
+          </button>
+          {showCloudRestore && (
+            <div className="mt-3 w-full max-w-xs space-y-2">
+              <input
+                value={cloudCode}
+                onChange={(e) => setCloudCode(e.target.value)}
+                placeholder="기기 ID 입력"
+                className="w-full rounded border border-[#2a2a38] bg-[#0f0f13] px-3 py-2 text-xs text-white placeholder-[#4a4a5a] outline-none focus:border-violet-600"
+              />
+              <button
+                type="button"
+                onClick={() => { void handleCloudRestore(); }}
+                className="w-full rounded bg-[#18181f] border border-[#2a2a38] py-2 text-xs text-[#8888aa] hover:text-white transition-colors"
+              >
+                불러오기
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* 하단 브랜딩 */}

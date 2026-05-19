@@ -9,7 +9,7 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done';
 
 // Backend v0.2.1-dynamic-cluster (audit fix #4) — POST /networks/{id}/cluster/vigilance
 // 응답 영역 is_novel===true && action==='spawned' 시점 영역 emit. NodeLearn 영역

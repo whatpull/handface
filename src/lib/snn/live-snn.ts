@@ -47,6 +47,7 @@ import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './roo
 import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
 import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
+import { saveBackup } from '@/lib/cloud-backup';
 
 // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역 substrate
 // 별 localStorage persist — page reload 영역 학습 상황 정합 보존 mandatory.
@@ -1178,6 +1179,18 @@ export class LiveSnn {
         } catch (e) {
           console.warn('[LiveSnn] auto-learn commit incrementCount failed:', e);
         }
+        // 30회 학습 완료 후 자동 클라우드 백업 (fire-and-forget — 실패해도 무시).
+        try {
+          const exemplars = loadExemplars(this.substrateKind);
+          const count = Object.keys(exemplars).length;
+          if (count > 0) {
+            saveBackup(exemplars as Record<string, unknown>, count)
+              .then((ok) => {
+                if (ok) emitBackendEvent('auto-backup-done', { count });
+              })
+              .catch(() => {});
+          }
+        } catch { /* backup 실패 — 학습 흐름 무영향 */ }
       }
     }
   }

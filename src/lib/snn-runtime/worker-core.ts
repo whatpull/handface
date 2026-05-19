@@ -205,6 +205,8 @@ function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void
   // P215e (2026-05-19): MAX_CLUSTERS 8 → 16 확장 (live-snn.ts) — 16 cluster
   // 영역 cluster_idx 0..15 영역 cap 0..63 안전 영역 유지 (worker layer 영역
   // sanity guard 영역 retain).
+  // P215g revert (2026-05-20): live-snn.ts MAX_CLUSTERS 16 → 8 복원. worker
+  // sanity cap 0..63 영역 그대로 유지 (defense-in-depth — caller bug 영역 catch).
   if (typeof p.targetCluster !== 'number' || p.targetCluster < 0 || p.targetCluster > 63) {
     throw new Error('invalid targetCluster (expected 0..63)');
   }

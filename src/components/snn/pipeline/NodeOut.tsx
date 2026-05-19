@@ -157,14 +157,14 @@ function partialCue(feature: number[], keepRatio = 0.75): number[] {
 }
 
 /** 패턴 수에 따른 단계별 성능 힌트 메시지. 3개 이하 → null (표시 불필요). */
-// P215e (2026-05-19): MAX_CLUSTERS 8 → 16 확장 정합. cap 메시지 16 으로 동기화.
+// P215g revert (2026-05-20): MAX_CLUSTERS 16 → 8 cap 복원 정합. 측정 영역
+// N=8 영역 stable cap 영역 인정 — N=9 영역 partial cue 22% 영역 unstable 영역.
 function patternQualityHint(count: number): string | null {
   if (count <= 3) return null;
   if (count <= 5) return '패턴이 많을수록 부분 단서 정확도가 낮아질 수 있습니다.';
-  if (count <= 7) return '6-7패턴: 재현율/노이즈는 유지되나 부분 단서 저하 예상.';
-  if (count <= 12) return `${count}패턴: 다수 패턴 — 부분단서/노이즈 저하 가능 (vigilance 영역 조정 권장).`;
-  if (count < 16) return `${count}패턴 — 곧 최대 16개 도달. 패턴 통합 권장.`;
-  return '최대 16개 도달 — 학습 비활성. 패턴 삭제 후 재학습하세요.';
+  if (count <= 6) return '6패턴: 재현율/노이즈는 유지되나 부분 단서 저하 예상.';
+  if (count < 8) return `${count}패턴 — 곧 최대 8개 도달. 패턴 통합 권장.`;
+  return '최대 8개 도달 — 학습 비활성. 패턴 삭제 후 재학습하세요.';
 }
 
 export default function NodeOut() {
@@ -501,7 +501,7 @@ function ValidationPanel({
         </button>
         {valRunning && <span className="snn-val-spinner" aria-label="검증 실행 중" />}
         {valRunning ? (
-          // 최대 16개 패턴 × 3종(재현/노이즈/부분단서) = 최대 48 inject — 취소로 중단 가능.
+          // 최대 8개 패턴 × 3종(재현/노이즈/부분단서) = 최대 24 inject — 취소로 중단 가능.
           <button
             type="button"
             className="snn-val-run-btn snn-val-cancel-btn"

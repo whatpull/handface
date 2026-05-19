@@ -1066,7 +1066,13 @@ export class LiveSnn {
     // spawn 영역 차단 영역 patternToCluster 영역 prev cluster 영역 흡수 영역
     // 부분단서 무너지는 root cause 영역 fix. n13-orientation builder 영역
     // N_CLUSTER dynamic + worker validate cap 0..63 영역 16 << 64 안전 영역.
-    const MAX_CLUSTERS = 16;
+    // P215g revert (2026-05-20): 16 → 8 cap 복원. P213/P214b/P215f 측정 영역
+    // N=9 영역 unstable 영역 evidence — partial cue 22%, noise 56%, WTA margin
+    // 53% 영역 capacity edge. P215c/P215f 두 번의 mechanism 영역 시도 영역
+    // regression 영역 결론 영역 N=8 영역 stable cap 영역 인정. 사용자 mental
+    // model "내가 학습 가능한 최대 패턴 수 = 8" 영역 신뢰성 영역 우선 영역 —
+    // misleading capacity 영역 publish 영역 risk 영역 회피.
+    const MAX_CLUSTERS = 8;
     {
       const exNow = loadExemplars(this.substrateKind);
       let curCount = 0;

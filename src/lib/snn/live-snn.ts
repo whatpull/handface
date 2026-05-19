@@ -94,6 +94,16 @@ function addSmallNoise(pattern: number[], amount: number): number[] {
   });
 }
 
+// P215c (2026-05-19) — 부분 마스킹 augmentation. keepRatio 비율 영역 셀 영역
+// 유지, 나머지 영역 0 영역 마스킹 (1픽셀 부분단서 시뮬레이션). reinforce 30
+// frame 영역 후반 1/3 영역 적용 영역 부분단서 견고성 영역 강화 (80→90%+ 목표).
+// 학술 정합: dropout-style input augmentation (Hinton et al. 2012) 영역 정합 —
+// receptive field 영역 sparse 입력 영역 강건성 영역 학습. keepRatio 0.9→0.75
+// 점진 영역 cap (75% 미만 영역 패턴 정체성 영역 훼손 영역 회피).
+function applyPartialMask(pattern: number[], keepRatio: number): number[] {
+  return pattern.map((v) => (Math.random() < keepRatio ? v : 0));
+}
+
 export interface LiveTickDetail {
   rates: number[];
   winner: number; // -1 = silent
@@ -1096,20 +1106,35 @@ export class LiveSnn {
           const trialToken = isFinal ? originalToken : ++this._trialTokenSeq;
           const root = await getRootLocalSnnFor(this.substrateKind);
           await this.ensurePushHandler(root);
-          // P215b (2026-05-19) — 후반 절반 영역 노이즈 augmentation 영역 적용.
-          // global progress index (round * CHUNK + i) 영역 TOTAL/2 (=15) 이상
-          // 영역 fr 영역 5% → 12.5% 점진 증가 영역 노이즈 주입. 마지막 frame
-          // (isFinal) 영역 원본 영역 유지 — featSnap commit semantic 영역 신규
-          // cluster 영역 원본 패턴 영역 영구화 정합 (out-exemplars 영역 store
-          // 영역 노이즈 변형 영역 stale 회피).
+          // P215c (2026-05-19) — 3단계 augmentation 영역 reinforce 영역 적용.
+          // 30 frame 영역 3분할:
+          //   전반 1/3 (idx 0~9):  원본 영역 유지 (cluster anchor 영역 확립)
+          //   중반 1/3 (idx 10~19): 노이즈 5% → 10% 점진 (P215b 영역 계승,
+          //                         노이즈 견고성 60% 영역 회복)
+          //   후반 1/3 (idx 20~29): 부분 마스킹 keepRatio 0.9 → 0.75 점진
+          //                         (부분단서 견고성 80% → 90%+ 영역 강화)
+          // 마지막 frame (isFinal) 영역 원본 영역 유지 — featSnap commit
+          // semantic 영역 out-exemplars store 영역 원본 패턴 영역 영구화 정합.
+          // 학술 정합: noise injection (Goodfellow 2014) + dropout-style mask
+          // (Hinton 2012) 영역 cascade — ANN training augmentation 정합.
           const globalIdx = round * CHUNK + i;
-          const useNoise = globalIdx >= TOTAL / 2 && !isFinal;
-          const noiseLevel = useNoise
-            ? 0.05 + (globalIdx - TOTAL / 2) * 0.005
-            : 0;
-          const reinforcePattern = useNoise
-            ? addSmallNoise(this.patternRef, noiseLevel)
-            : this.patternRef.slice();
+          const phase1 = TOTAL / 3; // 10
+          const phase2 = (TOTAL * 2) / 3; // 20
+          let reinforcePattern: number[];
+          if (isFinal || globalIdx < phase1) {
+            // 전반 1/3 + 마지막 frame 영역 원본 영역 유지.
+            reinforcePattern = this.patternRef.slice();
+          } else if (globalIdx < phase2) {
+            // 중반 1/3 영역 노이즈 augmentation. t: 0 → 1 영역 5% → 10%.
+            const t = (globalIdx - phase1) / phase1;
+            const noiseLevel = 0.05 + t * 0.05;
+            reinforcePattern = addSmallNoise(this.patternRef, noiseLevel);
+          } else {
+            // 후반 1/3 영역 부분 마스킹 augmentation. keepRatio 0.9 → 0.75.
+            const t = (globalIdx - phase2) / phase1;
+            const keepRatio = 0.9 - t * 0.15;
+            reinforcePattern = applyPartialMask(this.patternRef, keepRatio);
+          }
           await root.client.reinforceBackground({
             pattern: reinforcePattern,
             targetCluster: newClusterId,

@@ -1129,19 +1129,13 @@ export class LiveSnn {
           await root.client.reinforceBackground({
             pattern: reinforcePattern,
             targetCluster: newClusterId,
-            // P215h (2026-05-20) — punishGain 0.2 → 0.1 영역 subset cluster 보존.
-            // N=8 confusion 영역 root cause: 후행 superset 패턴 (T/L/U) 영역
-            // 학습 시점 영역 선행 subset 클러스터 (Top row / Left col / Bottom
-            // row) 영역 firing 영역 LTD 영역 누적 영역 over-pruned. partial cue
-            // / noise 영역 약화된 subset 영역 winner 영역 빼앗김. punishGain
-            // 영역 halve 영역 inter-cluster LTD 영역 약화 영역 subset 강도 영역
-            // 보존. rewardGain 0.8 영역 보존 영역 ratio 8:1 영역 정합 (직전 4:1).
-            // 학술 정합: Frémaux & Gerstner 2016 reward-modulated STDP 영역
-            // 'reward' >> 'punish' asymmetry 영역 catastrophic forgetting 영역
-            // mitigation. Diehl & Cook 2015 §3 LTD scale 영역 LTP scale 영역
-            // typical 0.1~0.15 영역 정합 (직전 0.2/0.8=0.25 영역 약간 높음).
+            // P215h revert (2026-05-20): 0.1 → 0.2 복원. 측정 영역 net wash —
+            // subset cluster 영역 보존 영역 superset 영역 reverse confusion 영역
+            // 발생 + N=4/N=7 noise 영역 -25%p/-14%p 영역 regression. 진짜
+            // root cause 영역 feature-space pattern overlap (T⊃Top row, L⊃Left
+            // col) 영역 punishGain tune 영역 불가능 — error 영역 분포 shift 영역만.
             rewardGain: 0.8,
-            punishGain: 0.1,
+            punishGain: 0.2,
             intensity: this.opts.intensity,
             observeMs: this.opts.observeMs,
             stimulusDurationMs: this.opts.stimulusDurationMs,

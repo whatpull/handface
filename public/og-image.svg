@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- handface OG image — 1200×630, dark theme + violet accent.
+       SVG source. PNG export 영역 외부 도구 (Figma / Inkscape / online converter) 영역.
+       export 후 public/og-image.png 영역 저장 영역 정합. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#1e1b3a"/>
+      <stop offset="100%" stop-color="#0a0a0f"/>
+    </radialGradient>
+    <linearGradient id="pillFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(124,58,237,0.18)"/>
+      <stop offset="100%" stop-color="rgba(124,58,237,0.08)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- 4-grid logo (favicon 정합) 96×96 at (100, 90) -->
+  <g transform="translate(100, 90)">
+    <rect width="96" height="96" rx="12" fill="#7c3aed"/>
+    <rect x="21" y="21" width="24" height="24" rx="4.5" fill="white" fill-opacity="0.9"/>
+    <rect x="51" y="21" width="24" height="24" rx="4.5" fill="white" fill-opacity="0.4"/>
+    <rect x="21" y="51" width="24" height="24" rx="4.5" fill="white" fill-opacity="0.4"/>
+    <rect x="51" y="51" width="24" height="24" rx="4.5" fill="white" fill-opacity="0.9"/>
+  </g>
+
+  <!-- HandFace wordmark — 56px white, next to logo -->
+  <text x="220" y="155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="56" font-weight="700" fill="white" letter-spacing="-1">HandFace</text>
+
+  <!-- main headline — 84px bold -->
+  <text x="100" y="280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="84" font-weight="800" fill="white" letter-spacing="-2">Bio-SNN Pattern</text>
+  <text x="100" y="372" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="84" font-weight="800" fill="white" letter-spacing="-2">Recognition</text>
+
+  <!-- subtitle — 32px violet -->
+  <text x="100" y="432" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="32" font-weight="400" fill="#a78bfa" letter-spacing="-0.3">Browser-native spiking neural network with STDP learning</text>
+
+  <!-- metric pills row at y=520, 4 pills evenly spaced -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+     font-size="26" font-weight="600" fill="#c4b5fd">
+    <!-- pill 1: 8 patterns -->
+    <rect x="100" y="500" width="220" height="56" rx="28" fill="url(#pillFill)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="210" y="536" text-anchor="middle">8 patterns</text>
+
+    <!-- pill 2: 100% recall -->
+    <rect x="340" y="500" width="220" height="56" rx="28" fill="url(#pillFill)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="450" y="536" text-anchor="middle">100% recall</text>
+
+    <!-- pill 3: STDP learning -->
+    <rect x="580" y="500" width="240" height="56" rx="28" fill="url(#pillFill)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="700" y="536" text-anchor="middle">STDP learning</text>
+
+    <!-- pill 4: 0 AI deps -->
+    <rect x="840" y="500" width="200" height="56" rx="28" fill="url(#pillFill)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="940" y="536" text-anchor="middle">0 AI deps</text>
+  </g>
+
+  <!-- bottom-right domain tag -->
+  <text x="1100" y="600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="20" font-weight="400" fill="#6b6b8a" text-anchor="end">handface.whatpull.com</text>
+</svg>

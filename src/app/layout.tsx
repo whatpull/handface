@@ -16,6 +16,11 @@ const SITE_TITLE = 'HandFace — Bio-SNN Pattern Recognition';
 const SITE_DESCRIPTION =
   '브라우저 기반 스파이킹 신경망 (Bio-SNN) + STDP 학습. 8 패턴 용량 · 100% 재현율 · AI 의존 0.';
 
+// OG image — public/og-image.png (1200×630). SVG source 영역 public/og-image.svg
+// 영역 stage 영역 — PNG export 영역 외부 도구 (Figma / Inkscape / online converter) 영역.
+// PNG 영역 production 영역 social card 영역 표시.
+const OG_IMAGE_PATH = '/og-image.png';
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: SITE_TITLE,
@@ -27,11 +32,20 @@ export const metadata: Metadata = {
     siteName: 'HandFace',
     locale: 'ko_KR',
     type: 'website',
+    images: [
+      {
+        url: OG_IMAGE_PATH,
+        width: 1200,
+        height: 630,
+        alt: SITE_TITLE,
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: [OG_IMAGE_PATH],
   },
 };
 

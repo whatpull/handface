@@ -65,8 +65,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       if (e.key === 'Tab') {
         const root = dialogRef.current;
         if (!root) return;
+        // UX P0-followup (2026-05-20): selector 영역 textarea/select 추가
+        // (Fix 2) — 향후 form field 확장 영역 trap escape 회피.
         const focusable = root.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         );
         if (focusable.length === 0) return;
         const first = focusable[0];
@@ -78,7 +80,9 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             last.focus();
           }
         } else {
-          if (active === last) {
+          // UX P0-followup (2026-05-20): forward Tab 영역 symmetric guard
+          // (Fix 1) — focus 영역 dialog 외부 시점 영역 trap 정합.
+          if (active === last || !root.contains(active)) {
             e.preventDefault();
             first.focus();
           }

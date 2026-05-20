@@ -22,7 +22,9 @@ export default function CloudSyncButton() {
   }, []);
 
   // Popover open: initial focus → restore input. Escape key 영역 close +
-  // focus restore → toggle button (WCAG 2.4.3).
+  // focus restore → toggle button (WCAG 2.4.3). UX P0-followup (2026-05-20):
+  // Tab focus trap (Fix 3) 추가 — popover 영역 modal 0 영역 단 keyboard
+  // user 영역 popover 외부 escape 시점 영역 회로 복귀 회피 영역 정합.
   useEffect(() => {
     if (!showRestore) return;
     const raf = window.requestAnimationFrame(() => {
@@ -34,6 +36,29 @@ export default function CloudSyncButton() {
         e.preventDefault();
         setShowRestore(false);
         restoreToggleRef.current?.focus();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const root = popoverRef.current;
+        if (!root) return;
+        const focusable = root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (active === first || !root.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (active === last || !root.contains(active)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -54,7 +79,10 @@ export default function CloudSyncButton() {
       // popover 자체 + toggle 버튼 외부 path → close.
       if (popoverRef.current?.contains(target)) return;
       if (restoreToggleRef.current?.contains(target)) return;
+      // UX P0-followup (2026-05-20): outside-click 영역 focus restore
+      // (Fix 4 path 1/3) — WCAG 2.4.3 focus 영역 body drop 회피.
       setShowRestore(false);
+      restoreToggleRef.current?.focus();
     };
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
@@ -96,41 +124,46 @@ export default function CloudSyncButton() {
       });
     }
     showToast({ kind: 'success', message: `${result.patternCount}개 패턴을 불러왔습니다` });
+    // UX P0-followup (2026-05-20): restore 성공 영역 focus restore
+    // (Fix 4 path 2/3) — toggle button 영역 focus 복귀.
     setShowRestore(false);
+    restoreToggleRef.current?.focus();
   }, [deviceId, restoreCode]);
 
   return (
     <div className="relative flex items-center gap-2">
-      {/* 저장 버튼 */}
+      {/* 저장 버튼. UX P0-followup (2026-05-20): focus-visible ring (Fix 5). */}
       <button
         type="button"
         onClick={handleSave}
         disabled={status === 'saving'}
         title={`기기 ID: ${deviceId}`}
-        className="flex items-center gap-1.5 rounded border border-[#2a2a38] bg-[#18181f] px-3 py-1.5 text-xs text-[#8888aa] hover:text-white hover:border-violet-700 transition-colors disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded border border-[#2a2a38] bg-[#18181f] px-3 py-1.5 text-xs text-[#8888aa] hover:text-white hover:border-violet-700 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
       >
         {status === 'saving' ? '저장 중…' : status === 'saved' ? `저장됨 ${lastSaved ?? ''}` : '백업'}
       </button>
 
-      {/* 복원 버튼 */}
+      {/* 복원 버튼. UX P0-followup (2026-05-20): focus-visible ring (Fix 5). */}
       <button
         ref={restoreToggleRef}
         type="button"
         onClick={() => setShowRestore(v => !v)}
         aria-expanded={showRestore ? 'true' : 'false'}
         aria-haspopup="dialog"
-        className="rounded border border-[#2a2a38] px-2 py-1.5 text-xs text-[#8888aa] hover:text-white transition-colors"
+        className="rounded border border-[#2a2a38] px-2 py-1.5 text-xs text-[#8888aa] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
         title="다른 기기에서 패턴 불러오기"
       >
         복원
       </button>
 
-      {/* 복원 입력창 — popover (modal 0). WCAG 2.1.2 — Escape + outside-click. */}
+      {/* 복원 입력창 — popover (modal 0). WCAG 2.1.2 — Escape + outside-click +
+          Tab trap. UX P0-followup (2026-05-20): role 영역 region 영역 강등
+          (Fix 6) — aria-modal="false" + role="dialog" 영역 ARIA spec 모순
+          영역 정정. modal 0 영역 region 영역 semantic 정합. */}
       {showRestore && (
         <div
           ref={popoverRef}
-          role="dialog"
-          aria-modal="false"
+          role="region"
           aria-label="복원 옵션"
           className="absolute top-8 right-0 z-50 rounded-lg border border-[#2a2a38] bg-[#18181f] p-3 shadow-xl w-64"
         >
@@ -141,15 +174,18 @@ export default function CloudSyncButton() {
             onChange={e => setRestoreCode(e.target.value)}
             placeholder={deviceId.slice(0, 16) + '…'}
             aria-label="복원할 기기 ID"
-            className="w-full rounded border border-[#2a2a38] bg-[#0f0f13] px-2 py-1.5 text-xs text-white placeholder-[#4a4a5a] outline-none focus:border-violet-600 mb-2"
+            className="w-full rounded border border-[#2a2a38] bg-[#0f0f13] px-2 py-1.5 text-xs text-white placeholder-[#4a4a5a] outline-none focus:border-violet-600 focus-visible:ring-2 focus-visible:ring-violet-300/60 mb-2"
           />
           <div className="flex gap-2">
+            {/* UX P0-followup (2026-05-20): focus-visible ring (Fix 5). */}
             <button type="button" onClick={handleRestore} disabled={status === 'loading'}
-              className="flex-1 rounded bg-violet-700 py-1.5 text-xs text-white hover:bg-violet-600 disabled:opacity-50">
+              className="flex-1 rounded bg-violet-700 py-1.5 text-xs text-white hover:bg-violet-600 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60">
               {status === 'loading' ? '불러오는 중…' : '불러오기'}
             </button>
-            <button type="button" onClick={() => setShowRestore(false)}
-              className="px-3 rounded border border-[#2a2a38] text-xs text-[#8888aa]">
+            {/* UX P0-followup (2026-05-20): 취소 영역 focus restore
+                (Fix 4 path 3/3) + focus-visible ring (Fix 5). */}
+            <button type="button" onClick={() => { setShowRestore(false); restoreToggleRef.current?.focus(); }}
+              className="px-3 rounded border border-[#2a2a38] text-xs text-[#8888aa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60">
               취소
             </button>
           </div>

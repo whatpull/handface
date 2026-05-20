@@ -360,7 +360,8 @@ export class SNNWorkerCore {
           this.net = result.net;
           this.monitor = new SpikeMonitor();
           this.monitor.attachAll(this.net.neurons);
-          this.registry = buildClusterRegistryFromN13(this.buildClusterActiveInputs);
+          // P218 (2026-05-21): preset 영역 영역 영역 registry — N14Pools dispatch.
+          this.registry = buildClusterRegistryFromN13(this.buildClusterActiveInputs, this.buildPreset);
           const out: ResetClusterWeightsResult = {
             neurons: result.neuronsAdded,
             synapses: result.synapsesAdded,
@@ -430,9 +431,8 @@ export class SNNWorkerCore {
     this.net = result.net;
     this.monitor = new SpikeMonitor();
     this.monitor.attachAll(this.net.neurons);
-    // P218: registry 영역 cluster slot anchor 영역 영역 — n13/n14 영역 동일 cluster
-    // structure (out_{ci}_*) 영역 영역 영역 registry 영역 동일 builder 영역 reuse.
-    this.registry = buildClusterRegistryFromN13(activeInputs);
+    // P218 (2026-05-21): substrate-aware registry — N14Pools / inputDim=50 dispatch.
+    this.registry = buildClusterRegistryFromN13(activeInputs, payload.preset);
     this.buildClusterActiveInputs = activeInputs;
     this.buildPreset = payload.preset;
     return {

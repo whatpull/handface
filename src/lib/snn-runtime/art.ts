@@ -18,6 +18,7 @@
 //     슬롯 정보를 ClusterRegistry 로 추상화).
 
 import { N13Pools } from './builders/n13-orientation';
+import { N14Pools, N_INPUT_N14 } from './builders/n14-extended';
 import { type SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import { Neuron } from './neuron';
@@ -48,7 +49,15 @@ export interface ClusterRegistry {
   inputDim: number; // 32 (n13 32-dim disjoint feature).
 }
 
-export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): ClusterRegistry {
+// P218 (2026-05-21) — substrate-aware registry. preset 영역 N13Pools / N14Pools
+// 영역 dispatch + inputDim 영역 32 / 50 영역 자동 정합. art.ts:expandCluster
+// 영역 영역 registry.v*PerSub / inputDim 영역 사용 영역 자연 정합 영역.
+export function buildClusterRegistryFromN13(
+  activeInputsDefault: number[][],
+  preset: 'n13_orientation' | 'n14_extended' = 'n13_orientation',
+): ClusterRegistry {
+  const pools = preset === 'n14_extended' ? N14Pools : N13Pools;
+  const inputDim = preset === 'n14_extended' ? N_INPUT_N14 : 32;
   // Fix #20 (2026-05-10): zero-init dynamic — N_CLUSTER 영역 activeInputsDefault.length
   // 영역 derive (직전 N13Pools.N_CLUSTER=4 fixed 영역 폐기). zero-init (length=0) 영역
   // 슬롯 0 영역 시작 — expandCluster 영역 c{N}_ prefix 영역 신규 cluster spawn.
@@ -56,27 +65,27 @@ export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): Cl
   const nCluster = activeInputsDefault.length;
   for (let ci = 0; ci < nCluster; ci += 1) {
     const v1L4E: string[] = [];
-    for (let i = N13Pools.V1_L4_PER_SUB * ci; i < N13Pools.V1_L4_PER_SUB * (ci + 1); i += 1) {
+    for (let i = pools.V1_L4_PER_SUB * ci; i < pools.V1_L4_PER_SUB * (ci + 1); i += 1) {
       v1L4E.push(`v1_L4_E_${i}`);
     }
     const v1L23E: string[] = [];
-    for (let i = N13Pools.V1_L23_PER_SUB * ci; i < N13Pools.V1_L23_PER_SUB * (ci + 1); i += 1) {
+    for (let i = pools.V1_L23_PER_SUB * ci; i < pools.V1_L23_PER_SUB * (ci + 1); i += 1) {
       v1L23E.push(`v1_L23_E_${i}`);
     }
     const v2L4E: string[] = [];
-    for (let i = N13Pools.V2_L4_PER_SUB * ci; i < N13Pools.V2_L4_PER_SUB * (ci + 1); i += 1) {
+    for (let i = pools.V2_L4_PER_SUB * ci; i < pools.V2_L4_PER_SUB * (ci + 1); i += 1) {
       v2L4E.push(`v2_L4_E_${i}`);
     }
     const v2L23E: string[] = [];
-    for (let i = N13Pools.V2_L23_PER_SUB * ci; i < N13Pools.V2_L23_PER_SUB * (ci + 1); i += 1) {
+    for (let i = pools.V2_L23_PER_SUB * ci; i < pools.V2_L23_PER_SUB * (ci + 1); i += 1) {
       v2L23E.push(`v2_L23_E_${i}`);
     }
     const v2L5E: string[] = [];
-    for (let i = N13Pools.V2_L5_PER_SUB * ci; i < N13Pools.V2_L5_PER_SUB * (ci + 1); i += 1) {
+    for (let i = pools.V2_L5_PER_SUB * ci; i < pools.V2_L5_PER_SUB * (ci + 1); i += 1) {
       v2L5E.push(`v2_L5_E_${i}`);
     }
     const out: string[] = [];
-    for (let i = 0; i < N13Pools.OUT_PER_CLUSTER; i += 1) out.push(`out_${ci}_${i}`);
+    for (let i = 0; i < pools.OUT_PER_CLUSTER; i += 1) out.push(`out_${ci}_${i}`);
     slots.push({
       id: ci,
       v1L4E,
@@ -90,13 +99,13 @@ export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): Cl
   }
   return {
     slots,
-    v1L4PerSub: N13Pools.V1_L4_PER_SUB,
-    v1L23PerSub: N13Pools.V1_L23_PER_SUB,
-    v2L4PerSub: N13Pools.V2_L4_PER_SUB,
-    v2L23PerSub: N13Pools.V2_L23_PER_SUB,
-    v2L5PerSub: N13Pools.V2_L5_PER_SUB,
-    outPerCluster: N13Pools.OUT_PER_CLUSTER,
-    inputDim: 32,
+    v1L4PerSub: pools.V1_L4_PER_SUB,
+    v1L23PerSub: pools.V1_L23_PER_SUB,
+    v2L4PerSub: pools.V2_L4_PER_SUB,
+    v2L23PerSub: pools.V2_L23_PER_SUB,
+    v2L5PerSub: pools.V2_L5_PER_SUB,
+    outPerCluster: pools.OUT_PER_CLUSTER,
+    inputDim,
   };
 }
 
@@ -105,15 +114,19 @@ export function buildClusterRegistryFromN13(activeInputsDefault: number[][]): Cl
 //   base: v1_L4_E_{i} (i = 0 .. N13Pools.V1_L4E-1) → 4 cluster
 //   expanded: c{N}_v1_L4_E_{i} (N = 4, 5, ...) → user cluster
 // activeInputs 는 토폴로지에서 직접 알 수 없으므로 빈 배열로 둠 (UI metadata).
-export function inferClusterRegistry(neuronNames: Iterable<string>): ClusterRegistry {
-  // 본 base 슬롯 N13_PER_SUB 정합 (rev15 빌더와 동일).
-  // 확장 cluster 는 expandCluster 가 같은 per-sub 크기로 만든다.
-  const v1L4PerSub = N13Pools.V1_L4_PER_SUB;
-  const v1L23PerSub = N13Pools.V1_L23_PER_SUB;
-  const v2L4PerSub = N13Pools.V2_L4_PER_SUB;
-  const v2L23PerSub = N13Pools.V2_L23_PER_SUB;
-  const v2L5PerSub = N13Pools.V2_L5_PER_SUB;
-  const outPerCluster = N13Pools.OUT_PER_CLUSTER;
+// P218 (2026-05-21): preset 영역 hint 영역 영역 영역 substrate-aware (default n13).
+export function inferClusterRegistry(
+  neuronNames: Iterable<string>,
+  preset: 'n13_orientation' | 'n14_extended' = 'n13_orientation',
+): ClusterRegistry {
+  const pools = preset === 'n14_extended' ? N14Pools : N13Pools;
+  const inputDim = preset === 'n14_extended' ? N_INPUT_N14 : 32;
+  const v1L4PerSub = pools.V1_L4_PER_SUB;
+  const v1L23PerSub = pools.V1_L23_PER_SUB;
+  const v2L4PerSub = pools.V2_L4_PER_SUB;
+  const v2L23PerSub = pools.V2_L23_PER_SUB;
+  const v2L5PerSub = pools.V2_L5_PER_SUB;
+  const outPerCluster = pools.OUT_PER_CLUSTER;
 
   // discovery: cluster id 별 layer 별 이름을 모은다.
   const buckets = new Map<number, ClusterSlot>();
@@ -205,7 +218,7 @@ export function inferClusterRegistry(neuronNames: Iterable<string>): ClusterRegi
     v2L23PerSub,
     v2L5PerSub,
     outPerCluster,
-    inputDim: 32,
+    inputDim,
   };
 }
 
@@ -472,11 +485,13 @@ export function expandCluster(
   // 학술 정합: Diehl & Cook 2015 — global lateral inhibition (모든 output
   // cluster 영역 winner-take-all pool). perf cost 영역 N=20 영역 ~2560 synapse
   // — correctness > perf priority (학습 cluster 인식 차분 영역 critical).
+  // P218 (2026-05-21): WTA -8 → -10 영역 정합 — n13/n14 base WTA (P215d) 영역
+  // 정합 영역 base/expanded cluster 영역 동일 WTA strength 영역 보장.
   for (const existing of registry.slots) {
     for (const s of out) {
       for (const t of existing.out) {
-        net.connect(s, t, -8.0, 0.5);
-        net.connect(t, s, -8.0, 0.5);
+        net.connect(s, t, -10.0, 0.5);
+        net.connect(t, s, -10.0, 0.5);
       }
     }
   }

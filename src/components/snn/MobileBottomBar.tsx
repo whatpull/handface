@@ -1,6 +1,8 @@
 'use client';
 
-// MobileBottomBar — Settings 슬롯만 유지 (저장/리셋 제거 2026-05-15).
+// MobileBottomBar — Settings 슬롯 + 레이아웃 초기화 슬롯 (UX P1-2 2026-05-20).
+// 데스크탑 Toolbar `hidden md:flex` 영역 모바일 reset 진입 경로 0 catch →
+// 동일 global event `handface.pipeline.reset-layout` 영역 1-tap 영역 노출.
 
 interface MobileBottomBarProps {
   onOpenSettings: () => void;
@@ -12,12 +14,25 @@ const slot = 'flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-inset';
 
 export default function MobileBottomBar(p: MobileBottomBarProps) {
+  const onResetLayout = () => {
+    window.dispatchEvent(new CustomEvent('handface.pipeline.reset-layout'));
+  };
   return (
     <nav
       role="toolbar"
       aria-label="Mobile editor toolbar"
       className="flex w-full items-center gap-1 border-t border-white/5 bg-[#0d0d10]/95 px-2 md:hidden"
     >
+      <button
+        type="button"
+        className={slot}
+        onClick={onResetLayout}
+        aria-label="레이아웃 초기화"
+        title="노드 레이아웃을 기본값으로 되돌립니다"
+      >
+        <Icon kind="layout" />
+        초기화
+      </button>
       <button type="button" className={slot} onClick={p.onOpenSettings} aria-label="설정">
         <Icon kind="settings" />
         설정
@@ -29,6 +44,15 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
 function Icon({ kind }: { kind: string }) {
   const c = 'h-4 w-4';
   switch (kind) {
+    case 'layout':
+      return (
+        <svg viewBox="0 0 24 24" className={c} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      );
     case 'settings':
       return (
         <svg viewBox="0 0 24 24" className={c} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

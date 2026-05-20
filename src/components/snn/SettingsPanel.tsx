@@ -107,7 +107,9 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     setStatus(`저장됨 (${url}) — 시험 중…`);
     const r = await getClient().health();
     if (r.ok) {
-      setStatus(`✓ 저장 + 연결 성공 (${url})`);
+      // UX P3-5 (2026-05-20): status copy 한국어 톤 정합 — ✓ / ✗ symbol 제거,
+      // "성공:" / "오류:" Korean prefix 정합 (Toast kind 톤 정합).
+      setStatus(`성공: 저장 + 연결 완료 (${url})`);
       // Canvas remount → 새 endpoint 의 회로 로드.
       emitBackendEvent('circuit-changed', {});
     } else {
@@ -123,10 +125,12 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     client.setSettings(url, apiKey);
     const r = await client.health();
     if (r.ok) {
-      setStatus(`✓ ${url}`);
+      // UX P3-5: ✓ symbol 제거 → "연결 성공:" Korean prefix.
+      setStatus(`연결 성공: ${url}`);
       emitBackendEvent('circuit-changed', {});
     } else {
-      setStatus(`✗ ${r.reason}`);
+      // UX P3-5: ✗ symbol 제거 → "연결 실패:" Korean prefix.
+      setStatus(`연결 실패: ${r.reason}`);
     }
   };
 

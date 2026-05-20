@@ -4,6 +4,11 @@ import { getOrCreateDeviceId, saveBackup, loadBackup } from '@/lib/cloud-backup'
 import { loadExemplars, setExemplarLabel } from '@/lib/snn/out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 
+// UX P3-4 (2026-05-20): lastSaved persist — page reload 후 사라짐 회피.
+// ISO 시각 string localStorage 저장 → mount 시 hydrate + 표시 시점 ko-KR 시각
+// 변환. SSR safe — useEffect mount 내부 only.
+const LAST_SAVED_KEY = 'handface.cloud-sync.last-saved';
+
 export default function CloudSyncButton() {
   const [status, setStatus] = useState<'idle' | 'saving' | 'loading' | 'saved'>('idle');
   const [lastSaved, setLastSaved] = useState<string | null>(null);
@@ -19,6 +24,22 @@ export default function CloudSyncButton() {
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
+    // UX P3-4: lastSaved hydrate — localStorage ISO string → ko-KR 시각 표시.
+    // 저장 시점 동일 'saved' status path 사용 (handleSave 영역 setStatus('saved')
+    // 이후 영역 렌더링 정합) — mount 시점 영역 'idle' 영역 표시 0 path,
+    // 저장 status 영역 사용자 명시 진입 영역 정합 위해 status 영역 미변경.
+    try {
+      const iso = window.localStorage.getItem(LAST_SAVED_KEY);
+      if (iso) {
+        const d = new Date(iso);
+        if (!Number.isNaN(d.getTime())) {
+          setLastSaved(d.toLocaleTimeString('ko-KR'));
+          setStatus('saved');
+        }
+      }
+    } catch {
+      // localStorage unavailable (private mode) — silent fallback.
+    }
   }, []);
 
   // Popover open: initial focus → restore input. Escape key 영역 close +
@@ -100,7 +121,14 @@ export default function CloudSyncButton() {
     const ok = await saveBackup(exemplars as Record<string, unknown>, count);
     setStatus(ok ? 'saved' : 'idle');
     if (ok) {
-      setLastSaved(new Date().toLocaleTimeString('ko-KR'));
+      const now = new Date();
+      setLastSaved(now.toLocaleTimeString('ko-KR'));
+      // UX P3-4: persist ISO string → 다음 mount 영역 hydrate path.
+      try {
+        window.localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
+      } catch {
+        // localStorage unavailable — display still updates (in-memory).
+      }
       showToast({ kind: 'success', message: `${count}개 패턴을 클라우드에 저장했습니다` });
     } else {
       showToast({ kind: 'error', message: '저장 실패 — 네트워크를 확인하세요' });

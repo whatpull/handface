@@ -38,7 +38,10 @@ export async function loadBackup(deviceId?: string): Promise<{
   const id = deviceId || getOrCreateDeviceId();
   if (!id) return null;
   try {
-    const res = await fetch(`${BACKUP_API}/${id}`);
+    // Security LOW fix (2026-05-20): encodeURIComponent → path injection 회피.
+    // restoreCode 영역 user-supplied path segment 영역 special char (/, ?, #)
+    // 영역 escape mandatory.
+    const res = await fetch(`${BACKUP_API}/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
     const data = await res.json() as { found: boolean; exemplars?: Record<string, unknown>; pattern_count?: number; updated_at?: string };
     if (!data.found) return { found: false };
@@ -54,7 +57,9 @@ export async function loadBackup(deviceId?: string): Promise<{
 export async function deleteBackup(): Promise<boolean> {
   const id = getOrCreateDeviceId();
   try {
-    const res = await fetch(`${BACKUP_API}/${id}`, { method: 'DELETE' });
+    // Security LOW fix (2026-05-20): encodeURIComponent — 정합 path
+    // (loadBackup 영역 동일 패턴).
+    const res = await fetch(`${BACKUP_API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
     return res.ok;
   } catch { return false; }
 }

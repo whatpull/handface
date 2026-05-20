@@ -642,7 +642,7 @@ function PipelineCanvasInner() {
           className="snn-pipeline-zoom-indicator"
           onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
           aria-label={`zoom ${Math.round(zoom * 100)}% — click to reset to 100%`}
-          title="100% 영역 reset"
+          title="100%로 초기화"
         >
           {Math.round(zoom * 100)}%
         </button>

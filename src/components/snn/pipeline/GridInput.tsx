@@ -316,7 +316,7 @@ export default function GridInput() {
     showDialog({
       kind: 'confirm',
       title: '학습 데이터 전체 삭제',
-      message: '양 substrate (GRID + CAMERA) 영역 모든 학습 가중치 + 학습 횟수 + 추론 결과 + 영속 DB (IndexedDB) 영역 완전 wipe 됩니다.\n\n계속하시겠습니까?',
+      message: 'GRID + CAMERA 양쪽의 모든 학습 가중치, 학습 횟수, 추론 결과와 영속 DB(IndexedDB)가 완전히 삭제됩니다.\n\n계속하시겠습니까?',
       confirmLabel: '삭제',
       cancelLabel: '취소',
       onConfirm: () => { void performWipe(); },
@@ -947,7 +947,7 @@ export default function GridInput() {
             onClick={resetLearningLive}
             disabled={isBusy}
             aria-label="학습 가중치 reset — fresh build restore"
-            title="학습 가중치 영역 fresh build default 영역 restore — saturation escape mandatory"
+            title="학습 가중치를 초기 상태로 되돌립니다 (포화 상태 해소)"
           >
             학습 reset
           </button>

@@ -162,7 +162,7 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
       try {
         showToast({
           kind: 'warning',
-          message: 'SNN Worker bundle 영역 fail — main thread fallback (성능 저하 catch — 새로고침 권장)',
+          message: 'SNN Worker 번들 로드 실패 — 메인 스레드 폴백으로 동작합니다 (성능 저하 가능 — 새로고침 권장)',
           duration: 8000,
         });
       } catch { /* SSR / window 0 catch */ }

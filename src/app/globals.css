@@ -8,6 +8,18 @@
      contrast #e2e2f0 on #0a0a0f ≈ 14:1 (AAA pass). */
   --background: #0a0a0f;
   --foreground: #e2e2f0;
+
+  /* ─────────────────── z-index token (UX P2-4, 2026-05-20) ────────────────
+     stack 정합 단일화 — magic number 영역 폐기.
+     - status: 상태 toast (canvas 위, dialog 아래)
+     - popover: 인라인 popover (CloudSync, SettingsPanel side-sheet)
+     - toast: 시스템 toast region (showToast, 전역)
+     - dialog: modal dialog (focus trap, 최상위)
+     순서: status < popover < toast < dialog. */
+  --z-status: 10;
+  --z-popover: 50;
+  --z-toast: 1000;
+  --z-dialog: 1100;
 }
 
 html, body {

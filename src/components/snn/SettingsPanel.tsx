@@ -6,6 +6,11 @@ import { emitBackendEvent } from '@/lib/backend/events';
 import {
   loadBackendSettings, normalizeEndpoint, saveBackendSettings,
 } from '@/lib/backend/settings';
+import { showToast } from '@/components/ui/Toast';
+
+// UX P2-3 (2026-05-20): onboarding revisit — localStorage key 영역 Editor.tsx
+// 영역 정합. 신규 사용자 학습 toast 영역 1회 노출 후 영구 미노출 영역 정정.
+const ONBOARDING_SEEN_KEY = 'handface.onboarding-seen';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -125,9 +130,25 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     }
   };
 
+  // UX P2-3: 도움말 다시 보기 — localStorage 영역 onboarding-seen flag 제거 +
+  // toast 즉시 재노출. page reload 없음 — UX 영역 smoother.
+  const replayOnboarding = () => {
+    try {
+      window.localStorage.removeItem(ONBOARDING_SEEN_KEY);
+    } catch {
+      // localStorage unavailable (e.g. private mode) — toast 영역 여전히 노출.
+    }
+    showToast({
+      kind: 'info',
+      message: 'Live 모드 — GRID 패턴을 그리면 즉시 학습이 시작됩니다.',
+      duration: 7000,
+    });
+    onClose();
+  };
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[var(--z-popover)] flex items-start justify-end bg-black/40" onClick={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -184,19 +205,30 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             <button
               type="button"
               onClick={save}
-              className="flex-1 rounded bg-violet-500/20 px-3 py-1.5 text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+              className="flex-1 rounded bg-violet-500/20 px-3 py-2 min-h-[40px] text-xs text-violet-200 ring-1 ring-violet-400/40 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
               저장
             </button>
             <button
               type="button"
               onClick={test}
-              className="flex-1 rounded bg-white/5 px-3 py-1.5 text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+              className="flex-1 rounded bg-white/5 px-3 py-2 min-h-[40px] text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
             >
               연결 시험
             </button>
           </div>
           <div className="break-all text-[11px] font-mono text-white/50">{status}</div>
+          {/* UX P2-3: 도움말 다시 보기 — onboarding toast 영역 재노출 path. */}
+          <div className="pt-2 border-t border-white/5">
+            <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/50">도움말</span>
+            <button
+              type="button"
+              onClick={replayOnboarding}
+              className="w-full rounded bg-white/5 px-3 py-2 min-h-[40px] text-xs text-white/80 ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+            >
+              온보딩 안내 다시 보기
+            </button>
+          </div>
         </div>
       </div>
     </div>

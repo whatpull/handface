@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-label="Notifications"
         aria-live="polite"
-        className="snn-toast-region pointer-events-none fixed bottom-4 right-4 z-[1000] flex w-[min(360px,calc(100vw-32px))] flex-col gap-2"
+        className="snn-toast-region pointer-events-none fixed bottom-4 right-4 z-[var(--z-toast)] flex w-[min(360px,calc(100vw-32px))] flex-col gap-2"
       >
         {items.map((it) => (
           <ToastView key={it.id} item={it} onDismiss={() => dismiss(it.id)} />

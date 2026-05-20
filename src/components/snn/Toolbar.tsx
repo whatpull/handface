@@ -13,7 +13,11 @@ interface ToolbarProps {
 }
 
 const groupCls = 'flex items-center gap-1';
-const btnCls   = 'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs ' +
+// UX P2-1 (2026-05-20): WCAG 2.5.5 (Target Size) 정합 — `min-h-[40px]` 영역
+// 시각 영역 컴팩트 + 터치 영역 충분. `h-9` (36px) 영역 폐기. AAA 영역 44px 영역
+// desktop toolbar 영역 시각 비중 영역 과도 영역 catch → `min-h-[40px]` 영역 AA+
+// (24px AA, 44px AAA) 영역 중간 영역 commercial 영역 안전.
+const btnCls   = 'inline-flex items-center gap-1.5 rounded px-3 py-2 min-h-[40px] text-xs ' +
   'text-white/70 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60';
 

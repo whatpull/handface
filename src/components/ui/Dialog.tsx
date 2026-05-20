@@ -224,7 +224,7 @@ function DialogView({ item, onDismiss }: { item: DialogItem; onDismiss: () => vo
   // tailwind 영역 'motion-safe:' prefix — utility path.
   return (
     <div
-      className="snn-dialog-backdrop fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4 motion-safe:animate-[snn-dialog-fade_120ms_ease-out]"
+      className="snn-dialog-backdrop fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center bg-black/60 p-4 motion-safe:animate-[snn-dialog-fade_120ms_ease-out]"
       onMouseDown={(e) => {
         // backdrop click — cancel. dialog 내부 click 영역 stop.
         if (e.target === e.currentTarget) handleCancel();

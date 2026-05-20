@@ -165,7 +165,7 @@ export default function CloudSyncButton() {
           ref={popoverRef}
           role="region"
           aria-label="복원 옵션"
-          className="absolute top-8 right-0 z-50 rounded-lg border border-[#2a2a38] bg-[#18181f] p-3 shadow-xl w-64"
+          className="absolute top-8 right-0 z-[var(--z-popover)] rounded-lg border border-[#2a2a38] bg-[#18181f] p-3 shadow-xl w-64"
         >
           <p className="text-xs text-[#8888aa] mb-2">기기 ID를 입력하거나 비워두면 현재 기기 백업을 불러옵니다</p>
           <input

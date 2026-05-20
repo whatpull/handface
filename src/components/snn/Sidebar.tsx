@@ -10,8 +10,11 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onOpenSettings }: SidebarProps) {
+  // UX P2-1 (2026-05-20): WCAG 2.5.5 (Target Size) — `h-10 w-10` (40px) 영역
+  // 직전 `h-9 w-9` (36px) 영역 폐기. AAA 영역 44px 영역 sidebar rail (w-12) 영역
+  // 컨테이너 폭 영역 12 (48px) → 40px 버튼 영역 4px 영역 padding 영역 정합.
   const btn =
-    `flex h-9 w-9 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white ` +
+    `flex h-10 w-10 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white ` +
     `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60`;
   return (
     <aside className="hidden md:flex w-12 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-[#0d0d10]/95 py-3">

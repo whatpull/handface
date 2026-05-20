@@ -232,7 +232,7 @@ export default function Editor() {
             <div
               role="status"
               aria-live="polite"
-              className="pointer-events-none absolute bottom-14 left-1/2 z-10 -translate-x-1/2 rounded border border-white/10 bg-[#0f1117]/95 px-3 py-1 font-mono text-[11px] text-white/70 shadow-lg md:bottom-2"
+              className="pointer-events-none absolute bottom-14 left-1/2 z-[var(--z-status)] -translate-x-1/2 rounded border border-white/10 bg-[#0f1117]/95 px-3 py-1 font-mono text-[11px] text-white/70 shadow-lg md:bottom-2"
             >
               {status}
             </div>

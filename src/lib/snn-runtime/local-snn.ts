@@ -27,8 +27,9 @@ export interface LocalSNNOptions {
   netId: string;
   client: SNNWorkerClient;
   sink: SnapshotSink;
-  // n13 빌드 인자 (default = 4 orientation cluster).
-  preset?: 'n13_orientation';
+  // n13/n14 빌드 인자 (default = n13 4×4 substrate).
+  // P218 (2026-05-20): n14_extended (5×5) preset 영역 추가.
+  preset?: 'n13_orientation' | 'n14_extended';
   vThreshold?: number;
   clusterActiveInputs?: number[][];
   seed?: number;

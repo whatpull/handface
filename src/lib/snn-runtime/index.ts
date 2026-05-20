@@ -43,6 +43,17 @@ export {
   type N13PresetOptions,
   type N13PresetResult,
 } from './builders/n13-orientation';
+// P218 (2026-05-20) — 5×5 input expansion 영역 n14 substrate.
+export {
+  buildN14ExtendedPreset,
+  compute50DimFeature,
+  N14Names,
+  N14Pools,
+  N_INPUT_N14,
+  RAW_DIM_N14,
+  type N14PresetOptions,
+  type N14PresetResult,
+} from './builders/n14-extended';
 export {
   DEFAULT_ART_CONFIG,
   type ARTConfig,

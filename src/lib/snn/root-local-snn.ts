@@ -28,7 +28,15 @@ import {
 import { showToast } from '@/components/ui/Toast';
 import { clearExemplars } from './out-exemplars';
 
-export type SubstrateKind = 'orientation' | 'gesture';
+// P218 (2026-05-20) — 'orientation-5x5' 영역 추가. 5×5 substrate (n14_extended)
+// 영역 영역 영역 separate cache / netId / persistence — orientation (4×4) 영역
+// 별도 instance 영역 영역 (research panel P218 영역 영역).
+export type SubstrateKind = 'orientation' | 'gesture' | 'orientation-5x5';
+
+// substrate kind 영역 영역 영역 build preset dispatch.
+export function buildPresetForKind(kind: SubstrateKind): 'n13_orientation' | 'n14_extended' {
+  return kind === 'orientation-5x5' ? 'n14_extended' : 'n13_orientation';
+}
 
 // 사용자 catch 2026-05-09 [2] (Fix 4 — MEDIUM): DB hydrate visibility event —
 // LocalSNN.init 영역 fresh build vs hydrate 영역 catch 영역 emit. NodeLearn
@@ -188,6 +196,9 @@ export async function getRootLocalSnnFor(kind: SubstrateKind): Promise<RootLocal
     client,
     sink,
     seed: SEED,
+    // P218 (2026-05-20): substrate kind 영역 영역 영역 preset dispatch — 'orientation-5x5'
+    // 영역 영역 영역 n14_extended (5×5 input), 영역 영역 영역 n13_orientation (4×4 default).
+    preset: buildPresetForKind(kind),
     clusterActiveInputs: clusterActiveInputsFor(kind),
     // PR #189 polish UX-1 (HIGH, 2026-05-10): stale cache reject 영역 silent
     // catch 회피 — 사용자 영역 직전 학습 가중치 폐기 영역 명시 catch path.
@@ -292,7 +303,7 @@ export async function purgeAllLearningData(): Promise<void> {
   // instance 영역 생성 영역 remove(netId).
   try {
     const sink = new IndexedDBSink();
-    for (const kind of ['orientation', 'gesture'] as const) {
+    for (const kind of ['orientation', 'gesture', 'orientation-5x5'] as const) {
       try {
         await sink.remove(netIdFor(kind));
       } catch (e) {
@@ -325,7 +336,7 @@ export async function purgeAllLearningData(): Promise<void> {
   }
   // Step 4: out-exemplars 영역 substrate 별 dispatch — UI 영역 즉시 0 row.
   try {
-    for (const kind of ['orientation', 'gesture'] as const) {
+    for (const kind of ['orientation', 'gesture', 'orientation-5x5'] as const) {
       window.dispatchEvent(new CustomEvent(`handface:out-exemplars-changed:${kind}`, { detail: {} }));
     }
   } catch {

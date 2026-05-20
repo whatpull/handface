@@ -45,6 +45,15 @@ import type {
 } from '@/lib/snn-runtime';
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
+import { compute50DimFeature, RAW_DIM_N14 } from '@/lib/snn-runtime/builders/n14-extended';
+
+// P218 (2026-05-20) — raw pattern length 영역 영역 dispatch (n13: 16→32, n14: 25→50).
+// 이미 expanded (32 or 50) 영역 그대로.
+function dispatchFeature(pattern: number[]): number[] {
+  if (pattern.length === 16) return compute32DimFeature(pattern);
+  if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
+  return pattern;
+}
 import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 import { saveBackup } from '@/lib/cloud-backup';
@@ -163,6 +172,12 @@ const DEFAULT_OPTIONS: Required<LiveSnnOptions> = {
 
 const TICK_EVENT = 'handface.live-snn.tick';
 const SAVE_THROTTLE_MS = 500;
+
+// P218 (2026-05-20) — substrate kind 영역 영역 raw dim 영역 dispatch.
+// orientation: 16 (4×4), orientation-5x5: 25 (5×5), gesture: 16 (legacy).
+function rawDimForKind(kind: SubstrateKind): number {
+  return kind === 'orientation-5x5' ? 25 : 16;
+}
 
 export class LiveSnn {
   private opts: Required<LiveSnnOptions>;
@@ -318,7 +333,7 @@ export class LiveSnn {
     // 별 학습 횟수 영역 별도 보존 (orientation/gesture isolation 정합).
     this.trialCount = loadTrialCount(kind);
     this.lastWinnerCluster = -1;
-    this.patternRef = new Array(16).fill(0);
+    this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // F2-b throttle 영역 substrate swap 영역 reset — 신규 kind 영역 첫 emit
     // 영역 즉시 persist 보장 (orientation/gesture isolation 정합).
     this._lastTrialPersistAtMs = Number.NEGATIVE_INFINITY;
@@ -351,7 +366,7 @@ export class LiveSnn {
     // localStorage trialCount 영역 wipe — fresh trial counter mandatory.
     clearTrialCount(this.substrateKind);
     this.lastWinnerCluster = -1;
-    this.patternRef = new Array(16).fill(0);
+    this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
     this._lastSaveAtMs = Number.NEGATIVE_INFINITY;
     // F2-b — trial persist throttle reset (resetTrigger 영역 0 영역 즉시 보존).
@@ -1024,8 +1039,8 @@ export class LiveSnn {
       // mismatch 영역 vigilanceMismatch 영역 outer scope 영역 이미 산출 정합 —
       // 동일 condition 영역 spawn path 영역 trigger.
       if (vigilanceMismatch) {
-        // 32-dim 확장 후 active inputs 추출 — in_feat_0..31 기반 정합.
-        const feat32 = pattern.length === 16 ? compute32DimFeature(pattern) : pattern;
+        // P218 (2026-05-20): n13 (32-dim) / n14 (50-dim) dispatch — in_feat_0..N 정합.
+        const feat32 = dispatchFeature(pattern);
         const activeInputs: number[] = [];
         for (let i = 0; i < feat32.length; i += 1) {
           if (feat32[i] > 0.5) activeInputs.push(i);
@@ -1281,9 +1296,8 @@ export class LiveSnn {
     durationMs: number;
     stepMs: number;
   }> {
-    // 16-dim raw → 32-dim 확장 (compute32DimFeature). 이미 32-dim이면 그대로.
-    const raw = this.patternRef;
-    const feat = raw.length === 16 ? compute32DimFeature(raw) : raw;
+    // P218 (2026-05-20): raw → expanded dispatch (n13: 16→32, n14: 25→50).
+    const feat = dispatchFeature(this.patternRef);
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
     for (let i = 0; i < feat.length; i += 1) {
       const v = feat[i];

@@ -11,6 +11,15 @@ import {
   type ClusterRegistry,
 } from './art';
 import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './builders/n13-orientation';
+import { buildN14ExtendedPreset, compute50DimFeature, N_INPUT_N14, RAW_DIM_N14 } from './builders/n14-extended';
+
+// P218 (2026-05-20) — pattern length 영역 영역 영역 compute feature dispatch.
+// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim. 이미 expanded (32 or 50) 영역 패스.
+function dispatchComputeFeature(pattern: number[]): number[] {
+  if (pattern.length === 16) return compute32DimFeature(pattern);
+  if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
+  return pattern; // already expanded (32 or 50)
+}
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import type {
@@ -178,8 +187,13 @@ const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
 // inject events 영역 v <= 0.5 filter 영역 정합).
 function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
   // 16-dim raw (UI 입력) 또는 32-dim pre-expanded (worker 내부 변환 후) 모두 허용.
-  if (!Array.isArray(p.pattern) || (p.pattern.length !== 16 && p.pattern.length !== N_INPUT)) {
-    throw new Error(`invalid pattern (expected length 16 or ${N_INPUT} array)`);
+  // P218 (2026-05-20): n14_extended (5×5) 영역 영역 25-dim raw / 50-dim full
+  // 영역 영역 추가 영역. n13: 16/32, n14: 25/50.
+  if (!Array.isArray(p.pattern) || (
+    p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
+    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14
+  )) {
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, or ${N_INPUT_N14} array)`);
   }
   if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
     throw new Error('invalid repeats (expected 1..10)');
@@ -197,8 +211,13 @@ function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
 
 function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void {
   // 16-dim raw (UI 입력) 또는 32-dim pre-expanded 모두 허용.
-  if (!Array.isArray(p.pattern) || (p.pattern.length !== 16 && p.pattern.length !== N_INPUT)) {
-    throw new Error(`invalid pattern (expected length 16 or ${N_INPUT} array)`);
+  // P218 (2026-05-20): n14_extended (5×5) 영역 영역 25-dim raw / 50-dim full
+  // 영역 영역 추가 영역. n13: 16/32, n14: 25/50.
+  if (!Array.isArray(p.pattern) || (
+    p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
+    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14
+  )) {
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, or ${N_INPUT_N14} array)`);
   }
   // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
   // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장.
@@ -226,6 +245,8 @@ export class SNNWorkerCore {
   private monitor: SpikeMonitor | null = null;
   private registry: ClusterRegistry | null = null;
   private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
+  // P218 (2026-05-20) — preset 영역 track 영역 영역 reset / inject 영역 영역 dispatch 정합.
+  private buildPreset: 'n13_orientation' | 'n14_extended' = 'n13_orientation';
   // PR-B (Web Worker background offload, 2026-05-10): push event emitter.
   // worker entry (snn-worker.ts) 영역 self.postMessage 영역 wire,
   // main-thread-transport 영역 listeners.dispatch 영역 wire.
@@ -327,11 +348,15 @@ export class SNNWorkerCore {
           // 새로 build → net + monitor + registry 영역 swap. 학술 정합:
           // Diehl & Cook 2015 §3.2 batch reset 영역 confluent path — saturation
           // escape mandatory.
-          const result = buildN13OrientationPreset({
-            clusterActiveInputs: this.buildClusterActiveInputs,
-            // seed 영역 build payload 영역 catch 미보존 — buildN13OrientationPreset
-            // 영역 default seed 영역 정합 (root-local-snn SEED=57 영역 별도 sync).
-          });
+          const result = this.buildPreset === 'n14_extended'
+            ? buildN14ExtendedPreset({
+                clusterActiveInputs: this.buildClusterActiveInputs,
+              })
+            : buildN13OrientationPreset({
+                clusterActiveInputs: this.buildClusterActiveInputs,
+                // seed 영역 build payload 영역 catch 미보존 — buildN13OrientationPreset
+                // 영역 default seed 영역 정합 (root-local-snn SEED=57 영역 별도 sync).
+              });
           this.net = result.net;
           this.monitor = new SpikeMonitor();
           this.monitor.attachAll(this.net.neurons);
@@ -387,20 +412,29 @@ export class SNNWorkerCore {
   }
 
   private handleBuild(payload: BuildPayload): BuildResult {
-    if (payload.preset !== 'n13_orientation') {
+    if (payload.preset !== 'n13_orientation' && payload.preset !== 'n14_extended') {
       throw new Error(`알 수 없는 preset: ${payload.preset}`);
     }
     const activeInputs = payload.clusterActiveInputs ?? DEFAULT_CLUSTER_ACTIVE_INPUTS;
-    const result = buildN13OrientationPreset({
-      vThreshold: payload.vThreshold,
-      clusterActiveInputs: activeInputs,
-      seed: payload.seed,
-    });
+    const result = payload.preset === 'n14_extended'
+      ? buildN14ExtendedPreset({
+          vThreshold: payload.vThreshold,
+          clusterActiveInputs: activeInputs,
+          seed: payload.seed,
+        })
+      : buildN13OrientationPreset({
+          vThreshold: payload.vThreshold,
+          clusterActiveInputs: activeInputs,
+          seed: payload.seed,
+        });
     this.net = result.net;
     this.monitor = new SpikeMonitor();
     this.monitor.attachAll(this.net.neurons);
+    // P218: registry 영역 cluster slot anchor 영역 영역 — n13/n14 영역 동일 cluster
+    // structure (out_{ci}_*) 영역 영역 영역 registry 영역 동일 builder 영역 reuse.
     this.registry = buildClusterRegistryFromN13(activeInputs);
     this.buildClusterActiveInputs = activeInputs;
+    this.buildPreset = payload.preset;
     return {
       neuronsAdded: result.neuronsAdded,
       synapsesAdded: result.synapsesAdded,
@@ -598,10 +632,8 @@ export class SNNWorkerCore {
     // OUT layer 영역 only normalize 적용 — V1_L23 / V2_L5 영역 cluster sub-pool
     // 영역 정합 catch 영역 동일 적용 가능 단 본 path 영역 OUT winner mismatch
     // 영역 root cause 영역 catch 영역 OUT only.
-    // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
-    const patternFeat = payload.pattern
-      ? (payload.pattern.length === 16 ? compute32DimFeature(payload.pattern) : payload.pattern)
-      : null;
+    // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
+    const patternFeat = payload.pattern ? dispatchComputeFeature(payload.pattern) : null;
     const activeIdx: Set<number> | null = patternFeat
       ? new Set(patternFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
       : null;
@@ -820,9 +852,8 @@ export class SNNWorkerCore {
       // time 영역 net.t 정합 (직전 buggy time:0 영역 net.t 누적 영역 모든 stale
       // impulse 영역 1-step burst collapse → V1 attenuated → OUT silent).
       const tNow = net.t;
-      // 1. inject(pattern) — 16-dim raw를 32-dim으로 확장 후 활성도 > 0.5 dim 주입.
-      // 이미 32-dim이면 그대로 사용 (double-expansion 방지).
-      const feat = pattern.length === 16 ? compute32DimFeature(pattern) : pattern;
+      // 1. inject(pattern) — raw → 확장 (n13: 16→32, n14: 25→50). 이미 expanded 영역 그대로.
+      const feat = dispatchComputeFeature(pattern);
       const events = feat
         .map((v, i) => {
           if (v <= 0.5) return null;
@@ -1031,10 +1062,8 @@ export class SNNWorkerCore {
     const net = this.requireNet();
     const monitor = this.monitor!;
     const registry = this.registry!;
-    // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
-    const featForMeasure = pattern
-      ? (pattern.length === 16 ? compute32DimFeature(pattern) : pattern)
-      : null;
+    // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
+    const featForMeasure = pattern ? dispatchComputeFeature(pattern) : null;
     const activeIdx: Set<number> | null = featForMeasure
       ? new Set(featForMeasure.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
       : null;
@@ -1218,10 +1247,8 @@ export class SNNWorkerCore {
       // |I ∩ T| / |I ∪ T|. reinforce 영역 supervised target 영역 catch 영역
       // vigilance 영역 직접 적용 0 단 protocol 정합 catch 영역 동일 field 영역 emit.
       const reinforceRegistry = this.requireRegistry();
-      // 16-dim raw → 32-dim 확장 후 active index 추출 (이미 32-dim이면 그대로).
-      const reinforceFeat = payload.pattern.length === 16
-        ? compute32DimFeature(payload.pattern)
-        : payload.pattern;
+      // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
+      const reinforceFeat = dispatchComputeFeature(payload.pattern);
       const reinforceActiveIdx = new Set(
         reinforceFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
       );
@@ -1314,17 +1341,17 @@ export class SNNWorkerCore {
     }
   }
 
-  // triggerBackground inject events helper — 16-dim raw 입력을 32-dim으로
-  // 자동 확장 후 in_feat_* sustained injection (live-snn buildInjectEvents 정합).
-  // 이미 32-dim이면 그대로 사용 (double-expansion 방지).
+  // triggerBackground inject events helper — raw (16 or 25) → expanded (32 or 50)
+  // 자동 확장 후 in_feat_* sustained injection. P218 (2026-05-20): n14 영역 영역
+  // 영역 dispatchComputeFeature 영역 dispatch — feat.length 영역 영역 영역 inject 영역 영역.
   private buildInjectEventsLocal(
     payload: TriggerBackgroundPayload,
     currentT: number,
   ): Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> {
-    const raw = payload.pattern;
-    const feat = raw.length === 16 ? compute32DimFeature(raw) : raw;
+    const feat = dispatchComputeFeature(payload.pattern);
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
-    for (let i = 0; i < N_INPUT; i += 1) {
+    // P218: feat.length 영역 영역 영역 loop bound (n13: 32, n14: 50).
+    for (let i = 0; i < feat.length; i += 1) {
       const v = feat[i] ?? 0;
       if (v <= 0.5) continue;
       out.push({

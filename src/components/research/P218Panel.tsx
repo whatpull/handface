@@ -9,9 +9,11 @@ import { Fragment, useState, useEffect } from 'react';
 import {
   runP218Experiment,
   runP218VigilanceSweep,
+  runP218PartialSweep,
   PATTERN_NAMES_5X5,
   PATTERNS_5X5,
   type VigilanceSweepResult,
+  type PartialSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
@@ -25,6 +27,7 @@ export default function P218Panel() {
   const [progress, setProgress] = useState<Progress>({ msg: '', pct: 0 });
   const [results, setResults] = useState<SelectivityMetrics[]>([]);
   const [vigResults, setVigResults] = useState<VigilanceSweepResult[]>([]);
+  const [partialResults, setPartialResults] = useState<PartialSweepResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -41,11 +44,16 @@ export default function P218Panel() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [running]);
 
+  const clearOutputs = () => {
+    setResults([]);
+    setVigResults([]);
+    setPartialResults([]);
+  };
+
   const run = async () => {
     setRunning(true);
     setError(null);
-    setResults([]);
-    setVigResults([]);
+    clearOutputs();
     try {
       const r = await runP218Experiment(
         (msg, pct) => setProgress({ msg, pct }),
@@ -64,8 +72,7 @@ export default function P218Panel() {
   const runVigSweep = async () => {
     setRunning(true);
     setError(null);
-    setResults([]);
-    setVigResults([]);
+    clearOutputs();
     try {
       const r = await runP218VigilanceSweep(
         (msg, pct) => setProgress({ msg, pct }),
@@ -83,10 +90,36 @@ export default function P218Panel() {
     }
   };
 
+  const runPartialSweep = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP218PartialSweep(
+        (msg, pct) => setProgress({ msg, pct }),
+        [0.40, 0.50, 0.60, 0.75, 0.85],
+        8,
+        { vigilance, noiseFlipProb },
+      );
+      setPartialResults(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P218 partial-sweep] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const activePayload = (): { data: unknown; prefix: string } => {
+    if (partialResults.length > 0) return { data: partialResults, prefix: 'p218-partial-sweep' };
+    if (vigResults.length > 0) return { data: vigResults, prefix: 'p218-vigilance-sweep' };
+    return { data: results, prefix: 'p218-capacity-5x5' };
+  };
+
   const downloadJson = () => {
-    const payload = vigResults.length > 0 ? vigResults : results;
-    const prefix = vigResults.length > 0 ? 'p218-vigilance-sweep' : 'p218-capacity-5x5';
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const { data, prefix } = activePayload();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -100,8 +133,8 @@ export default function P218Panel() {
   const [copied, setCopied] = useState(false);
   const copyJson = async () => {
     try {
-      const payload = vigResults.length > 0 ? vigResults : results;
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      const { data } = activePayload();
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
@@ -136,6 +169,15 @@ export default function P218Panel() {
             title="N=8 (stable cap) 에서 vigilance=0.10/0.15/0.20/0.25 4단계 자동 비교"
           >
             Vigilance sweep
+          </button>
+          <button
+            type="button"
+            onClick={runPartialSweep}
+            disabled={running}
+            className="rounded border border-emerald-600 bg-emerald-950/40 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-900/50 disabled:opacity-50"
+            title="N=8 (stable cap) 에서 partialKeepRatio=0.40/0.50/0.60/0.75/0.85 5단계 자동 비교"
+          >
+            Partial sweep
           </button>
         </div>
       </div>
@@ -182,6 +224,13 @@ export default function P218Panel() {
         <div className="mt-6 space-y-4">
           <VigilanceSweepTable results={vigResults} />
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={vigResults.length} label="vigilance" />
+        </div>
+      )}
+
+      {partialResults.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <PartialSweepTable results={partialResults} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={partialResults.length} label="partial-cue" />
         </div>
       )}
     </div>
@@ -291,6 +340,50 @@ function SliderField({ label, value, min, max, step, onChange, disabled, hint }:
       />
       <span className="text-[10px] text-[#666]">{hint}</span>
     </label>
+  );
+}
+
+function PartialSweepTable({ results }: { results: PartialSweepResult[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-white">
+        Partial Keep Ratio Sweep @ N=8 (stable cap)
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        partialKeepRatio 5단계 비교 — 5×5 substrate 의 partial cue 강도 한계 측정.
+        Reference: 4×4 P215 @ 0.75 = 63%. 더 어려운 cue (0.50, 0.40 keep) 에서 5×5 가 어디서 무너지는지.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Partial keep</th>
+              <th className="py-2">재현율</th>
+              <th className="py-2">노이즈</th>
+              <th className="py-2">부분단서</th>
+              <th className="py-2">WTA margin</th>
+              <th className="py-2">Cluster map</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr key={r.partialKeepRatio} className="border-b border-[#2a2a38]/50">
+                <td className="py-2 font-mono font-semibold text-emerald-300">{r.partialKeepRatio.toFixed(2)}</td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.reproduction} /></td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.noise} /></td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.partialCue} /></td>
+                <td className="py-2 text-center font-mono text-violet-300">
+                  {(r.metrics.avgWtaMargin * 100).toFixed(0)}%
+                </td>
+                <td className="py-2 text-center font-mono text-[10px] text-[#888]">
+                  [{r.metrics.patternToCluster.join(',')}]
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

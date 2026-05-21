@@ -273,3 +273,36 @@ export async function runP218VigilanceSweep(
   onProgress?.('vigilance sweep 완료', 100);
   return results;
 }
+
+// P218 partial keep ratio sweep (2026-05-21) — partial cue 강도 한계 측정.
+// 4×4 P215 partial @ 0.75 = 63%. 5×5 P218 partial @ 0.75 = 100% (+37%p).
+// 더 어려운 cue (0.50, 0.40 keep) 영역 5×5 영역 어디서 무너지는지 측정 영역
+// publishable headline: "5×5 substrate 영역 0.50 keep 영역 partial cue X%
+// 유지 vs 4×4 의 63% 영역 정합 영역 (cue 0.75)".
+export interface PartialSweepResult {
+  partialKeepRatio: number;
+  metrics: SelectivityMetrics;
+}
+
+export async function runP218PartialSweep(
+  onProgress?: ProgressCallback,
+  partialValues: number[] = [0.40, 0.50, 0.60, 0.75, 0.85],
+  patternCount: number = 8,
+  options: Omit<RunOptionsP218, 'patternCounts' | 'partialKeepRatio'> = {},
+): Promise<PartialSweepResult[]> {
+  const results: PartialSweepResult[] = [];
+  const total = partialValues.length;
+  for (let i = 0; i < total; i += 1) {
+    const p = partialValues[i];
+    const basePct = (i / total) * 100;
+    const stepWidth = (1 / total) * 100;
+    onProgress?.(`[partial=${p.toFixed(2)}] N=${patternCount} 측정 중...`, basePct);
+    const stepResult = await runP218Experiment(
+      (msg, pct) => onProgress?.(`partial=${p.toFixed(2)} ${msg}`, basePct + (pct * stepWidth) / 100),
+      { ...options, partialKeepRatio: p, patternCounts: [patternCount] },
+    );
+    if (stepResult.length > 0) results.push({ partialKeepRatio: p, metrics: stepResult[0] });
+  }
+  onProgress?.('partial sweep 완료', 100);
+  return results;
+}

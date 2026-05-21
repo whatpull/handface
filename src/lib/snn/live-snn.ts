@@ -755,6 +755,19 @@ export class LiveSnn {
       await root.client.resetHomeostatic();
       const cfr = await this.runStep(root, 0); // stdpGain=0
       const winner = cfr.winner >= 0 ? cfr.winner : null;
+      // P218 diagnostic — runtime trace 영역 cluster firing 영역 catch.
+      if (this.substrateKind === 'orientation-5x5') {
+        // dispatchFeature 영역 0.5 영역 영역 영역 active idx 영역 산출 (worker 영역 정합).
+        const feat = dispatchFeature(pattern);
+        const activeIdx: number[] = [];
+        for (let i = 0; i < feat.length; i += 1) if (feat[i] > 0.5) activeIdx.push(i);
+        console.log('[P218 infer]', {
+          activeIdx,
+          winner,
+          rates: cfr.rates.map((r, i) => `c${i}:${r.toFixed(1)}`).join(' '),
+          inputMatch: cfr.inputMatch,
+        });
+      }
       return { winner, rates: cfr.rates };
     } finally {
       // patternRef 복원 — live tick 영역 side-effect 방지.
@@ -1107,6 +1120,10 @@ export class LiveSnn {
     const TOTAL = ROUNDS * CHUNK;
     try {
       const { newClusterId } = await this.expandClusterAsync(activeInputs);
+      // P218 diagnostic — spawn trace.
+      if (this.substrateKind === 'orientation-5x5') {
+        console.log('[P218 spawn]', { newClusterId, activeInputs });
+      }
       // MEDIUM #11 (2026-05-11): race-gate add — 진행 중 cluster id 영역 add.
       // emitTick incrementCount 영역 본 Set 영역 size>0 시점 영역 skip.
       this._autoLearnInFlight.add(newClusterId);

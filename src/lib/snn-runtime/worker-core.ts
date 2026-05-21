@@ -901,11 +901,22 @@ export class SNNWorkerCore {
       // R-STDP 영역 spike pair 영역 mandatory 정합. correct 시점만 적용 — wrong
       // winner 영역 LTD 영역 reward mask 영역 0 정합.
       const targetCi = payload.targetCluster;
-      if (isCorrect || measure.winner === -1) {
-        // measure winner === -1 (silent — 신규 cluster 첫 trial 영역 자연):
-        // supervisor pulse 영역 정합 (correct path 영역 정합 catch). 측정
-        // winner 영역 다른 cluster 영역 wrong winner 영역 LTD path — supervisor
-        // pulse 영역 skip (target reward 영역 0 정합 — cross-pollution 회피).
+      // P218 (2026-05-21) — supervisor pulse 영역 ALWAYS fire on target.
+      //
+      // 직전 condition `isCorrect || winner === -1` 영역 wrong winner 영역
+      // skip — N=3 5×5 substrate 영역 영역 chicken-and-egg bug 영역 root cause.
+      // cluster 0 영역 영역 spurious 영역 winner 영역 영역 (Pattern 1 영역 fire
+      // 영역 영역 — 영역 영역 영역 영역 영역 영역) supervisor pulse skip →
+      // cluster 1 영역 train 영역 영역 → cluster 1 silent → 영원히 cluster 0
+      // 영역 winner. 영역 condition 영역 영역 영역 forced LTP path 영역
+      // mandatory 영역 — Diehl & Cook 2015 supervised label injection 영역
+      // teacher signal 영역 winner-independent forced post-synaptic fire 영역
+      // 학술 정합.
+      //
+      // cross-pollution 회피 영역 영역 영역 punishGain (0.1-0.2) 영역 영역
+      // 영역 reward gain (0.8) 영역 영역 영역 영역 영역 cluster 영역 weight
+      // 영역 영역 영역 (8:1 ratio, P215h 영역 정합).
+      if (true) {
         const targetSlot = registry.slots[targetCi];
         if (targetSlot) {
           const supervisorEvents = targetSlot.out.map((name) => ({

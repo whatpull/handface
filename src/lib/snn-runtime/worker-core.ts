@@ -885,6 +885,23 @@ export class SNNWorkerCore {
       if (this.buildPreset === 'n14_extended' && !this._p218LoggedFirstReinforce) {
         const ratesStr = measure.rates.map((r, i) => `c${i}:${r.toFixed(0)}`).join(' ');
         console.log(`[P218 reinforce first] target=${payload.targetCluster} winner=${measure.winner} rates=${ratesStr} isCorrect=${isCorrect}`);
+        // P218 14th iter (2026-05-21) — per-layer firing rate diagnostic for
+        // target cluster. cluster 1 silent 영역 cascade 영역 어느 layer 영역
+        // 영역 영역 영역 pinpoint — V1_L4 → V1_L23 → V2_L4 → V2_L23 → V2_L5
+        // → OUT 영역 영역 영역 영역 trace.
+        const targetSlot = registry.slots[payload.targetCluster];
+        if (targetSlot) {
+          const monitor = this.monitor!;
+          const layerRate = (names: string[]): string => {
+            if (names.length === 0) return '0.0';
+            let sum = 0;
+            for (const n of names) sum += monitor.firingRate(n, net.t, observeMs);
+            return (sum / names.length).toFixed(1);
+          };
+          console.log(
+            `[P218 layer c${payload.targetCluster}] V1L4=${layerRate(targetSlot.v1L4E)} V1L23=${layerRate(targetSlot.v1L23E)} V2L4=${layerRate(targetSlot.v2L4E)} V2L23=${layerRate(targetSlot.v2L23E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)} | netT=${net.t.toFixed(0)}ms`
+          );
+        }
         this._p218LoggedFirstReinforce = true;
       }
 

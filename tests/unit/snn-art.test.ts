@@ -140,8 +140,12 @@ describe('snn-art — Cluster expansion', () => {
       seed: 100,
     });
 
+    // P218 (2026-05-21): expandCluster 영역 V1_L4_I per cluster 영역 추가 영역 —
+    // v1L4iPerSub = v1L4PerSub * 2 (n13: 32→64, n14: 40→80).
+    const v1L4iPerSub = reg.v1L4PerSub * 2;
     const expectedNeurons =
       reg.v1L4PerSub +
+      v1L4iPerSub +
       reg.v1L23PerSub +
       reg.v2L4PerSub +
       reg.v2L23PerSub +

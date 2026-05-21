@@ -910,6 +910,22 @@ export class SNNWorkerCore {
           console.log(
             `[P218 layer c${payload.targetCluster}] IN[${inFeatRateStr}] V1L4=${layerRate(targetSlot.v1L4E)} V1L23=${layerRate(targetSlot.v1L23E)} V2L4=${layerRate(targetSlot.v2L4E)} V2L23=${layerRate(targetSlot.v2L23E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)} | netT=${net.t.toFixed(0)}ms`
           );
+          // P218 16th iter (2026-05-21) — cluster 1 only: raw spike history +
+          // V_m for in_feat_20 (representative of failing in_feat group).
+          // monitor.spikes() 영역 history 영역 영역 영역 영역 영역 catch — windowMs
+          // 영역 영역 영역 영역 spike 영역 정합 영역 catch. neuron object 영역 V_m
+          // 영역 raw 영역 fire 영역 영역 영역 catch.
+          if (payload.targetCluster === 1) {
+            const probe = net.get('in_feat_20');
+            const spikes20 = monitor.spikes('in_feat_20');
+            const recentSpikes = spikes20.slice(-10).map((t) => t.toFixed(0)).join(',');
+            const probe25 = net.get('in_feat_25');
+            const spikes25 = monitor.spikes('in_feat_25');
+            const recent25 = spikes25.slice(-10).map((t) => t.toFixed(0)).join(',');
+            console.log(
+              `[P218 c1 probe] in_feat_20: v=${probe?.v.toFixed(2) ?? 'NULL'} lastSpike=${probe?.lastSpikeTime?.toString() ?? 'NULL'} totalSpikes=${spikes20.length} recent=[${recentSpikes}] | in_feat_25: v=${probe25?.v.toFixed(2) ?? 'NULL'} totalSpikes=${spikes25.length} recent=[${recent25}] | hasIn20=${net.has('in_feat_20')}`
+            );
+          }
         }
         this._p218LoggedFirstReinforce = true;
       }

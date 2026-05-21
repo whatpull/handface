@@ -386,9 +386,16 @@ export class LiveSnn {
   }
 
   setPattern(pattern: number[]): void {
-    // 16-dim 보장 — 부족하면 pad, 초과는 cut.
-    const next = new Array<number>(16).fill(0);
-    for (let i = 0; i < Math.min(pattern.length, 16); i += 1) {
+    // P218 (2026-05-21) ROOT CAUSE fix: substrate-aware raw dim.
+    // 직전 hardcoded 16-dim cut — 5×5 (25-dim) substrate 영역 indices 16-24
+    // 영역 정합 cut → Pattern 1 (Bottom row, indices 20-24) 영역 모두 0 영역 →
+    // cluster 1 영역 first reinforce 영역 in_feat fire 0 영역 → V1_L4 cascade
+    // 죽음. 13 iter 동적 mechanism 검증 영역 root cause 영역 input dim cut
+    // bug 영역 확인. rawDimForKind(kind) 영역 정합 영역 (orientation=16,
+    // orientation-5x5=25).
+    const rawDim = rawDimForKind(this.substrateKind);
+    const next = new Array<number>(rawDim).fill(0);
+    for (let i = 0; i < Math.min(pattern.length, rawDim); i += 1) {
       next[i] = Math.max(0, Math.min(1, pattern[i] || 0));
     }
     this.patternRef = next;

@@ -366,6 +366,16 @@ export function expandCluster(
     { length: registry.v1L4PerSub },
     (_, i) => `c${newId}_v1_L4_E_${i}`,
   );
+  // P218 (2026-05-21) — architecture pivot: V1_L4_I per spawned cluster.
+  // 직전 expandCluster 영역 V1_L4_I 영역 0 영역 lateral inhibition 영역 missing
+  // 영역 spurious cross-fire 영역 inhibit 불가 영역 root cause. n14 builder 영역
+  // V1_L4I_PER_SUB=80 영역 정합 (n13 64). registry.v1L4PerSub 영역 영역 영역 영역
+  // 영역 derive (n13: 32→64 ratio 2×, n14: 40→80 ratio 2×).
+  const v1L4iPerSub = registry.v1L4PerSub * 2;
+  const v1L4I = Array.from(
+    { length: v1L4iPerSub },
+    (_, i) => `c${newId}_v1_L4_I_${i}`,
+  );
   const v1L23E = Array.from(
     { length: registry.v1L23PerSub },
     (_, i) => `c${newId}_v1_L23_E_${i}`,
@@ -410,6 +420,10 @@ export function expandCluster(
   };
 
   addPop(v1L4E, 'V1', 'L4_E', true);
+  // P218 (2026-05-21) — V1_L4_I per cluster 영역 inhibitory 영역 homeostatic 영역 X
+  // (n14 builder 정합 — V1_L4_I 영역 homeostatic 영역 false default 영역 N_INPUT
+  // / V1_L4_E 영역 영역 영역 단일 layer 영역만 적용).
+  addPop(v1L4I, 'V1', 'L4_I', false);
   addPop(v1L23E, 'V1', 'L23_E', true);
   addPop(v2L4E, 'V2', 'L4_E', true);
   addPop(v2L23E, 'V2', 'L23_E', true);
@@ -437,6 +451,16 @@ export function expandCluster(
   // plasticity (R-STDP weight 변화) 영역 자연 emerge — 학술 정합
   // Diehl & Cook 2015 (selective receptive field).
   void inactiveIdx;
+
+  // ── P218 (2026-05-21) V1_L4 lateral inhibition (n14 builder lines 251-253 정합) ──
+  // V1_L4_I → V1_L4_E density 0.20 weight -6.0
+  // V1_L4_E → V1_L4_I density 0.15 weight +5.0
+  // V1_L4_E → V1_L4_E density 0.08 weight -3.0 (self lateral)
+  // 본 lateral inhibition 영역 spurious cross-fire 영역 차단 영역 신규 cluster 영역
+  // selectivity 영역 강화 영역 영역 가설.
+  projAdd(net, rng, v1L4I, v1L4E, 0.20, -6.0, 0.0);
+  projAdd(net, rng, v1L4E, v1L4I, 0.15, 5.0, 0.0);
+  projAdd(net, rng, v1L4E, v1L4E, 0.08, -3.0, 0.0);
 
   // ── 본 cluster 내 cascade dense ──
   const cascadeIntra = (

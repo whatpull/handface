@@ -878,6 +878,11 @@ export class SNNWorkerCore {
       winnerHistory.push(measure.winner);
       const isCorrect = measure.winner === payload.targetCluster;
       if (isCorrect) correct += 1;
+      // P218 diagnostic — reinforce trial winner trace (n14 only).
+      if (this.buildPreset === 'n14_extended') {
+        const ratesStr = measure.rates.map((r, i) => `c${i}:${r.toFixed(0)}`).join(' ');
+        console.log(`[P218 reinforce] target=${payload.targetCluster} winner=${measure.winner} rates=${ratesStr} isCorrect=${isCorrect}`);
+      }
 
       // 3. reward pass — 같은 자극 재 inject + STDP on with modulated gain.
       // (자극 재인입 없으면 직전 spike 이후 net 영역 quiescent — STDP 효과 0.)

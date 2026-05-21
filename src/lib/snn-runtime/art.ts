@@ -525,6 +525,48 @@ export function expandCluster(
   };
   registry.slots.push(newSlot);
 
+  // P218 13th iter (2026-05-21) — targeted instrumentation. Dump synapse stats
+  // for cluster 0/1/2 only — comparison reveals if cluster 1 has structurally
+  // different (or missing) connections vs working clusters.
+  if (newId <= 2) {
+    const v1L4Set = new Set(v1L4E);
+    const v2L5Set = new Set(v2L5E);
+    const outSet = new Set(out);
+    let inputToV1L4Count = 0;
+    let inputToV1L4WSum = 0;
+    let inputToV1L4WMin = Infinity;
+    let inputToV1L4WMax = -Infinity;
+    let v2L5ToOutCount = 0;
+    let v2L5ToOutWSum = 0;
+    let v2L5ToOutWMin = Infinity;
+    let v2L5ToOutWMax = -Infinity;
+    let outFromExistingCount = 0;
+    let outFromExistingWSum = 0;
+    for (const s of net.synapses) {
+      const preName = s.pre.name;
+      const postName = s.post.name;
+      if (preName.startsWith('in_feat_') && v1L4Set.has(postName)) {
+        inputToV1L4Count += 1;
+        inputToV1L4WSum += s.weight;
+        if (s.weight < inputToV1L4WMin) inputToV1L4WMin = s.weight;
+        if (s.weight > inputToV1L4WMax) inputToV1L4WMax = s.weight;
+      } else if (v2L5Set.has(preName) && outSet.has(postName)) {
+        v2L5ToOutCount += 1;
+        v2L5ToOutWSum += s.weight;
+        if (s.weight < v2L5ToOutWMin) v2L5ToOutWMin = s.weight;
+        if (s.weight > v2L5ToOutWMax) v2L5ToOutWMax = s.weight;
+      } else if (outSet.has(postName) && !v2L5Set.has(preName) && !outSet.has(preName)) {
+        outFromExistingCount += 1;
+        outFromExistingWSum += s.weight;
+      }
+    }
+    const inMean = inputToV1L4Count > 0 ? inputToV1L4WSum / inputToV1L4Count : 0;
+    const outMean = v2L5ToOutCount > 0 ? v2L5ToOutWSum / v2L5ToOutCount : 0;
+    console.log(
+      `[P218 syn c${newId}] IN→V1L4 n=${inputToV1L4Count} w=[${inputToV1L4WMin.toFixed(2)},${inputToV1L4WMax.toFixed(2)}] mean=${inMean.toFixed(2)} | V2L5→OUT n=${v2L5ToOutCount} w=[${v2L5ToOutWMin.toFixed(2)},${v2L5ToOutWMax.toFixed(2)}] mean=${outMean.toFixed(2)} | extWTA→OUT n=${outFromExistingCount} mean=${(outFromExistingCount > 0 ? outFromExistingWSum / outFromExistingCount : 0).toFixed(2)} | activeInputs=[${opts.activeInputs.join(',')}] seed=${seed}`
+    );
+  }
+
   return {
     newSlot,
     neuronsAdded: net.size() - beforeNeurons,

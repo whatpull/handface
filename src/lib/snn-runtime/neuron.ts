@@ -101,6 +101,21 @@ export class Neuron {
   v: number;
   lastSpikeTime: number = Number.NEGATIVE_INFINITY;
 
+  // P218 (2026-05-21): full state reset for fresh trial.
+  // V_m + thresholdOffset + lastSpikeTime + pending inputs + STDP traces.
+  resetState(): void {
+    this.v = this.vRest;
+    this.lastSpikeTime = Number.NEGATIVE_INFINITY;
+    this.thresholdOffset = 0;
+    this.preTrace = 0;
+    this.postTrace = 0;
+    this.preTrace2 = 0;
+    this.postTrace2 = 0;
+    this.lastSpikeTimeForTrace = null;
+    this.pendingWeights.length = 0;
+    this.pendingArrivals.length = 0;
+  }
+
   // NMDA dendritic plateau — opt-in. v > nmdaThreshold 시 excitatory current ×= nmdaGain.
   nmdaEnabled = false;
   nmdaThreshold = -60.0;

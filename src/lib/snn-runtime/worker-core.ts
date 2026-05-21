@@ -898,8 +898,17 @@ export class SNNWorkerCore {
             for (const n of names) sum += monitor.firingRate(n, net.t, observeMs);
             return (sum / names.length).toFixed(1);
           };
+          // P218 15th iter (2026-05-21) — in_feat firing rate per active input.
+          // 14th iter 영역 V1_L4=0 영역 catch — 영역 in_feat 영역 fire 영역 영역
+          // 영역 영역 (injection 정합 영역 catch) 영역 영역 in_feat 영역 fire 영역
+          // 영역 영역 V1_L4 영역 영역 영역 (synapse 정합 영역 catch).
+          const inFeatNames = targetSlot.activeInputs.map((i) => `in_feat_${i}`);
+          const inFeatRateStr = inFeatNames.map((n, i) => {
+            const r = monitor.firingRate(n, net.t, observeMs);
+            return `${targetSlot.activeInputs[i]}:${r.toFixed(0)}`;
+          }).join(',');
           console.log(
-            `[P218 layer c${payload.targetCluster}] V1L4=${layerRate(targetSlot.v1L4E)} V1L23=${layerRate(targetSlot.v1L23E)} V2L4=${layerRate(targetSlot.v2L4E)} V2L23=${layerRate(targetSlot.v2L23E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)} | netT=${net.t.toFixed(0)}ms`
+            `[P218 layer c${payload.targetCluster}] IN[${inFeatRateStr}] V1L4=${layerRate(targetSlot.v1L4E)} V1L23=${layerRate(targetSlot.v1L23E)} V2L4=${layerRate(targetSlot.v2L4E)} V2L23=${layerRate(targetSlot.v2L23E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)} | netT=${net.t.toFixed(0)}ms`
           );
         }
         this._p218LoggedFirstReinforce = true;

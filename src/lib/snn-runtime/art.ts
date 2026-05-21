@@ -464,12 +464,14 @@ export function expandCluster(
   projAdd(net, rng, v2L5E, v2L5E, 0.08, -2.0, 0.0);
 
   // V2_L5 → OUT cluster-local hard-wire.
+  // P218 (2026-05-21) 12th iteration — density 0.7→1.0 + weight 12→16 강화.
+  // 영역 cluster (영역 cluster 1) 영역 OUT 영역 reliable 영역 fire 영역 — 영역
+  // V2_L5 영역 fire 영역 영역 영역 영역 영역 영역 영역 영역 weak 영역 cluster
+  // 영역 silent 영역 catch 영역 가설.
   for (const s of v2L5E) {
     for (const t of out) {
-      if (rng.random() < 0.7) {
-        const w = 12.0 + rng.uniform(-1.0, 1.0);
-        net.connect(s, t, w, 1.0);
-      }
+      const w = 16.0 + rng.uniform(-1.0, 1.0);
+      net.connect(s, t, w, 1.0);
     }
   }
 

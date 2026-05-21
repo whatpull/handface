@@ -247,6 +247,9 @@ export class SNNWorkerCore {
   private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
   // P218 (2026-05-20) — preset 영역 track 영역 영역 reset / inject 영역 영역 dispatch 정합.
   private buildPreset: 'n13_orientation' | 'n14_extended' = 'n13_orientation';
+  // P218 diagnostic — reinforce log 영역 영역 영역 영역 영역 영역 영역 영역.
+  // spawn 영역 영역 reset (handleExpandCluster).
+  private _p218LoggedFirstReinforce: boolean = false;
   // PR-B (Web Worker background offload, 2026-05-10): push event emitter.
   // worker entry (snn-worker.ts) 영역 self.postMessage 영역 wire,
   // main-thread-transport 영역 listeners.dispatch 영역 wire.
@@ -599,6 +602,8 @@ export class SNNWorkerCore {
     if (payload.activeInputs.length === 0) {
       throw new Error('activeInputs 비어있음');
     }
+    // P218 diagnostic — reset 영역 spawn 영역 영역 첫 reinforce 영역 영역 log.
+    this._p218LoggedFirstReinforce = false;
     const before = net.neurons.length;
     const result = expandCluster(net, registry, {
       activeInputs: payload.activeInputs,
@@ -875,10 +880,12 @@ export class SNNWorkerCore {
       winnerHistory.push(measure.winner);
       const isCorrect = measure.winner === payload.targetCluster;
       if (isCorrect) correct += 1;
-      // P218 diagnostic — reinforce trial winner trace (n14 only).
-      if (this.buildPreset === 'n14_extended') {
+      // P218 diagnostic — reinforce 영역 noisy 영역 영역 영역 첫 trial 영역만 log.
+      // 영역 trial 영역 영역 log 영역 영역 영역 spam.
+      if (this.buildPreset === 'n14_extended' && !this._p218LoggedFirstReinforce) {
         const ratesStr = measure.rates.map((r, i) => `c${i}:${r.toFixed(0)}`).join(' ');
-        console.log(`[P218 reinforce] target=${payload.targetCluster} winner=${measure.winner} rates=${ratesStr} isCorrect=${isCorrect}`);
+        console.log(`[P218 reinforce first] target=${payload.targetCluster} winner=${measure.winner} rates=${ratesStr} isCorrect=${isCorrect}`);
+        this._p218LoggedFirstReinforce = true;
       }
 
       // 3. reward pass — 같은 자극 재 inject + STDP on with modulated gain.

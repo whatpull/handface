@@ -330,14 +330,14 @@ export class SNNWorkerCore {
         }
         case 'resetHomeostatic': {
           // PR fix/live-mode-time-and-restore — Fix 3: thresholdOffset reset.
-          // 사용자 catch 영역 broken state — triggerOnce repeats 3 × 8 OUT ×
-          // increment 2.0 영역 thresholdOffset += 48 영역 누적 → 두 번째 trigger
-          // 영역 V_th saturation 영역 fire 0. 본 RPC 영역 모든 neuron 영역
-          // thresholdOffset = 0 영역 reset (학술: Diehl & Cook 2015 §3.2 batch
-          // frame reset 정합).
+          // P218 (2026-05-21): membrane potential 영역 reset 영역 추가 — 잔여
+          // V_m 영역 (prior training residual) 영역 OUT internal excitation 영역
+          // self-sustaining firing root cause 영역 catch 영역 fix. inferOnceForValidation
+          // 영역 영역 영역 fresh state 영역 영역 영역.
           const net = this.requireNet();
           for (const n of net.neurons) {
             n.thresholdOffset = 0;
+            n.v = n.vRest;
           }
           return { id: req.id, ok: true, result: null };
         }
@@ -1221,8 +1221,13 @@ export class SNNWorkerCore {
       validateReinforceBackgroundPayload(payload);
       const net = this.requireNet();
       // resetHomeostatic — supervised batch 영역 frame reset 정합.
+      // P218 (2026-05-21): membrane potential 영역 reset 영역 추가 — 잔여 V_m
+      // 영역 (prior training 영역 residual) 영역 OUT internal excitation 영역
+      // self-sustaining firing 영역 root cause 영역 catch 영역 fix. 영역 spawned
+      // cluster 영역 training 영역 영역 영역 fresh state 영역 영역 영역.
       for (const n of net.neurons) {
         n.thresholdOffset = 0;
+        n.v = n.vRest;
       }
       // clusterTrainRStdp 영역 1-pattern batch reuse — 직전 reinforce path 영역 정합.
       const trainResult = this.handleClusterTrainRStdp({

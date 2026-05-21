@@ -8,8 +8,10 @@
 import { Fragment, useState, useEffect } from 'react';
 import {
   runP218Experiment,
+  runP218VigilanceSweep,
   PATTERN_NAMES_5X5,
   PATTERNS_5X5,
+  type VigilanceSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
@@ -22,7 +24,12 @@ export default function P218Panel() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<Progress>({ msg: '', pct: 0 });
   const [results, setResults] = useState<SelectivityMetrics[]>([]);
+  const [vigResults, setVigResults] = useState<VigilanceSweepResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
+  const [vigilance, setVigilance] = useState(0.15);
+  const [noiseFlipProb, setNoiseFlipProb] = useState(0.20);
+  const [partialKeepRatio, setPartialKeepRatio] = useState(0.75);
 
   useEffect(() => {
     if (!running) return;
@@ -38,8 +45,12 @@ export default function P218Panel() {
     setRunning(true);
     setError(null);
     setResults([]);
+    setVigResults([]);
     try {
-      const r = await runP218Experiment((msg, pct) => setProgress({ msg, pct }));
+      const r = await runP218Experiment(
+        (msg, pct) => setProgress({ msg, pct }),
+        { vigilance, noiseFlipProb, partialKeepRatio },
+      );
       setResults(r);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -50,12 +61,36 @@ export default function P218Panel() {
     }
   };
 
+  const runVigSweep = async () => {
+    setRunning(true);
+    setError(null);
+    setResults([]);
+    setVigResults([]);
+    try {
+      const r = await runP218VigilanceSweep(
+        (msg, pct) => setProgress({ msg, pct }),
+        [0.10, 0.15, 0.20, 0.25],
+        8,
+        { noiseFlipProb, partialKeepRatio },
+      );
+      setVigResults(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P218 vig-sweep] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const downloadJson = () => {
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+    const payload = vigResults.length > 0 ? vigResults : results;
+    const prefix = vigResults.length > 0 ? 'p218-vigilance-sweep' : 'p218-capacity-5x5';
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `p218-capacity-5x5-${Date.now()}.json`;
+    a.download = `${prefix}-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -65,7 +100,8 @@ export default function P218Panel() {
   const [copied, setCopied] = useState(false);
   const copyJson = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(results, null, 2));
+      const payload = vigResults.length > 0 ? vigResults : results;
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
@@ -77,21 +113,42 @@ export default function P218Panel() {
     <div className="rounded-lg border border-[#2a2a38] bg-[#18181f] p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-white">P218 — 5×5 capacity (N=8 ceiling break)</h2>
+          <h2 className="text-lg font-bold text-white">P218 — 5×5 capacity</h2>
           <p className="mt-1 text-xs text-[#8888aa]">
-            12개 5×5 패턴을 N=3,6,9,12 단계로 학습. n14_extended substrate (25 raw + 25 derived = 50 dim)
-            기반 capacity 측정. 가설: N=12+ stable cap 도달.
+            12개 5×5 패턴을 N=3,6,8,10,12 단계로 학습. n14_extended (50 dim) 기반.
+            N=8 stable cap 확인됨 — partial cue 100% (vs 4×4 N=8 의 63%). Hyperparameter 조정 + vigilance sweep 가능.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={run}
-          disabled={running}
-          className="rounded bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-        >
-          {running ? '측정 중...' : '실험 시작'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={run}
+            disabled={running}
+            className="rounded bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+          >
+            {running ? '측정 중...' : '실험 시작'}
+          </button>
+          <button
+            type="button"
+            onClick={runVigSweep}
+            disabled={running}
+            className="rounded border border-violet-600 bg-violet-950/40 px-4 py-2 text-sm font-semibold text-violet-300 hover:bg-violet-900/50 disabled:opacity-50"
+            title="N=8 (stable cap) 에서 vigilance=0.10/0.15/0.20/0.25 4단계 자동 비교"
+          >
+            Vigilance sweep
+          </button>
+        </div>
       </div>
+
+      <HyperParameterPanel
+        vigilance={vigilance}
+        setVigilance={setVigilance}
+        noiseFlipProb={noiseFlipProb}
+        setNoiseFlipProb={setNoiseFlipProb}
+        partialKeepRatio={partialKeepRatio}
+        setPartialKeepRatio={setPartialKeepRatio}
+        disabled={running}
+      />
 
       {running && (
         <div className="mb-4">
@@ -117,25 +174,165 @@ export default function P218Panel() {
         <div className="mt-6 space-y-6">
           <MetricsTable results={results} />
           <ConfusionMatrices results={results} />
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={copyJson}
-              className="rounded border border-violet-700 bg-violet-950/30 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-900/40"
-            >
-              {copied ? '복사됨 ✓' : 'JSON 복사'}
-            </button>
-            <button
-              type="button"
-              onClick={downloadJson}
-              className="text-xs text-violet-400 hover:text-violet-300"
-            >
-              ↓ JSON 다운로드
-            </button>
-            <span className="text-xs text-[#666688]">{results.length} step measured</span>
-          </div>
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={results.length} label="step" />
         </div>
       )}
+
+      {vigResults.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <VigilanceSweepTable results={vigResults} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={vigResults.length} label="vigilance" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExportButtons({ copied, copyJson, downloadJson, count, label }: {
+  copied: boolean;
+  copyJson: () => void;
+  downloadJson: () => void;
+  count: number;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <button
+        type="button"
+        onClick={copyJson}
+        className="rounded border border-violet-700 bg-violet-950/30 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-900/40"
+      >
+        {copied ? '복사됨 ✓' : 'JSON 복사'}
+      </button>
+      <button
+        type="button"
+        onClick={downloadJson}
+        className="text-xs text-violet-400 hover:text-violet-300"
+      >
+        ↓ JSON 다운로드
+      </button>
+      <span className="text-xs text-[#666688]">{count} {label} measured</span>
+    </div>
+  );
+}
+
+function HyperParameterPanel({
+  vigilance, setVigilance,
+  noiseFlipProb, setNoiseFlipProb,
+  partialKeepRatio, setPartialKeepRatio,
+  disabled,
+}: {
+  vigilance: number;
+  setVigilance: (v: number) => void;
+  noiseFlipProb: number;
+  setNoiseFlipProb: (v: number) => void;
+  partialKeepRatio: number;
+  setPartialKeepRatio: (v: number) => void;
+  disabled: boolean;
+}) {
+  return (
+    <details className="mb-4 rounded border border-[#2a2a38] bg-[#101015] p-3 text-xs">
+      <summary className="cursor-pointer text-[#ccc]">Hyperparameter 조정</summary>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <SliderField
+          label="Vigilance"
+          value={vigilance}
+          min={0.05} max={0.40} step={0.01}
+          onChange={setVigilance}
+          disabled={disabled}
+          hint="default 0.15. 높을수록 strict match (cluster spawn 적음)"
+        />
+        <SliderField
+          label="Noise flip prob"
+          value={noiseFlipProb}
+          min={0.05} max={0.50} step={0.05}
+          onChange={setNoiseFlipProb}
+          disabled={disabled}
+          hint="default 0.20 (20% bit-flip). 측정용 — 학습에 영향 0"
+        />
+        <SliderField
+          label="Partial keep ratio"
+          value={partialKeepRatio}
+          min={0.30} max={1.00} step={0.05}
+          onChange={setPartialKeepRatio}
+          disabled={disabled}
+          hint="default 0.75 (75% bits 유지). 낮을수록 어려운 partial cue"
+        />
+      </div>
+    </details>
+  );
+}
+
+function SliderField({ label, value, min, max, step, onChange, disabled, hint }: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  disabled: boolean;
+  hint: string;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[#aaa]">{label}</span>
+        <span className="font-mono text-violet-300">{value.toFixed(2)}</span>
+      </div>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        disabled={disabled}
+        className="accent-violet-500"
+      />
+      <span className="text-[10px] text-[#666]">{hint}</span>
+    </label>
+  );
+}
+
+function VigilanceSweepTable({ results }: { results: VigilanceSweepResult[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-white">
+        Vigilance Sweep @ N=8 (stable cap)
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        vigilance 값 4단계 비교 — N=8 에서 optimal partial cue / noise tolerance balance 찾기.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Vigilance</th>
+              <th className="py-2">재현율</th>
+              <th className="py-2">노이즈</th>
+              <th className="py-2">부분단서</th>
+              <th className="py-2">WTA margin</th>
+              <th className="py-2">Cluster map</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr key={r.vigilance} className="border-b border-[#2a2a38]/50">
+                <td className="py-2 font-mono font-semibold text-violet-300">{r.vigilance.toFixed(2)}</td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.reproduction} /></td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.noise} /></td>
+                <td className="py-2 text-center"><MetricCell value={r.metrics.partialCue} /></td>
+                <td className="py-2 text-center font-mono text-violet-300">
+                  {(r.metrics.avgWtaMargin * 100).toFixed(0)}%
+                </td>
+                <td className="py-2 text-center font-mono text-[10px] text-[#888]">
+                  [{r.metrics.patternToCluster.join(',')}]
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -242,3 +242,34 @@ export async function runP218Experiment(
   onProgress?.('실험 완료', 100);
   return results;
 }
+
+// P218 vigilance sweep (2026-05-21) — N=8 (stable cap) 영역 vigilance 다양 영역
+// optimal config 영역 catch. capacity 도달 영역 영역 robustness peak 영역 위치
+// 영역 가설 검증. result 영역 array of (vigilance, metrics) 영역.
+export interface VigilanceSweepResult {
+  vigilance: number;
+  metrics: SelectivityMetrics;
+}
+
+export async function runP218VigilanceSweep(
+  onProgress?: ProgressCallback,
+  vigilanceValues: number[] = [0.10, 0.15, 0.20, 0.25],
+  patternCount: number = 8,
+  options: Omit<RunOptionsP218, 'patternCounts' | 'vigilance'> = {},
+): Promise<VigilanceSweepResult[]> {
+  const results: VigilanceSweepResult[] = [];
+  const total = vigilanceValues.length;
+  for (let i = 0; i < total; i += 1) {
+    const v = vigilanceValues[i];
+    const basePct = (i / total) * 100;
+    const stepWidth = (1 / total) * 100;
+    onProgress?.(`[vigilance=${v.toFixed(2)}] N=${patternCount} 측정 중...`, basePct);
+    const stepResult = await runP218Experiment(
+      (msg, pct) => onProgress?.(`vig=${v.toFixed(2)} ${msg}`, basePct + (pct * stepWidth) / 100),
+      { ...options, vigilance: v, patternCounts: [patternCount] },
+    );
+    if (stepResult.length > 0) results.push({ vigilance: v, metrics: stepResult[0] });
+  }
+  onProgress?.('vigilance sweep 완료', 100);
+  return results;
+}

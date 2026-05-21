@@ -306,3 +306,78 @@ export async function runP218PartialSweep(
   onProgress?.('partial sweep 완료', 100);
   return results;
 }
+
+// P218 averaging (2026-05-22) — Math.random() 영역 addNoise/partialCue 영역
+// 영역 단일 측정 영역 variance 큼. 5회 반복 측정 영역 mean ± std 영역 robust
+// noise/partial tolerance profile 영역 보고.
+export interface AveragedMetricsSummary {
+  runs: number;
+  patternCount: number;
+  mean: {
+    reproduction: number;
+    noise: number;
+    partialCue: number;
+    avgWtaMargin: number;
+    avgSparsity: number;
+  };
+  std: {
+    reproduction: number;
+    noise: number;
+    partialCue: number;
+    avgWtaMargin: number;
+    avgSparsity: number;
+  };
+  all: SelectivityMetrics[];
+}
+
+function computeStd(values: number[], mean: number): number {
+  if (values.length <= 1) return 0;
+  let sumSq = 0;
+  for (const v of values) sumSq += (v - mean) ** 2;
+  return Math.sqrt(sumSq / (values.length - 1));
+}
+
+export async function runP218Averaged(
+  onProgress?: ProgressCallback,
+  runs: number = 5,
+  patternCount: number = 8,
+  options: Omit<RunOptionsP218, 'patternCounts'> = {},
+): Promise<AveragedMetricsSummary> {
+  const all: SelectivityMetrics[] = [];
+  for (let i = 0; i < runs; i += 1) {
+    const basePct = (i / runs) * 100;
+    const stepWidth = (1 / runs) * 100;
+    onProgress?.(`[run ${i + 1}/${runs}] N=${patternCount} 측정 중...`, basePct);
+    const stepResult = await runP218Experiment(
+      (msg, pct) => onProgress?.(`run ${i + 1}/${runs} ${msg}`, basePct + (pct * stepWidth) / 100),
+      { ...options, patternCounts: [patternCount] },
+    );
+    if (stepResult.length > 0) all.push(stepResult[0]);
+  }
+
+  // mean / std 영역.
+  const reps = all.map((m) => m.reproduction);
+  const noises = all.map((m) => m.noise);
+  const partials = all.map((m) => m.partialCue);
+  const margins = all.map((m) => m.avgWtaMargin);
+  const sparsities = all.map((m) => m.avgSparsity);
+  const meanOf = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / Math.max(1, arr.length);
+
+  const mean = {
+    reproduction: meanOf(reps),
+    noise: meanOf(noises),
+    partialCue: meanOf(partials),
+    avgWtaMargin: meanOf(margins),
+    avgSparsity: meanOf(sparsities),
+  };
+  const std = {
+    reproduction: computeStd(reps, mean.reproduction),
+    noise: computeStd(noises, mean.noise),
+    partialCue: computeStd(partials, mean.partialCue),
+    avgWtaMargin: computeStd(margins, mean.avgWtaMargin),
+    avgSparsity: computeStd(sparsities, mean.avgSparsity),
+  };
+
+  onProgress?.(`${runs}회 평균 완료`, 100);
+  return { runs, patternCount, mean, std, all };
+}

@@ -10,10 +10,12 @@ import {
   runP218Experiment,
   runP218VigilanceSweep,
   runP218PartialSweep,
+  runP218Averaged,
   PATTERN_NAMES_5X5,
   PATTERNS_5X5,
   type VigilanceSweepResult,
   type PartialSweepResult,
+  type AveragedMetricsSummary,
 } from '@/lib/research/p218-capacity-5x5';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
@@ -28,6 +30,7 @@ export default function P218Panel() {
   const [results, setResults] = useState<SelectivityMetrics[]>([]);
   const [vigResults, setVigResults] = useState<VigilanceSweepResult[]>([]);
   const [partialResults, setPartialResults] = useState<PartialSweepResult[]>([]);
+  const [avgResult, setAvgResult] = useState<AveragedMetricsSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -48,6 +51,7 @@ export default function P218Panel() {
     setResults([]);
     setVigResults([]);
     setPartialResults([]);
+    setAvgResult(null);
   };
 
   const run = async () => {
@@ -111,7 +115,29 @@ export default function P218Panel() {
     }
   };
 
+  const runAvg = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP218Averaged(
+        (msg, pct) => setProgress({ msg, pct }),
+        5,
+        8,
+        { vigilance, noiseFlipProb, partialKeepRatio },
+      );
+      setAvgResult(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P218 avg] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const activePayload = (): { data: unknown; prefix: string } => {
+    if (avgResult) return { data: avgResult, prefix: 'p218-averaged' };
     if (partialResults.length > 0) return { data: partialResults, prefix: 'p218-partial-sweep' };
     if (vigResults.length > 0) return { data: vigResults, prefix: 'p218-vigilance-sweep' };
     return { data: results, prefix: 'p218-capacity-5x5' };
@@ -179,6 +205,15 @@ export default function P218Panel() {
           >
             Partial sweep
           </button>
+          <button
+            type="button"
+            onClick={runAvg}
+            disabled={running}
+            className="rounded border border-amber-600 bg-amber-950/40 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-900/50 disabled:opacity-50"
+            title="N=8 (현재 hyperparameter) 5회 반복 측정 → mean ± std 평균. ~2분 소요."
+          >
+            Noise avg ×5
+          </button>
         </div>
       </div>
 
@@ -231,6 +266,13 @@ export default function P218Panel() {
         <div className="mt-6 space-y-4">
           <PartialSweepTable results={partialResults} />
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={partialResults.length} label="partial-cue" />
+        </div>
+      )}
+
+      {avgResult && (
+        <div className="mt-6 space-y-4">
+          <AveragedTable summary={avgResult} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={avgResult.runs} label="avg run" />
         </div>
       )}
     </div>
@@ -340,6 +382,59 @@ function SliderField({ label, value, min, max, step, onChange, disabled, hint }:
       />
       <span className="text-[10px] text-[#666]">{hint}</span>
     </label>
+  );
+}
+
+function AveragedTable({ summary }: { summary: AveragedMetricsSummary }) {
+  const fmt = (m: number, s: number) => `${(m * 100).toFixed(1)}% ± ${(s * 100).toFixed(1)}%`;
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-white">
+        Averaged Metrics @ N={summary.patternCount} ({summary.runs} runs)
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        5회 반복 측정 → mean ± std. Math.random() 기반 noise/partial probe 의 variance 진단용.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">지표</th>
+              <th className="py-2 text-left">Mean ± Std</th>
+              <th className="py-2 text-left">5 runs (개별)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AvgRow label="재현율" mean={summary.mean.reproduction} std={summary.std.reproduction} values={summary.all.map((m) => m.reproduction)} fmt={fmt} />
+            <AvgRow label="노이즈" mean={summary.mean.noise} std={summary.std.noise} values={summary.all.map((m) => m.noise)} fmt={fmt} />
+            <AvgRow label="부분단서" mean={summary.mean.partialCue} std={summary.std.partialCue} values={summary.all.map((m) => m.partialCue)} fmt={fmt} />
+            <AvgRow label="WTA margin" mean={summary.mean.avgWtaMargin} std={summary.std.avgWtaMargin} values={summary.all.map((m) => m.avgWtaMargin)} fmt={fmt} />
+            <AvgRow label="Sparsity" mean={summary.mean.avgSparsity} std={summary.std.avgSparsity} values={summary.all.map((m) => m.avgSparsity)} fmt={fmt} />
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AvgRow({ label, mean, std, values, fmt }: {
+  label: string;
+  mean: number;
+  std: number;
+  values: number[];
+  fmt: (m: number, s: number) => string;
+}) {
+  const color = mean >= 0.8 ? 'text-green-400'
+    : mean >= 0.5 ? 'text-yellow-400'
+    : 'text-red-400';
+  return (
+    <tr className="border-b border-[#2a2a38]/50">
+      <td className="py-2 text-[#aaa]">{label}</td>
+      <td className={`py-2 font-mono ${color}`}>{fmt(mean, std)}</td>
+      <td className="py-2 font-mono text-[10px] text-[#888]">
+        [{values.map((v) => (v * 100).toFixed(0) + '%').join(', ')}]
+      </td>
+    </tr>
   );
 }
 

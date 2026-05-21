@@ -421,13 +421,9 @@ export function expandCluster(
   for (let i = 0; i < registry.inputDim; i += 1) {
     if (!opts.activeInputs.includes(i)) inactiveIdx.push(i);
   }
-  // P218 (2026-05-21) — INPUT → V1_L4_E weight 11 → 16 영역 강화.
-  // n14 substrate 영역 영역 영역 6/50 = 12% sparse drive (n13 영역 6/32 = 19%)
-  // 영역 영역 영역 영역 영역 영역 영역 spawned cluster 영역 V1_L4 영역 firing 영역
-  // 약함 가능성 — 영역 영역 strong 영역 영역 cluster 영역 영역 영역 winner stabilize.
   for (const ai of opts.activeInputs) {
     for (const t of v1L4E) {
-      const w = 16.0 + rng.uniform(-1.5, 1.5);
+      const w = 11.0 + rng.uniform(-1.0, 1.0);
       net.connect(`in_feat_${ai}`, t, w, 1.0);
     }
   }

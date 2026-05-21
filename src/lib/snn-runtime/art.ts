@@ -355,7 +355,11 @@ export function expandCluster(
   opts: ExpandOptions,
 ): ExpandResult {
   const newId = registry.slots.length;
-  const seed = opts.seed ?? Date.now();
+  // P218 (2026-05-21) 11th iteration — seed deterministic 영역 cluster id 영역.
+  // 직전 Date.now() 영역 영역 영역 spawn 영역 영역 영역 seed 영역 영역
+  // cluster 1 영역 unlucky weights 영역 가설. 영역 deterministic + cluster
+  // id 영역 영역 영역 reproducibility 영역 영역.
+  const seed = opts.seed ?? (newId * 1234567 + 42);
   const rng = new SeededRandom(seed);
 
   const beforeNeurons = net.size();

@@ -910,9 +910,11 @@ export class SNNWorkerCore {
         if (targetSlot) {
           const supervisorEvents = targetSlot.out.map((name) => ({
             neuron: name,
-            // 영역 V_th -55 영역 강제 fire 영역 충분 강도 — 30 영역 단일 spike,
-            // sustained durationMs 영역 multi-spike (Hebbian spike-pair 보장).
-            weight: 30.0,
+            // 영역 V_th -55 영역 강제 fire 영역 충분 강도. P218 (2026-05-21):
+            // 30 → 45 영역 강화 — n14 영역 영역 영역 V2_L5 영역 OUT cascade 영역
+            // sparse 영역 영역 영역 영역 supervisor signal 영역 강해야 LTP 영역
+            // 충분 영역 STDP 영역 spike pair 영역 다수 영역 형성.
+            weight: 45.0,
             time: tNow2,
             durationMs: stimulusDurationMs,
             stepMs: dtMs,

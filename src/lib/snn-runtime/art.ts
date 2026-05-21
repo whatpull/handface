@@ -495,16 +495,17 @@ export function expandCluster(
       }
     }
   }
-  // P218 (2026-05-21): OUT internal mutual excitation 영역 disable —
-  // 영역 영역 cluster 영역 self-sustaining firing 영역 root cause 영역 1 영역
-  // 가설. cluster 0 영역 영역 V_m 영역 가까운 영역 영역 → +2 영역 internal
-  // excit 영역 cascade → 영원히 firing. 영역 영역 0 영역 영역 cluster 영역
-  // 영역 V2_L5 → OUT cascade 영역 영역 영역 fire 영역 영역.
-  // for (const s of out) {
-  //   for (const t of out) {
-  //     if (s !== t) net.connect(s, t, 2.0, 0.5);
-  //   }
-  // }
+  // P218 (2026-05-21) 9th iteration — OUT internal mutual excitation +2 → +1
+  // 영역 영역 — 직전 disable (0) 영역 N=3 patternToCluster=[0,-1,2] 영역 catch
+  // (cluster 1 영역 영역 fire 영역 영역 영역 silent → -1). cluster cohesion
+  // 영역 mandatory 영역 +0 영역 너무 약함. +1 영역 영역 영역 영역 자세 영역 —
+  // 영역 OUT 영역 fire 영역 영역 1 영역 boost (영역 V2_L5 driving 영역 영역 영역
+  // 합산 영역 winner clean) 단 self-sustain 영역 약 영역 (영역 영역 영역 → 정지).
+  for (const s of out) {
+    for (const t of out) {
+      if (s !== t) net.connect(s, t, 1.0, 0.5);
+    }
+  }
 
   const newSlot: ClusterSlot = {
     id: newId,

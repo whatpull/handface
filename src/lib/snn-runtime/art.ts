@@ -565,23 +565,6 @@ export function expandCluster(
     console.log(
       `[P218 syn c${newId}] IN→V1L4 n=${inputToV1L4Count} w=[${inputToV1L4WMin.toFixed(2)},${inputToV1L4WMax.toFixed(2)}] mean=${inMean.toFixed(2)} | V2L5→OUT n=${v2L5ToOutCount} w=[${v2L5ToOutWMin.toFixed(2)},${v2L5ToOutWMax.toFixed(2)}] mean=${outMean.toFixed(2)} | extWTA→OUT n=${outFromExistingCount} mean=${(outFromExistingCount > 0 ? outFromExistingWSum / outFromExistingCount : 0).toFixed(2)} | activeInputs=[${opts.activeInputs.join(',')}] seed=${seed}`
     );
-    // P218 15th iter (2026-05-21) — pre-name distribution check for c1 only.
-    // 14th iter 영역 V1_L4 cascade 영역 첫 layer 영역 0 Hz 영역 catch — 영역
-    // synapse pre 영역 in_feat_[20-24, 29] 영역 정합 영역 영역 영역 영역 정합
-    // 영역 catch (off-by-one wiring).
-    if (newId === 1) {
-      const preCounts: Map<string, number> = new Map();
-      for (const s of net.synapses) {
-        if (s.pre.name.startsWith('in_feat_') && v1L4Set.has(s.post.name)) {
-          const k = s.pre.name;
-          preCounts.set(k, (preCounts.get(k) ?? 0) + 1);
-        }
-      }
-      const preEntries: string[] = [];
-      for (const [k, v] of preCounts.entries()) preEntries.push(`${k}:${v}`);
-      preEntries.sort();
-      console.log(`[P218 c1 IN→V1L4 sources] ${preEntries.join(' ')}`);
-    }
   }
 
   return {

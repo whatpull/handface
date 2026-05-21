@@ -880,15 +880,12 @@ export class SNNWorkerCore {
       winnerHistory.push(measure.winner);
       const isCorrect = measure.winner === payload.targetCluster;
       if (isCorrect) correct += 1;
-      // P218 diagnostic — reinforce 영역 noisy 영역 영역 영역 첫 trial 영역만 log.
-      // 영역 trial 영역 영역 log 영역 영역 영역 spam.
+      // P218 diagnostic — first reinforce 영역만 log + V1_L4 cascade verify.
+      // setPattern dim bug fix 후 (2026-05-21) 영역 모든 cluster 정상 작동 확인 영역
+      // 영역 minimal trace 영역만 유지.
       if (this.buildPreset === 'n14_extended' && !this._p218LoggedFirstReinforce) {
         const ratesStr = measure.rates.map((r, i) => `c${i}:${r.toFixed(0)}`).join(' ');
         console.log(`[P218 reinforce first] target=${payload.targetCluster} winner=${measure.winner} rates=${ratesStr} isCorrect=${isCorrect}`);
-        // P218 14th iter (2026-05-21) — per-layer firing rate diagnostic for
-        // target cluster. cluster 1 silent 영역 cascade 영역 어느 layer 영역
-        // 영역 영역 영역 pinpoint — V1_L4 → V1_L23 → V2_L4 → V2_L23 → V2_L5
-        // → OUT 영역 영역 영역 영역 trace.
         const targetSlot = registry.slots[payload.targetCluster];
         if (targetSlot) {
           const monitor = this.monitor!;
@@ -898,34 +895,13 @@ export class SNNWorkerCore {
             for (const n of names) sum += monitor.firingRate(n, net.t, observeMs);
             return (sum / names.length).toFixed(1);
           };
-          // P218 15th iter (2026-05-21) — in_feat firing rate per active input.
-          // 14th iter 영역 V1_L4=0 영역 catch — 영역 in_feat 영역 fire 영역 영역
-          // 영역 영역 (injection 정합 영역 catch) 영역 영역 in_feat 영역 fire 영역
-          // 영역 영역 V1_L4 영역 영역 영역 (synapse 정합 영역 catch).
+          // 입력→V1_L4 firing summary (cascade health proxy).
           const inFeatNames = targetSlot.activeInputs.map((i) => `in_feat_${i}`);
-          const inFeatRateStr = inFeatNames.map((n, i) => {
-            const r = monitor.firingRate(n, net.t, observeMs);
-            return `${targetSlot.activeInputs[i]}:${r.toFixed(0)}`;
-          }).join(',');
+          let inFireCount = 0;
+          for (const n of inFeatNames) if (monitor.firingRate(n, net.t, observeMs) > 0) inFireCount += 1;
           console.log(
-            `[P218 layer c${payload.targetCluster}] IN[${inFeatRateStr}] V1L4=${layerRate(targetSlot.v1L4E)} V1L23=${layerRate(targetSlot.v1L23E)} V2L4=${layerRate(targetSlot.v2L4E)} V2L23=${layerRate(targetSlot.v2L23E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)} | netT=${net.t.toFixed(0)}ms`
+            `[P218 cascade c${payload.targetCluster}] IN_fire=${inFireCount}/${inFeatNames.length} V1L4=${layerRate(targetSlot.v1L4E)} V2L5=${layerRate(targetSlot.v2L5E)} OUT=${layerRate(targetSlot.out)}`
           );
-          // P218 16th iter (2026-05-21) — cluster 1 only: raw spike history +
-          // V_m for in_feat_20 (representative of failing in_feat group).
-          // monitor.spikes() 영역 history 영역 영역 영역 영역 영역 catch — windowMs
-          // 영역 영역 영역 영역 spike 영역 정합 영역 catch. neuron object 영역 V_m
-          // 영역 raw 영역 fire 영역 영역 영역 catch.
-          if (payload.targetCluster === 1) {
-            const probe = net.get('in_feat_20');
-            const spikes20 = monitor.spikes('in_feat_20');
-            const recentSpikes = spikes20.slice(-10).map((t) => t.toFixed(0)).join(',');
-            const probe25 = net.get('in_feat_25');
-            const spikes25 = monitor.spikes('in_feat_25');
-            const recent25 = spikes25.slice(-10).map((t) => t.toFixed(0)).join(',');
-            console.log(
-              `[P218 c1 probe] in_feat_20: v=${probe?.v.toFixed(2) ?? 'NULL'} lastSpike=${probe?.lastSpikeTime?.toString() ?? 'NULL'} totalSpikes=${spikes20.length} recent=[${recentSpikes}] | in_feat_25: v=${probe25?.v.toFixed(2) ?? 'NULL'} totalSpikes=${spikes25.length} recent=[${recent25}] | hasIn20=${net.has('in_feat_20')}`
-            );
-          }
         }
         this._p218LoggedFirstReinforce = true;
       }

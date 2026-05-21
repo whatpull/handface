@@ -1102,7 +1102,14 @@ export class LiveSnn {
     // regression 영역 결론 영역 N=8 영역 stable cap 영역 인정. 사용자 mental
     // model "내가 학습 가능한 최대 패턴 수 = 8" 영역 신뢰성 영역 우선 영역 —
     // misleading capacity 영역 publish 영역 risk 영역 회피.
-    const MAX_CLUSTERS = 8;
+    //
+    // P218 capacity sweep (2026-05-21): substrate-aware cap.
+    // 4×4 (orientation) — 8 cap 유지 (P215 measured ceiling).
+    // 5×5 (orientation-5x5) — 12 cap 영역 확장. setPattern dim bug fix 후
+    // P218 N=3 영역 100%/100%/100% 영역 N=6 영역 100%/67%/100% 영역 — 4×4 N=8
+    // 보다 더 큰 capacity 영역 가능 영역 추정. 12 cap 영역 진짜 5×5 ceiling 영역
+    // 측정 (50-dim feature space 영역 8 cluster 영역 매우 sparse 영역 use).
+    const MAX_CLUSTERS = this.substrateKind === 'orientation-5x5' ? 12 : 8;
     {
       const exNow = loadExemplars(this.substrateKind);
       let curCount = 0;

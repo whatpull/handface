@@ -114,7 +114,10 @@ export interface RunOptionsP218 {
 }
 
 const DEFAULT_OPTS: Required<RunOptionsP218> = {
-  patternCounts: [3, 6, 9, 12],
+  // P218 capacity sweep (2026-05-21): N=8 추가 — capacity edge resolution.
+  // setPattern dim bug fix 후 MAX_CLUSTERS=12 (substrate-aware) 영역 정합.
+  // 측정 패턴: 3 / 6 / 8 (4×4 ceiling 비교) / 10 / 12 (full).
+  patternCounts: [3, 6, 8, 10, 12],
   vigilance: 0.15,
   noiseFlipProb: 0.2,
   partialKeepRatio: 0.75,

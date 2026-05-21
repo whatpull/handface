@@ -1164,6 +1164,20 @@ export class LiveSnn {
           // range 영역 축소 영역 cluster 영역 좁힘 영역 partial cue 영역 정확도
           // 영역 ↑ 영역 시도 영역 (trade-off: noise tolerance 영역 약간 ↓ 영역
           // 가능). 12.5% 영역 ANN augmentation 영역 typical 5-10% 영역 약간 높음.
+          //
+          // P218 noise weakness fix (2026-05-22): substrate-aware noise range.
+          // 4×4 (orientation): 3-7.5% 유지 (P215 baseline).
+          // 5×5 (orientation-5x5): 8-18% 확대 — 50-dim feature space 영역
+          // sparse representation 영역 narrow receptive field 영역 noise
+          // tolerance 약화 (42.5% measured vs 4×4 88%). 학습 시 noise 증가
+          // 영역 cluster receptive field 영역 broader 영역 inference noise
+          // tolerance ↑ 영역. test noise = 20% (5 bit-flips/25) 영역 정합.
+          //
+          // 학술 정합: Goodfellow 2014 noise injection regularization 영역
+          // input noise level 영역 expected test noise 영역 match 영역 권장.
+          const isExtended = this.substrateKind === 'orientation-5x5';
+          const noiseMin = isExtended ? 0.08 : 0.03;
+          const noiseMax = isExtended ? 0.18 : 0.075;
           const globalIdx = round * CHUNK + i;
           const half = TOTAL / 2; // 15
           let reinforcePattern: number[];
@@ -1171,9 +1185,9 @@ export class LiveSnn {
             // 전반 1/2 + 마지막 frame 영역 원본 영역 유지.
             reinforcePattern = this.patternRef.slice();
           } else {
-            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1 영역 3% → 7.5%.
+            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1.
             const t = (globalIdx - half) / half;
-            const noiseLevel = 0.03 + t * 0.045;
+            const noiseLevel = noiseMin + t * (noiseMax - noiseMin);
             reinforcePattern = addSmallNoise(this.patternRef, noiseLevel);
           }
           await root.client.reinforceBackground({

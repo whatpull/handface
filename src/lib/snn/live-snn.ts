@@ -1167,17 +1167,19 @@ export class LiveSnn {
           //
           // P218 noise weakness fix (2026-05-22): substrate-aware noise range.
           // 4×4 (orientation): 3-7.5% 유지 (P215 baseline).
-          // 5×5 (orientation-5x5): 8-18% 확대 — 50-dim feature space 영역
-          // sparse representation 영역 narrow receptive field 영역 noise
-          // tolerance 약화 (42.5% measured vs 4×4 88%). 학습 시 noise 증가
-          // 영역 cluster receptive field 영역 broader 영역 inference noise
-          // tolerance ↑ 영역. test noise = 20% (5 bit-flips/25) 영역 정합.
+          // 5×5 (orientation-5x5):
+          //   v1 (2026-05-22): 8-18% — 역효과 catch (noise 42.5→35% degraded,
+          //     partial @0.40 75→50% collapse, std 11.2→18.5% 증가).
+          //   v2 (2026-05-23): 5-10% — moderate 증가 영역 mean noise ↑ 영역
+          //     partial cue robust zone (≥0.60 keep) 영역 영역 영역 100% 유지
+          //     영역 시도. 너무 aggressive 영역 receptive field drift 영역 catch.
           //
-          // 학술 정합: Goodfellow 2014 noise injection regularization 영역
-          // input noise level 영역 expected test noise 영역 match 영역 권장.
+          // 학술 정합: Goodfellow 2014 noise injection — moderate noise (test
+          // noise 영역 1/2-2/3 수준) 영역 over-fitting 영역 영역 영역 robust
+          // generalization 영역. test 20% 영역 training 10% 영역 안전 영역.
           const isExtended = this.substrateKind === 'orientation-5x5';
-          const noiseMin = isExtended ? 0.08 : 0.03;
-          const noiseMax = isExtended ? 0.18 : 0.075;
+          const noiseMin = isExtended ? 0.05 : 0.03;
+          const noiseMax = isExtended ? 0.10 : 0.075;
           const globalIdx = round * CHUNK + i;
           const half = TOTAL / 2; // 15
           let reinforcePattern: number[];

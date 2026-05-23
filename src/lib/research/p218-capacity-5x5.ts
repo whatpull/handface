@@ -337,6 +337,47 @@ function computeStd(values: number[], mean: number): number {
   return Math.sqrt(sumSq / (values.length - 1));
 }
 
+// P218 noise sweep (2026-05-23) — Noise normalization 가설 검증.
+// 4×4 (16-dim) @ 20% flip = 3.2 bits, 5×5 (25-dim) @ 20% flip = 5 bits 영역
+// 동등 절대 perturbation (3 bits) 영역 5×5 noise = 12-13% 영역 fair comparison.
+// 가설: 5×5 @ 0.13 noise tolerance ≈ 4×4 @ 0.20 (88%) — 5×5 weakness 가
+// substrate property 가 아니라 protocol artifact 인지 검증.
+export interface NoiseSweepResult {
+  noiseFlipProb: number;
+  absoluteBitFlips: number; // for clarity in paper
+  metrics: SelectivityMetrics;
+}
+
+export async function runP218NoiseSweep(
+  onProgress?: ProgressCallback,
+  noiseValues: number[] = [0.05, 0.10, 0.13, 0.20, 0.30],
+  patternCount: number = 8,
+  options: Omit<RunOptionsP218, 'patternCounts' | 'noiseFlipProb'> = {},
+): Promise<NoiseSweepResult[]> {
+  const results: NoiseSweepResult[] = [];
+  const total = noiseValues.length;
+  const RAW_DIM_5X5 = 25;
+  for (let i = 0; i < total; i += 1) {
+    const n = noiseValues[i];
+    const basePct = (i / total) * 100;
+    const stepWidth = (1 / total) * 100;
+    onProgress?.(`[noise=${(n * 100).toFixed(0)}%] N=${patternCount} 측정 중...`, basePct);
+    const stepResult = await runP218Experiment(
+      (msg, pct) => onProgress?.(`noise=${(n * 100).toFixed(0)}% ${msg}`, basePct + (pct * stepWidth) / 100),
+      { ...options, noiseFlipProb: n, patternCounts: [patternCount] },
+    );
+    if (stepResult.length > 0) {
+      results.push({
+        noiseFlipProb: n,
+        absoluteBitFlips: n * RAW_DIM_5X5,
+        metrics: stepResult[0],
+      });
+    }
+  }
+  onProgress?.('noise sweep 완료', 100);
+  return results;
+}
+
 export async function runP218Averaged(
   onProgress?: ProgressCallback,
   runs: number = 5,

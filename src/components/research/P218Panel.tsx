@@ -11,11 +11,13 @@ import {
   runP218VigilanceSweep,
   runP218PartialSweep,
   runP218Averaged,
+  runP218NoiseSweep,
   PATTERN_NAMES_5X5,
   PATTERNS_5X5,
   type VigilanceSweepResult,
   type PartialSweepResult,
   type AveragedMetricsSummary,
+  type NoiseSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
@@ -31,6 +33,7 @@ export default function P218Panel() {
   const [vigResults, setVigResults] = useState<VigilanceSweepResult[]>([]);
   const [partialResults, setPartialResults] = useState<PartialSweepResult[]>([]);
   const [avgResult, setAvgResult] = useState<AveragedMetricsSummary | null>(null);
+  const [noiseResults, setNoiseResults] = useState<NoiseSweepResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -52,6 +55,7 @@ export default function P218Panel() {
     setVigResults([]);
     setPartialResults([]);
     setAvgResult(null);
+    setNoiseResults([]);
   };
 
   const run = async () => {
@@ -136,7 +140,29 @@ export default function P218Panel() {
     }
   };
 
+  const runNoiseSweep = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP218NoiseSweep(
+        (msg, pct) => setProgress({ msg, pct }),
+        [0.05, 0.10, 0.13, 0.20, 0.30],
+        8,
+        { vigilance, partialKeepRatio },
+      );
+      setNoiseResults(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P218 noise-sweep] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const activePayload = (): { data: unknown; prefix: string } => {
+    if (noiseResults.length > 0) return { data: noiseResults, prefix: 'p218-noise-sweep' };
     if (avgResult) return { data: avgResult, prefix: 'p218-averaged' };
     if (partialResults.length > 0) return { data: partialResults, prefix: 'p218-partial-sweep' };
     if (vigResults.length > 0) return { data: vigResults, prefix: 'p218-vigilance-sweep' };
@@ -214,6 +240,15 @@ export default function P218Panel() {
           >
             Noise avg ×5
           </button>
+          <button
+            type="button"
+            onClick={runNoiseSweep}
+            disabled={running}
+            className="rounded border border-rose-600 bg-rose-950/40 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-900/50 disabled:opacity-50"
+            title="N=8 에서 noiseFlipProb=5/10/13/20/30% 5단계 자동 측정. 0.13 = 3.25 bits ≈ 4×4 의 0.20 (3.2 bits) 공정 비교."
+          >
+            Noise sweep
+          </button>
         </div>
       </div>
 
@@ -275,6 +310,62 @@ export default function P218Panel() {
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={avgResult.runs} label="avg run" />
         </div>
       )}
+
+      {noiseResults.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <NoiseSweepTable results={noiseResults} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={noiseResults.length} label="noise level" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NoiseSweepTable({ results }: { results: NoiseSweepResult[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-white">
+        Noise Level Sweep @ N=8 (stable cap)
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        <strong className="text-rose-300">Fair comparison hypothesis:</strong> 4×4 의 noise=20% (3.2 bits) ↔
+        5×5 의 noise=<strong className="text-rose-300">13%</strong> (3.25 bits) 동등 절대 perturbation.
+        4×4 P215 N=8 noise=88% — 5×5 @ 0.13 이 비슷하면 fundamental weakness 없음 증명.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Noise flip %</th>
+              <th className="py-2 text-left">절대 bits</th>
+              <th className="py-2">재현율</th>
+              <th className="py-2">노이즈</th>
+              <th className="py-2">부분단서</th>
+              <th className="py-2">WTA margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => {
+              const isFairPoint = Math.abs(r.noiseFlipProb - 0.13) < 0.01;
+              return (
+                <tr key={r.noiseFlipProb} className={`border-b border-[#2a2a38]/50 ${isFairPoint ? 'bg-rose-950/20' : ''}`}>
+                  <td className="py-2 font-mono font-semibold text-rose-300">
+                    {(r.noiseFlipProb * 100).toFixed(0)}%
+                    {isFairPoint && <span className="ml-2 text-[10px] text-rose-400">← fair vs 4×4 20%</span>}
+                  </td>
+                  <td className="py-2 font-mono text-[#aaa]">{r.absoluteBitFlips.toFixed(2)}</td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.reproduction} /></td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.noise} /></td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.partialCue} /></td>
+                  <td className="py-2 text-center font-mono text-violet-300">
+                    {(r.metrics.avgWtaMargin * 100).toFixed(0)}%
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

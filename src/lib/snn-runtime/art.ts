@@ -493,11 +493,27 @@ export function expandCluster(
   // — correctness > perf priority (학습 cluster 인식 차분 영역 critical).
   // P218 (2026-05-21): WTA -8 → -10 영역 정합 — n13/n14 base WTA (P215d) 영역
   // 정합 영역 base/expanded cluster 영역 동일 WTA strength 영역 보장.
+  //
+  // P218 noise weakness fix attempt (2026-05-23): substrate-aware WTA.
+  // 5×5 의 noise tolerance 약화 (42.5% measured vs 4×4 88%) 영역 root cause
+  // 가설: 50-dim sparse representation 영역 narrow receptive field 영역
+  // noisy input 영역 fire 강도 약함 → -10 cross-WTA 영역 cluster 자체 영역
+  // suppress catch. WTA 영역 -8 영역 완화 영역 noisy input 영역 winning
+  // cluster 영역 firing 영역 strong WTA suppression 영역 escape.
+  // Trade-off 우려: weaker WTA → cross-cluster spurious fire ↑ → 영역 cluster
+  // selectivity 약화 가능 (recall ↓ 가능).
+  //   - 4×4 (orientation): -10 유지 (P215 baseline)
+  //   - 5×5 (orientation-5x5): -8 영역 완화
+  // 학술 정합: Diehl & Cook 2015 — strong WTA = winner-take-all hard. weak
+  // WTA = winner-share-most soft. high-dim sparse representation 영역 winner
+  // signal 영역 weak 영역 soft WTA 영역 정합 (Foldiak 1990 soft-max).
+  const isExtended = registry.inputDim === N_INPUT_N14;
+  const wtaWeight = isExtended ? -8.0 : -10.0;
   for (const existing of registry.slots) {
     for (const s of out) {
       for (const t of existing.out) {
-        net.connect(s, t, -10.0, 0.5);
-        net.connect(t, s, -10.0, 0.5);
+        net.connect(s, t, wtaWeight, 0.5);
+        net.connect(t, s, wtaWeight, 0.5);
       }
     }
   }

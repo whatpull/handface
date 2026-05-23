@@ -1165,21 +1165,14 @@ export class LiveSnn {
           // 영역 ↑ 영역 시도 영역 (trade-off: noise tolerance 영역 약간 ↓ 영역
           // 가능). 12.5% 영역 ANN augmentation 영역 typical 5-10% 영역 약간 높음.
           //
-          // P218 noise weakness fix (2026-05-22): substrate-aware noise range.
-          // 4×4 (orientation): 3-7.5% 유지 (P215 baseline).
-          // 5×5 (orientation-5x5):
-          //   v1 (2026-05-22): 8-18% — 역효과 catch (noise 42.5→35% degraded,
-          //     partial @0.40 75→50% collapse, std 11.2→18.5% 증가).
-          //   v2 (2026-05-23): 5-10% — moderate 증가 영역 mean noise ↑ 영역
-          //     partial cue robust zone (≥0.60 keep) 영역 영역 영역 100% 유지
-          //     영역 시도. 너무 aggressive 영역 receptive field drift 영역 catch.
-          //
-          // 학술 정합: Goodfellow 2014 noise injection — moderate noise (test
-          // noise 영역 1/2-2/3 수준) 영역 over-fitting 영역 영역 영역 robust
-          // generalization 영역. test 20% 영역 training 10% 영역 안전 영역.
-          const isExtended = this.substrateKind === 'orientation-5x5';
-          const noiseMin = isExtended ? 0.05 : 0.03;
-          const noiseMax = isExtended ? 0.10 : 0.075;
+          // P218 noise weakness fix (2026-05-22 ~ 2026-05-23):
+          //   v1 (8-18%): 역효과 — noise -7.5%p degraded, partial @0.40 -25%p.
+          //   v2 (5-10%): partial cue 0.40-0.60 -12~25%p 무너짐, noise 큰 개선
+          //     없음. 두 시도 모두 partial cue (5×5 헤드라인) 손실.
+          //   결론 (2026-05-23): 5×5 noise weakness 는 substrate dimensionality
+          //     의 기하학적 본질 — training noise augmentation 으로 fixable 0.
+          //     REVERT baseline 3-7.5% 영역 partial cue 우위 보존.
+          // 다음 mechanism (WTA -10 → -8, expand cluster) 영역 시도.
           const globalIdx = round * CHUNK + i;
           const half = TOTAL / 2; // 15
           let reinforcePattern: number[];
@@ -1187,9 +1180,9 @@ export class LiveSnn {
             // 전반 1/2 + 마지막 frame 영역 원본 영역 유지.
             reinforcePattern = this.patternRef.slice();
           } else {
-            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1.
+            // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1 영역 3% → 7.5%.
             const t = (globalIdx - half) / half;
-            const noiseLevel = noiseMin + t * (noiseMax - noiseMin);
+            const noiseLevel = 0.03 + t * 0.045;
             reinforcePattern = addSmallNoise(this.patternRef, noiseLevel);
           }
           await root.client.reinforceBackground({

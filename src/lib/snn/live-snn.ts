@@ -46,6 +46,7 @@ import type {
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
 import { compute50DimFeature, RAW_DIM_N14 } from '@/lib/snn-runtime/builders/n14-extended';
+import { SeededRandom } from '@/lib/snn-runtime/prng';
 
 // P218 (2026-05-20) — raw pattern length 영역 영역 dispatch (n13: 16→32, n14: 25→50).
 // 이미 expanded (32 or 50) 영역 그대로.
@@ -95,9 +96,9 @@ function clearTrialCount(kind: SubstrateKind): void {
 // bypass). 학술 정합: Goodfellow et al. 2014 noise injection 영역 regularization
 // 영역 ANN training augmentation 영역 정합. 5~12.5% 점진 증가 영역 패턴 정체성
 // 영역 훼손 없는 범위 영역 cap.
-function addSmallNoise(pattern: number[], amount: number): number[] {
+function addSmallNoise(pattern: number[], amount: number, rng: () => number = Math.random): number[] {
   return pattern.map((v) => {
-    const delta = (Math.random() - 0.5) * 2 * amount;
+    const delta = (rng() - 0.5) * 2 * amount;
     const next = v + delta;
     return next < 0 ? 0 : next > 1 ? 1 : next;
   });
@@ -182,6 +183,13 @@ function rawDimForKind(kind: SubstrateKind): number {
 export class LiveSnn {
   private opts: Required<LiveSnnOptions>;
   private patternRef: number[] = new Array(16).fill(0);
+  // P218 (2026-05-24) — training noise reproducibility.
+  // null 영역 Math.random() 영역 backwards compat (실 사용자 학습 path 영역
+  // non-deterministic). 정수 seed 영역 SeededRandom 영역 training noise 정합 —
+  // 5-run avg 영역 동일 seed sequence 영역 reproducibility 확보. Research
+  // module (P218) 영역 setTrainingNoiseSeed() 영역 multi-run 영역 lucky seed
+  // 탐색 / fixed-best-seed 재현 가능.
+  private _trainingNoiseSeed: number | null = null;
   private tickInFlight = false;
   // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix):
   //   "새로고침시 학습 상황이 초기화 되는데, 이는 유지되었으면 좋겠습니다".
@@ -383,6 +391,17 @@ export class LiveSnn {
     this._vigilancePending.clear();
     // _pushBoundForKind 영역 보존 — push handler substrate 영역 active 정합
     // (다음 trigger 영역 ensurePushHandler 영역 정합 path 영역 reuse).
+  }
+
+  // P218 training noise seed setter — research module 영역 reproducibility.
+  // null 영역 호출 영역 backward compat (Math.random) 영역 복원. 정수 영역 호출
+  // 영역 SeededRandom 영역 next 다음 autoLearnLoop 영역 noise sampling 결정.
+  setTrainingNoiseSeed(seed: number | null): void {
+    this._trainingNoiseSeed = seed;
+  }
+
+  getTrainingNoiseSeed(): number | null {
+    return this._trainingNoiseSeed;
   }
 
   setPattern(pattern: number[]): void {
@@ -1110,6 +1129,11 @@ export class LiveSnn {
     // 보다 더 큰 capacity 영역 가능 영역 추정. 12 cap 영역 진짜 5×5 ceiling 영역
     // 측정 (50-dim feature space 영역 8 cluster 영역 매우 sparse 영역 use).
     const MAX_CLUSTERS = this.substrateKind === 'orientation-5x5' ? 12 : 8;
+    // P218 (2026-05-24) — training noise RNG. _trainingNoiseSeed null 영역 Math.random
+    // (backward compat). 정수 영역 SeededRandom 영역 — reproducibility 보장.
+    const trainNoiseRng = this._trainingNoiseSeed !== null
+      ? (() => { const r = new SeededRandom(this._trainingNoiseSeed!); return () => r.random(); })()
+      : Math.random;
     {
       const exNow = loadExemplars(this.substrateKind);
       let curCount = 0;
@@ -1181,9 +1205,10 @@ export class LiveSnn {
             reinforcePattern = this.patternRef.slice();
           } else {
             // 후반 1/2 영역 노이즈 augmentation. t: 0 → 1 영역 3% → 7.5%.
+            // P218 (2026-05-24): seeded RNG 영역 reproducibility.
             const t = (globalIdx - half) / half;
             const noiseLevel = 0.03 + t * 0.045;
-            reinforcePattern = addSmallNoise(this.patternRef, noiseLevel);
+            reinforcePattern = addSmallNoise(this.patternRef, noiseLevel, trainNoiseRng);
           }
           await root.client.reinforceBackground({
             pattern: reinforcePattern,

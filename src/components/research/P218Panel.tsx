@@ -12,12 +12,14 @@ import {
   runP218PartialSweep,
   runP218Averaged,
   runP218NoiseSweep,
+  runP218SeedSweep,
   PATTERN_NAMES_5X5,
   PATTERNS_5X5,
   type VigilanceSweepResult,
   type PartialSweepResult,
   type AveragedMetricsSummary,
   type NoiseSweepResult,
+  type SeedSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
@@ -34,6 +36,7 @@ export default function P218Panel() {
   const [partialResults, setPartialResults] = useState<PartialSweepResult[]>([]);
   const [avgResult, setAvgResult] = useState<AveragedMetricsSummary | null>(null);
   const [noiseResults, setNoiseResults] = useState<NoiseSweepResult[]>([]);
+  const [seedResults, setSeedResults] = useState<SeedSweepResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -56,6 +59,7 @@ export default function P218Panel() {
     setPartialResults([]);
     setAvgResult(null);
     setNoiseResults([]);
+    setSeedResults([]);
   };
 
   const run = async () => {
@@ -161,7 +165,29 @@ export default function P218Panel() {
     }
   };
 
+  const runSeedSweep = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP218SeedSweep(
+        (msg, pct) => setProgress({ msg, pct }),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        8,
+        { vigilance, noiseFlipProb, partialKeepRatio },
+      );
+      setSeedResults(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P218 seed-sweep] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const activePayload = (): { data: unknown; prefix: string } => {
+    if (seedResults.length > 0) return { data: seedResults, prefix: 'p218-seed-sweep' };
     if (noiseResults.length > 0) return { data: noiseResults, prefix: 'p218-noise-sweep' };
     if (avgResult) return { data: avgResult, prefix: 'p218-averaged' };
     if (partialResults.length > 0) return { data: partialResults, prefix: 'p218-partial-sweep' };
@@ -249,6 +275,15 @@ export default function P218Panel() {
           >
             Noise sweep
           </button>
+          <button
+            type="button"
+            onClick={runSeedSweep}
+            disabled={running}
+            className="rounded border border-cyan-600 bg-cyan-950/40 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-900/50 disabled:opacity-50"
+            title="N=8 에서 training noise seed=1..10 10개 자동 측정. Lucky seed 가 best-case 88% noise tolerance 재현 가능한지 검증."
+          >
+            Seed sweep
+          </button>
         </div>
       </div>
 
@@ -317,6 +352,79 @@ export default function P218Panel() {
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={noiseResults.length} label="noise level" />
         </div>
       )}
+
+      {seedResults.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <SeedSweepTable results={seedResults} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={seedResults.length} label="seed" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeedSweepTable({ results }: { results: SeedSweepResult[] }) {
+  const sorted = [...results].sort((a, b) => b.metrics.noise - a.metrics.noise);
+  const bestSeed = sorted[0]?.seed ?? null;
+  const bestNoise = sorted[0]?.metrics.noise ?? 0;
+  const meanNoise = results.length > 0
+    ? results.reduce((s, r) => s + r.metrics.noise, 0) / results.length
+    : 0;
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-white">
+        Training Noise Seed Sweep @ N=8 (stable cap)
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        <strong className="text-cyan-300">Reproducibility hypothesis:</strong> 5×5 architecture 는 noise=88% 가능
+        (직전 best run measured), 단 training noise stochasticity 가 lucky seed 의존. seed=1..10 sweep 으로 lucky seed
+        탐색 — 발견 시 reproducible best-case.
+      </p>
+      <div className="mb-3 rounded border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs">
+        <div className="text-cyan-300">
+          <strong>Best seed: {bestSeed}</strong> → noise tolerance <strong>{(bestNoise * 100).toFixed(0)}%</strong>
+        </div>
+        <div className="text-[#aaa] mt-1">
+          Mean across {results.length} seeds: {(meanNoise * 100).toFixed(1)}% — vs unseeded 5-run avg 47.5% / 4×4 baseline 88%
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Seed</th>
+              <th className="py-2">재현율</th>
+              <th className="py-2">노이즈</th>
+              <th className="py-2">부분단서</th>
+              <th className="py-2">WTA margin</th>
+              <th className="py-2">Cluster map</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => {
+              const isBest = r.seed === bestSeed && r.metrics.noise >= 0.7;
+              return (
+                <tr key={r.seed} className={`border-b border-[#2a2a38]/50 ${isBest ? 'bg-cyan-950/30' : ''}`}>
+                  <td className="py-2 font-mono font-semibold text-cyan-300">
+                    {r.seed}
+                    {isBest && <span className="ml-2 text-[10px] text-cyan-400">← lucky</span>}
+                  </td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.reproduction} /></td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.noise} /></td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics.partialCue} /></td>
+                  <td className="py-2 text-center font-mono text-violet-300">
+                    {(r.metrics.avgWtaMargin * 100).toFixed(0)}%
+                  </td>
+                  <td className="py-2 text-center font-mono text-[10px] text-[#888]">
+                    [{r.metrics.patternToCluster.join(',')}]
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

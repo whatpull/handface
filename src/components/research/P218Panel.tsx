@@ -427,15 +427,15 @@ function HyperParameterPanel({
         <SliderField
           label="Noise flip prob"
           value={noiseFlipProb}
-          min={0.05} max={0.50} step={0.05}
+          min={0.05} max={0.50} step={0.01}
           onChange={setNoiseFlipProb}
           disabled={disabled}
-          hint="default 0.20 (20% bit-flip). 측정용 — 학습에 영향 0"
+          hint="default 0.20. 5×5 의 0.13 = 3.25 bits ≈ 4×4 의 0.20 (3.2 bits) 공정 비교"
         />
         <SliderField
           label="Partial keep ratio"
           value={partialKeepRatio}
-          min={0.30} max={1.00} step={0.05}
+          min={0.30} max={1.00} step={0.01}
           onChange={setPartialKeepRatio}
           disabled={disabled}
           hint="default 0.75 (75% bits 유지). 낮을수록 어려운 partial cue"

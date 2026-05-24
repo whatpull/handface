@@ -165,14 +165,15 @@ export default function P218Panel() {
     }
   };
 
-  const runSeedSweep = async () => {
+  const runSeedSweep = async (count: 10 | 100 = 10) => {
     setRunning(true);
     setError(null);
     clearOutputs();
     try {
+      const seeds = Array.from({ length: count }, (_, i) => i + 1);
       const r = await runP218SeedSweep(
         (msg, pct) => setProgress({ msg, pct }),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        seeds,
         8,
         { vigilance, noiseFlipProb, partialKeepRatio },
       );
@@ -277,12 +278,21 @@ export default function P218Panel() {
           </button>
           <button
             type="button"
-            onClick={runSeedSweep}
+            onClick={() => runSeedSweep(10)}
             disabled={running}
             className="rounded border border-cyan-600 bg-cyan-950/40 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-900/50 disabled:opacity-50"
-            title="N=8 에서 training noise seed=1..10 10개 자동 측정. Lucky seed 가 best-case 88% noise tolerance 재현 가능한지 검증."
+            title="N=8 에서 training noise seed=1..10 10개 자동 측정 (~5분). 빠른 reproducibility check."
           >
-            Seed sweep
+            Seed ×10
+          </button>
+          <button
+            type="button"
+            onClick={() => runSeedSweep(100)}
+            disabled={running}
+            className="rounded border border-blue-600 bg-blue-950/40 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-900/50 disabled:opacity-50"
+            title="N=8 에서 seed=1..100 100개 측정 (~50분). Rare lucky seed (>75%) 탐색. 탭 닫으면 중단."
+          >
+            Seed ×100
           </button>
         </div>
       </div>
@@ -384,9 +394,13 @@ function SeedSweepTable({ results }: { results: SeedSweepResult[] }) {
       <div className="mb-3 rounded border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs">
         <div className="text-cyan-300">
           <strong>Best seed: {bestSeed}</strong> → noise tolerance <strong>{(bestNoise * 100).toFixed(0)}%</strong>
+          {bestNoise >= 0.75 && <span className="ml-2 text-green-400">★ LUCKY (≥75%)</span>}
         </div>
         <div className="text-[#aaa] mt-1">
           Mean across {results.length} seeds: {(meanNoise * 100).toFixed(1)}% — vs unseeded 5-run avg 47.5% / 4×4 baseline 88%
+        </div>
+        <div className="text-[#888] mt-1 text-[10px]">
+          Lucky seeds (≥75%): {results.filter((r) => r.metrics.noise >= 0.75).map((r) => r.seed).join(', ') || '없음'}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -403,12 +417,14 @@ function SeedSweepTable({ results }: { results: SeedSweepResult[] }) {
           </thead>
           <tbody>
             {results.map((r) => {
-              const isBest = r.seed === bestSeed && r.metrics.noise >= 0.7;
+              const isLucky = r.metrics.noise >= 0.75;
+              const isBest = r.seed === bestSeed;
               return (
-                <tr key={r.seed} className={`border-b border-[#2a2a38]/50 ${isBest ? 'bg-cyan-950/30' : ''}`}>
+                <tr key={r.seed} className={`border-b border-[#2a2a38]/50 ${isLucky ? 'bg-green-950/30' : isBest ? 'bg-cyan-950/30' : ''}`}>
                   <td className="py-2 font-mono font-semibold text-cyan-300">
                     {r.seed}
-                    {isBest && <span className="ml-2 text-[10px] text-cyan-400">← lucky</span>}
+                    {isLucky && <span className="ml-2 text-[10px] text-green-400">★ LUCKY</span>}
+                    {!isLucky && isBest && <span className="ml-2 text-[10px] text-cyan-400">← best</span>}
                   </td>
                   <td className="py-2 text-center"><MetricCell value={r.metrics.reproduction} /></td>
                   <td className="py-2 text-center"><MetricCell value={r.metrics.noise} /></td>

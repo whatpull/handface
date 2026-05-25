@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-05-25T13:48:29.778Z",
+  "scenario": "multi-substrate-3sub-ensemble",
+  "substrates": {
+    "4x4": {
+      "recall": 1,
+      "margin": 1,
+      "weight": 1,
+      "clusterMap": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "5x5": {
+      "recall": 1,
+      "margin": 1,
+      "weight": 1,
+      "clusterMap": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "6x6": {
+      "recall": 1,
+      "margin": 1,
+      "weight": 1,
+      "clusterMap": [
+        0,
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "ensemble": {
+    "weighted": 1,
+    "uniform": 1,
+    "advantage": 0
+  },
+  "phaseCSuggestion6x6": {
+    "next": {
+      "vigilance": 0.15,
+      "v1L4Weight": 14,
+      "v2L5OutWeight": 15.5
+    },
+    "reasons": [
+      "over-confident margin=1.00 + noise=0.50 → V2_L5→OUT 16.0 → 15.5 (cross-fire 감소)"
+    ],
+    "changed": true
+  }
+}

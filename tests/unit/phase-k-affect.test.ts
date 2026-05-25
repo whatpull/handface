@@ -139,7 +139,7 @@ describe('Phase K — Risk Tolerance Modulation (Lerner & Keltner 2000)', () => 
 describe('Phase K — 통합 시나리오: Affective Decision', () => {
   it('Damasio somatic marker hypothesis 정합 — 영역 경험 → bodily marker → decision bias', () => {
     // 영역 경험: action 'gambling' → 영역 결과 (loss, negative valence).
-    let markers: SomaticMarker[] = [];
+    const markers: SomaticMarker[] = [];
     for (let i = 0; i < 5; i += 1) {
       markers.push({
         context: 'gambling',

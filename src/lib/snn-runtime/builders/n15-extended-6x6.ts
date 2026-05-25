@@ -266,16 +266,11 @@ export function buildN15Extended6x6Preset(opts: N15PresetOptions = {}): N15Prese
   cascadeLocal(v2L23e, V2_L23_PER_SUB, v2L5e, V2_L5_PER_SUB, 0.7, 9.0);
 
   // V2_L5 → OUT (cluster-local)
-  // P220 (2026-05-25 Task 4 후속): 6×6 base cluster 영역 16.0 → 20.0 영역 영역
-  // — Bottom row → -1 학습 실패 영역 cluster spawn 후 OUT silent 가설 영역
-  // 영역 영역. V1_L4 weight 14.0 (직전 fix 1102b3a) 영역 cascade 영역 강화
-  // 됐지만 OUT 영역 fire 못 영역 silent winner=null catch — V2_L5 → OUT
-  // 영역 영역 영역 driving 영역 영역 영역 OUT spike 영역 reliable trigger.
   for (let ci = 0; ci < N_CLUSTER; ci += 1) {
     const v2L5Sub = v2L5e.slice(V2_L5_PER_SUB * ci, V2_L5_PER_SUB * (ci + 1));
     for (const s of v2L5Sub) {
       for (const t of outClusters[ci]) {
-        const w = 20.0 + rng.uniform(-1.0, 1.0);
+        const w = 16.0 + rng.uniform(-1.0, 1.0);
         net.connect(s, t, w, 1.0);
       }
     }

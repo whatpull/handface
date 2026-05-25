@@ -476,13 +476,9 @@ export function expandCluster(
   // 영역 cluster (영역 cluster 1) 영역 OUT 영역 reliable 영역 fire 영역 — 영역
   // V2_L5 영역 fire 영역 영역 영역 영역 영역 영역 영역 영역 weak 영역 cluster
   // 영역 silent 영역 catch 영역 가설.
-  // P220 (2026-05-25 Task 4 후속): 6×6 substrate (inputDim===72) 영역만 16.0
-  // → 20.0 영역 영역 — Bottom row spawn 후 OUT silent 가설 영역 영역 영역.
-  // 4×4 / 5×5 영역 16.0 유지.
-  const v2L5OutWeight = registry.inputDim === 72 ? 20.0 : 16.0;
   for (const s of v2L5E) {
     for (const t of out) {
-      const w = v2L5OutWeight + rng.uniform(-1.0, 1.0);
+      const w = 16.0 + rng.uniform(-1.0, 1.0);
       net.connect(s, t, w, 1.0);
     }
   }

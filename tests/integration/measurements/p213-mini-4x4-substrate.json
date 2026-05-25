@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-05-25T13:43:31.557Z",
+  "scenario": "p213-mini-4x4-substrate",
+  "patternCount": 4,
+  "cleanRecalls": [
+    {
+      "patternIdx": 0,
+      "winner": 0,
+      "margin": 1
+    },
+    {
+      "patternIdx": 1,
+      "winner": 1,
+      "margin": 1
+    },
+    {
+      "patternIdx": 2,
+      "winner": 2,
+      "margin": 1
+    },
+    {
+      "patternIdx": 3,
+      "winner": 3,
+      "margin": 1
+    }
+  ],
+  "recall": 1,
+  "avgMargin": 1,
+  "substrateWeight": 1,
+  "thresholds": {
+    "recallMin": 0.5,
+    "marginMin": 0
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-05-25T13:43:31.563Z",
+  "scenario": "phase-d-mega-ensemble-mock",
+  "substrateCount": 9,
+  "patternCount": 8,
+  "substrates": [
+    {
+      "name": "4x4",
+      "weight": 0.85
+    },
+    {
+      "name": "5x5-s5",
+      "weight": 0.6
+    },
+    {
+      "name": "5x5-s82",
+      "weight": 0.6
+    },
+    {
+      "name": "5x5-s86",
+      "weight": 0.6
+    },
+    {
+      "name": "5x5-s97",
+      "weight": 0.6
+    },
+    {
+      "name": "6x6-s1",
+      "weight": 0.375
+    },
+    {
+      "name": "6x6-s2",
+      "weight": 0.375
+    },
+    {
+      "name": "6x6-s3",
+      "weight": 0.375
+    },
+    {
+      "name": "6x6-s4",
+      "weight": 0.375
+    }
+  ],
+  "weightedAccuracy": 1,
+  "uniformAccuracy": 1,
+  "weightedAdvantage": 0
+}

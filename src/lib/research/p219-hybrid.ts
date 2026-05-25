@@ -125,20 +125,11 @@ async function trainAndMeasure(
     if (seed !== null) live.setTrainingNoiseSeed(seed);
   }
 
-  // P220 (2026-05-25, Task 4 후속): 6×6 substrate 영역 vigilance auto-bump.
-  // 72-dim feature space 영역 active inputs 영역 sparser 영역 영역 — 4×4/5×5 영역
-  // 동일 vigilance 0.15 영역 partial match 영역 cluster 영역 흡수 → 영역 cluster
-  // spawn 실패 (Bottom row → -1 catch). 6×6 영역 strict vigilance 영역 cluster
-  // 영역 distinct spawn 강제. 학술 정합: Carpenter & Grossberg 1987 — vigilance
-  // ρ 영역 input dimensionality 영역 scale (higher dim → higher ρ for distinct
-  // category formation).
-  const effectiveVigilance = substrateKind === 'orientation-6x6' ? Math.max(vigilance, 0.30) : vigilance;
-
   // Train N patterns sequentially
   for (let i = 0; i < patterns.length; i += 1) {
     onProgress(`[${substrateKind}] 학습 ${i + 1}/${patterns.length}`, basePct + stepWidth * 0.05 + stepWidth * 0.45 * (i / patterns.length));
     const completePromise = awaitAutoLearnComplete(30_000);
-    live.triggerWithVigilance(patterns[i], effectiveVigilance);
+    live.triggerWithVigilance(patterns[i], vigilance);
     try { await completePromise; } catch (e) { console.warn(`[P219] ${substrateKind} pattern ${i} timeout:`, e); }
     await delay(200);
   }

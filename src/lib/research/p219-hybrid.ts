@@ -530,10 +530,47 @@ export interface MegaEnsembleResult {
   substrateWeights?: { label: string; weight: number; recall: number; margin: number }[];
 }
 
+// Phase D pure helper — weighted majority vote 알고리즘 (단위 테스트 영역).
+// predictions: 각 substrate 영역 predicted pattern slot (-1 = no winner).
+// margins: 각 substrate 영역 WTA margin (tied/no-vote fallback 영역 사용).
+// weights: 각 substrate 영역 vote weight (computeSubstrateWeight 영역 산출).
+// 반환: bestPred (winning pattern slot) — 영역 vote 영역 없으면 -1.
+// 학술 정합: AdaBoost (Freund & Schapire 1995) — weight 비례 majority vote.
+export function weightedMajorityVote(
+  predictions: ReadonlyArray<number>,
+  margins: ReadonlyArray<number>,
+  weights: ReadonlyArray<number>,
+): number {
+  if (predictions.length === 0) return -1;
+  const weightedCounts = new Map<number, number>();
+  for (let k = 0; k < predictions.length; k += 1) {
+    const v = predictions[k];
+    if (v >= 0) weightedCounts.set(v, (weightedCounts.get(v) ?? 0) + weights[k]);
+  }
+  let bestPred = -1;
+  let bestScore = 0;
+  for (const [p, s] of weightedCounts.entries()) {
+    if (s > bestScore) { bestScore = s; bestPred = p; }
+  }
+  // Tied/no-vote fallback: pick prediction with highest (margin × weight).
+  if (bestPred < 0) {
+    let mxScore = -1;
+    for (let k = 0; k < predictions.length; k += 1) {
+      const localScore = margins[k] * weights[k];
+      if (predictions[k] >= 0 && localScore > mxScore) {
+        mxScore = localScore;
+        bestPred = predictions[k];
+      }
+    }
+  }
+  return bestPred;
+}
+
 // Phase D helper — substrate 별 (recall × WTA margin) 영역 vote weight 계산.
 // recall: clean probe (probeIdx=0) 영역 correctly mapped pattern 비율.
 // margin: 3 probes × N patterns avg WTA margin (confidence).
-function computeSubstrateWeight(
+// Exported 영역 단위 테스트 영역 (tests/unit/phase-d-weighted-vote.test.ts).
+export function computeSubstrateWeight(
   results: InferResult[][],
   clusterMap: number[],
   N: number,
@@ -682,31 +719,10 @@ export async function runP220MegaEnsemble(
         marginsSix.push(r6.margin);
       }
 
-      // Phase D weighted vote (9 substrates) — count 누적 영역 1.0 영역
-      // 영역 substrate 영역 vote weight 영역 사용.
+      // Phase D — weighted majority vote (extracted helper, 단위 테스트 영역).
       const allPreds: number[] = [mapped4, ...mappedFive, ...mappedSix];
       const allMargins: number[] = [r4.margin, ...marginsFive, ...marginsSix];
-      const weightedCounts = new Map<number, number>();
-      for (let k = 0; k < allPreds.length; k += 1) {
-        const v = allPreds[k];
-        if (v >= 0) weightedCounts.set(v, (weightedCounts.get(v) ?? 0) + voteWeights[k]);
-      }
-      let bestPred = -1;
-      let bestScore = 0;
-      for (const [p, s] of weightedCounts.entries()) {
-        if (s > bestScore) { bestScore = s; bestPred = p; }
-      }
-      // Tied/no-vote fallback: pick prediction with highest (margin × weight).
-      if (bestPred < 0) {
-        let mxScore = -1;
-        for (let k = 0; k < allPreds.length; k += 1) {
-          const localScore = allMargins[k] * voteWeights[k];
-          if (allPreds[k] >= 0 && localScore > mxScore) {
-            mxScore = localScore;
-            bestPred = allPreds[k];
-          }
-        }
-      }
+      const bestPred = weightedMajorityVote(allPreds, allMargins, voteWeights);
       const chosenMargin = Math.max(...allMargins);
 
       if (probeIdx === 0 && bestPred === i) repCorrect += 1;

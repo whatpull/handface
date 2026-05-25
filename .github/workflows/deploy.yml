@@ -30,6 +30,35 @@ jobs:
       - run: npm ci
       - run: npm run verify
 
+      # 자동 측정 mandate (2026-05-25): 매 push 영역 측정 결과 JSON 영역 artifact
+      # 영역 upload. 사용자 PC 영역 production 측정 없이도 CI 영역 회귀 detect.
+      - name: Upload measurement results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snn-measurements-${{ github.sha }}
+          path: tests/integration/measurements/
+          retention-days: 90
+
+      # GitHub Actions Summary 영역 측정 결과 표 영역 자동 게시.
+      - name: Publish measurement summary
+        if: always()
+        run: |
+          echo "## ★ SNN Measurement Summary (commit ${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "자동 측정 mandate (2026-05-25): 사용자 PC 없이 CI 영역 매 push 영역 검증." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for f in tests/integration/measurements/*.json; do
+            if [ -f "$f" ]; then
+              name=$(basename "$f" .json)
+              echo "### \`$name\`" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
   build:
     needs: verify
     runs-on: ubuntu-latest

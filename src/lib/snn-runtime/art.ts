@@ -425,21 +425,11 @@ export function expandCluster(
   for (let i = 0; i < registry.inputDim; i += 1) {
     if (!opts.activeInputs.includes(i)) inactiveIdx.push(i);
   }
-  // P218 (2026-05-25) — substrate-aware V1_L4 weight strength.
-  // 4×4: w_mean=11.0 (P215 baseline 유지) — 16-dim feature, ~38% sparsity.
-  // 5×5: w_mean=14.0 — 50-dim feature, ~14% sparsity (5×5 영역 영역 sparse).
-  //   각 input spike 영역 V1_L4 영역 영역 강하게 영역 → fewer required spikes 영역
-  //   cluster fire → noisy input 영역 일부 spike loss 영역 robust.
-  // jitter ±1.0 유지 — wider jitter (±2.5) 시도 결과 영역 catastrophic backfire
-  //   (mean noise 53.8 → 22.5%) catch, ±1.0 영역 안전 영역.
-  // 학술 정합: Diehl & Cook 2015 — sparse input 영역 stronger synaptic weights
-  //   영역 robust cluster activation. weight ↑ 영역 STDP saturation 영역 위
-  //   영역 reaching (vMax ~25-30).
-  const isExtended5x5 = registry.inputDim === N_INPUT_N14;
-  const inputWeight = isExtended5x5 ? 14.0 : 11.0;
+  // P218 V1_L4 weight 14 시도 (2026-05-25) REVERTED — firing rate 증가 영역
+  // simulation 속도 저하 catch. baseline 11.0 복원.
   for (const ai of opts.activeInputs) {
     for (const t of v1L4E) {
-      const w = inputWeight + rng.uniform(-1.0, 1.0);
+      const w = 11.0 + rng.uniform(-1.0, 1.0);
       net.connect(`in_feat_${ai}`, t, w, 1.0);
     }
   }

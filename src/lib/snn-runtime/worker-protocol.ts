@@ -198,6 +198,9 @@ export interface ReinforceBackgroundPayload {
   trialToken: number;
   // STDP 규칙 선택. default 'pair'.
   stdpMode?: StdpMode;
+  // P218 (2026-05-25) — simulation timestep override. Default 0.1ms.
+  // Research module 영역 0.5ms 영역 5× speed gain.
+  dtMs?: number;
 }
 
 // QA FINDING-4 fix (2026-05-10): triggerError push payload — handleTriggerBackground

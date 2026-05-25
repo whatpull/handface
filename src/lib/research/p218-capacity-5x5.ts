@@ -149,6 +149,9 @@ export async function runP218Experiment(
     // 2. fresh substrate — LiveSnn singleton + setSubstrate('orientation-5x5').
     const live = getLiveSnn();
     await live.setSubstrate('orientation-5x5');
+    // P218 (2026-05-25) — research mode 영역 simulation 5× speed gain.
+    // dtMs 0.1 → 0.5 (LIF τ=15ms 영역 dt/τ=0.033 영역 안전).
+    live.setDtMs(0.5);
 
     // 3. N개 패턴 순차 학습 — vigilance auto-learn (30 trial).
     const patternToCluster: number[] = new Array(N).fill(-1);

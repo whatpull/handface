@@ -145,6 +145,11 @@ export interface LiveSnnOptions {
   // 한 trigger 영역 자극 weight 강도. default 25.
   intensity?: number;
   stimulusDurationMs?: number;
+  // P218 (2026-05-25) — simulation timestep. default 0.1ms (production safety).
+  // Research mode 영역 0.5ms 영역 5× speed gain (LIF τ=15ms 대비 dt/τ=0.033
+  // 영역 numerical stability 영역 안전). 학술 정합: Brette & Gerstner 2005 —
+  // LIF Euler integration 영역 dt < τ/10 영역 stable, dt=0.5ms 영역 충분.
+  dtMs?: number;
 }
 
 export interface TriggerOnceOptions {
@@ -169,6 +174,9 @@ const DEFAULT_OPTIONS: Required<LiveSnnOptions> = {
   observeMs: 50,
   intensity: 25,
   stimulusDurationMs: 20,
+  // P218 (2026-05-25) — production default 0.1ms 영역 (accuracy 우선).
+  // Research module 영역 setDtMs(0.5) 영역 5× speed gain.
+  dtMs: 0.1,
 };
 
 const TICK_EVENT = 'handface.live-snn.tick';
@@ -402,6 +410,13 @@ export class LiveSnn {
 
   getTrainingNoiseSeed(): number | null {
     return this._trainingNoiseSeed;
+  }
+
+  // P218 (2026-05-25) — simulation timestep override. Research module 영역
+  // 0.5ms 영역 5× speed gain (production 영역 0.1ms 유지). LIF τ=15ms 영역
+  // 안전 numerical stability 영역 (dt/τ=0.033, Brette & Gerstner 2005).
+  setDtMs(dtMs: number): void {
+    this.opts.dtMs = dtMs;
   }
 
   setPattern(pattern: number[]): void {
@@ -1223,6 +1238,7 @@ export class LiveSnn {
             intensity: this.opts.intensity,
             observeMs: this.opts.observeMs,
             stimulusDurationMs: this.opts.stimulusDurationMs,
+            dtMs: this.opts.dtMs,
             trialToken,
           });
           // PR #203 polish (UX HIGH 2026-05-10): chunk 단위 progress emit —

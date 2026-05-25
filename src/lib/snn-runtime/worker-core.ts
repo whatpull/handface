@@ -1249,6 +1249,7 @@ export class SNNWorkerCore {
         n.resetState();
       }
       // clusterTrainRStdp 영역 1-pattern batch reuse — 직전 reinforce path 영역 정합.
+      // P218 (2026-05-25): dtMs 영역 전달 영역 research mode 영역 5× speed gain.
       const trainResult = this.handleClusterTrainRStdp({
         patterns: [payload.pattern.slice()],
         targetCluster: payload.targetCluster,
@@ -1258,6 +1259,7 @@ export class SNNWorkerCore {
         stimulusDurationMs: payload.stimulusDurationMs,
         intensity: payload.intensity,
         stdpMode: payload.stdpMode,
+        dtMs: payload.dtMs,
       });
       // QA CAUSE B fix (2026-05-10): push payload cfr 영역 measure pass 영역 catch.
       // 직전 reward pass 영역 STDP mutation 직후 영역 별도 clusterFiringRates 호출

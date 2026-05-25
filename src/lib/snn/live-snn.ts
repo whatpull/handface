@@ -419,6 +419,13 @@ export class LiveSnn {
     this.opts.dtMs = dtMs;
   }
 
+  // P218 (2026-05-25) — intensity (input drive 강도) override. Research mode
+  // 영역 strong input drive 영역 cluster receptive field 영역 stable 영역
+  // activate 영역 noise tolerance ↑ 시도.
+  setIntensity(intensity: number): void {
+    this.opts.intensity = intensity;
+  }
+
   setPattern(pattern: number[]): void {
     // P218 (2026-05-21) ROOT CAUSE fix: substrate-aware raw dim.
     // 직전 hardcoded 16-dim cut — 5×5 (25-dim) substrate 영역 indices 16-24
@@ -1163,18 +1170,11 @@ export class LiveSnn {
       }
     }
     let registeredClusterId: number | null = null;
-    // P218 (2026-05-25) — substrate-aware training rounds for 5×5.
-    // 4×4 (orientation): 6 rounds × 5 trials = 30 trials (P215 baseline 유지).
-    // 5×5 (orientation-5x5): 10 rounds × 5 trials = 50 trials — STDP convergence
-    //   영역 더 oversample 영역 noise pattern 영역 exposure → cluster receptive
-    //   field 영역 robust refinement. dt=0.2 speedup 영역 cost 흡수.
-    //   기대: 100-seed @ dt=0.1 영역 4% lucky rate → 50 trials 영역 15-25% 영역
-    //   증가 가능 (각 seed 영역 STDP convergence 영역 reach successful basin
-    //   영역 chance ↑).
-    // 학술 정합: Sjöström et al. 2008 — STDP convergence 영역 trial count 영역
-    //   분포 영역 weight distribution 영역 stable attractor 영역 reach.
-    const isExtended5x5 = this.substrateKind === 'orientation-5x5';
-    const ROUNDS = isExtended5x5 ? 10 : 6;
+    // P218 50 trials 시도 (2026-05-25) REVERTED — STDP saturation / over-noise
+    // exposure 영역 cluster receptive field 영역 손상:
+    //   Mean noise: 41.3 → 33.8%, Best 75 → 63%, Lucky 20% → 0%.
+    // baseline 30 trials 복원 — sweet spot.
+    const ROUNDS = 6;
     const CHUNK = 5;
     const TOTAL = ROUNDS * CHUNK;
     try {

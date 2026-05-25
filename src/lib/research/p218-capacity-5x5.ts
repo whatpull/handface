@@ -155,13 +155,12 @@ export async function runP218Experiment(
     // dt=0.2 영역: refractory 2ms = 10 steps (safe), synapse delay 1ms = 5 steps
     // (safe), STDP window 20ms = 100 steps (precise).
     live.setDtMs(0.2);
-    // P218 (2026-05-25) — intensity 25 → 35 (5×5 only) 시도.
-    // 5×5 영역 sparse input (50-dim, 14% sparsity) compensation 영역 stronger
-    // input drive 영역 cluster receptive field 영역 stable activation 영역
-    // noise tolerance ↑. V1_L4 weight 11 (baseline) 영역 intensity 25 = 효과적
-    // weight 25, intensity 35 = effective weight 35 영역 STDP saturation 영역
-    // 영역 (vMax ~25-30) 영역 가까운 영역.
-    live.setIntensity(35);
+    // P218 intensity 35 시도 (2026-05-25) REVERTED — 모든 지표 catastrophic:
+    //   Mean noise: 41.3 → 10.0% (-31%p)
+    //   Best noise: 75 → 25%
+    //   Mean partial: ~95 → ~48%
+    //   WTA margin: ~60 → ~29% (selectivity 완전 붕괴)
+    // intensity 25 baseline 복원 (live-snn 영역 default).
 
     // 3. N개 패턴 순차 학습 — vigilance auto-learn (30 trial).
     const patternToCluster: number[] = new Array(N).fill(-1);

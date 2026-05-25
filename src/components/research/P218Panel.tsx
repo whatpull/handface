@@ -21,7 +21,7 @@ import {
   type NoiseSweepResult,
   type SeedSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
-import { runP219Hybrid, type HybridResult, ENSEMBLE_PAIRS } from '@/lib/research/p219-hybrid';
+import { runP219Hybrid, runP219MultiEnsemble, type HybridResult, type MultiEnsembleResult, ENSEMBLE_PAIRS } from '@/lib/research/p219-hybrid';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
 interface Progress {
@@ -39,6 +39,7 @@ export default function P218Panel() {
   const [noiseResults, setNoiseResults] = useState<NoiseSweepResult[]>([]);
   const [seedResults, setSeedResults] = useState<SeedSweepResult[]>([]);
   const [hybridResult, setHybridResult] = useState<HybridResult | null>(null);
+  const [multiResult, setMultiResult] = useState<MultiEnsembleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -63,6 +64,7 @@ export default function P218Panel() {
     setNoiseResults([]);
     setSeedResults([]);
     setHybridResult(null);
+    setMultiResult(null);
   };
 
   const run = async () => {
@@ -187,6 +189,25 @@ export default function P218Panel() {
     }
   };
 
+  const runMulti = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP219MultiEnsemble(
+        (msg, pct) => setProgress({ msg, pct }),
+        { vigilance, noiseFlipProb, partialKeepRatio, seeds5x5: [5, 82, 86, 97] },
+      );
+      setMultiResult(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P219 multi-ensemble] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const runSeedSweep = async (count: 10 | 100 = 10) => {
     setRunning(true);
     setError(null);
@@ -210,6 +231,7 @@ export default function P218Panel() {
   };
 
   const activePayload = (): { data: unknown; prefix: string } => {
+    if (multiResult) return { data: multiResult, prefix: 'p219-multi-ensemble' };
     if (hybridResult) return { data: hybridResult, prefix: 'p219-hybrid' };
     if (seedResults.length > 0) return { data: seedResults, prefix: 'p218-seed-sweep' };
     if (noiseResults.length > 0) return { data: noiseResults, prefix: 'p218-noise-sweep' };
@@ -326,6 +348,15 @@ export default function P218Panel() {
           >
             Hybrid (P219)
           </button>
+          <button
+            type="button"
+            onClick={runMulti}
+            disabled={running}
+            className="rounded border border-pink-600 bg-pink-950/40 px-4 py-2 text-sm font-semibold text-pink-300 hover:bg-pink-900/50 disabled:opacity-50"
+            title="P219 Multi-seed: 4×4 (1) + 5×5 × 4 lucky seeds (5,82,86,97) = 5-substrate majority voting ensemble. ~30분."
+          >
+            Multi (P219+)
+          </button>
         </div>
       </div>
 
@@ -408,6 +439,69 @@ export default function P218Panel() {
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={hybridResult.patternCount} label="paired pattern" />
         </div>
       )}
+
+      {multiResult && (
+        <div className="mt-6 space-y-4">
+          <MultiEnsembleTable result={multiResult} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={multiResult.patternCount} label="paired pattern" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MultiEnsembleTable({ result }: { result: MultiEnsembleResult }) {
+  const fmt = (v: number) => `${(v * 100).toFixed(0)}%`;
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-pink-300">
+        P219+ Multi-Seed Ensemble (1 × 4×4 + {result.seeds5x5.length} × 5×5 lucky seeds, N={result.patternCount})
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        <strong className="text-pink-300">Multi-substrate voting:</strong> 4×4 (1) + 5×5 (seeds {result.seeds5x5.join(', ')}) = {result.seeds5x5.length + 1} substrate majority vote.
+        Each test sample 영역 {result.seeds5x5.length + 1} predictions 영역 most-common winner 영역. 가설: ensemble noise 80%+, partial 100%.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Substrate</th>
+              <th className="py-2">재현율</th>
+              <th className="py-2">노이즈</th>
+              <th className="py-2">부분단서</th>
+              <th className="py-2">WTA margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-[#2a2a38]/50">
+              <td className="py-2 text-[#aaa]">4×4 only</td>
+              <td className="py-2 text-center"><MetricCell value={result.metrics4x4.reproduction} /></td>
+              <td className="py-2 text-center"><MetricCell value={result.metrics4x4.noise} /></td>
+              <td className="py-2 text-center"><MetricCell value={result.metrics4x4.partialCue} /></td>
+              <td className="py-2 text-center font-mono text-violet-300">{fmt(result.metrics4x4.avgWtaMargin)}</td>
+            </tr>
+            {result.metrics5x5List.map((m, i) => (
+              <tr key={result.seeds5x5[i]} className="border-b border-[#2a2a38]/50">
+                <td className="py-2 text-[#aaa]">5×5 seed={result.seeds5x5[i]}</td>
+                <td className="py-2 text-center"><MetricCell value={m.reproduction} /></td>
+                <td className="py-2 text-center"><MetricCell value={m.noise} /></td>
+                <td className="py-2 text-center"><MetricCell value={m.partialCue} /></td>
+                <td className="py-2 text-center font-mono text-violet-300">{fmt(m.avgWtaMargin)}</td>
+              </tr>
+            ))}
+            <tr className="border-b border-[#2a2a38]/50 bg-pink-950/20 font-bold">
+              <td className="py-2 text-pink-300">★ Ensemble ({result.seeds5x5.length + 1}-vote)</td>
+              <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.reproduction} /></td>
+              <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.noise} /></td>
+              <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.partialCue} /></td>
+              <td className="py-2 text-center font-mono text-pink-300">{fmt(result.metricsEnsemble.avgWtaMargin)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-[#888]">
+        Paired patterns: {ENSEMBLE_PAIRS.map(p => p.name).join(', ')}
+      </div>
     </div>
   );
 }

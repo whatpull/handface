@@ -333,3 +333,153 @@ export async function runP219Hybrid(
     clusterMap5x5,
   };
 }
+
+// P219 (2026-05-25) — Multi-seed ensemble: 4×4 + 5×5 × multiple seeds.
+// Hybrid 2-substrate (67% noise) 영역 5-substrate (1 4×4 + 4 lucky 5×5 seeds)
+// 영역 push — majority voting 영역 noise tolerance ↑↑.
+//
+// 가설:
+// - 4 lucky 5×5 seeds (5, 82, 86, 97) 영역 모두 noise=75% 영역 reproducible.
+// - 4×4 영역 baseline noise 50-88% (variance).
+// - Majority vote (5 substrates) 영역 correlated error 영역 catch 영역 다수결.
+// - 학술 정합: Dietterich 2000 — n-model ensemble 영역 single-model error rate
+//   영역 (1 - p)^n 영역 noise rejection (uncorrelated errors 가정).
+export interface MultiEnsembleResult {
+  patternCount: number;
+  metrics4x4: SelectivityMetrics;
+  metrics5x5List: SelectivityMetrics[]; // per seed
+  metricsEnsemble: SelectivityMetrics;
+  seeds5x5: number[];
+}
+
+export async function runP219MultiEnsemble(
+  onProgress?: ProgressCallback,
+  options: {
+    vigilance?: number;
+    noiseFlipProb?: number;
+    partialKeepRatio?: number;
+    seeds5x5?: number[];
+  } = {},
+): Promise<MultiEnsembleResult> {
+  const vigilance = options.vigilance ?? 0.15;
+  const noiseFlipProb = options.noiseFlipProb ?? 0.20;
+  const partialKeepRatio = options.partialKeepRatio ?? 0.75;
+  const seeds5x5 = options.seeds5x5 ?? [5, 82, 86, 97];
+
+  const N = ENSEMBLE_N;
+  const totalSubstrates = 1 + seeds5x5.length;
+  const phaseWidth = 100 / totalSubstrates;
+
+  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_4X4[p.p4x4Idx]]);
+  const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
+
+  // === Train 4×4 ===
+  onProgress?.('[4×4] 학습/측정...', 0);
+  const results4x4 = await trainAndMeasure(
+    'orientation', patterns4x4,
+    (m, p) => onProgress?.(m, 0 + (p * phaseWidth) / 100),
+    0, phaseWidth, noiseFlipProb, partialKeepRatio, vigilance, null,
+  );
+  const clusterMap4x4 = results4x4.map((probes) => probes[0].winner ?? -1);
+
+  // === Train 5×5 for each seed ===
+  const allResults5x5: InferResult[][][] = [];
+  const allClusterMaps5x5: number[][] = [];
+  for (let si = 0; si < seeds5x5.length; si += 1) {
+    const seed = seeds5x5[si];
+    const basePct = phaseWidth * (si + 1);
+    onProgress?.(`[5×5 seed=${seed}] 학습/측정...`, basePct);
+    const r = await trainAndMeasure(
+      'orientation-5x5', patterns5x5,
+      (m, p) => onProgress?.(m, basePct + (p * phaseWidth) / 100),
+      basePct, phaseWidth, noiseFlipProb, partialKeepRatio, vigilance, seed,
+    );
+    allResults5x5.push(r);
+    allClusterMaps5x5.push(r.map((probes) => probes[0].winner ?? -1));
+  }
+
+  // === Majority-vote ensemble ===
+  const clusterToPattern4 = new Map<number, number>();
+  for (let i = 0; i < N; i += 1) if (clusterMap4x4[i] >= 0) clusterToPattern4.set(clusterMap4x4[i], i);
+  const clusterToPatterns5: Map<number, number>[] = allClusterMaps5x5.map((cm) => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < N; i += 1) if (cm[i] >= 0) map.set(cm[i], i);
+    return map;
+  });
+
+  let repCorrect = 0, noiseCorrect = 0, partialCorrect = 0;
+  let totalMarginEns = 0, sampleCountEns = 0;
+  const matrixEns: number[][] = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+
+  for (let i = 0; i < N; i += 1) {
+    for (let probeIdx = 0; probeIdx < 3; probeIdx += 1) {
+      const r4 = results4x4[i][probeIdx];
+      const mapped4 = (r4.winner !== null && r4.winner >= 0) ? (clusterToPattern4.get(r4.winner) ?? -1) : -1;
+
+      const mappedFive: number[] = [];
+      const marginsFive: number[] = [];
+      for (let si = 0; si < seeds5x5.length; si += 1) {
+        const r5 = allResults5x5[si][i][probeIdx];
+        const mapped = (r5.winner !== null && r5.winner >= 0) ? (clusterToPatterns5[si].get(r5.winner) ?? -1) : -1;
+        mappedFive.push(mapped);
+        marginsFive.push(r5.margin);
+      }
+
+      // Majority vote: collect all predictions, pick most frequent (tied = pick by margin).
+      const allPreds: number[] = [mapped4, ...mappedFive];
+      const allMargins: number[] = [r4.margin, ...marginsFive];
+      const counts = new Map<number, number>();
+      for (const v of allPreds) {
+        if (v >= 0) counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      let bestPred = -1;
+      let bestCount = 0;
+      for (const [p, c] of counts.entries()) {
+        if (c > bestCount) { bestCount = c; bestPred = p; }
+      }
+      // Tied/no-vote fallback: pick prediction with highest margin
+      if (bestPred < 0 || bestCount === 1) {
+        let mxMargin = -1;
+        for (let k = 0; k < allPreds.length; k += 1) {
+          if (allPreds[k] >= 0 && allMargins[k] > mxMargin) {
+            mxMargin = allMargins[k];
+            bestPred = allPreds[k];
+          }
+        }
+      }
+      const chosenMargin = Math.max(...allMargins);
+
+      if (probeIdx === 0 && bestPred === i) repCorrect += 1;
+      if (probeIdx === 1 && bestPred === i) noiseCorrect += 1;
+      if (probeIdx === 2 && bestPred === i) partialCorrect += 1;
+      if (bestPred >= 0 && bestPred < N) matrixEns[i][bestPred] += 1;
+      totalMarginEns += chosenMargin;
+      sampleCountEns += 1;
+    }
+  }
+
+  const metricsEnsemble: SelectivityMetrics = {
+    patternCount: N,
+    reproduction: N > 0 ? repCorrect / N : 0,
+    noise: N > 0 ? noiseCorrect / N : 0,
+    partialCue: N > 0 ? partialCorrect / N : 0,
+    avgWtaMargin: sampleCountEns > 0 ? totalMarginEns / sampleCountEns : 0,
+    avgSparsity: 0,
+    confusionMatrix: matrixEns,
+    patternToCluster: clusterMap4x4,
+  };
+
+  // Cleanup
+  const live = getLiveSnn();
+  live.setDtMs(0.1);
+  live.setTrainingNoiseSeed(null);
+
+  onProgress?.('Multi-seed ensemble 완료', 100);
+  return {
+    patternCount: N,
+    metrics4x4: buildMetricsFromInference(results4x4, N, clusterMap4x4),
+    metrics5x5List: allResults5x5.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps5x5[si])),
+    metricsEnsemble,
+    seeds5x5,
+  };
+}

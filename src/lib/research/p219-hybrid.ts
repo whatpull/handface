@@ -29,17 +29,29 @@ import type { SelectivityMetrics, ProgressCallback } from './p213-selectivity';
 // P213 4×4 order:    [Top, Left, MainDiag, Bot, Right, AntiDiag]
 // P218 5×5 order:    [Top, Bot, Left, Right, MidRow, MidCol, MainDiag, AntiDiag, ...]
 // Reorder both to common semantic order:
-//   ENSEMBLE_ORDER = [Top, Bot, Left, Right, MainDiag, AntiDiag]
-export const ENSEMBLE_PAIRS = [
-  { name: 'Top row',      p4x4Idx: 0, p5x5Idx: 0 },
-  { name: 'Bottom row',   p4x4Idx: 3, p5x5Idx: 1 },
-  { name: 'Left col',     p4x4Idx: 1, p5x5Idx: 2 },
-  { name: 'Right col',    p4x4Idx: 4, p5x5Idx: 3 },
-  { name: 'Main diag',    p4x4Idx: 2, p5x5Idx: 6 },
-  { name: 'Anti diag',    p4x4Idx: 5, p5x5Idx: 7 },
-] as const;
+//   ENSEMBLE_ORDER = [Top, Bot, Left, Right, MainDiag, AntiDiag, MidRow, MidCol]
+//
+// Task 2 (2026-05-25): N=6 → N=8 extension. Middle row / Middle col 영역 둘
+// 다 양쪽 substrate 영역 존재 (4×4 row 1 / col 1, 5×5 row 2 / col 2).
+// 4×4 P213 영역 6 patterns 영역 영역 — 2 새 패턴 영역 inline 정의.
+const PAIRED_4X4_EXTRA = {
+  middleRow: [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], // 4×4 row 1
+  middleCol: [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0], // 4×4 col 1
+} as const;
 
-export const ENSEMBLE_N = ENSEMBLE_PAIRS.length; // 6
+// p4x4 가 number[] 영역 영역 영역, p4x4Idx (legacy) 영역 영역 — full array 영역.
+export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<number>; p5x5Idx: number }> = [
+  { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0 },
+  { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1 },
+  { name: 'Left col',     p4x4: PATTERNS_4X4[1], p5x5Idx: 2 },
+  { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3 },
+  { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6 },
+  { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7 },
+  { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4 },
+  { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5 },
+];
+
+export const ENSEMBLE_N = ENSEMBLE_PAIRS.length; // 8
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -224,7 +236,7 @@ export async function runP219Hybrid(
   const seed5x5 = options.seed5x5 ?? 8; // lucky seed from prior measurement
 
   const N = ENSEMBLE_N;
-  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_4X4[p.p4x4Idx]]);
+  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...p.p4x4]);
   const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
 
   // === Phase 1: 4×4 substrate ===
@@ -373,7 +385,7 @@ export async function runP219MultiEnsemble(
   const totalSubstrates = 1 + seeds5x5.length;
   const phaseWidth = 100 / totalSubstrates;
 
-  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_4X4[p.p4x4Idx]]);
+  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...p.p4x4]);
   const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
 
   // === Train 4×4 ===

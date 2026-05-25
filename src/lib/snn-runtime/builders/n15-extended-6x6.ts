@@ -221,13 +221,18 @@ export function buildN15Extended6x6Preset(opts: N15PresetOptions = {}): N15Prese
     }
   };
 
-  // INPUT → V1_L4_E (cluster sub-pool 영역 active inputs 영역 dense wire)
+  // INPUT → V1_L4_E (cluster sub-pool 영역 active inputs 영역 dense wire).
+  // P220 (2026-05-25 Task 4 후속): 72-dim feature space 영역 active inputs 영역
+  // sparser (Bottom row 영역 12 active out of 72 dim 영역 spread) 영역 영역 —
+  // base weight 11.0 영역 cascade 영역 V2_L5 → OUT 영역 영역 영역 영역 영역.
+  // base weight 14.0 영역 영역 영역 single-row/col 영역 cluster 영역 reliable
+  // 영역 OUT activation 영역 영역 (Bottom row → -1 학습 실패 fix 시도).
   for (let ci = 0; ci < N_CLUSTER; ci += 1) {
     const localV1 = v1L4e.slice(V1_L4_PER_SUB * ci, V1_L4_PER_SUB * (ci + 1));
     const activeIdx = clusterActive[ci];
     for (const ai of activeIdx) {
       for (const t of localV1) {
-        const w = 11.0 + rng.uniform(-1.0, 1.0);
+        const w = 14.0 + rng.uniform(-1.0, 1.0);
         net.connect(inputs[ai], t, w, 1.0);
       }
     }

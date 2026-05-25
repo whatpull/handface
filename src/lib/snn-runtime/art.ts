@@ -428,9 +428,14 @@ export function expandCluster(
   }
   // P218 V1_L4 weight 14 시도 (2026-05-25) REVERTED — firing rate 증가 영역
   // simulation 속도 저하 catch. baseline 11.0 복원.
+  // P220 (2026-05-25 Task 4 후속): 6×6 substrate (inputDim===72) 영역만 weight
+  // 14.0 영역 영역 영역 — 72-dim feature space 영역 active inputs 영역 sparser
+  // 영역 cascade 영역 영역 catch (Bottom row 영역 -1 학습 실패 fix 시도).
+  // 4×4 (inputDim===32) / 5×5 (inputDim===50) 영역 base 11.0 유지.
+  const v1L4Weight = registry.inputDim === 72 ? 14.0 : 11.0;
   for (const ai of opts.activeInputs) {
     for (const t of v1L4E) {
-      const w = 11.0 + rng.uniform(-1.0, 1.0);
+      const w = v1L4Weight + rng.uniform(-1.0, 1.0);
       net.connect(`in_feat_${ai}`, t, w, 1.0);
     }
   }

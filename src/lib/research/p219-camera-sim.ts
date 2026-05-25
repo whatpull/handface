@@ -19,7 +19,7 @@ import { getLiveSnn, disposeLiveSnn } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
 import { onBackendEvent, type AutoLearnProgressDetail } from '@/lib/backend/events';
-import { ENSEMBLE_PAIRS, type HybridResult } from './p219-hybrid';
+import { ENSEMBLE_PAIRS } from './p219-hybrid';
 import { PATTERNS_5X5 } from './p218-capacity-5x5';
 import type { SelectivityMetrics, ProgressCallback } from './p213-selectivity';
 
@@ -161,7 +161,7 @@ async function trainBothSubstrates(
     onProgress(`[4×4] 학습 ${i + 1}/${N}`, (i / N) * 25);
     const c = awaitAutoLearnComplete(30_000);
     live.triggerWithVigilance(patterns4x4[i], vigilance);
-    try { await c; } catch (e) { console.warn(`[camera] 4×4 ${i} timeout`); }
+    try { await c; } catch { console.warn(`[camera] 4×4 ${i} timeout`); }
     await delay(200);
   }
   const cluster4: number[] = [];
@@ -184,7 +184,7 @@ async function trainBothSubstrates(
     onProgress(`[5×5] 학습 ${i + 1}/${N}`, 30 + (i / N) * 25);
     const c = awaitAutoLearnComplete(30_000);
     live.triggerWithVigilance(patterns5x5[i], vigilance);
-    try { await c; } catch (e) { console.warn(`[camera] 5×5 ${i} timeout`); }
+    try { await c; } catch { console.warn(`[camera] 5×5 ${i} timeout`); }
     await delay(200);
   }
   const cluster5: number[] = [];

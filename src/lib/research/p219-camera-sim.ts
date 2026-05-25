@@ -137,65 +137,6 @@ export interface CameraSimResult {
   metricsEnsemble: SelectivityMetrics;
 }
 
-// Camera sim experiment — trains both substrates + tests under camera artifacts.
-async function trainBothSubstrates(
-  vigilance: number,
-  onProgress: (m: string, p: number) => void,
-): Promise<{
-  cluster4: number[];
-  cluster5: number[];
-}> {
-  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...p.p4x4]);
-  const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
-  const N = ENSEMBLE_PAIRS.length;
-
-  // Train 4×4
-  onProgress('[4×4] 학습...', 0);
-  await purgeAllLearningData();
-  clearExemplars('orientation');
-  disposeLiveSnn();
-  await delay(200);
-  let live = getLiveSnn();
-  await live.setSubstrate('orientation');
-  for (let i = 0; i < N; i += 1) {
-    onProgress(`[4×4] 학습 ${i + 1}/${N}`, (i / N) * 25);
-    const c = awaitAutoLearnComplete(30_000);
-    live.triggerWithVigilance(patterns4x4[i], vigilance);
-    try { await c; } catch { console.warn(`[camera] 4×4 ${i} timeout`); }
-    await delay(200);
-  }
-  const cluster4: number[] = [];
-  for (let i = 0; i < N; i += 1) {
-    const r = await live.inferOnceForValidation(patterns4x4[i].slice());
-    cluster4.push(r.winner ?? -1);
-  }
-
-  // Train 5×5
-  onProgress('[5×5] 학습...', 30);
-  await purgeAllLearningData();
-  clearExemplars('orientation-5x5');
-  disposeLiveSnn();
-  await delay(200);
-  live = getLiveSnn();
-  await live.setSubstrate('orientation-5x5');
-  live.setDtMs(0.2);
-  live.setTrainingNoiseSeed(86); // lucky seed
-  for (let i = 0; i < N; i += 1) {
-    onProgress(`[5×5] 학습 ${i + 1}/${N}`, 30 + (i / N) * 25);
-    const c = awaitAutoLearnComplete(30_000);
-    live.triggerWithVigilance(patterns5x5[i], vigilance);
-    try { await c; } catch { console.warn(`[camera] 5×5 ${i} timeout`); }
-    await delay(200);
-  }
-  const cluster5: number[] = [];
-  for (let i = 0; i < N; i += 1) {
-    const r = await live.inferOnceForValidation(patterns5x5[i].slice());
-    cluster5.push(r.winner ?? -1);
-  }
-
-  return { cluster4, cluster5 };
-}
-
 // Run inference on a single substrate (assumed currently active).
 async function inferSingleSubstrate(testPatterns: number[][]): Promise<InferResult[]> {
   const live = getLiveSnn();
@@ -208,6 +149,9 @@ async function inferSingleSubstrate(testPatterns: number[][]): Promise<InferResu
 }
 
 // P219 Camera Sim: train both substrates, test under camera artifacts, compare.
+// Substrate switching destroys trained cluster state, so all 4×4 inference must
+// finish before training 5×5. Phase A trains+infers 4×4 across all artifacts,
+// then Phase B trains+infers 5×5 across all artifacts, then results are combined.
 export async function runP219CameraSim(
   onProgress?: ProgressCallback,
   options: {
@@ -218,23 +162,16 @@ export async function runP219CameraSim(
   const vigilance = options.vigilance ?? 0.15;
   const samples = options.samplesPerPattern ?? 5;
   const N = ENSEMBLE_PAIRS.length;
-  const results: CameraSimResult[] = [];
-
-  // Phase 1: Train both substrates (sequential — 5×5 is loaded last).
-  const { cluster4, cluster5 } = await trainBothSubstrates(vigilance, (m, p) => onProgress?.(m, p));
-
-  // Phase 2: Test under each artifact type.
   const artifactTypes = ['occlusion', 'lighting', 'partialVisibility', 'motionBlur', 'sensorNoise', 'combined'] as const;
-  const totalArtifacts = artifactTypes.length;
 
-  for (let ai = 0; ai < totalArtifacts; ai += 1) {
+  // Step 0: pre-generate all test samples (so 4×4 and 5×5 see the same artifact
+  // shapes — only the underlying pattern dims differ).
+  const test4x4: number[][][][] = [];  // [artifact][pattern][sample][dim]
+  const test5x5: number[][][][] = [];
+  for (let ai = 0; ai < artifactTypes.length; ai += 1) {
     const artType = artifactTypes[ai];
-    const basePct = 60 + (ai / totalArtifacts) * 40;
-    onProgress?.(`[artifact=${artType}] testing...`, basePct);
-
-    // Generate test samples per pattern.
-    const test4x4: number[][][] = [];  // [N][samples][pattern]
-    const test5x5: number[][][] = [];
+    const artBucket4: number[][][] = [];
+    const artBucket5: number[][][] = [];
     for (let i = 0; i < N; i += 1) {
       const p4 = ENSEMBLE_PAIRS[i].p4x4;
       const p5 = PATTERNS_5X5[ENSEMBLE_PAIRS[i].p5x5Idx];
@@ -268,34 +205,91 @@ export async function runP219CameraSim(
             break;
         }
       }
-      test4x4.push(samples4);
-      test5x5.push(samples5);
+      artBucket4.push(samples4);
+      artBucket5.push(samples5);
     }
+    test4x4.push(artBucket4);
+    test5x5.push(artBucket5);
+  }
 
-    // Switch to 4×4 + infer
-    const live = getLiveSnn();
-    await live.setSubstrate('orientation');
-    const inferences4: InferResult[][] = [];
+  // Phase A: train 4×4 and infer all artifacts before switching substrate.
+  onProgress?.('[4×4] 학습...', 0);
+  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...p.p4x4]);
+  await purgeAllLearningData();
+  clearExemplars('orientation');
+  disposeLiveSnn();
+  await delay(200);
+  let live = getLiveSnn();
+  await live.setSubstrate('orientation');
+  for (let i = 0; i < N; i += 1) {
+    onProgress?.(`[4×4] 학습 ${i + 1}/${N}`, (i / N) * 20);
+    const c = awaitAutoLearnComplete(30_000);
+    live.triggerWithVigilance(patterns4x4[i], vigilance);
+    try { await c; } catch { console.warn(`[camera] 4×4 ${i} timeout`); }
+    await delay(200);
+  }
+  const cluster4: number[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const r = await live.inferOnceForValidation(patterns4x4[i].slice());
+    cluster4.push(r.winner ?? -1);
+  }
+  // Infer 4×4 under every artifact (substrate still loaded with trained clusters).
+  const inferences4ByArtifact: InferResult[][][] = [];
+  for (let ai = 0; ai < artifactTypes.length; ai += 1) {
+    onProgress?.(`[4×4 infer] artifact=${artifactTypes[ai]}`, 25 + (ai / artifactTypes.length) * 20);
+    const perPattern: InferResult[][] = [];
     for (let i = 0; i < N; i += 1) {
-      const probes = await inferSingleSubstrate(test4x4[i]);
-      inferences4.push(probes);
+      const probes = await inferSingleSubstrate(test4x4[ai][i]);
+      perPattern.push(probes);
     }
+    inferences4ByArtifact.push(perPattern);
+  }
 
-    // Switch to 5×5 + infer
-    await live.setSubstrate('orientation-5x5');
-    live.setDtMs(0.2);
-    live.setTrainingNoiseSeed(86);
-    const inferences5: InferResult[][] = [];
+  // Phase B: train 5×5 and infer all artifacts.
+  onProgress?.('[5×5] 학습...', 50);
+  const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
+  await purgeAllLearningData();
+  clearExemplars('orientation-5x5');
+  disposeLiveSnn();
+  await delay(200);
+  live = getLiveSnn();
+  await live.setSubstrate('orientation-5x5');
+  live.setDtMs(0.2);
+  live.setTrainingNoiseSeed(86); // production lucky seed
+  for (let i = 0; i < N; i += 1) {
+    onProgress?.(`[5×5] 학습 ${i + 1}/${N}`, 50 + (i / N) * 20);
+    const c = awaitAutoLearnComplete(30_000);
+    live.triggerWithVigilance(patterns5x5[i], vigilance);
+    try { await c; } catch { console.warn(`[camera] 5×5 ${i} timeout`); }
+    await delay(200);
+  }
+  const cluster5: number[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const r = await live.inferOnceForValidation(patterns5x5[i].slice());
+    cluster5.push(r.winner ?? -1);
+  }
+  const inferences5ByArtifact: InferResult[][][] = [];
+  for (let ai = 0; ai < artifactTypes.length; ai += 1) {
+    onProgress?.(`[5×5 infer] artifact=${artifactTypes[ai]}`, 75 + (ai / artifactTypes.length) * 20);
+    const perPattern: InferResult[][] = [];
     for (let i = 0; i < N; i += 1) {
-      const probes = await inferSingleSubstrate(test5x5[i]);
-      inferences5.push(probes);
+      const probes = await inferSingleSubstrate(test5x5[ai][i]);
+      perPattern.push(probes);
     }
+    inferences5ByArtifact.push(perPattern);
+  }
 
-    // Compute metrics per substrate + ensemble.
-    const clusterToPattern4 = new Map<number, number>();
-    for (let i = 0; i < N; i += 1) if (cluster4[i] >= 0) clusterToPattern4.set(cluster4[i], i);
-    const clusterToPattern5 = new Map<number, number>();
-    for (let i = 0; i < N; i += 1) if (cluster5[i] >= 0) clusterToPattern5.set(cluster5[i], i);
+  // Phase C: combine into per-artifact result rows.
+  const clusterToPattern4 = new Map<number, number>();
+  for (let i = 0; i < N; i += 1) if (cluster4[i] >= 0) clusterToPattern4.set(cluster4[i], i);
+  const clusterToPattern5 = new Map<number, number>();
+  for (let i = 0; i < N; i += 1) if (cluster5[i] >= 0) clusterToPattern5.set(cluster5[i], i);
+
+  const results: CameraSimResult[] = [];
+  for (let ai = 0; ai < artifactTypes.length; ai += 1) {
+    const artType = artifactTypes[ai];
+    const inferences4 = inferences4ByArtifact[ai];
+    const inferences5 = inferences5ByArtifact[ai];
 
     let correct4 = 0, correct5 = 0, correctEns = 0;
     let totalProbes = 0;
@@ -313,11 +307,8 @@ export async function runP219CameraSim(
 
         if (mapped4 === i) correct4 += 1;
         if (mapped5 === i) correct5 += 1;
-        // Ensemble: pick correct if either, else stronger margin.
         let mappedEns: number;
-        if (mapped4 === i && mapped5 === i) mappedEns = i;
-        else if (mapped4 === i) mappedEns = i;
-        else if (mapped5 === i) mappedEns = i;
+        if (mapped4 === i || mapped5 === i) mappedEns = i;
         else mappedEns = r5.margin > r4.margin ? mapped5 : mapped4;
         if (mappedEns === i) correctEns += 1;
 
@@ -367,7 +358,7 @@ export async function runP219CameraSim(
   }
 
   // Cleanup
-  const live = getLiveSnn();
+  live = getLiveSnn();
   live.setDtMs(0.1);
   live.setTrainingNoiseSeed(null);
 

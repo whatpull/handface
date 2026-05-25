@@ -42,6 +42,12 @@ const PAIRED_4X4_EXTRA = {
 
 // p4x4 가 number[] 영역 영역 영역, p4x4Idx (legacy) 영역 영역 — full array 영역.
 // Task 4 (2026-05-25): p6x6Idx 영역 추가 (6×6 PATTERNS_6X6 영역 index).
+//
+// 6×6 substrate 영역 'Middle row' / 'Middle col' 영역 single-row/col 영역 derived
+// feature signatures 영역 Top row / Left col 영역 ~92% 겹침 — 72-dim feature
+// space 영역 ART 영역 영역 cluster collision (75% recall ceiling, 4 seeds 동일).
+// 6×6 영역 Plus sign (8) / X shape (9) 영역 substitute — semantic alignment 영역
+// 영역 영역 (ensemble vote 영역 cluster index 영역 영역 logical pattern index).
 export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<number>; p5x5Idx: number; p6x6Idx: number }> = [
   { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0, p6x6Idx: 0 },
   { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1, p6x6Idx: 1 },
@@ -49,8 +55,8 @@ export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<n
   { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3, p6x6Idx: 3 },
   { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6, p6x6Idx: 6 },
   { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7, p6x6Idx: 7 },
-  { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4, p6x6Idx: 4 },
-  { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5, p6x6Idx: 5 },
+  { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4, p6x6Idx: 8 }, // 6×6: Plus sign (distinct)
+  { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5, p6x6Idx: 9 }, // 6×6: X shape (distinct)
 ];
 
 export const ENSEMBLE_N = ENSEMBLE_PAIRS.length; // 8

@@ -522,6 +522,43 @@ export interface MegaEnsembleResult {
   metricsEnsemble: SelectivityMetrics;
   seeds5x5: number[];
   seeds6x6: number[];
+  // Phase D (2026-05-25): Ensemble Composition Self-Evolution.
+  // 9 substrate 영역 measured (recall × WTA margin) 영역 vote weight — 약한
+  // substrate (6×6 Bottom row 실패 등) 영역 영향력 영역 자동 감소, 강한
+  // substrate (5×5 lucky seed) 영역 영향력 영역 자동 증가. 학술 정합:
+  // AdaBoost (Freund & Schapire 1995), Gradient Boosting.
+  substrateWeights?: { label: string; weight: number; recall: number; margin: number }[];
+}
+
+// Phase D helper — substrate 별 (recall × WTA margin) 영역 vote weight 계산.
+// recall: clean probe (probeIdx=0) 영역 correctly mapped pattern 비율.
+// margin: 3 probes × N patterns avg WTA margin (confidence).
+function computeSubstrateWeight(
+  results: InferResult[][],
+  clusterMap: number[],
+  N: number,
+): { weight: number; recall: number; margin: number } {
+  if (N === 0 || results.length === 0) return { weight: 0, recall: 0, margin: 0 };
+  const clusterToPattern = new Map<number, number>();
+  for (let i = 0; i < N; i += 1) {
+    if (clusterMap[i] >= 0) clusterToPattern.set(clusterMap[i], i);
+  }
+  let cleanCorrect = 0;
+  let totalMargin = 0;
+  let marginSamples = 0;
+  for (let i = 0; i < N; i += 1) {
+    const cleanProbe = results[i][0];
+    const mapped = (cleanProbe.winner !== null && cleanProbe.winner >= 0)
+      ? (clusterToPattern.get(cleanProbe.winner) ?? -1) : -1;
+    if (mapped === i) cleanCorrect += 1;
+    for (let p = 0; p < results[i].length; p += 1) {
+      totalMargin += results[i][p].margin;
+      marginSamples += 1;
+    }
+  }
+  const recall = cleanCorrect / N;
+  const margin = marginSamples > 0 ? totalMargin / marginSamples : 0;
+  return { weight: recall * margin, recall, margin };
 }
 
 export async function runP220MegaEnsemble(
@@ -589,7 +626,11 @@ export async function runP220MegaEnsemble(
     allClusterMaps6x6.push(r.map((probes) => probes[0].winner ?? -1));
   }
 
-  // === Majority-vote ensemble (9 substrates) ===
+  // === Phase D (2026-05-25): Weighted-vote ensemble (9 substrates) ===
+  // 각 substrate 영역 measured (recall × WTA margin) 영역 vote weight 산출 —
+  // 약한 substrate (6×6 Bottom row 실패 등) 영역 영향력 자동 감소, 강한
+  // substrate (5×5 lucky seed) 영역 영향력 자동 증가. AdaBoost / Gradient
+  // Boosting 정신 정합 — uniform majority 영역 weighted majority 영역.
   const clusterToPattern4 = new Map<number, number>();
   for (let i = 0; i < N; i += 1) if (clusterMap4x4[i] >= 0) clusterToPattern4.set(clusterMap4x4[i], i);
   const clusterToPatterns5: Map<number, number>[] = allClusterMaps5x5.map((cm) => {
@@ -602,6 +643,17 @@ export async function runP220MegaEnsemble(
     for (let i = 0; i < N; i += 1) if (cm[i] >= 0) map.set(cm[i], i);
     return map;
   });
+
+  // Phase D — substrate weight 계산.
+  const w4x4 = computeSubstrateWeight(results4x4, clusterMap4x4, N);
+  const w5x5List = allResults5x5.map((r, si) => computeSubstrateWeight(r, allClusterMaps5x5[si], N));
+  const w6x6List = allResults6x6.map((r, si) => computeSubstrateWeight(r, allClusterMaps6x6[si], N));
+  const substrateWeights = [
+    { label: '4×4', ...w4x4 },
+    ...w5x5List.map((w, si) => ({ label: `5×5 s${seeds5x5[si]}`, ...w })),
+    ...w6x6List.map((w, si) => ({ label: `6×6 s${seeds6x6[si]}`, ...w })),
+  ];
+  const voteWeights = substrateWeights.map((s) => s.weight);
 
   let repCorrect = 0, noiseCorrect = 0, partialCorrect = 0;
   let totalMarginEns = 0, sampleCountEns = 0;
@@ -630,24 +682,27 @@ export async function runP220MegaEnsemble(
         marginsSix.push(r6.margin);
       }
 
-      // Majority vote (9 substrates).
+      // Phase D weighted vote (9 substrates) — count 누적 영역 1.0 영역
+      // 영역 substrate 영역 vote weight 영역 사용.
       const allPreds: number[] = [mapped4, ...mappedFive, ...mappedSix];
       const allMargins: number[] = [r4.margin, ...marginsFive, ...marginsSix];
-      const counts = new Map<number, number>();
-      for (const v of allPreds) {
-        if (v >= 0) counts.set(v, (counts.get(v) ?? 0) + 1);
+      const weightedCounts = new Map<number, number>();
+      for (let k = 0; k < allPreds.length; k += 1) {
+        const v = allPreds[k];
+        if (v >= 0) weightedCounts.set(v, (weightedCounts.get(v) ?? 0) + voteWeights[k]);
       }
       let bestPred = -1;
-      let bestCount = 0;
-      for (const [p, c] of counts.entries()) {
-        if (c > bestCount) { bestCount = c; bestPred = p; }
+      let bestScore = 0;
+      for (const [p, s] of weightedCounts.entries()) {
+        if (s > bestScore) { bestScore = s; bestPred = p; }
       }
-      // Tied/no-vote fallback: pick prediction with highest margin
-      if (bestPred < 0 || bestCount === 1) {
-        let mxMargin = -1;
+      // Tied/no-vote fallback: pick prediction with highest (margin × weight).
+      if (bestPred < 0) {
+        let mxScore = -1;
         for (let k = 0; k < allPreds.length; k += 1) {
-          if (allPreds[k] >= 0 && allMargins[k] > mxMargin) {
-            mxMargin = allMargins[k];
+          const localScore = allMargins[k] * voteWeights[k];
+          if (allPreds[k] >= 0 && localScore > mxScore) {
+            mxScore = localScore;
             bestPred = allPreds[k];
           }
         }
@@ -688,5 +743,6 @@ export async function runP220MegaEnsemble(
     metricsEnsemble,
     seeds5x5,
     seeds6x6,
+    substrateWeights,
   };
 }

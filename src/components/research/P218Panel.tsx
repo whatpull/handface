@@ -529,14 +529,24 @@ export default function P218Panel() {
 
 function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
   const fmt = (v: number) => `${(v * 100).toFixed(0)}%`;
+  const weightByLabel = new Map<string, number>();
+  if (result.substrateWeights) {
+    for (const sw of result.substrateWeights) weightByLabel.set(sw.label, sw.weight);
+  }
+  const wMax = result.substrateWeights ? Math.max(...result.substrateWeights.map(s => s.weight), 1e-6) : 1;
+  const wPct = (label: string): string => {
+    const w = weightByLabel.get(label);
+    if (w === undefined) return '—';
+    return `${((w / wMax) * 100).toFixed(0)}%`;
+  };
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold text-orange-300">
         P220 Mega 9-Substrate Ensemble (1×4×4 + {result.seeds5x5.length}×5×5 + {result.seeds6x6.length}×6×6, N={result.patternCount})
       </h3>
       <p className="mb-3 text-xs text-[#8888aa]">
-        <strong className="text-orange-300">Multi-dimensionality voting:</strong> 4×4 (16-dim) + 5×5 (50-dim, lucky seeds {result.seeds5x5.join(', ')}) + 6×6 (72-dim, seeds {result.seeds6x6.join(', ')}) = {1 + result.seeds5x5.length + result.seeds6x6.length} substrate majority vote.
-        가설: ensemble ≥ multi-seed (89% noise) — 더 diverse 영역 robust.
+        <strong className="text-orange-300">Phase D — Weighted voting:</strong> 4×4 (16-dim) + 5×5 (50-dim, lucky seeds {result.seeds5x5.join(', ')}) + 6×6 (72-dim, seeds {result.seeds6x6.join(', ')}) = {1 + result.seeds5x5.length + result.seeds6x6.length} substrate weighted-majority vote.
+        각 substrate vote 영역 measured (recall × WTA margin) 영역 비례 — 약한 substrate 자동 감쇠, 강한 substrate 자동 증폭 (AdaBoost / Gradient Boosting 정합).
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -547,6 +557,7 @@ function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
               <th className="py-2">노이즈</th>
               <th className="py-2">부분단서</th>
               <th className="py-2">WTA margin</th>
+              <th className="py-2">Vote weight</th>
             </tr>
           </thead>
           <tbody>
@@ -556,6 +567,7 @@ function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
               <td className="py-2 text-center"><MetricCell value={result.metrics4x4.noise} /></td>
               <td className="py-2 text-center"><MetricCell value={result.metrics4x4.partialCue} /></td>
               <td className="py-2 text-center font-mono text-violet-300">{fmt(result.metrics4x4.avgWtaMargin)}</td>
+              <td className="py-2 text-center font-mono text-cyan-300">{wPct('4×4')}</td>
             </tr>
             {result.metrics5x5List.map((m, i) => (
               <tr key={`5x5-${result.seeds5x5[i]}`} className="border-b border-[#2a2a38]/50">
@@ -564,6 +576,7 @@ function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
                 <td className="py-2 text-center"><MetricCell value={m.noise} /></td>
                 <td className="py-2 text-center"><MetricCell value={m.partialCue} /></td>
                 <td className="py-2 text-center font-mono text-violet-300">{fmt(m.avgWtaMargin)}</td>
+                <td className="py-2 text-center font-mono text-cyan-300">{wPct(`5×5 s${result.seeds5x5[i]}`)}</td>
               </tr>
             ))}
             {result.metrics6x6List.map((m, i) => (
@@ -573,14 +586,16 @@ function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
                 <td className="py-2 text-center"><MetricCell value={m.noise} /></td>
                 <td className="py-2 text-center"><MetricCell value={m.partialCue} /></td>
                 <td className="py-2 text-center font-mono text-violet-300">{fmt(m.avgWtaMargin)}</td>
+                <td className="py-2 text-center font-mono text-cyan-300">{wPct(`6×6 s${result.seeds6x6[i]}`)}</td>
               </tr>
             ))}
             <tr className="border-b border-[#2a2a38]/50 bg-orange-950/20 font-bold">
-              <td className="py-2 text-orange-300">★ Mega Ensemble ({1 + result.seeds5x5.length + result.seeds6x6.length}-vote)</td>
+              <td className="py-2 text-orange-300">★ Mega Ensemble ({1 + result.seeds5x5.length + result.seeds6x6.length}-vote, weighted)</td>
               <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.reproduction} /></td>
               <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.noise} /></td>
               <td className="py-2 text-center"><MetricCell value={result.metricsEnsemble.partialCue} /></td>
               <td className="py-2 text-center font-mono text-orange-300">{fmt(result.metricsEnsemble.avgWtaMargin)}</td>
+              <td className="py-2 text-center font-mono text-orange-300">—</td>
             </tr>
           </tbody>
         </table>

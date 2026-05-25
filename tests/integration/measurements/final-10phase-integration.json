@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-05-25T13:59:38.545Z",
+  "scenario": "final-10phase-with-meta-cognition",
+  "phasesActive": [
+    "A",
+    "D",
+    "E",
+    "B",
+    "C",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J"
+  ],
+  "progress": {
+    "direction": "improving",
+    "recentAccuracy": 0.6375,
+    "improvementRate": 0.08499999999999999,
+    "hasConverged": false
+  },
+  "calibrationError": 0.22499999999999998,
+  "metacognition": 0.375,
+  "uncertainty": {
+    "entropy": 1,
+    "maxProb": 0.5,
+    "isAmbiguous": true
+  },
+  "action": "seek_input",
+  "reason": "ambiguous entropy 1.00 + ECE 0.22 — 외부 input 영역",
+  "allPhasesIntegrated": true
+}

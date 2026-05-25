@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-05-25T13:59:38.539Z",
+  "phase": "J",
+  "accuracyHistory": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "progress": {
+    "direction": "plateau",
+    "recentAccuracy": 1,
+    "improvementRate": 0,
+    "hasConverged": true
+  },
+  "calibration": {
+    "brierScore": 0,
+    "expectedCalibrationError": 0,
+    "metacognitiveDiscrimination": 0.5
+  },
+  "uncertainty": {
+    "entropy": 1,
+    "maxProb": 0.25,
+    "isAmbiguous": true
+  },
+  "shouldDefer": true,
+  "recommendation": {
+    "shouldCorrect": false,
+    "action": "continue",
+    "reason": "metacognitive state OK — 영역 진행"
+  },
+  "selfAwarenessScore": 1
+}

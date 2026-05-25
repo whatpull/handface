@@ -20,6 +20,18 @@ function dispatchComputeFeature(pattern: number[]): number[] {
   if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
   return pattern; // already expanded (32 or 50)
 }
+
+// P218 (2026-05-25) — substrate-aware feature activation threshold.
+// 4×4 (32-dim, binary-like derived): 0.5 OK.
+// 5×5 (50-dim, continuous derived row/col sums etc.): 0.2 — graded injection
+//   영역 noise 영역 graceful degradation. cluster receives proportional signal
+//   영역 abrupt cliff 영역 회피.
+// ROOT CAUSE: row sum (5/5=1 → 4/5=0.8 → 3/5=0.6 → 2/5=0.4 → cliff at 0.5)
+//   영역 noise 3 bits flip 시 derived feature 전체 손실 → cluster activation
+//   collapse. graded threshold 영역 partial signal 영역 유지.
+function activationThreshold(featLen: number): number {
+  return featLen === 50 ? 0.2 : 0.5; // 5×5 vs 4×4
+}
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import type {
@@ -637,7 +649,7 @@ export class SNNWorkerCore {
     // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
     const patternFeat = payload.pattern ? dispatchComputeFeature(payload.pattern) : null;
     const activeIdx: Set<number> | null = patternFeat
-      ? new Set(patternFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+      ? new Set(patternFeat.map((v, i) => (v > activationThreshold(patternFeat.length) ? i : -1)).filter((i) => i >= 0))
       : null;
     const rawRates = registry.slots.map((slot) => {
       const names =
@@ -856,9 +868,10 @@ export class SNNWorkerCore {
       const tNow = net.t;
       // 1. inject(pattern) — raw → 확장 (n13: 16→32, n14: 25→50). 이미 expanded 영역 그대로.
       const feat = dispatchComputeFeature(pattern);
+      const thrInject = activationThreshold(feat.length);
       const events = feat
         .map((v, i) => {
-          if (v <= 0.5) return null;
+          if (v <= thrInject) return null;
           return {
             neuron: `in_feat_${i}`,
             weight: intensity * v,
@@ -1103,7 +1116,7 @@ export class SNNWorkerCore {
     // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
     const featForMeasure = pattern ? dispatchComputeFeature(pattern) : null;
     const activeIdx: Set<number> | null = featForMeasure
-      ? new Set(featForMeasure.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0))
+      ? new Set(featForMeasure.map((v, i) => (v > activationThreshold(featForMeasure.length) ? i : -1)).filter((i) => i >= 0))
       : null;
     const rawRates = registry.slots.map((slot) => {
       let sum = 0;
@@ -1292,7 +1305,7 @@ export class SNNWorkerCore {
       // P218 (2026-05-20): 16/25-dim raw → 32/50-dim 확장 (dispatchComputeFeature).
       const reinforceFeat = dispatchComputeFeature(payload.pattern);
       const reinforceActiveIdx = new Set(
-        reinforceFeat.map((v, i) => (v > 0.5 ? i : -1)).filter((i) => i >= 0),
+        reinforceFeat.map((v, i) => (v > activationThreshold(reinforceFeat.length) ? i : -1)).filter((i) => i >= 0),
       );
       let reinforceInputMatch = 1.0;
       // 사용자 catch 2026-05-12 (exact-match-stability-fix): exact match 영역
@@ -1391,11 +1404,12 @@ export class SNNWorkerCore {
     currentT: number,
   ): Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> {
     const feat = dispatchComputeFeature(payload.pattern);
+    const thr = activationThreshold(feat.length);
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
     // P218: feat.length 영역 영역 영역 loop bound (n13: 32, n14: 50).
     for (let i = 0; i < feat.length; i += 1) {
       const v = feat[i] ?? 0;
-      if (v <= 0.5) continue;
+      if (v <= thr) continue;
       out.push({
         neuron: `in_feat_${i}`,
         weight: payload.intensity * v,

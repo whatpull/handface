@@ -7,9 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import {
-  NeuralNetwork, SpikeMonitor, SeededRandom,
-} from '@/lib/snn-runtime';
+import { SpikeMonitor } from '@/lib/snn-runtime';
 import {
   buildN16HandPreset, N16Pools,
 } from '@/lib/snn-runtime/builders/n16-hand';

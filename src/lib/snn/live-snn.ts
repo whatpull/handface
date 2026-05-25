@@ -353,6 +353,15 @@ export class LiveSnn {
     // F2-b throttle 영역 substrate swap 영역 reset — 신규 kind 영역 첫 emit
     // 영역 즉시 persist 보장 (orientation/gesture isolation 정합).
     this._lastTrialPersistAtMs = Number.NEGATIVE_INFINITY;
+    // P219 production deployment (2026-05-25) — 5×5 substrate 영역 lucky seed
+    // 자동 lock. 3-run avg 영역 best mean noise (78%) 영역 seed=86 영역 default
+    // 영역 reproducible production behavior 영역. Research module 영역
+    // setTrainingNoiseSeed() 영역 override 가능 (P219 sweep 영역 영역 영역).
+    if (kind === 'orientation-5x5' && this._trainingNoiseSeed === null) {
+      this._trainingNoiseSeed = 86; // best lucky seed from P218 100-seed sweep
+    } else if (kind !== 'orientation-5x5') {
+      this._trainingNoiseSeed = null; // non-5×5 영역 backward compat
+    }
   }
 
   getSubstrate(): SubstrateKind {

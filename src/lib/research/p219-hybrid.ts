@@ -99,6 +99,9 @@ async function trainAndMeasure(
   await live.setSubstrate(substrateKind);
   if (substrateKind === 'orientation-5x5') {
     live.setDtMs(0.2); // research speedup
+    // P219 (2026-05-25): research module 영역 production lucky-seed lock
+    // (setSubstrate 영역 auto seed=86) 영역 override. seed===null 영역
+    // production default (seed=86) 유지.
     if (seed !== null) live.setTrainingNoiseSeed(seed);
   }
 

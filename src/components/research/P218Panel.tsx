@@ -22,6 +22,7 @@ import {
   type SeedSweepResult,
 } from '@/lib/research/p218-capacity-5x5';
 import { runP219Hybrid, runP219MultiEnsemble, type HybridResult, type MultiEnsembleResult, ENSEMBLE_PAIRS } from '@/lib/research/p219-hybrid';
+import { runP219CameraSim, type CameraSimResult } from '@/lib/research/p219-camera-sim';
 import type { SelectivityMetrics } from '@/lib/research/p213-selectivity';
 
 interface Progress {
@@ -40,6 +41,7 @@ export default function P218Panel() {
   const [seedResults, setSeedResults] = useState<SeedSweepResult[]>([]);
   const [hybridResult, setHybridResult] = useState<HybridResult | null>(null);
   const [multiResult, setMultiResult] = useState<MultiEnsembleResult | null>(null);
+  const [cameraResults, setCameraResults] = useState<CameraSimResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   // P218 hyperparameter UI (2026-05-21): vigilance / noise / partial cue 조정.
   const [vigilance, setVigilance] = useState(0.15);
@@ -65,6 +67,7 @@ export default function P218Panel() {
     setSeedResults([]);
     setHybridResult(null);
     setMultiResult(null);
+    setCameraResults([]);
   };
 
   const run = async () => {
@@ -189,6 +192,25 @@ export default function P218Panel() {
     }
   };
 
+  const runCameraSim = async () => {
+    setRunning(true);
+    setError(null);
+    clearOutputs();
+    try {
+      const r = await runP219CameraSim(
+        (msg, pct) => setProgress({ msg, pct }),
+        { vigilance, samplesPerPattern: 5 },
+      );
+      setCameraResults(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[P219 camera-sim] failed:', e);
+      setError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const runMulti = async () => {
     setRunning(true);
     setError(null);
@@ -231,6 +253,7 @@ export default function P218Panel() {
   };
 
   const activePayload = (): { data: unknown; prefix: string } => {
+    if (cameraResults.length > 0) return { data: cameraResults, prefix: 'p219-camera-sim' };
     if (multiResult) return { data: multiResult, prefix: 'p219-multi-ensemble' };
     if (hybridResult) return { data: hybridResult, prefix: 'p219-hybrid' };
     if (seedResults.length > 0) return { data: seedResults, prefix: 'p218-seed-sweep' };
@@ -357,6 +380,15 @@ export default function P218Panel() {
           >
             Multi (P219+)
           </button>
+          <button
+            type="button"
+            onClick={runCameraSim}
+            disabled={running}
+            className="rounded border border-teal-600 bg-teal-950/40 px-4 py-2 text-sm font-semibold text-teal-300 hover:bg-teal-900/50 disabled:opacity-50"
+            title="P219 Camera Sim: occlusion / lighting / partial visibility / motion blur / sensor noise / combined 6 artifacts × N=8 paired patterns. Ensemble vs single substrate robustness 검증. ~15분."
+          >
+            Camera Sim (P219)
+          </button>
         </div>
       </div>
 
@@ -446,6 +478,61 @@ export default function P218Panel() {
           <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={multiResult.patternCount} label="paired pattern" />
         </div>
       )}
+
+      {cameraResults.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <CameraSimTable results={cameraResults} />
+          <ExportButtons copied={copied} copyJson={copyJson} downloadJson={downloadJson} count={cameraResults.length} label="artifact type" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CameraSimTable({ results }: { results: CameraSimResult[] }) {
+  const fmt = (v: number) => `${(v * 100).toFixed(0)}%`;
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-teal-300">
+        P219 Camera Sim — Realistic Artifact Robustness
+      </h3>
+      <p className="mb-3 text-xs text-[#8888aa]">
+        <strong className="text-teal-300">Synthetic camera artifacts:</strong> occlusion / lighting / partial visibility / motion blur / sensor noise / combined.
+        5 samples × N=8 paired patterns × 6 artifacts. Ensemble vs single substrate 영역 robustness 영역 quantify. Hendrycks &amp; Dietterich 2019 영역 corruption benchmark 정합.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#2a2a38] text-xs text-[#8888aa]">
+              <th className="py-2 text-left">Artifact</th>
+              <th className="py-2">4×4 accuracy</th>
+              <th className="py-2">5×5 accuracy</th>
+              <th className="py-2">Ensemble accuracy</th>
+              <th className="py-2">Ensemble margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => {
+              const ensGain = r.metricsEnsemble.reproduction - Math.max(r.metrics4x4.reproduction, r.metrics5x5.reproduction);
+              return (
+                <tr key={r.artifactType} className="border-b border-[#2a2a38]/50">
+                  <td className="py-2 font-mono font-semibold text-teal-300">{r.artifactType}</td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics4x4.reproduction} /></td>
+                  <td className="py-2 text-center"><MetricCell value={r.metrics5x5.reproduction} /></td>
+                  <td className="py-2 text-center">
+                    <MetricCell value={r.metricsEnsemble.reproduction} />
+                    {ensGain > 0 && <span className="ml-1 text-[10px] text-green-400">+{(ensGain * 100).toFixed(0)}%p</span>}
+                  </td>
+                  <td className="py-2 text-center font-mono text-violet-300">{fmt(r.metricsEnsemble.avgWtaMargin)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 text-[10px] text-[#888]">
+        Artifacts: occlusion = 2×2/3×2 region masked | lighting = 30% active bit drop | partialVisibility = 65% keep | motionBlur = neighbor bleed 0.3 | sensorNoise = 10% flip | combined = realistic frame
+      </div>
     </div>
   );
 }

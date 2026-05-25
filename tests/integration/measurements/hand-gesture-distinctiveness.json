@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-05-25T23:48:26.939Z",
+  "scenario": "hand-gesture-distinctiveness",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "activeInputSizes": [
+    54,
+    54,
+    54,
+    52
+  ],
+  "avgPairwiseDistinctiveness": 0.018518518518518545
+}

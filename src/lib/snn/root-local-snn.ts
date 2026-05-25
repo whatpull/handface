@@ -31,11 +31,14 @@ import { clearExemplars } from './out-exemplars';
 // P218 (2026-05-20) — 'orientation-5x5' 영역 추가. 5×5 substrate (n14_extended)
 // 영역 영역 영역 separate cache / netId / persistence — orientation (4×4) 영역
 // 별도 instance 영역 영역 (research panel P218 영역 영역).
-export type SubstrateKind = 'orientation' | 'gesture' | 'orientation-5x5';
+export type SubstrateKind = 'orientation' | 'gesture' | 'orientation-5x5' | 'orientation-6x6';
 
 // substrate kind 영역 영역 영역 build preset dispatch.
-export function buildPresetForKind(kind: SubstrateKind): 'n13_orientation' | 'n14_extended' {
-  return kind === 'orientation-5x5' ? 'n14_extended' : 'n13_orientation';
+// P220 (2026-05-25 Task 4): 'orientation-6x6' → 'n15_extended_6x6' 추가.
+export function buildPresetForKind(kind: SubstrateKind): 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' {
+  if (kind === 'orientation-6x6') return 'n15_extended_6x6';
+  if (kind === 'orientation-5x5') return 'n14_extended';
+  return 'n13_orientation';
 }
 
 // 사용자 catch 2026-05-09 [2] (Fix 4 — MEDIUM): DB hydrate visibility event —

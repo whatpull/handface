@@ -19,6 +19,7 @@
 
 import { N13Pools } from './builders/n13-orientation';
 import { N14Pools, N_INPUT_N14 } from './builders/n14-extended';
+import { N15Pools, N_INPUT_N15 } from './builders/n15-extended-6x6';
 import { type SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
 import { Neuron } from './neuron';
@@ -54,10 +55,10 @@ export interface ClusterRegistry {
 // 영역 영역 registry.v*PerSub / inputDim 영역 사용 영역 자연 정합 영역.
 export function buildClusterRegistryFromN13(
   activeInputsDefault: number[][],
-  preset: 'n13_orientation' | 'n14_extended' = 'n13_orientation',
+  preset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' = 'n13_orientation',
 ): ClusterRegistry {
-  const pools = preset === 'n14_extended' ? N14Pools : N13Pools;
-  const inputDim = preset === 'n14_extended' ? N_INPUT_N14 : 32;
+  const pools = preset === 'n15_extended_6x6' ? N15Pools : preset === 'n14_extended' ? N14Pools : N13Pools;
+  const inputDim = preset === 'n15_extended_6x6' ? N_INPUT_N15 : preset === 'n14_extended' ? N_INPUT_N14 : 32;
   // Fix #20 (2026-05-10): zero-init dynamic — N_CLUSTER 영역 activeInputsDefault.length
   // 영역 derive (직전 N13Pools.N_CLUSTER=4 fixed 영역 폐기). zero-init (length=0) 영역
   // 슬롯 0 영역 시작 — expandCluster 영역 c{N}_ prefix 영역 신규 cluster spawn.
@@ -117,10 +118,10 @@ export function buildClusterRegistryFromN13(
 // P218 (2026-05-21): preset 영역 hint 영역 영역 영역 substrate-aware (default n13).
 export function inferClusterRegistry(
   neuronNames: Iterable<string>,
-  preset: 'n13_orientation' | 'n14_extended' = 'n13_orientation',
+  preset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' = 'n13_orientation',
 ): ClusterRegistry {
-  const pools = preset === 'n14_extended' ? N14Pools : N13Pools;
-  const inputDim = preset === 'n14_extended' ? N_INPUT_N14 : 32;
+  const pools = preset === 'n15_extended_6x6' ? N15Pools : preset === 'n14_extended' ? N14Pools : N13Pools;
+  const inputDim = preset === 'n15_extended_6x6' ? N_INPUT_N15 : preset === 'n14_extended' ? N_INPUT_N14 : 32;
   const v1L4PerSub = pools.V1_L4_PER_SUB;
   const v1L23PerSub = pools.V1_L23_PER_SUB;
   const v2L4PerSub = pools.V2_L4_PER_SUB;

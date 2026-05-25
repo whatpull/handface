@@ -23,6 +23,7 @@ import { clearExemplars } from '@/lib/snn/out-exemplars';
 import { onBackendEvent, type AutoLearnProgressDetail } from '@/lib/backend/events';
 import { TEST_PATTERNS as PATTERNS_4X4 } from './p213-selectivity';
 import { PATTERNS_5X5 } from './p218-capacity-5x5';
+import { PATTERNS_6X6 } from './p220-capacity-6x6';
 import type { SelectivityMetrics, ProgressCallback } from './p213-selectivity';
 
 // 4×4 ↔ 5×5 paired patterns — semantic equivalent (same concept, different grid).
@@ -40,15 +41,16 @@ const PAIRED_4X4_EXTRA = {
 } as const;
 
 // p4x4 가 number[] 영역 영역 영역, p4x4Idx (legacy) 영역 영역 — full array 영역.
-export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<number>; p5x5Idx: number }> = [
-  { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0 },
-  { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1 },
-  { name: 'Left col',     p4x4: PATTERNS_4X4[1], p5x5Idx: 2 },
-  { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3 },
-  { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6 },
-  { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7 },
-  { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4 },
-  { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5 },
+// Task 4 (2026-05-25): p6x6Idx 영역 추가 (6×6 PATTERNS_6X6 영역 index).
+export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<number>; p5x5Idx: number; p6x6Idx: number }> = [
+  { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0, p6x6Idx: 0 },
+  { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1, p6x6Idx: 1 },
+  { name: 'Left col',     p4x4: PATTERNS_4X4[1], p5x5Idx: 2, p6x6Idx: 2 },
+  { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3, p6x6Idx: 3 },
+  { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6, p6x6Idx: 6 },
+  { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7, p6x6Idx: 7 },
+  { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4, p6x6Idx: 4 },
+  { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5, p6x6Idx: 5 },
 ];
 
 export const ENSEMBLE_N = ENSEMBLE_PAIRS.length; // 8
@@ -92,7 +94,7 @@ function computeMargin(rates: ReadonlyArray<number>): number {
 
 // Train + measure on a single substrate. Returns per-pattern×metric inference results.
 async function trainAndMeasure(
-  substrateKind: 'orientation' | 'orientation-5x5',
+  substrateKind: 'orientation' | 'orientation-5x5' | 'orientation-6x6',
   patterns: number[][],
   onProgress: (msg: string, pct: number) => void,
   basePct: number,
@@ -109,8 +111,8 @@ async function trainAndMeasure(
 
   const live = getLiveSnn();
   await live.setSubstrate(substrateKind);
-  if (substrateKind === 'orientation-5x5') {
-    live.setDtMs(0.2); // research speedup
+  if (substrateKind === 'orientation-5x5' || substrateKind === 'orientation-6x6') {
+    live.setDtMs(0.2); // research speedup (5×5 + 6×6 both benefit)
     // P219 (2026-05-25): research module 영역 production lucky-seed lock
     // (setSubstrate 영역 auto seed=86) 영역 override. seed===null 영역
     // production default (seed=86) 유지.
@@ -496,5 +498,189 @@ export async function runP219MultiEnsemble(
     metrics5x5List: allResults5x5.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps5x5[si])),
     metricsEnsemble,
     seeds5x5,
+  };
+}
+
+// P220 / P219 Mega 9-substrate ensemble (2026-05-25, Task 4 Phase D).
+// 1 × 4×4 + 4 × 5×5 (lucky seeds [5, 82, 86, 97]) + 4 × 6×6 (default seeds [1, 2, 3, 4]).
+// 6×6 substrate 영역 lucky seeds 영역 아직 not measured — P220 seed sweep 영역
+// 영역 영역 update. Sequential training: 1 × 4×4 + 4 × 5×5 + 4 × 6×6 = 9 substrate.
+//
+// 학술 정합: ensemble diversity 영역 maximize — 3 different dimensionality
+// (16 / 50 / 72) × multi-seed within each = 9 maximally diverse models.
+export interface MegaEnsembleResult {
+  patternCount: number;
+  metrics4x4: SelectivityMetrics;
+  metrics5x5List: SelectivityMetrics[];
+  metrics6x6List: SelectivityMetrics[];
+  metricsEnsemble: SelectivityMetrics;
+  seeds5x5: number[];
+  seeds6x6: number[];
+}
+
+export async function runP220MegaEnsemble(
+  onProgress?: ProgressCallback,
+  options: {
+    vigilance?: number;
+    noiseFlipProb?: number;
+    partialKeepRatio?: number;
+    seeds5x5?: number[];
+    seeds6x6?: number[];
+  } = {},
+): Promise<MegaEnsembleResult> {
+  const vigilance = options.vigilance ?? 0.15;
+  const noiseFlipProb = options.noiseFlipProb ?? 0.20;
+  const partialKeepRatio = options.partialKeepRatio ?? 0.75;
+  const seeds5x5 = options.seeds5x5 ?? [5, 82, 86, 97];
+  const seeds6x6 = options.seeds6x6 ?? [1, 2, 3, 4]; // P220 lucky seeds 영역 아직 정량 0 — default.
+
+  const N = ENSEMBLE_N;
+  const totalSubstrates = 1 + seeds5x5.length + seeds6x6.length;
+  const phaseWidth = 100 / totalSubstrates;
+
+  const patterns4x4 = ENSEMBLE_PAIRS.map(p => [...p.p4x4]);
+  const patterns5x5 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_5X5[p.p5x5Idx]]);
+  const patterns6x6 = ENSEMBLE_PAIRS.map(p => [...PATTERNS_6X6[p.p6x6Idx]]);
+
+  // === Train 4×4 ===
+  onProgress?.('[4×4] 학습/측정...', 0);
+  const results4x4 = await trainAndMeasure(
+    'orientation', patterns4x4,
+    (m, p) => onProgress?.(m, 0 + (p * phaseWidth) / 100),
+    0, phaseWidth, noiseFlipProb, partialKeepRatio, vigilance, null,
+  );
+  const clusterMap4x4 = results4x4.map((probes) => probes[0].winner ?? -1);
+
+  // === Train 5×5 × 4 seeds ===
+  const allResults5x5: InferResult[][][] = [];
+  const allClusterMaps5x5: number[][] = [];
+  for (let si = 0; si < seeds5x5.length; si += 1) {
+    const seed = seeds5x5[si];
+    const basePct = phaseWidth * (si + 1);
+    onProgress?.(`[5×5 seed=${seed}] 학습/측정...`, basePct);
+    const r = await trainAndMeasure(
+      'orientation-5x5', patterns5x5,
+      (m, p) => onProgress?.(m, basePct + (p * phaseWidth) / 100),
+      basePct, phaseWidth, noiseFlipProb, partialKeepRatio, vigilance, seed,
+    );
+    allResults5x5.push(r);
+    allClusterMaps5x5.push(r.map((probes) => probes[0].winner ?? -1));
+  }
+
+  // === Train 6×6 × 4 seeds ===
+  const allResults6x6: InferResult[][][] = [];
+  const allClusterMaps6x6: number[][] = [];
+  for (let si = 0; si < seeds6x6.length; si += 1) {
+    const seed = seeds6x6[si];
+    const basePct = phaseWidth * (1 + seeds5x5.length + si);
+    onProgress?.(`[6×6 seed=${seed}] 학습/측정...`, basePct);
+    const r = await trainAndMeasure(
+      'orientation-6x6', patterns6x6,
+      (m, p) => onProgress?.(m, basePct + (p * phaseWidth) / 100),
+      basePct, phaseWidth, noiseFlipProb, partialKeepRatio, vigilance, seed,
+    );
+    allResults6x6.push(r);
+    allClusterMaps6x6.push(r.map((probes) => probes[0].winner ?? -1));
+  }
+
+  // === Majority-vote ensemble (9 substrates) ===
+  const clusterToPattern4 = new Map<number, number>();
+  for (let i = 0; i < N; i += 1) if (clusterMap4x4[i] >= 0) clusterToPattern4.set(clusterMap4x4[i], i);
+  const clusterToPatterns5: Map<number, number>[] = allClusterMaps5x5.map((cm) => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < N; i += 1) if (cm[i] >= 0) map.set(cm[i], i);
+    return map;
+  });
+  const clusterToPatterns6: Map<number, number>[] = allClusterMaps6x6.map((cm) => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < N; i += 1) if (cm[i] >= 0) map.set(cm[i], i);
+    return map;
+  });
+
+  let repCorrect = 0, noiseCorrect = 0, partialCorrect = 0;
+  let totalMarginEns = 0, sampleCountEns = 0;
+  const matrixEns: number[][] = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+
+  for (let i = 0; i < N; i += 1) {
+    for (let probeIdx = 0; probeIdx < 3; probeIdx += 1) {
+      const r4 = results4x4[i][probeIdx];
+      const mapped4 = (r4.winner !== null && r4.winner >= 0) ? (clusterToPattern4.get(r4.winner) ?? -1) : -1;
+
+      const mappedFive: number[] = [];
+      const marginsFive: number[] = [];
+      for (let si = 0; si < seeds5x5.length; si += 1) {
+        const r5 = allResults5x5[si][i][probeIdx];
+        const mapped = (r5.winner !== null && r5.winner >= 0) ? (clusterToPatterns5[si].get(r5.winner) ?? -1) : -1;
+        mappedFive.push(mapped);
+        marginsFive.push(r5.margin);
+      }
+
+      const mappedSix: number[] = [];
+      const marginsSix: number[] = [];
+      for (let si = 0; si < seeds6x6.length; si += 1) {
+        const r6 = allResults6x6[si][i][probeIdx];
+        const mapped = (r6.winner !== null && r6.winner >= 0) ? (clusterToPatterns6[si].get(r6.winner) ?? -1) : -1;
+        mappedSix.push(mapped);
+        marginsSix.push(r6.margin);
+      }
+
+      // Majority vote (9 substrates).
+      const allPreds: number[] = [mapped4, ...mappedFive, ...mappedSix];
+      const allMargins: number[] = [r4.margin, ...marginsFive, ...marginsSix];
+      const counts = new Map<number, number>();
+      for (const v of allPreds) {
+        if (v >= 0) counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      let bestPred = -1;
+      let bestCount = 0;
+      for (const [p, c] of counts.entries()) {
+        if (c > bestCount) { bestCount = c; bestPred = p; }
+      }
+      // Tied/no-vote fallback: pick prediction with highest margin
+      if (bestPred < 0 || bestCount === 1) {
+        let mxMargin = -1;
+        for (let k = 0; k < allPreds.length; k += 1) {
+          if (allPreds[k] >= 0 && allMargins[k] > mxMargin) {
+            mxMargin = allMargins[k];
+            bestPred = allPreds[k];
+          }
+        }
+      }
+      const chosenMargin = Math.max(...allMargins);
+
+      if (probeIdx === 0 && bestPred === i) repCorrect += 1;
+      if (probeIdx === 1 && bestPred === i) noiseCorrect += 1;
+      if (probeIdx === 2 && bestPred === i) partialCorrect += 1;
+      if (bestPred >= 0 && bestPred < N) matrixEns[i][bestPred] += 1;
+      totalMarginEns += chosenMargin;
+      sampleCountEns += 1;
+    }
+  }
+
+  const metricsEnsemble: SelectivityMetrics = {
+    patternCount: N,
+    reproduction: N > 0 ? repCorrect / N : 0,
+    noise: N > 0 ? noiseCorrect / N : 0,
+    partialCue: N > 0 ? partialCorrect / N : 0,
+    avgWtaMargin: sampleCountEns > 0 ? totalMarginEns / sampleCountEns : 0,
+    avgSparsity: 0,
+    confusionMatrix: matrixEns,
+    patternToCluster: clusterMap4x4,
+  };
+
+  // Cleanup
+  const live = getLiveSnn();
+  live.setDtMs(0.1);
+  live.setTrainingNoiseSeed(null);
+
+  onProgress?.('Mega 9-substrate ensemble 완료', 100);
+  return {
+    patternCount: N,
+    metrics4x4: buildMetricsFromInference(results4x4, N, clusterMap4x4),
+    metrics5x5List: allResults5x5.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps5x5[si])),
+    metrics6x6List: allResults6x6.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps6x6[si])),
+    metricsEnsemble,
+    seeds5x5,
+    seeds6x6,
   };
 }

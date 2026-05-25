@@ -12,13 +12,15 @@ import {
 } from './art';
 import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './builders/n13-orientation';
 import { buildN14ExtendedPreset, compute50DimFeature, N_INPUT_N14, RAW_DIM_N14 } from './builders/n14-extended';
+import { buildN15Extended6x6Preset, compute72DimFeature, N_INPUT_N15, RAW_DIM_N15 } from './builders/n15-extended-6x6';
 
-// P218 (2026-05-20) — pattern length 영역 영역 영역 compute feature dispatch.
-// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim. 이미 expanded (32 or 50) 영역 패스.
+// P218 (2026-05-20) + P220 (2026-05-25) — pattern length 영역 영역 영역 compute feature dispatch.
+// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim, n15: 36 raw → 72 dim. expanded (32/50/72) 영역 패스.
 function dispatchComputeFeature(pattern: number[]): number[] {
   if (pattern.length === 16) return compute32DimFeature(pattern);
   if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
-  return pattern; // already expanded (32 or 50)
+  if (pattern.length === RAW_DIM_N15) return compute72DimFeature(pattern);
+  return pattern; // already expanded (32, 50, or 72)
 }
 
 // P218 (2026-05-25) — substrate-aware feature activation threshold.
@@ -30,7 +32,8 @@ function dispatchComputeFeature(pattern: number[]): number[] {
 //   영역 noise 3 bits flip 시 derived feature 전체 손실 → cluster activation
 //   collapse. graded threshold 영역 partial signal 영역 유지.
 function activationThreshold(featLen: number): number {
-  return featLen === 50 ? 0.2 : 0.5; // 5×5 vs 4×4
+  // 4×4 (32-dim): 0.5 (binary derived). 5×5 (50-dim) / 6×6 (72-dim): 0.2 (graded continuous derived).
+  return featLen >= 50 ? 0.2 : 0.5;
 }
 import { SpikeMonitor } from './monitor';
 import { NeuralNetwork } from './network';
@@ -203,9 +206,10 @@ function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
   // 영역 영역 추가 영역. n13: 16/32, n14: 25/50.
   if (!Array.isArray(p.pattern) || (
     p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
-    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14
+    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14 &&
+    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15
   )) {
-    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, or ${N_INPUT_N14} array)`);
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, or ${N_INPUT_N15} array)`);
   }
   if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
     throw new Error('invalid repeats (expected 1..10)');
@@ -227,9 +231,10 @@ function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void
   // 영역 영역 추가 영역. n13: 16/32, n14: 25/50.
   if (!Array.isArray(p.pattern) || (
     p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
-    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14
+    p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14 &&
+    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15
   )) {
-    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, or ${N_INPUT_N14} array)`);
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, or ${N_INPUT_N15} array)`);
   }
   // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
   // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장.
@@ -258,7 +263,7 @@ export class SNNWorkerCore {
   private registry: ClusterRegistry | null = null;
   private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
   // P218 (2026-05-20) — preset 영역 track 영역 영역 reset / inject 영역 영역 dispatch 정합.
-  private buildPreset: 'n13_orientation' | 'n14_extended' = 'n13_orientation';
+  private buildPreset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' = 'n13_orientation';
   // P218 diagnostic — reinforce log 영역 영역 영역 영역 영역 영역 영역 영역.
   // spawn 영역 영역 reset (handleExpandCluster).
   private _p218LoggedFirstReinforce: boolean = false;
@@ -360,7 +365,11 @@ export class SNNWorkerCore {
           // 새로 build → net + monitor + registry 영역 swap. 학술 정합:
           // Diehl & Cook 2015 §3.2 batch reset 영역 confluent path — saturation
           // escape mandatory.
-          const result = this.buildPreset === 'n14_extended'
+          const result = this.buildPreset === 'n15_extended_6x6'
+            ? buildN15Extended6x6Preset({
+                clusterActiveInputs: this.buildClusterActiveInputs,
+              })
+            : this.buildPreset === 'n14_extended'
             ? buildN14ExtendedPreset({
                 clusterActiveInputs: this.buildClusterActiveInputs,
               })
@@ -425,11 +434,17 @@ export class SNNWorkerCore {
   }
 
   private handleBuild(payload: BuildPayload): BuildResult {
-    if (payload.preset !== 'n13_orientation' && payload.preset !== 'n14_extended') {
+    if (payload.preset !== 'n13_orientation' && payload.preset !== 'n14_extended' && payload.preset !== 'n15_extended_6x6') {
       throw new Error(`알 수 없는 preset: ${payload.preset}`);
     }
     const activeInputs = payload.clusterActiveInputs ?? DEFAULT_CLUSTER_ACTIVE_INPUTS;
-    const result = payload.preset === 'n14_extended'
+    const result = payload.preset === 'n15_extended_6x6'
+      ? buildN15Extended6x6Preset({
+          vThreshold: payload.vThreshold,
+          clusterActiveInputs: activeInputs,
+          seed: payload.seed,
+        })
+      : payload.preset === 'n14_extended'
       ? buildN14ExtendedPreset({
           vThreshold: payload.vThreshold,
           clusterActiveInputs: activeInputs,

@@ -21,6 +21,10 @@ import { getLiveSnn, disposeLiveSnn } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import { clearExemplars } from '@/lib/snn/out-exemplars';
 import { onBackendEvent, type AutoLearnProgressDetail } from '@/lib/backend/events';
+import {
+  tuneHyperparameters, analyzeClusterMap,
+  type SubstrateHyperparams, type SubstrateMetrics, type TuningResult,
+} from '@/lib/snn-runtime/meta-plasticity';
 import { TEST_PATTERNS as PATTERNS_4X4 } from './p213-selectivity';
 import { PATTERNS_5X5 } from './p218-capacity-5x5';
 import { PATTERNS_6X6 } from './p220-capacity-6x6';
@@ -528,6 +532,12 @@ export interface MegaEnsembleResult {
   // substrate (5×5 lucky seed) 영역 영향력 영역 자동 증가. 학술 정합:
   // AdaBoost (Freund & Schapire 1995), Gradient Boosting.
   substrateWeights?: { label: string; weight: number; recall: number; margin: number }[];
+  // Phase C (2026-05-25): Meta-Plasticity self-tuning suggestions.
+  // 측정 결과 → 권장 next hyperparams. 본 round 영역 적용 없음 (builder
+  // hyperparameter override 영역 별도 PR) — 사용자 영역 권장사항 시각화 →
+  // 다음 build 시 수동 적용 path. 학술 정합: BCM rule (Bienenstock et al. 1982),
+  // Population-Based Training (Jaderberg et al. 2017).
+  metaPlasticitySuggestions?: { label: string; current: SubstrateHyperparams; tuning: TuningResult }[];
 }
 
 // Phase D pure helper — weighted majority vote 알고리즘 (단위 테스트 영역).
@@ -750,15 +760,51 @@ export async function runP220MegaEnsemble(
   live.setDtMs(0.1);
   live.setTrainingNoiseSeed(null);
 
+  // Phase C — meta-plasticity tuning suggestions per substrate.
+  // 현재 production hyperparams (hand-tuned baseline) 영역 정의:
+  //   4×4: vigilance 0.15, V1_L4 11.0, V2_L5→OUT 16.0 (default)
+  //   5×5: vigilance 0.15, V1_L4 11.0, V2_L5→OUT 16.0 (default)
+  //   6×6: vigilance 0.15, V1_L4 14.0, V2_L5→OUT 16.0 (commit 1102b3a)
+  const currentHyperparams4x4: SubstrateHyperparams = { vigilance: 0.15, v1L4Weight: 11.0, v2L5OutWeight: 16.0 };
+  const currentHyperparams5x5: SubstrateHyperparams = { vigilance: 0.15, v1L4Weight: 11.0, v2L5OutWeight: 16.0 };
+  const currentHyperparams6x6: SubstrateHyperparams = { vigilance: 0.15, v1L4Weight: 14.0, v2L5OutWeight: 16.0 };
+
+  const metrics4x4Final = buildMetricsFromInference(results4x4, N, clusterMap4x4);
+  const metrics5x5Final = allResults5x5.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps5x5[si]));
+  const metrics6x6Final = allResults6x6.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps6x6[si]));
+
+  const toSubstrateMetrics = (m: SelectivityMetrics, clusterMap: number[]): SubstrateMetrics => {
+    const { collisionCount, unlearnedCount } = analyzeClusterMap(clusterMap);
+    return {
+      recall: m.reproduction, noise: m.noise, partial: m.partialCue,
+      wtaMargin: m.avgWtaMargin, unlearnedCount, collisionCount,
+    };
+  };
+
+  const metaPlasticitySuggestions = [
+    { label: '4×4', current: currentHyperparams4x4, tuning: tuneHyperparameters(currentHyperparams4x4, toSubstrateMetrics(metrics4x4Final, clusterMap4x4)) },
+    ...metrics5x5Final.map((m, si) => ({
+      label: `5×5 s${seeds5x5[si]}`,
+      current: currentHyperparams5x5,
+      tuning: tuneHyperparameters(currentHyperparams5x5, toSubstrateMetrics(m, allClusterMaps5x5[si])),
+    })),
+    ...metrics6x6Final.map((m, si) => ({
+      label: `6×6 s${seeds6x6[si]}`,
+      current: currentHyperparams6x6,
+      tuning: tuneHyperparameters(currentHyperparams6x6, toSubstrateMetrics(m, allClusterMaps6x6[si])),
+    })),
+  ];
+
   onProgress?.('Mega 9-substrate ensemble 완료', 100);
   return {
     patternCount: N,
-    metrics4x4: buildMetricsFromInference(results4x4, N, clusterMap4x4),
-    metrics5x5List: allResults5x5.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps5x5[si])),
-    metrics6x6List: allResults6x6.map((r, si) => buildMetricsFromInference(r, N, allClusterMaps6x6[si])),
+    metrics4x4: metrics4x4Final,
+    metrics5x5List: metrics5x5Final,
+    metrics6x6List: metrics6x6Final,
     metricsEnsemble,
     seeds5x5,
     seeds6x6,
     substrateWeights,
+    metaPlasticitySuggestions,
   };
 }

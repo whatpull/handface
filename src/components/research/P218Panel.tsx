@@ -603,6 +603,59 @@ function MegaEnsembleTable({ result }: { result: MegaEnsembleResult }) {
       <div className="mt-2 text-[10px] text-[#888]">
         Paired patterns: {ENSEMBLE_PAIRS.map(p => p.name).join(', ')}
       </div>
+      {result.metaPlasticitySuggestions && result.metaPlasticitySuggestions.length > 0 && (
+        <div className="mt-4">
+          <h4 className="mb-2 text-xs font-semibold text-cyan-300">
+            Phase C — Meta-Plasticity Suggestions (BCM rule 정합)
+          </h4>
+          <p className="mb-2 text-[10px] text-[#888]">
+            측정 결과 → 권장 next hyperparams. 본 round 영역 적용 안 됨 — 다음 build 영역 수동 적용 path.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[#2a2a38] text-[10px] text-[#8888aa]">
+                  <th className="py-1 text-left">Substrate</th>
+                  <th className="py-1 text-center">Current vig / V1_L4 / V2_L5→OUT</th>
+                  <th className="py-1 text-center">Suggested next</th>
+                  <th className="py-1 text-left">Reasons</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.metaPlasticitySuggestions.map((s, idx) => {
+                  const c = s.current;
+                  const n = s.tuning.next;
+                  const changed = s.tuning.changed;
+                  return (
+                    <tr key={`mps-${idx}-${s.label}`} className={`border-b border-[#2a2a38]/30 ${changed ? 'bg-cyan-950/15' : ''}`}>
+                      <td className="py-1 text-[#aaa]">{s.label}</td>
+                      <td className="py-1 text-center font-mono text-[#888]">
+                        {c.vigilance.toFixed(2)} / {c.v1L4Weight.toFixed(1)} / {c.v2L5OutWeight.toFixed(1)}
+                      </td>
+                      <td className="py-1 text-center font-mono">
+                        <span className={n.vigilance !== c.vigilance ? 'text-cyan-300' : 'text-[#666]'}>
+                          {n.vigilance.toFixed(2)}
+                        </span>
+                        {' / '}
+                        <span className={n.v1L4Weight !== c.v1L4Weight ? 'text-cyan-300' : 'text-[#666]'}>
+                          {n.v1L4Weight.toFixed(1)}
+                        </span>
+                        {' / '}
+                        <span className={n.v2L5OutWeight !== c.v2L5OutWeight ? 'text-cyan-300' : 'text-[#666]'}>
+                          {n.v2L5OutWeight.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="py-1 text-[10px] text-[#aaaaaa]">
+                        {s.tuning.reasons.length === 0 ? <span className="text-[#666]">stable</span> : s.tuning.reasons.join('; ')}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

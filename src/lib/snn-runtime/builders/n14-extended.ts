@@ -142,7 +142,12 @@ export function compute50DimFeature(raw25: number[]): number[] {
 }
 
 // per-cluster pool size (n13 영역 영역 비례 영역 scale up — 16 → 25 dim 영역 정합).
-const OUT_PER_CLUSTER = 8 as const;
+// P218 (2026-05-25) OUT pool 8 → 16 — population voting 강화. 50-dim sparse
+// feature space 영역 cluster activation 영역 noisy input 영역 fragile catch:
+// 더 많은 OUT 뉴런 → population vote 영역 noisy fire 영역 robust majority 영역
+// stable winner. 학술 정합: Sterratt 2011 — population coding 영역 single-neuron
+// noise 영역 √N 영역 reduction (N=16 영역 √2 영역 1.4× noise rejection).
+const OUT_PER_CLUSTER = 16 as const;
 const V1_L4_PER_SUB = 40;     // n13: 32 → 40 (×1.25)
 const V1_L4I_PER_SUB = 80;    // n13: 64 → 80
 const V1_L23_PER_SUB = 40;    // n13: 32 → 40

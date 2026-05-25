@@ -425,21 +425,13 @@ export function expandCluster(
   for (let i = 0; i < registry.inputDim; i += 1) {
     if (!opts.activeInputs.includes(i)) inactiveIdx.push(i);
   }
-  // P218 (2026-05-25) — substrate-aware V1_L4 weight jitter.
-  // 4×4: 11.0 ± 1.0 (P215 baseline 유지).
-  // 5×5: 11.0 ± 2.5 — narrower receptive field 영역 broader population diversity
-  //   영역 noise tolerance ↑ 시도. 100-seed sweep best=75% (4 lucky seeds) 영역
-  //   88% (4×4 N=8 matching) 영역 push. cluster 내 V1_L4 뉴런 weight 분산 영역
-  //   robust 영역 noisy input 영역 일부 뉴런 영역 fire → population voting 영역
-  //   cluster 식별 영역.
-  // 학술 정합: Olshausen & Field 1996 sparse coding — receptive field
-  //   diversity within cluster 영역 robust representation. Diehl & Cook 2015
-  //   homeostatic membership 영역 wide weight distribution 영역 cluster 영역 갱신.
-  const isExtended5x5 = registry.inputDim === N_INPUT_N14;
-  const inputJitter = isExtended5x5 ? 2.5 : 1.0;
+  // P218 wider jitter ±2.5 시도 (2026-05-25) REVERTED — 역효과 catch:
+  // mean noise 53.8 → 22.5%, partial ~95 → 74%, WTA margin ~60 → 35%.
+  // 모든 지표 후퇴 — wider weight distribution 영역 cluster collective signal
+  // noise ↑ + WTA margin 붕괴. 즉시 revert 영역 baseline ±1.0.
   for (const ai of opts.activeInputs) {
     for (const t of v1L4E) {
-      const w = 11.0 + rng.uniform(-inputJitter, inputJitter);
+      const w = 11.0 + rng.uniform(-1.0, 1.0);
       net.connect(`in_feat_${ai}`, t, w, 1.0);
     }
   }

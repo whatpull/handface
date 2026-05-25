@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-05-25T13:51:09.971Z",
+  "phase": "I",
+  "colonyAgents": [
+    "a1",
+    "a2",
+    "a3"
+  ],
+  "theoryOfMind": {
+    "observedAgent": "a2",
+    "confidence": 0.6666666666666666
+  },
+  "cooperativeTask": {
+    "success": true,
+    "totalOverlap": 4,
+    "contributingAgents": [
+      "a1",
+      "a2"
+    ]
+  },
+  "jointAttention": {
+    "detected": true,
+    "sharedFocus": [
+      10
+    ],
+    "participants": [
+      "a1",
+      "a2",
+      "a3"
+    ]
+  },
+  "reputation": {
+    "a2TrustScore": 0.8,
+    "a1Decision": "cooperate"
+  }
+}

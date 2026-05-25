@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-05-25T13:51:08.395Z",
+  "phase": "F",
+  "voiceRetrievalAccuracy": 1,
+  "textRetrievalAccuracy": 1,
+  "coherenceImageVoice": 0.5,
+  "attendedModality": "voice",
+  "attentionSalience": 0.5555555555555556,
+  "bindingCount": 8
+}

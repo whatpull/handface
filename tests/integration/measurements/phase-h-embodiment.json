@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-05-25T13:51:09.968Z",
+  "phase": "H",
+  "winnerCluster": 0,
+  "executedCommand": "hand_open",
+  "predictionErrorRMS": 0.23094010767585033,
+  "sensorimotorLoopClosed": true
+}

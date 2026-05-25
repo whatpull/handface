@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-05-25T13:51:08.399Z",
+  "phase": "G",
+  "finalBroadcast": {
+    "source": "image",
+    "content": 8,
+    "salience": 0.9,
+    "timestamp": 400
+  },
+  "historyDepth": 2,
+  "workingMemorySize": 3,
+  "consciouslyAccessedCount": 3,
+  "attentionModulatedWinner": "audio",
+  "integratedInformationPhi": 0.6666666666666666
+}

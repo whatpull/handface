@@ -86,7 +86,7 @@ export function predictSensorDelta(
 ): number[][] {
   // 단순 가정: command effector 영역 target position 영역 영역 영역 영역.
   // realistic 영역 Jacobian / inverse kinematics 필요.
-  return currentSensor.positions.map((pos, idx) => {
+  return currentSensor.positions.map((pos) => {
     // 영역 landmark 영역 영역 target 영역 영역 영역 (proportional move).
     return [
       pos[0] + (command.targetPosition[0] - pos[0]) * 0.5,

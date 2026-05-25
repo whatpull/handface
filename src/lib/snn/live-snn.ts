@@ -1163,7 +1163,18 @@ export class LiveSnn {
       }
     }
     let registeredClusterId: number | null = null;
-    const ROUNDS = 6;
+    // P218 (2026-05-25) — substrate-aware training rounds for 5×5.
+    // 4×4 (orientation): 6 rounds × 5 trials = 30 trials (P215 baseline 유지).
+    // 5×5 (orientation-5x5): 10 rounds × 5 trials = 50 trials — STDP convergence
+    //   영역 더 oversample 영역 noise pattern 영역 exposure → cluster receptive
+    //   field 영역 robust refinement. dt=0.2 speedup 영역 cost 흡수.
+    //   기대: 100-seed @ dt=0.1 영역 4% lucky rate → 50 trials 영역 15-25% 영역
+    //   증가 가능 (각 seed 영역 STDP convergence 영역 reach successful basin
+    //   영역 chance ↑).
+    // 학술 정합: Sjöström et al. 2008 — STDP convergence 영역 trial count 영역
+    //   분포 영역 weight distribution 영역 stable attractor 영역 reach.
+    const isExtended5x5 = this.substrateKind === 'orientation-5x5';
+    const ROUNDS = isExtended5x5 ? 10 : 6;
     const CHUNK = 5;
     const TOTAL = ROUNDS * CHUNK;
     try {

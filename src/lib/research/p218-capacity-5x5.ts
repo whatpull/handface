@@ -149,9 +149,12 @@ export async function runP218Experiment(
     // 2. fresh substrate — LiveSnn singleton + setSubstrate('orientation-5x5').
     const live = getLiveSnn();
     await live.setSubstrate('orientation-5x5');
-    // P218 (2026-05-25) — research mode 영역 simulation 5× speed gain.
-    // dtMs 0.1 → 0.5 (LIF τ=15ms 영역 dt/τ=0.033 영역 안전).
-    live.setDtMs(0.5);
+    // P218 (2026-05-25) — research mode 영역 simulation 2× speed gain.
+    // dtMs 0.1 → 0.2 절충 — dt=0.5 (5× gain) 영역 noise tolerance 53.8 → 31.3%
+    // 붕괴 catch (STDP timing precision 영역 LIF integration 영역 손실).
+    // dt=0.2 영역: refractory 2ms = 10 steps (safe), synapse delay 1ms = 5 steps
+    // (safe), STDP window 20ms = 100 steps (precise).
+    live.setDtMs(0.2);
 
     // 3. N개 패턴 순차 학습 — vigilance auto-learn (30 trial).
     const patternToCluster: number[] = new Array(N).fill(-1);

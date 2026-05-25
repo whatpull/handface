@@ -43,21 +43,18 @@ const PAIRED_4X4_EXTRA = {
 // p4x4 가 number[] 영역 영역 영역, p4x4Idx (legacy) 영역 영역 — full array 영역.
 // Task 4 (2026-05-25): p6x6Idx 영역 추가 (6×6 PATTERNS_6X6 영역 index).
 //
-// 6×6 substrate 영역 단일 row/col 패턴들끼리 72-dim derived feature 가 겹쳐서
-// ART cluster collision 발생 (P220 측정: patternToCluster = [2,-1,2,3,4,5,6,0]
-// — Top row + Left col 가 cluster 2 로 묶이고 Bottom row 학습 실패).
-// 6×6 substrate 가 8개 distinct cluster 를 안정적으로 형성하도록 4개 row/col
-// 중 충돌하는 Left col / Right col 도 Frame (10) / T-shape (11) 로 교체.
-// Middle row / Middle col 영역 Plus / X 도 동일 이유 (75% ceiling 해결).
-// Ensemble vote 영역 cluster index → logical pattern slot 매핑이므로 substrate
-// 마다 물리 패턴이 달라도 OK — substrate diversity 가 오히려 증가.
+// 6×6 substrate 영역 'Middle row' / 'Middle col' 영역 single-row/col 영역 derived
+// feature signatures 영역 Top row / Left col 영역 ~92% 겹침 — 72-dim feature
+// space 영역 ART 영역 영역 cluster collision (75% recall ceiling, 4 seeds 동일).
+// 6×6 영역 Plus sign (8) / X shape (9) 영역 substitute — semantic alignment 영역
+// 영역 영역 (ensemble vote 영역 cluster index 영역 영역 logical pattern index).
 export const ENSEMBLE_PAIRS: ReadonlyArray<{ name: string; p4x4: ReadonlyArray<number>; p5x5Idx: number; p6x6Idx: number }> = [
-  { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0, p6x6Idx: 0 },  // 6×6: Top row
-  { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1, p6x6Idx: 1 },  // 6×6: Bottom row
-  { name: 'Left col',     p4x4: PATTERNS_4X4[1], p5x5Idx: 2, p6x6Idx: 10 }, // 6×6: Frame (distinct)
-  { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3, p6x6Idx: 11 }, // 6×6: T-shape (distinct)
-  { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6, p6x6Idx: 6 },  // 6×6: Main diag
-  { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7, p6x6Idx: 7 },  // 6×6: Anti diag
+  { name: 'Top row',      p4x4: PATTERNS_4X4[0], p5x5Idx: 0, p6x6Idx: 0 },
+  { name: 'Bottom row',   p4x4: PATTERNS_4X4[3], p5x5Idx: 1, p6x6Idx: 1 },
+  { name: 'Left col',     p4x4: PATTERNS_4X4[1], p5x5Idx: 2, p6x6Idx: 2 },
+  { name: 'Right col',    p4x4: PATTERNS_4X4[4], p5x5Idx: 3, p6x6Idx: 3 },
+  { name: 'Main diag',    p4x4: PATTERNS_4X4[2], p5x5Idx: 6, p6x6Idx: 6 },
+  { name: 'Anti diag',    p4x4: PATTERNS_4X4[5], p5x5Idx: 7, p6x6Idx: 7 },
   { name: 'Middle row',   p4x4: PAIRED_4X4_EXTRA.middleRow, p5x5Idx: 4, p6x6Idx: 8 }, // 6×6: Plus sign (distinct)
   { name: 'Middle col',   p4x4: PAIRED_4X4_EXTRA.middleCol, p5x5Idx: 5, p6x6Idx: 9 }, // 6×6: X shape (distinct)
 ];

@@ -1,6 +1,6 @@
 # HandFace
 
-[![MIT License](https://img.shields.io/badge/License-MIT-violet)](LICENSE)
+[![Apache 2.0 License](https://img.shields.io/badge/License-Apache_2.0-blue)](LICENSE)
 [![npm](https://img.shields.io/npm/v/@whatpull/patternkey-sdk)](https://www.npmjs.com/package/@whatpull/patternkey-sdk)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -8,6 +8,49 @@
 > **패턴이 서버에 전송되지 않습니다** — 모든 학습과 추론이 브라우저 내부에서 실행됩니다.
 
 라이브: <https://handface.whatpull.com>
+
+---
+
+## ⚠️ 정직성 고지 (Honest Disclaimer)
+
+본 저장소는 **Bio-SNN 연구용 building blocks** 입니다. **production AI 시스템이 아닙니다.**
+
+### 사실관계 (2026-05-26 기준)
+
+| 항목 | 실제 상태 |
+|------|-----------|
+| 4×4 패턴 인식 (N=3) | ✅ 100% 작동 (검증된 production) |
+| 5×5 패턴 인식 (N=8) | ✅ 100% recall, ~88% noise (Mega ensemble) |
+| 6×6 patterns Bottom row | ⚠️ 학습 실패 (4 시드 모두) — ensemble 로 흡수 |
+| Hand SNN (MediaPipe Hand) | ⚠️ **early prototype** — 1-shot 25% accuracy, 학습 안정화 미해결 |
+| 26개 "Phase" cognitive modules | ⚠️ **pure functions + 단위 테스트만** — 실제 SNN 통합 안 됨 (21/26) |
+
+### Cognitive module 명명 주의
+
+`Consciousness`, `Free Will`, `Spirituality`, `Morality`, `Meta-Cognition` 등 phase 이름은 **인지과학 학술 용어** 입니다. 실제 implementation 은 해당 이론의 **simplified algorithmic approximations** 이며, 실제 의식·자유의지·도덕적 판단을 가진 AI 가 아닙니다.
+
+- Phase G "Consciousness" = Global Workspace Theory (Baars 1988) 의 algorithmic proxy
+- Phase X "Free Will" = Libet (1985) readiness potential simulation
+- Phase J "Meta-Cognition" = Brier score + Fleming & Lau (2014) discrimination metric
+- 기타 모든 phase 동일 — 학술 reference 기반 algorithm building block
+
+### 무엇이 아닌가
+
+- ❌ LLM 또는 LLM 대체재 (Claude, GPT 같은 자연어 처리 능력 없음)
+- ❌ "완벽한 인공지능" (이전 commit message 의 표현은 over-claim — 본 문서로 정정)
+- ❌ 의료/법률/금융 등 critical decision 도구 (정확도 미검증, 책임 보장 없음)
+- ❌ Production-ready hand gesture recognition (현재 1-shot 25% accuracy)
+
+### 무엇인가
+
+- ✅ Bio-SNN 학술 연구를 위한 algorithm building blocks 모음
+- ✅ STDP / ART / WTA / EWC 등 검증된 alg 의 TypeScript implementations + unit tests
+- ✅ 4×4 grid 패턴 인식 데모 (production 검증, 100% accuracy at N=3)
+- ✅ MediaPipe Hand → SNN 통합 prototype (실험 단계)
+
+자세한 학술 references + 정직한 한계: [docs/HONEST_LIMITATIONS.md](docs/HONEST_LIMITATIONS.md) 참조.
+
+---
 
 ---
 

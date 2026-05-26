@@ -21,7 +21,7 @@ import {
   admitToWorkspace, competitiveSelect, pushToWorkingMemory,
   applyTopDownAttention, integratedInformationProxy, isConsciouslyAccessed,
   type GlobalWorkspaceState, type WorkspaceEntry,
-} from '@/lib/snn-runtime/consciousness';
+} from '@/lib/snn-runtime/global-workspace';
 import {
   clusterToMotorCommand, predictSensorDelta, computeSensorError, errorMagnitude,
   type MotorCommand, type SensorState,

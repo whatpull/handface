@@ -13,14 +13,25 @@ import {
 import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './builders/n13-orientation';
 import { buildN14ExtendedPreset, compute50DimFeature, N_INPUT_N14, RAW_DIM_N14 } from './builders/n14-extended';
 import { buildN15Extended6x6Preset, compute72DimFeature, N_INPUT_N15, RAW_DIM_N15 } from './builders/n15-extended-6x6';
+import { buildN16HandPreset, RAW_DIM_N16 } from './builders/n16-hand';
+import { encodeHandToFeatureVector, type HandLandmark } from './hand-spike-encoder';
 
-// P218 (2026-05-20) + P220 (2026-05-25) — pattern length 영역 영역 영역 compute feature dispatch.
-// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim, n15: 36 raw → 72 dim. expanded (32/50/72) 영역 패스.
+// P218 (2026-05-20) + P220 (2026-05-25) + Hand SNN (2026-05-26) — pattern length 영역 영역 영역 compute feature dispatch.
+// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim, n15: 36 raw → 72 dim, n16: 63 raw landmarks → 75 dim hand feature.
 function dispatchComputeFeature(pattern: number[]): number[] {
   if (pattern.length === 16) return compute32DimFeature(pattern);
   if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
   if (pattern.length === RAW_DIM_N15) return compute72DimFeature(pattern);
-  return pattern; // already expanded (32, 50, or 72)
+  if (pattern.length === RAW_DIM_N16) {
+    // n16-hand: 63 raw (21 landmarks × 3 coords) → 75 dim feature (63 + 12 derived).
+    // Convert flat array to HandLandmark[].
+    const landmarks: HandLandmark[] = [];
+    for (let i = 0; i < 21; i += 1) {
+      landmarks.push({ x: pattern[i * 3], y: pattern[i * 3 + 1], z: pattern[i * 3 + 2] });
+    }
+    return encodeHandToFeatureVector(landmarks);
+  }
+  return pattern; // already expanded (32, 50, 72, or 75)
 }
 
 // P218 (2026-05-25) — substrate-aware feature activation threshold.
@@ -263,7 +274,7 @@ export class SNNWorkerCore {
   private registry: ClusterRegistry | null = null;
   private buildClusterActiveInputs: number[][] = DEFAULT_CLUSTER_ACTIVE_INPUTS;
   // P218 (2026-05-20) — preset 영역 track 영역 영역 reset / inject 영역 영역 dispatch 정합.
-  private buildPreset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' = 'n13_orientation';
+  private buildPreset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' | 'n16_hand' = 'n13_orientation';
   // P218 diagnostic — reinforce log 영역 영역 영역 영역 영역 영역 영역 영역.
   // spawn 영역 영역 reset (handleExpandCluster).
   private _p218LoggedFirstReinforce: boolean = false;
@@ -434,11 +445,17 @@ export class SNNWorkerCore {
   }
 
   private handleBuild(payload: BuildPayload): BuildResult {
-    if (payload.preset !== 'n13_orientation' && payload.preset !== 'n14_extended' && payload.preset !== 'n15_extended_6x6') {
+    if (payload.preset !== 'n13_orientation' && payload.preset !== 'n14_extended' && payload.preset !== 'n15_extended_6x6' && payload.preset !== 'n16_hand') {
       throw new Error(`알 수 없는 preset: ${payload.preset}`);
     }
     const activeInputs = payload.clusterActiveInputs ?? DEFAULT_CLUSTER_ACTIVE_INPUTS;
-    const result = payload.preset === 'n15_extended_6x6'
+    const result = payload.preset === 'n16_hand'
+      ? buildN16HandPreset({
+          vThreshold: payload.vThreshold,
+          clusterActiveInputs: activeInputs,
+          seed: payload.seed,
+        })
+      : payload.preset === 'n15_extended_6x6'
       ? buildN15Extended6x6Preset({
           vThreshold: payload.vThreshold,
           clusterActiveInputs: activeInputs,

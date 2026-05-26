@@ -6,7 +6,7 @@ import {
   deathAnxietyTotal, isAuthenticBeingTowardDeath, legacyScore, classifyDeathStance,
   type ImmortalityStrategies, type DeathAnxietyDimensions, type AuthenticityScore,
   type LegacyProject,
-} from '@/lib/snn-runtime/mortality';
+} from '@/lib/snn-runtime/terror-management';
 
 describe('Phase Z — Mortality Salience (Greenberg 1986)', () => {
   it('low salience → no defense', () => {

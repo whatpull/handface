@@ -5,7 +5,7 @@ import {
   accumulateReadinessDeterministic,
   isCompatibilistFreeAction, senseOfAuthorship, canVeto, stochasticAccumulator,
   type ReadinessAccumulator, type DecisionContext, type AuthorshipCues,
-} from '@/lib/snn-runtime/free-will';
+} from '@/lib/snn-runtime/readiness-accumulator';
 
 describe('Phase X — Readiness Accumulator (Libet 1985)', () => {
   it('threshold 영역 영역 → 영역 trigger', () => {

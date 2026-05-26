@@ -8,7 +8,7 @@ import {
   applyTopDownAttention, integratedInformationProxy, isConsciouslyAccessed,
   WORKING_MEMORY_CAPACITY, CONSCIOUS_ACCESS_THRESHOLD,
   type WorkspaceEntry, type GlobalWorkspaceState,
-} from '@/lib/snn-runtime/consciousness';
+} from '@/lib/snn-runtime/global-workspace';
 
 const makeEntry = (source: string, content: number, salience: number, timestamp = 0): WorkspaceEntry => ({
   source, content, salience, timestamp,

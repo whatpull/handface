@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-05-26T04:25:40.051Z",
+  "scenario": "hand-snn-cluster-rstdp",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "neuronsTotal": 1531,
+  "synapsesTotal": 81060,
+  "reinforcePerGesture": 10,
+  "preset": "n16_hand",
+  "multiFileIntegration": {
+    "workerCore": "n16_hand preset dispatch 추가됨",
+    "artModule": "N16Pools + N_INPUT_N16 dispatch 추가됨",
+    "localSnn": "preset type 영역 n16_hand 추가됨",
+    "rootLocalSnn": "orientation-hand SubstrateKind 추가됨"
+  },
+  "finalTests": [
+    {
+      "gestureIdx": 0,
+      "predictedWinner": 3,
+      "correct": false,
+      "firingRates": [
+        18.14,
+        20.41,
+        20.41,
+        23.11
+      ]
+    },
+    {
+      "gestureIdx": 1,
+      "predictedWinner": 3,
+      "correct": false,
+      "firingRates": [
+        20.41,
+        20.41,
+        18.14,
+        20.8
+      ]
+    },
+    {
+      "gestureIdx": 2,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        20.41,
+        20.41,
+        20.41,
+        18.49
+      ]
+    },
+    {
+      "gestureIdx": 3,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        20.8,
+        20.8,
+        20.8,
+        20.8
+      ]
+    }
+  ],
+  "finalCorrect": 0,
+  "finalAccuracy": 0,
+  "OUT_PER_CLUSTER": 8
+}

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-25T13:51:10.980Z",
+  "timestamp": "2026-05-26T01:23:17.502Z",
   "scenario": "final-9phase-integration",
   "phasesActive": [
     "A",
@@ -17,7 +17,7 @@
     "source": "visual",
     "content": 0,
     "salience": 0.8,
-    "timestamp": 1779717070980
+    "timestamp": 1779758597502
   },
   "executedMotor": "reach",
   "colonySize": 2,

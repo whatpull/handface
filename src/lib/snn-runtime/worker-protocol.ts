@@ -48,7 +48,7 @@ export interface BuildPayload {
   // 영역 4×4 (16 raw + 16 derived = 32 dim) 영역 N=8 ceiling 영역 break 영역
   // 영역 5×5 (25 raw + 25 derived = 50 dim) substrate 영역 시도.
   // P220 (2026-05-25 Task 4): 'n15_extended_6x6' (36 raw + 36 derived = 72 dim) 추가.
-  preset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6';
+  preset: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' | 'n16_hand';
   vThreshold?: number;
   clusterActiveInputs?: number[][];
   seed?: number;

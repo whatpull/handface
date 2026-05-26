@@ -5,7 +5,7 @@ import {
   isSelf, mirrorTest, selfAwarenessLevel, attributeAgency,
   createSelfModel, updateBodyPart, addBelief, selfModelCoherence,
   type AgentIdentifier, type SelfAwarenessLevel,
-} from '@/lib/snn-runtime/self-recognition';
+} from '@/lib/snn-runtime/self-model';
 
 const me: AgentIdentifier = {
   id: 'agent1',

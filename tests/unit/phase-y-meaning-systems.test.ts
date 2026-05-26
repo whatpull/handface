@@ -6,7 +6,7 @@ import {
   aweIntensity, smallSelfEffect, isPeakExperience,
   existentialAnxiety, transcendentScore,
   type PeakExperience, type ExistentialState,
-} from '@/lib/snn-runtime/spirituality';
+} from '@/lib/snn-runtime/meaning-systems';
 
 describe('Phase Y — Meaning-Making (Park 2010)', () => {
   it('add global meaning + assign situational', () => {

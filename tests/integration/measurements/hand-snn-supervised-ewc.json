@@ -1,0 +1,173 @@
+{
+  "timestamp": "2026-05-26T01:24:46.501Z",
+  "scenario": "hand-snn-supervised-ewc",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "neuronsTotal": 1531,
+  "synapsesTotal": 81060,
+  "trainingRounds": 2,
+  "config": {
+    "injectionWeight": 30,
+    "targetReinforceWeight": 40,
+    "ewcLambda": 50,
+    "ewcEnabled": true
+  },
+  "allRounds": [
+    {
+      "round": 1,
+      "gestureIdx": 0,
+      "predictedWinner": 3,
+      "correct": false,
+      "firingRates": [
+        48.44,
+        37.5,
+        37.5,
+        50
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 1,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        37.5,
+        37.5,
+        37.5,
+        37.5
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 2,
+      "predictedWinner": 2,
+      "correct": true,
+      "firingRates": [
+        39.06,
+        37.5,
+        50,
+        37.5
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 3,
+      "predictedWinner": 1,
+      "correct": false,
+      "firingRates": [
+        29.69,
+        50,
+        37.5,
+        37.5
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 2,
+      "gestureIdx": 0,
+      "predictedWinner": 1,
+      "correct": false,
+      "firingRates": [
+        25,
+        50,
+        37.5,
+        37.5
+      ],
+      "ewcApplied": true
+    },
+    {
+      "round": 2,
+      "gestureIdx": 1,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        50,
+        12.5,
+        12.5,
+        12.5
+      ],
+      "ewcApplied": true
+    },
+    {
+      "round": 2,
+      "gestureIdx": 2,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        37.5,
+        12.5,
+        12.5,
+        12.5
+      ],
+      "ewcApplied": true
+    },
+    {
+      "round": 2,
+      "gestureIdx": 3,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        25,
+        12.5,
+        25,
+        12.5
+      ],
+      "ewcApplied": true
+    }
+  ],
+  "finalTests": [
+    {
+      "gestureIdx": 0,
+      "predictedWinner": 0,
+      "correct": true,
+      "firingRates": [
+        25,
+        12.5,
+        25,
+        12.5
+      ]
+    },
+    {
+      "gestureIdx": 1,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        25,
+        12.5,
+        25,
+        12.5
+      ]
+    },
+    {
+      "gestureIdx": 2,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        25,
+        12.5,
+        25,
+        12.5
+      ]
+    },
+    {
+      "gestureIdx": 3,
+      "predictedWinner": 1,
+      "correct": false,
+      "firingRates": [
+        25,
+        37.5,
+        37.5,
+        37.5
+      ]
+    }
+  ],
+  "finalCorrect": 1,
+  "finalAccuracy": 0.25
+}

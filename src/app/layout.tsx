@@ -54,7 +54,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko" className={roboto.variable}>
-      <body className="antialiased bg-[#0a0a0c] text-white">{children}</body>
+      <body className="antialiased bg-[#0a0a0c] text-white">
+        {children}
+        {/* Honest Disclaimer Footer — Apache 2.0 + 학술 정직성 + 개인정보보호법 정합 안내. */}
+        <footer className="fixed bottom-2 right-2 z-50 text-[10px] text-[#666] bg-[#0a0a0c]/80 px-2 py-1 rounded backdrop-blur-sm pointer-events-auto">
+          <span className="text-[#888]">⚠️ 연구/데모용</span>
+          {' · '}
+          <a href="https://github.com/whatpull/handface/blob/main/docs/HONEST_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" className="text-[#aaa] hover:text-cyan-300 underline">한계 고지</a>
+          {' · '}
+          <a href="https://github.com/whatpull/handface/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer" className="text-[#aaa] hover:text-cyan-300 underline">개인정보</a>
+        </footer>
+      </body>
     </html>
   );
 }

@@ -32,6 +32,7 @@ import {
   type LocalSnnInitState,
 } from '@/lib/snn/root-local-snn';
 import { N13Pools } from '@/lib/snn-runtime';
+import { SeededGaussian, addFeatureNoise } from '@/lib/snn-runtime/hand-noise';
 import {
   loadExemplars,
   subscribeExemplars,
@@ -43,6 +44,8 @@ import { usePipelineEvents } from './PipelineEventContext';
 import {
   CLUSTER_TARGET,
   CONFUSION_MATRIX_MAX_N,
+  HELD_OUT_FEATURE_NOISE_SIGMA,
+  HELD_OUT_SAMPLES_PER_CLUSTER,
   getClusterLabel,
   resolveClusterLabel,
 } from './shared';
@@ -517,23 +520,32 @@ export default function NodeLearn() {
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, 'grid'));
   }, [exemplars, winner.cluster]);
 
-  // UX HIGH (2026-05-25): TRAINED phase self-verification batch — auto-learn 완료
-  // 시점 영역 각 cluster 영역 cached lastFeature 영역 inferOnceForValidation 영역
-  // winner 산출 → N×N confusion matrix → ConfusionMatrixReadyDetail emit.
-  // Bishop 1995 ML evaluation 표준 metric 정합.
+  // UX HIGH (2026-05-25 + held-out wire 2026-05-28): TRAINED phase self-verification
+  // batch — auto-learn 완료 시점 영역 각 cluster 영역 cached lastFeature 영역
+  // noise-perturbed N=5 sample 영역 inferOnceForValidation 영역 winner 산출 →
+  // N×N confusion matrix → ConfusionMatrixReadyDetail emit.
+  //
+  // Bishop 1995 ML evaluation + Goodfellow 2014 feature-level noise injection 정합.
+  //
+  // 직전 (2026-05-25): cluster 영역 1 sample (cached lastFeature 영역 직접 재사용)
+  // → overfit / false confidence catch 부재.
+  // 정정 (2026-05-28): cluster 영역 N=5 noise-perturbed sample (σ=0.05 feature
+  // Gaussian noise + top-K mask preserve) → noisy held-out generalization estimate.
   //
   // trigger: isAutoLearning false-transition (auto-learn loop 1회 완료) + clusterLabels
   // 영역 >= 2 영역 (단일 cluster 영역 1×1 matrix 영역 의미 0 — 최소 2 cluster 영역 mandatory).
   //
+  // seed 영역 cluster id × Date.now() 영역 hash — page reload 영역 새 seed 영역
+  // unique noisy batch (noisy held-out 영역 영역 정합 — 단 cluster 영역 deterministic
+  // reproducibility 영역 보장 영역 영역 trade-off — noisy held-out 영역 영역 사실).
+  //
   // 정직 한계:
-  //  - 영역 cluster 영역 1 sample 영역 (lastFeature 영역 1개 영역 store) — N=5 multi-sample
-  //    영역 backend cached frame 영역 retrieve 영역 추가 RPC mandatory. 본 PR 영역
-  //    1 sample 영역 정합 (matrix[i][j] ∈ {0,1}) — 확장 path 영역 명시.
+  //  - simulated feature-noise (Gaussian σ=0.05) — 실제 사용자 hand capture 영역
+  //    held-out 영역 별도 R&D 필요. true held-out (capture) 영역 본 wire 외부.
+  //  - top-K mask preserve — sparse cluster active inputs 영역 영역 영역 변경 0
+  //    영역 weight robustness 검증 (Diehl & Cook 2015 topology-fixed STDP 정합).
   //  - Live mode 영역만 supported (engineMode='backend' 영역 inferOnceForValidation
   //    영역 0 영역 silent skip).
-  //  - lastFeature 영역 16-dim feature snapshot — actual training 영역 reinforce
-  //    pattern 영역 noise augmentation 영역 영역 (P218 noise weakness fix path) 영역
-  //    동일 영역 0 단 cluster identity 영역 representative.
   const [confusionMatrix, setConfusionMatrix] = useState<ConfusionMatrixReadyDetail | null>(null);
   const [confusionExpanded, setConfusionExpanded] = useState<boolean>(false);
   const wasAutoLearningRef = useRef<boolean>(false);
@@ -578,13 +590,26 @@ export default function NodeLearn() {
     void (async () => {
       try {
         const N = labels.length;
+        // held-out wire (2026-05-28): N noise-perturbed sample 영역 cluster
+        // 영역. cell 영역 ∈ {0..SAMPLES_PER_CLUSTER}.
+        //
+        // QA MEDIUM #2 (2026-05-28 audit): const hoist 영역 shared.ts 영역 single
+        // source — integration test 영역 동일 const 참조 영역 drift 회피.
+        const SAMPLES_PER_CLUSTER = HELD_OUT_SAMPLES_PER_CLUSTER;
+        const FEATURE_NOISE_SIGMA = HELD_OUT_FEATURE_NOISE_SIGMA;
         const matrix: number[][] = Array.from({ length: N }, () =>
           Array.from({ length: N }, () => 0),
         );
         const live = getLiveSnn();
+        // QA HIGH #6 (2026-05-28 audit): runtime seed (Date.now() & 0x7fffffff)
+        // — measurement JSON 영역 fixed seed=3000 영역 deterministic baseline 영역
+        // 차이. runtime UI 영역 매번 unique noisy held-out (page reload 영역 동일
+        // 결과 보장 0). 사용자 honesty hint 영역 명시 — `ConfusionMatrixPanel`
+        // 영역 inline note 영역 정합 (measurement 영역 lower-bound 추정).
+        const baseSeed = Date.now() & 0x7fffffff;
         for (let ci = 0; ci < N; ci += 1) {
-          // 영역 cluster 영역 영역 representative pattern — out_{ci}_0..7 영역
-          // 첫 lastFeature 영역 길이 16 영역 정합 sample. 미존재 영역 skip (matrix[ci] 영역 0).
+          // representative pattern — out_{ci}_0..7 영역 첫 lastFeature 영역 길이
+          // 16 영역 정합 sample. 미존재 영역 skip (matrix[ci] 영역 0).
           let pattern: number[] | null = null;
           for (let n = 0; n < 8; n += 1) {
             const ex = snapshot[`out_${ci}_${n}`];
@@ -594,20 +619,26 @@ export default function NodeLearn() {
             }
           }
           if (!pattern) continue;
-          try {
-            const { winner: predicted } = await live.inferOnceForValidation(pattern);
-            if (predicted !== null && predicted >= 0 && predicted < N) {
-              matrix[ci][predicted] += 1;
+          // seed 영역 cluster 영역 unique (baseSeed + ci × 1000) — cluster 영역
+          // reproducibility 보장 + 영역 batch (reload) 영역 unique noisy held-out.
+          const gaussian = new SeededGaussian(baseSeed + ci * 1000);
+          for (let s = 0; s < SAMPLES_PER_CLUSTER; s += 1) {
+            const noisy = addFeatureNoise(pattern, FEATURE_NOISE_SIGMA, gaussian);
+            try {
+              const { winner: predicted } = await live.inferOnceForValidation(noisy);
+              if (predicted !== null && predicted >= 0 && predicted < N) {
+                matrix[ci][predicted] += 1;
+              }
+              // null winner 영역 sample 영역 row 영역 누락 — diagonal/off-diagonal 모두 0.
+            } catch (e) {
+              console.warn('[NodeLearn] self-verification 영역 cluster', ci, 'sample', s, 'failed:', e);
             }
-            // null winner 영역 row 영역 0 — diagonal/off-diagonal 모두 0 (silent miss).
-          } catch (e) {
-            console.warn('[NodeLearn] self-verification 영역 cluster', ci, 'failed:', e);
           }
         }
         emitBackendEvent<ConfusionMatrixReadyDetail>('confusion-matrix-ready', {
           matrix,
           labels,
-          samplesPerCluster: 1,
+          samplesPerCluster: SAMPLES_PER_CLUSTER,
           measuredAt: Date.now(),
         });
       } finally {
@@ -892,9 +923,10 @@ export default function NodeLearn() {
 // green (correct prediction), off-diagonal 영역 orange opacity 영역 confusion rate.
 //
 // 정직 한계:
-//  - samplesPerCluster=1 영역 matrix cell 영역 ∈ {0, 1} — opacity 영역 binary
-//    (0=transparent / 1=full). 영역 cluster 영역 multi-sample 영역 backend cached
-//    frame retrieve 영역 extension path 영역 명시 — 본 PR scope-out.
+//  - held-out wire (2026-05-28): samplesPerCluster=N (default 5) 영역 noise-
+//    perturbed (feature Gaussian σ=0.05) — matrix cell 영역 ∈ {0..N}. opacity
+//    영역 N-step quantize (0..5 step 영역 5/5 정합). true held-out (실제 capture)
+//    영역 별도 R&D — 본 wire 외부.
 //  - aria-label 영역 N of N correct (diagonal sum / total samples) 영역 1차
 //    a11y signal. screen reader 영역 cell-by-cell read 영역 per-cell aria-label
 //    영역 정합.
@@ -927,10 +959,18 @@ function ConfusionMatrixPanel({
   }, [matrix, N]);
   const totalSamples = N * samplesPerCluster;
   const correctPct = totalSamples > 0 ? Math.round((diagonalSum / totalSamples) * 100) : 0;
-  // QA HIGH #2 (2026-05-25 audit): self-verify 정직 한계 inline note —
-  // samplesPerCluster=1 + cached lastFeature 영역 trained sample only 영역
-  // catch (일반화 측정 X). aria 영역 동봉 — screen reader 영역 catch.
-  const honestyHint = 'trained sample only — 일반화 측정 X (noise/held-out 검증 별도)';
+  // QA HIGH #2 (2026-05-25 audit) + held-out wire (2026-05-28): self-verify 정직
+  // 한계 inline note. 직전 (2026-05-25): samplesPerCluster=1 + cached lastFeature
+  // 직접 재사용 → trained sample only / 일반화 측정 X. 정정 (2026-05-28):
+  // noisy held-out (feature-level Gaussian σ=0.05) 영역 realistic generalization
+  // estimate. true held-out (실제 사용자 capture) 영역 별도 R&D — 본 wire 외부.
+  // aria 영역 동봉 — screen reader 영역 catch.
+  //
+  // QA HIGH #6 + MEDIUM #5 (2026-05-28 audit): runtime seed (Date.now()) 영역
+  // unique noise sample 영역 명시 — page reload 영역 동일 결과 보장 0. measurement
+  // JSON 영역 fixed seed=3000 deterministic baseline 영역 차이 — runtime 영역
+  // single-seed lower-bound 추정 (seed-dependent variance R&D 별도).
+  const honestyHint = `noisy held-out (n=${samplesPerCluster}/cluster, σ=${HELD_OUT_FEATURE_NOISE_SIGMA} feature-noise) — 각 verify 영역 unique noise sample (page reload 영역 동일 결과 보장 0). σ=${HELD_OUT_FEATURE_NOISE_SIGMA} 영역 conservative (Goodfellow 2014 typical σ~0.1 보다 낮음 — sweep R&D 별도). true held-out (capture) R&D 별도.`;
   return (
     <div
       className="snn-pipeline-confusion-matrix"

@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-05-27T23:05:23.815Z",
+  "scenario": "hand-snn-held-out-self-verify",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "n_held_out_per_cluster": 5,
+  "feature_noise_sigma": 0.05,
+  "sparse_top_k": 10,
+  "reinforce_per_gesture": 10,
+  "held_out_seed": 3000,
+  "preset": "n16_hand",
+  "neurons_total": 1551,
+  "synapses_total": 71415,
+  "cluster_active_inputs": [
+    [
+      48,
+      50,
+      62,
+      66,
+      67,
+      77,
+      78,
+      83,
+      86,
+      88
+    ],
+    [
+      13,
+      23,
+      24,
+      26,
+      36,
+      65,
+      70,
+      75,
+      80,
+      94
+    ],
+    [
+      7,
+      12,
+      35,
+      63,
+      64,
+      68,
+      84,
+      90,
+      92,
+      93
+    ],
+    [
+      11,
+      14,
+      30,
+      38,
+      76,
+      79,
+      81,
+      82,
+      85,
+      91
+    ]
+  ],
+  "baseline_accuracy": 1,
+  "baseline_correct": 4,
+  "baseline_total": 4,
+  "held_out_accuracy": 1,
+  "held_out_correct": 20,
+  "held_out_total": 20,
+  "held_out_confusion_matrix": [
+    [
+      5,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      5,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      5,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      5
+    ]
+  ],
+  "academic_alignment": [
+    "Bishop 1995 — feature-level noise injection regularization (ch.9.3).",
+    "Goodfellow et al. 2014 — noise injection as data augmentation.",
+    "Diehl & Cook 2015 — STDP topology fixed, R-STDP weight robustness 검증."
+  ],
+  "limitations": [
+    "simulated feature-noise (Gaussian σ=0.05) — 실제 사용자 hand capture held-out 영역 별도 R&D.",
+    "top-K mask preserve — sparse active inputs 영역 영역 영역 변경 0 (Diehl & Cook 2015 topology-fixed STDP 정합).",
+    "baseline accuracy 100% expected → noisy held-out 80-95% expected (정확 영역 noise level + R-STDP convergence 영역).",
+    "mock anatomical hand — actual MediaPipe Hand 영역 z-depth scale 영역 다를 가능.",
+    "true held-out (실제 capture) 영역 본 wire 외부 — UI honesty note 영역 명시.",
+    "σ=0.05 영역 conservative — Goodfellow 2014 typical σ~0.1 보다 낮음. held-out 100% accuracy 영역 σ-too-mild signal — σ sweep (σ ∈ {0.05, 0.10, 0.15}) 영역 별도 R&D 권장. 본 measurement 영역 σ=0.05 한정 inflated accuracy estimate 가능.",
+    "measurement.json 영역 fixed seed=3000 영역 deterministic baseline. runtime UI 영역 Date.now() & 0x7fffffff seed 영역 매번 unique noisy held-out — measurement 영역 단일 seed lower-bound 추정. runtime accuracy 영역 seed-dependent variance 영역 별도 R&D.",
+    "N=5 per cluster × 4 clusters = 20 total samples → 95% Wilson confidence interval ±10%. 통계적 conclusiveness 영역 N≥30/cluster 별도 R&D 권장."
+  ]
+}

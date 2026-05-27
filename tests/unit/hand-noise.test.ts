@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   SeededGaussian,
   addLandmarkJitter,
+  addFeatureNoise,
   applyHandScale,
   applyHandRotation,
   applyHandTranslation,
@@ -222,6 +223,81 @@ describe('applyHandTranslation', () => {
     const original = JSON.parse(JSON.stringify(lm));
     applyHandTranslation(lm, 0.1, -0.1);
     expect(lm).toEqual(original);
+  });
+});
+
+describe('addFeatureNoise — held-out feature-level Gaussian noise', () => {
+  // 16-dim sparse feature — top-K mask (8 non-zero, 8 zero) 영역 정합.
+  function makeMockFeature(): number[] {
+    return [0.7, 0, 0.4, 0.9, 0, 0, 0.3, 0.6, 0, 0.8, 0, 0.2, 0, 0.5, 0, 0.1];
+  }
+  it('seed 동일 → 동일 결과 (결정성)', () => {
+    const f = makeMockFeature();
+    const g1 = new SeededGaussian(456);
+    const g2 = new SeededGaussian(456);
+    const n1 = addFeatureNoise(f, 0.05, g1);
+    const n2 = addFeatureNoise(f, 0.05, g2);
+    expect(n1).toHaveLength(f.length);
+    for (let i = 0; i < f.length; i += 1) {
+      expect(n1[i]).toBe(n2[i]);
+    }
+  });
+  it('zero feature 영역 zero 유지 (top-K mask preserve)', () => {
+    const f = makeMockFeature();
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise(f, 0.1, g);
+    for (let i = 0; i < f.length; i += 1) {
+      if (f[i] === 0) {
+        expect(n[i]).toBe(0);
+      }
+    }
+  });
+  it('sigma=0 → input 그대로 (identity case)', () => {
+    const f = makeMockFeature();
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise(f, 0, g);
+    for (let i = 0; i < f.length; i += 1) {
+      expect(n[i]).toBe(f[i]);
+    }
+  });
+  it('sigma > 0 → output 영역 input 영역 다름 (noise applied to non-zero)', () => {
+    const f = makeMockFeature();
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise(f, 0.05, g);
+    let anyDiff = false;
+    for (let i = 0; i < f.length; i += 1) {
+      if (f[i] !== 0 && n[i] !== f[i]) { anyDiff = true; break; }
+    }
+    expect(anyDiff).toBe(true);
+  });
+  it('sigma<0 → throw', () => {
+    const f = makeMockFeature();
+    const g = new SeededGaussian(1);
+    expect(() => addFeatureNoise(f, -0.01, g)).toThrow();
+  });
+  it('input 영역 mutate 0 (pure function)', () => {
+    const f = makeMockFeature();
+    const original = f.slice();
+    const g = new SeededGaussian(1);
+    addFeatureNoise(f, 0.05, g);
+    expect(f).toEqual(original);
+  });
+  it('length 영역 input 영역 동일', () => {
+    const f = makeMockFeature();
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise(f, 0.05, g);
+    expect(n.length).toBe(f.length);
+  });
+  it('empty feature → empty result', () => {
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise([], 0.05, g);
+    expect(n).toEqual([]);
+  });
+  it('all-zero feature → all-zero result (sigma > 0)', () => {
+    const f = [0, 0, 0, 0];
+    const g = new SeededGaussian(1);
+    const n = addFeatureNoise(f, 0.1, g);
+    expect(n).toEqual([0, 0, 0, 0]);
   });
 });
 

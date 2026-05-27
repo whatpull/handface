@@ -2408,6 +2408,11 @@
   font-style: italic;
   padding: 0 4px 2px;
   letter-spacing: 0.01em;
+  /* UX MEDIUM #1 (2026-05-28 audit): mobile narrow long token (σ=0.05, R&D)
+     overflow catch fix — anywhere break 영역 영문 long token 영역 wrap +
+     keep-all 영역 한국어 영역 어절 단위 유지. */
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 /* QA HIGH #3 (2026-05-25 audit): truncation hint — N > cap 영역 표기. */
 .snn-pipeline-confusion-matrix-truncate-hint {
@@ -2526,52 +2531,75 @@
   font-variant-numeric: tabular-nums;
 }
 /* diagonal cell — correct prediction (green tone). opacity 영역 data attr 영역
-   driven (0..5 quantize). */
+   driven (0..5 quantize).
+   UX HIGH #1 (2026-05-28 audit): 직전 step={1,2} / {3,4} pair collapse 영역
+   sample=1 vs sample=2 / sample=3 vs sample=4 영역 시각 catch 0 catch fix —
+   6 distinct value 영역 6 distinct tier 영역 alpha curve monotone expand
+   (0.04 → 0.10 → 0.18 → 0.28 → 0.38 → 0.50). border / color 영역 동기 expand. */
 .snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="0"] {
   background: rgba(34, 197, 94, 0.04);
   color: rgba(74, 222, 128, 0.50);
   border: 1px solid rgba(74, 222, 128, 0.10);
 }
-.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="1"],
-.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="2"] {
-  background: rgba(34, 197, 94, 0.14);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.30);
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="1"] {
+  background: rgba(34, 197, 94, 0.10);
+  color: rgba(74, 222, 128, 0.85);
+  border: 1px solid rgba(74, 222, 128, 0.22);
 }
-.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="3"],
-.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="4"] {
-  background: rgba(34, 197, 94, 0.26);
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="2"] {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.36);
+}
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="3"] {
+  background: rgba(34, 197, 94, 0.28);
   color: #86efac;
-  border: 1px solid rgba(74, 222, 128, 0.55);
+  border: 1px solid rgba(74, 222, 128, 0.52);
+}
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="4"] {
+  background: rgba(34, 197, 94, 0.38);
+  color: #a7f3c8;
+  border: 1px solid rgba(74, 222, 128, 0.70);
 }
 .snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="5"] {
-  background: rgba(34, 197, 94, 0.42);
+  background: rgba(34, 197, 94, 0.50);
   color: #bbf7d0;
-  border: 1px solid rgba(74, 222, 128, 0.85);
+  border: 1px solid rgba(74, 222, 128, 0.88);
   font-weight: 600;
 }
 /* off-diagonal cell — confusion (orange tone). opacity-step=0 영역 거의
-   invisible (count=0 영역 정합). */
+   invisible (count=0 영역 정합).
+   UX HIGH #1 (2026-05-28 audit): diagonal 정합 — 6 distinct tier 영역 alpha
+   curve monotone expand (0.04 → 0.10 → 0.18 → 0.28 → 0.38 → 0.50). off-diagonal
+   영역 step=0 영역 white-tone 유지 (count=0 영역 noise-free background). */
 .snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="0"] {
   background: rgba(255, 255, 255, 0.02);
   color: rgba(255, 255, 255, 0.22);
 }
-.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="1"],
-.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="2"] {
-  background: rgba(249, 115, 22, 0.16);
-  color: #fb923c;
-  border: 1px solid rgba(249, 115, 22, 0.35);
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="1"] {
+  background: rgba(251, 146, 60, 0.10);
+  color: rgba(251, 146, 60, 0.85);
+  border: 1px solid rgba(251, 146, 60, 0.22);
 }
-.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="3"],
-.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="4"] {
-  background: rgba(249, 115, 22, 0.30);
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="2"] {
+  background: rgba(251, 146, 60, 0.18);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.36);
+}
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="3"] {
+  background: rgba(251, 146, 60, 0.28);
   color: #fdba74;
-  border: 1px solid rgba(249, 115, 22, 0.55);
+  border: 1px solid rgba(251, 146, 60, 0.52);
+}
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="4"] {
+  background: rgba(251, 146, 60, 0.38);
+  color: #fecdaa;
+  border: 1px solid rgba(251, 146, 60, 0.70);
 }
 .snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="5"] {
-  background: rgba(249, 115, 22, 0.46);
+  background: rgba(251, 146, 60, 0.50);
   color: #fed7aa;
-  border: 1px solid rgba(249, 115, 22, 0.85);
+  border: 1px solid rgba(251, 146, 60, 0.88);
   font-weight: 600;
 }
 

@@ -58,6 +58,48 @@ export class SeededGaussian {
   }
 }
 
+// ── 1.5. Feature-level Gaussian noise (held-out self-verify) ──
+
+// addFeatureNoise — 16-dim (또는 N-dim) feature vector 영역 element-wise Gaussian
+// noise (N(0, sigma^2)) 추가. sparse top-K mask preserve — feature[i] === 0 영역
+// element 영역 zero 유지 (top-K 외 indices 영역 활성 0 보존).
+//
+// 학술 정합:
+//   - Bishop 1995 (Neural Networks for Pattern Recognition, ch.9.3) — feature-level
+//     noise injection 영역 regularization 영역 generalization estimate 영역 정합
+//     (training data augmentation 영역 weight decay 영역 equivalence).
+//   - Goodfellow et al. 2014 — noise injection as data augmentation (dropout /
+//     feature noise 영역 정합 family).
+//   - sparse coding (Olshausen & Field 1996) — top-K mask 영역 preserve 영역 영역
+//     dense fill 회피 (sparse representation 영역 정합 — 영역 R&D 영역 cluster
+//     active inputs 영역 영역 영역 변경 0 영역 weight robustness 영역 검증).
+//
+// pure function — input 영역 mutate 0, new array 영역 return.
+// 결정성 보장 — SeededGaussian 영역 stream 영역 사용. 동일 seed + 동일 input 영역
+// 동일 output. sigma=0 영역 input 영역 그대로 copy 영역 return (identity case).
+export function addFeatureNoise(
+  feature: ReadonlyArray<number>,
+  sigma: number,
+  gaussian: SeededGaussian,
+): number[] {
+  if (sigma < 0) throw new Error('addFeatureNoise: sigma must be >= 0');
+  const out = new Array<number>(feature.length);
+  for (let i = 0; i < feature.length; i += 1) {
+    const v = feature[i];
+    // top-K mask preserve — zero 영역 zero 유지 (sparse representation 정합).
+    if (v === 0) {
+      out[i] = 0;
+      continue;
+    }
+    if (sigma === 0) {
+      out[i] = v;
+      continue;
+    }
+    out[i] = v + gaussian.nextScaled(0, sigma);
+  }
+  return out;
+}
+
 // ── 2. Per-landmark Gaussian jitter ──
 
 // 각 landmark x/y/z 영역 N(0, sigma^2) 추가 noise. sigma 0.005~0.015 영역

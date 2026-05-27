@@ -116,6 +116,23 @@ export const FIRE_DELTA_LOW_THRESHOLD_HZ = 3;
 // 영역 사용자 mental model 정합 (TRAINED badge `N/4 clusters`).
 export const CONFUSION_MATRIX_MAX_N = 4;
 
+// QA MEDIUM #2 (2026-05-28 audit): held-out self-verification const hoist —
+// 직전 NodeLearn.tsx:593-594 영역 function-scope const + integration test
+// `hand-snn-held-out-self-verify.test.ts` 영역 별도 const declaration → 2 source
+// drift catch. FIRE_DELTA_LOW_THRESHOLD_HZ pattern 정합 — 본 모듈 영역 single
+// source 영역 export, NodeLearn / integration test 영역 import 영역 통일.
+//
+// 학술 정합:
+//   - Bishop 1995 (ch.9.3) — feature-level noise injection regularization.
+//   - Goodfellow et al. 2014 — noise injection as data augmentation.
+//   - σ=0.05 영역 conservative (Goodfellow typical σ~0.1 보다 낮음) — measurement
+//     영역 limitations 영역 명시 (held-out 100% accuracy 영역 σ-too-mild signal).
+//     production R&D 영역 σ ∈ {0.05, 0.10, 0.15} sweep 권장.
+//   - N=5 per cluster × 4 clusters = 20 total → 95% Wilson CI ±10% (statistical
+//     conclusiveness 영역 N≥30/cluster 별도 R&D).
+export const HELD_OUT_FEATURE_NOISE_SIGMA = 0.05;
+export const HELD_OUT_SAMPLES_PER_CLUSTER = 5;
+
 // 5 노드 default expanded — 모든 device 동일.
 // 호환 보존을 위해 helper 형태로 유지 (단순 false 반환).
 export function initialCollapsedForMobile(): boolean {

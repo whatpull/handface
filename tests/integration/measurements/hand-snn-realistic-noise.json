@@ -1,0 +1,204 @@
+{
+  "timestamp": "2026-05-27T12:19:34.415Z",
+  "scenario": "hand-snn-realistic-noise",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "n_samples_train": 20,
+  "n_samples_infer": 20,
+  "sparse_top_k": 10,
+  "noise_params": {
+    "jitterSigma": 0.01,
+    "scaleRange": [
+      0.85,
+      1.15
+    ],
+    "rotationRange": [
+      -0.26,
+      0.26
+    ],
+    "translationRange": [
+      -0.05,
+      0.05
+    ]
+  },
+  "train_seed": 1000,
+  "infer_seed": 2000,
+  "preset": "n16_hand",
+  "neurons_total": 1551,
+  "synapses_total": 71415,
+  "spawned_clusters": [
+    {
+      "gesture": "open_palm",
+      "clusterId": 0,
+      "activeInputs": [
+        48,
+        50,
+        62,
+        66,
+        67,
+        77,
+        78,
+        83,
+        86,
+        88
+      ]
+    },
+    {
+      "gesture": "closed_fist",
+      "clusterId": 1,
+      "activeInputs": [
+        13,
+        23,
+        24,
+        26,
+        36,
+        65,
+        70,
+        75,
+        80,
+        94
+      ]
+    },
+    {
+      "gesture": "thumbs_up",
+      "clusterId": 2,
+      "activeInputs": [
+        7,
+        12,
+        35,
+        63,
+        64,
+        68,
+        84,
+        90,
+        92,
+        93
+      ]
+    },
+    {
+      "gesture": "peace_sign",
+      "clusterId": 3,
+      "activeInputs": [
+        11,
+        14,
+        30,
+        38,
+        76,
+        79,
+        81,
+        82,
+        85,
+        91
+      ]
+    }
+  ],
+  "pairwise_jaccard": [
+    {
+      "i": 0,
+      "j": 1,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 0,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 0,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 1,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 1,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 2,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    }
+  ],
+  "mean_disjoint_jaccard": 0,
+  "train_accuracy": 0.9875,
+  "train_correct": 79,
+  "train_total": 80,
+  "train_confusion_matrix": [
+    [
+      19,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      20,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      20
+    ]
+  ],
+  "inference_accuracy": 1,
+  "inference_correct": 80,
+  "inference_total": 80,
+  "inference_confusion_matrix": [
+    [
+      20,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      20,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      20
+    ]
+  ],
+  "limitations": [
+    "simulated noise, not realistic capture — actual user MediaPipe capture R&D separate.",
+    "Gaussian jitter + affine (scale/rotation/translation) only — no occlusion / fast-motion / temporal multi-frame noise.",
+    "jitter sigma 0.01 based on Zhang et al. 2020 typical landmark variance (±2-5px @ 640x480 normalized).",
+    "mock anatomical hand 영역 actual MediaPipe Hand 영역 z-depth coordinate scale 영역 다를 가능.",
+    "inference winner 영역 own-cluster topK 영역 sparse 영역 영역 — production single-frame 영역 candidate topK selection 영역 영역 R&D 별도.",
+    "cluster topology (active-input top-K) selection 영역 clean anatomy baseline 영역 영역 — noisy mean 영역 topK 영역 forced-disjoint exhaustion 영역 별도 R&D. 본 test 영역 R-STDP weight robustness 영역 핵심 검증 (Diehl & Cook 2015 topology-fixed STDP 정합)."
+  ]
+}

@@ -14,24 +14,38 @@ import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './build
 import { buildN14ExtendedPreset, compute50DimFeature, N_INPUT_N14, RAW_DIM_N14 } from './builders/n14-extended';
 import { buildN15Extended6x6Preset, compute72DimFeature, N_INPUT_N15, RAW_DIM_N15 } from './builders/n15-extended-6x6';
 import { buildN16HandPreset, RAW_DIM_N16 } from './builders/n16-hand';
-import { encodeHandToFeatureVector, type HandLandmark } from './hand-spike-encoder';
+import { applySparseTopK, encodeHandToFeatureVector, HAND_SPARSE_TOP_K_DEFAULT, selectTopKActive, type HandLandmark } from './hand-spike-encoder';
+
+// Hand SNN sparse top-K — input bottleneck 해결 (2026-05-26).
+// 95-dim continuous feature 의 threshold-0.2 active inputs 는 4 gesture 간
+// ~98% overlap → R-STDP 0/4. top-K=5 sparsify 시 P215 4×4 binary pattern 의
+// sparse active inputs (4-6/16) 영역 진입 — R-STDP/WTA 가 작동할 환경.
+//
+// 측정 history (hand-sparse-topk-distinctiveness-sweep.json):
+//   K=5: 86.8% pairwise distinctiveness (anatomical mock 영역 다르게 측정될 수 있음).
+//   K=8: 83.0%, K=10: 72.4%, K=15: 54.5%, K=20: 45.8%.
+// production single-frame dispatch 경로 = plain selectTopKActive — 정확도 4/4
+// 검증 (forced-disjoint diagnostic) 와 다른 path 임을 주의. plain top-K production
+// 자체의 4/4 자동 달성은 보장하지 않음 (mock anatomical 영역 1/4).
 
 // P218 (2026-05-20) + P220 (2026-05-25) + Hand SNN (2026-05-26) — pattern length 영역 영역 영역 compute feature dispatch.
-// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim, n15: 36 raw → 72 dim, n16: 63 raw landmarks → 75 dim hand feature.
+// n13: 16 raw → 32 dim, n14: 25 raw → 50 dim, n15: 36 raw → 72 dim, n16: 63 raw landmarks → 95 dim hand feature (top-K=5 sparsified).
 function dispatchComputeFeature(pattern: number[]): number[] {
   if (pattern.length === 16) return compute32DimFeature(pattern);
   if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
   if (pattern.length === RAW_DIM_N15) return compute72DimFeature(pattern);
   if (pattern.length === RAW_DIM_N16) {
-    // n16-hand: 63 raw (21 landmarks × 3 coords) → 75 dim feature (63 + 12 derived).
-    // Convert flat array to HandLandmark[].
+    // n16-hand: 63 raw → 95-dim feature → top-K=5 sparsify (rest zero).
+    // P215 와 같은 sparse active inputs regime 로 cluster separability 회복.
     const landmarks: HandLandmark[] = [];
     for (let i = 0; i < 21; i += 1) {
       landmarks.push({ x: pattern[i * 3], y: pattern[i * 3 + 1], z: pattern[i * 3 + 2] });
     }
-    return encodeHandToFeatureVector(landmarks);
+    const full = encodeHandToFeatureVector(landmarks);
+    const topK = selectTopKActive(full, HAND_SPARSE_TOP_K_DEFAULT);
+    return applySparseTopK(full, topK);
   }
-  return pattern; // already expanded (32, 50, 72, or 75)
+  return pattern; // already expanded (32, 50, 72, or 95)
 }
 
 // P218 (2026-05-25) — substrate-aware feature activation threshold.

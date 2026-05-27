@@ -28,14 +28,17 @@ export interface N16PresetResult {
   neuronsAdded: number;
   synapsesAdded: number;
   vThreshold: number;
-  inputDim: 75;
+  inputDim: 95;
   outClusters: number;
   outTotal: number;
   homeostaticNeurons: number;
   preset: 'n16_hand';
 }
 
-export const N_INPUT_N16 = 75 as const;
+// Hand SNN feature dim 영역 75 → 95 영역 영역 (commit b1d2f26 R-STDP 0% 영역 영역
+// discriminative features 추가 — pinch / spread / wrist-tip distance / ext delta /
+// openness). 영역 active inputs distinct 영역 영역 4 gestures 영역 영역 영역.
+export const N_INPUT_N16 = 95 as const;
 export const RAW_DIM_N16 = 63 as const; // 21 landmarks × 3 coords
 
 // Per-cluster pool size (n15 영역 영역 영역 영역, hand 영역 영역 derived feature
@@ -218,7 +221,7 @@ export function buildN16HandPreset(opts: N16PresetOptions = {}): N16PresetResult
     neuronsAdded: net.size() - beforeN,
     synapsesAdded: net.synapses.length - beforeSyn,
     vThreshold,
-    inputDim: 75,
+    inputDim: 95,
     outClusters: N_CLUSTER,
     outTotal: OUT_TOTAL,
     homeostaticNeurons: homeostaticNames.length,

@@ -1064,6 +1064,79 @@
   color: #fbbf24;
 }
 
+/* UX HIGH #1 (2026-05-25): TRAINED phase badge — N/N clusters + check.
+   phase-transition key 변경 영역 1회 fade-in (parent .snn-pipeline-phase
+   영역 snn-pipeline-phase-transition animation 정합 — badge 영역 별도
+   animation 0 영역 parent fade 영역 piggyback). check 영역 stagger
+   0.4s delay scale-in 영역 trained visual confirmation 강화.
+   margin-left: 8px — phase label 영역 inline gap. */
+.snn-pipeline-trained-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.65);
+  color: #4ade80;
+  white-space: nowrap;
+  vertical-align: middle;
+  line-height: 1.1;
+}
+.snn-pipeline-trained-badge-check {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  color: #4ade80;
+  animation: snn-pipeline-trained-check 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 360ms both;
+  transform-origin: center;
+}
+@keyframes snn-pipeline-trained-check {
+  0%   { opacity: 0; transform: scale(0.2) rotate(-30deg); }
+  60%  { opacity: 1; transform: scale(1.25) rotate(8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* UX MEDIUM #2 (2026-05-25): cluster row hue dot — TRAINED phase 영역
+   각 cluster 영역 unique hue (clusterHue 영역 golden-angle rotation).
+   visible diameter 10px / outer touch hit area 44px (mobile-safe target).
+   --hue: 0..360 영역 inline CSS var (clusterIdx 영역 deterministic).
+   hover/focus 영역 ring 영역 cluster identity 영역 visual confirmation. */
+.snn-pipeline-cluster-hue-dot {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background-color: hsl(var(--hue, 0), 70%, 55%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 6px hsla(var(--hue, 0), 70%, 55%, 0.55);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+/* UX LOW #3 (2026-05-25): 44px hit area 폐기 — pointer-events:none 영역
+   touch target 영역 inflate 사실 X (cosmetic only). aria-hidden +
+   decorative dot 영역 consistent — title attribute 영역 desktop hover
+   tooltip 영역 fallback (mobile 영역 cluster label 영역 1차 identity). */
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-trained-badge-check {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* 5) winner fade-in */
 .snn-pipeline-winner-fade {
   animation: snn-pipeline-winner-fade-in 360ms ease-out;
@@ -1416,6 +1489,10 @@
   .snn-val-header { min-height: 44px; padding: 10px 0; }
   .snn-val-matrix-table td,
   .snn-val-matrix-table th { padding: 2px; font-size: 9px; min-width: 16px; }
+  /* UX MEDIUM (2026-05-26): trained cluster hue dot 영역 vertical breathing —
+     22px row + 10px dot 영역 ≤480px viewport 영역 cramped catch */
+  .snn-pipeline-cluster-row { height: 24px; }
+  .snn-pipeline-cluster-hue-dot { margin-left: 4px; }
 }
 
 /* ─────────────────────────── prefers-reduced-motion (WCAG 2.3.3) ───────────── */

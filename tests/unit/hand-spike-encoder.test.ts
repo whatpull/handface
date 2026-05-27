@@ -5,6 +5,8 @@ import { describe, it, expect } from 'vitest';
 import {
   flattenLandmarks, computeHandFeatures,
   encodeHandToFeatureVector, encodeFeatureToSpikes, encodeFeatureToTemporalSpikes,
+  selectTopKActive, selectMeanSubtractedTopK, selectForcedDisjointTopK, applySparseTopK,
+  HAND_SPARSE_TOP_K_DEFAULT,
   N_HAND_LANDMARKS, HAND_RAW_DIM, HAND_FEAT_DIM, FINGER_TIPS, FINGER_MCPS,
   type HandLandmark,
 } from '@/lib/snn-runtime/hand-spike-encoder';
@@ -58,7 +60,7 @@ describe('Hand Spike Encoder — Landmark Flattening', () => {
   it('constants 정합', () => {
     expect(N_HAND_LANDMARKS).toBe(21);
     expect(HAND_RAW_DIM).toBe(63);
-    expect(HAND_FEAT_DIM).toBe(75);
+    expect(HAND_FEAT_DIM).toBe(95);
     expect(FINGER_TIPS.thumb).toBe(4);
     expect(FINGER_TIPS.pinky).toBe(20);
     expect(FINGER_MCPS.middle).toBe(9);
@@ -103,7 +105,7 @@ describe('Hand Spike Encoder — Derived Features', () => {
 });
 
 describe('Hand Spike Encoder — Feature Vector', () => {
-  it('full feature vector 영역 75 dim', () => {
+  it('full feature vector 영역 95 dim', () => {
     const lm = makeOpenPalm();
     const fv = encodeHandToFeatureVector(lm);
     expect(fv).toHaveLength(HAND_FEAT_DIM);
@@ -161,6 +163,97 @@ describe('Hand Spike Encoder — Temporal Encoding (Thorpe 1990)', () => {
 
   it('all below threshold → no events', () => {
     expect(encodeFeatureToTemporalSpikes([0.1, 0.2], 0.3).length).toBe(0);
+  });
+});
+
+describe('Hand Spike Encoder — Sparse Top-K (input bottleneck fix)', () => {
+  it('HAND_SPARSE_TOP_K_DEFAULT 영역 5', () => {
+    expect(HAND_SPARSE_TOP_K_DEFAULT).toBe(5);
+  });
+
+  it('selectTopKActive — K=3 이면 정확히 상위 3 indices, 정렬됨', () => {
+    const fv = [0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4]; // 상위 3 = idx 1, 5, 3
+    const top3 = selectTopKActive(fv, 3);
+    expect(top3).toHaveLength(3);
+    expect(top3).toEqual([1, 3, 5]); // ascending sort
+  });
+
+  it('selectTopKActive — 결정성 (동일 input → 동일 output)', () => {
+    const fv = [0.5, 0.3, 0.8, 0.1, 0.9];
+    const a = selectTopKActive(fv, 2);
+    const b = selectTopKActive(fv, 2);
+    expect(a).toEqual(b);
+  });
+
+  it('selectTopKActive — K > dim 이면 모든 indices', () => {
+    const fv = [0.5, 0.3];
+    const top = selectTopKActive(fv, 10);
+    expect(top).toEqual([0, 1]);
+  });
+
+  it('applySparseTopK — top-K indices 만 원본 값, 나머지 0', () => {
+    const fv = [0.5, 0.3, 0.8, 0.1];
+    const sparse = applySparseTopK(fv, [0, 2]);
+    expect(sparse).toEqual([0.5, 0, 0.8, 0]);
+    expect(sparse).toHaveLength(fv.length);
+  });
+
+  it('applySparseTopK — empty indices → all-zero', () => {
+    const sparse = applySparseTopK([1, 2, 3], []);
+    expect(sparse).toEqual([0, 0, 0]);
+  });
+
+  it('selectMeanSubtractedTopK — 각 gesture indices 영역 자기 own unique idx 포함', () => {
+    const fvs = [
+      [1, 0, 0, 0, 0], // mean=[0.25, 0.25, 0.25, 0.25, 0]
+      [0, 1, 0, 0, 0], // gesture 1 의 residual top 은 idx 1 (|1-0.25|=0.75)
+      [0, 0, 1, 0, 0],
+      [0, 0, 0, 1, 0],
+    ];
+    const indices = selectMeanSubtractedTopK(fvs, 2);
+    expect(indices).toHaveLength(4);
+    for (const idx of indices) expect(idx).toHaveLength(2);
+    // ascending sort 결과이므로 own unique idx (1번째 큰 residual) 가 indices 에 반드시 포함.
+    expect(indices[0]).toContain(0); // gesture 0 의 unique idx
+    expect(indices[1]).toContain(1);
+    expect(indices[2]).toContain(2);
+    expect(indices[3]).toContain(3);
+  });
+
+  it('selectMeanSubtractedTopK — empty input → []', () => {
+    expect(selectMeanSubtractedTopK([], 5)).toEqual([]);
+  });
+
+  it('selectForcedDisjointTopK — 모든 pair Jaccard = 0 보장', () => {
+    const fvs = [
+      [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3],
+      [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3], // identical → plain top-K 이면 100% overlap
+      [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3],
+      [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3],
+    ];
+    const indices = selectForcedDisjointTopK(fvs, 2);
+    expect(indices).toHaveLength(4);
+    // 모든 pair 교집합 = 0
+    for (let i = 0; i < indices.length; i += 1) {
+      for (let j = i + 1; j < indices.length; j += 1) {
+        const setI = new Set(indices[i]);
+        for (const idx of indices[j]) expect(setI.has(idx)).toBe(false);
+      }
+    }
+  });
+
+  it('selectForcedDisjointTopK — dim 부족 시 일부 cluster K 미달', () => {
+    // 2 gesture × K=3, but dim=4 → 2nd cluster 만 1 indice 가능
+    const fvs = [
+      [1.0, 0.9, 0.8, 0.7],
+      [1.0, 0.9, 0.8, 0.7],
+    ];
+    const indices = selectForcedDisjointTopK(fvs, 3);
+    const total = indices[0].length + indices[1].length;
+    expect(total).toBeLessThanOrEqual(4); // dim cap
+    // 여전히 disjoint
+    const set0 = new Set(indices[0]);
+    for (const idx of indices[1]) expect(set0.has(idx)).toBe(false);
   });
 });
 

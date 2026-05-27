@@ -13,6 +13,7 @@ import {
 } from '@/lib/snn-runtime/builders/n16-hand';
 import {
   encodeHandToFeatureVector, encodeFeatureToSpikes,
+  selectTopKActive, selectMeanSubtractedTopK,
   type HandLandmark,
 } from '@/lib/snn-runtime/hand-spike-encoder';
 import { wtaWinner } from '@/lib/snn-runtime/self-supervised';
@@ -88,7 +89,7 @@ describe('Hand SNN End-to-End Integration (사용자 비전 SNN 중심)', () => 
     ];
     const featureVectors = gestures.map(g => encodeHandToFeatureVector(g.landmarks));
     expect(featureVectors).toHaveLength(4);
-    expect(featureVectors[0]).toHaveLength(75);
+    expect(featureVectors[0]).toHaveLength(95);
 
     // 2. 각 gesture 의 active inputs 추출.
     const clusterActiveInputs = featureVectors.map(fv => computeActiveInputs(fv, 0.2));
@@ -150,7 +151,7 @@ describe('Hand SNN End-to-End Integration (사용자 비전 SNN 중심)', () => 
     const summary = {
       timestamp: new Date().toISOString(),
       scenario: 'hand-snn-end-to-end',
-      featureDim: 75,
+      featureDim: 95,
       gestures: gestures.map(g => g.name),
       activeInputsPerGesture: clusterActiveInputs.map(a => a.length),
       neuronsTotal: result.neuronsAdded,
@@ -207,6 +208,72 @@ describe('Hand SNN End-to-End Integration (사용자 비전 SNN 중심)', () => 
 
     expect(avgDistinct).toBeGreaterThan(0); // 영역 영역 distinct
     console.log(`[Distinctiveness] avg pairwise = ${(avgDistinct * 100).toFixed(0)}%`);
+  });
+
+  it('★ Sparse top-K + mean-subtracted Top-K — K sweep distinctiveness 측정', () => {
+    // 가설: 95-dim threshold-based active inputs 는 ~98% overlap 이지만,
+    //       Top-K (또는 mean-subtracted Top-K) 로 sparsify 하면 distinctiveness 향상.
+    const gestures = [
+      makeOpenPalm(), makeClosedFist(), makeThumbsUp(), makePeaceSign(),
+    ];
+    const fvs = gestures.map(g => encodeHandToFeatureVector(g));
+
+    function jaccardAvg(activeSets: Set<number>[]): number {
+      let totalDistinct = 0; let pairs = 0;
+      for (let i = 0; i < activeSets.length; i += 1) {
+        for (let j = i + 1; j < activeSets.length; j += 1) {
+          let inter = 0;
+          for (const a of activeSets[i]) if (activeSets[j].has(a)) inter += 1;
+          const union = activeSets[i].size + activeSets[j].size - inter;
+          const jaccard = union > 0 ? inter / union : 0;
+          totalDistinct += 1 - jaccard;
+          pairs += 1;
+        }
+      }
+      return pairs > 0 ? totalDistinct / pairs : 0;
+    }
+
+    const Ks = [5, 8, 10, 15, 20, 25, 30];
+    const topKResults: { K: number; avgDistinctiveness: number; perGestureActive: number[] }[] = [];
+    const meanSubResults: { K: number; avgDistinctiveness: number; perGestureActive: number[] }[] = [];
+
+    for (const K of Ks) {
+      // Plain Top-K (각 gesture 독립 top-K).
+      const topK = fvs.map(fv => new Set(selectTopKActive(fv, K)));
+      topKResults.push({
+        K, avgDistinctiveness: jaccardAvg(topK),
+        perGestureActive: topK.map(s => s.size),
+      });
+
+      // Mean-subtracted Top-K (4 gesture 평균 제거 후 |residual| top-K).
+      const msIndices = selectMeanSubtractedTopK(fvs, K);
+      const msSets = msIndices.map(idx => new Set(idx));
+      meanSubResults.push({
+        K, avgDistinctiveness: jaccardAvg(msSets),
+        perGestureActive: msSets.map(s => s.size),
+      });
+    }
+
+    const measurement = {
+      timestamp: new Date().toISOString(),
+      scenario: 'hand-sparse-topk-distinctiveness-sweep',
+      gestures: ['open_palm', 'closed_fist', 'thumbs_up', 'peace_sign'],
+      baseline_threshold02_distinctiveness: 0.0185,
+      topKResults,
+      meanSubResults,
+    };
+    saveMeasurement('hand-sparse-topk-distinctiveness-sweep', measurement);
+
+    console.log('[Top-K] K → distinctiveness');
+    for (const r of topKResults) {
+      console.log(`  K=${r.K}: ${(r.avgDistinctiveness * 100).toFixed(1)}% (active per gesture: ${r.perGestureActive.join(',')})`);
+    }
+    console.log('[Mean-subtracted Top-K] K → distinctiveness');
+    for (const r of meanSubResults) {
+      console.log(`  K=${r.K}: ${(r.avgDistinctiveness * 100).toFixed(1)}% (active per gesture: ${r.perGestureActive.join(',')})`);
+    }
+
+    expect(topKResults[topKResults.length - 1].avgDistinctiveness).toBeGreaterThanOrEqual(0);
   });
 
   it('★ Determinism — same seed + same input → same network structure', () => {

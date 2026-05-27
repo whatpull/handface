@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-26T01:23:50.313Z",
+  "timestamp": "2026-05-26T21:36:04.198Z",
   "scenario": "hand-snn-end-to-end",
-  "featureDim": 75,
+  "featureDim": 95,
   "gestures": [
     "open_palm",
     "closed_fist",
@@ -9,60 +9,60 @@
     "peace_sign"
   ],
   "activeInputsPerGesture": [
-    54,
-    54,
-    54,
-    52
+    70,
+    69,
+    67,
+    70
   ],
-  "neuronsTotal": 1531,
-  "synapsesTotal": 81060,
+  "neuronsTotal": 1551,
+  "synapsesTotal": 84534,
   "learningResults": [
     {
       "gesture": "open_palm",
-      "predictedWinner": 0,
+      "predictedWinner": 1,
       "expectedWinner": 0,
-      "correct": true,
+      "correct": false,
       "firingRates": [
-        280,
         240,
+        290,
         260,
         260
       ]
     },
     {
       "gesture": "closed_fist",
-      "predictedWinner": 3,
+      "predictedWinner": 1,
       "expectedWinner": 1,
-      "correct": false,
+      "correct": true,
       "firingRates": [
+        70,
+        100,
         60,
-        60,
-        63.75,
-        77.5
-      ]
-    },
-    {
-      "gesture": "thumbs_up",
-      "predictedWinner": 3,
-      "expectedWinner": 2,
-      "correct": false,
-      "firingRates": [
-        80,
-        90,
-        90,
         100
       ]
     },
     {
-      "gesture": "peace_sign",
-      "predictedWinner": 1,
-      "expectedWinner": 3,
+      "gesture": "thumbs_up",
+      "predictedWinner": 0,
+      "expectedWinner": 2,
       "correct": false,
       "firingRates": [
-        80,
+        90,
         90,
         90,
         90
+      ]
+    },
+    {
+      "gesture": "peace_sign",
+      "predictedWinner": 0,
+      "expectedWinner": 3,
+      "correct": false,
+      "firingRates": [
+        90,
+        90,
+        90,
+        80
       ]
     }
   ],

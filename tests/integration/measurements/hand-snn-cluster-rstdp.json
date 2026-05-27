@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-26T04:25:40.051Z",
+  "timestamp": "2026-05-26T21:36:06.032Z",
   "scenario": "hand-snn-cluster-rstdp",
   "gestures": [
     "open_palm",
@@ -7,8 +7,8 @@
     "thumbs_up",
     "peace_sign"
   ],
-  "neuronsTotal": 1531,
-  "synapsesTotal": 81060,
+  "neuronsTotal": 1551,
+  "synapsesTotal": 70353,
   "reinforcePerGesture": 10,
   "preset": "n16_hand",
   "multiFileIntegration": {
@@ -17,53 +17,122 @@
     "localSnn": "preset type 영역 n16_hand 추가됨",
     "rootLocalSnn": "orientation-hand SubstrateKind 추가됨"
   },
+  "sparseTopK": 5,
+  "clusterActiveInputs": [
+    [
+      67,
+      77,
+      78,
+      86,
+      88
+    ],
+    [
+      36,
+      65,
+      70,
+      75,
+      80
+    ],
+    [
+      63,
+      64,
+      68,
+      84,
+      90
+    ],
+    [
+      76,
+      81,
+      82,
+      85,
+      91
+    ]
+  ],
+  "activeInputsOverlap": [
+    {
+      "i": 0,
+      "j": 1,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 0,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 0,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 1,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 1,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    },
+    {
+      "i": 2,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": []
+    }
+  ],
   "finalTests": [
     {
       "gestureIdx": 0,
-      "predictedWinner": 3,
-      "correct": false,
+      "predictedWinner": 0,
+      "correct": true,
       "firingRates": [
-        18.14,
-        20.41,
-        20.41,
-        23.11
+        104.35,
+        0,
+        0,
+        0
       ]
     },
     {
       "gestureIdx": 1,
-      "predictedWinner": 3,
-      "correct": false,
+      "predictedWinner": 1,
+      "correct": true,
       "firingRates": [
-        20.41,
-        20.41,
-        18.14,
-        20.8
+        39.58,
+        58.33,
+        0,
+        0
       ]
     },
     {
       "gestureIdx": 2,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 2,
+      "correct": true,
       "firingRates": [
-        20.41,
-        20.41,
-        20.41,
-        18.49
+        0,
+        0,
+        58.33,
+        0
       ]
     },
     {
       "gestureIdx": 3,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 3,
+      "correct": true,
       "firingRates": [
-        20.8,
-        20.8,
-        20.8,
-        20.8
+        0,
+        0,
+        0,
+        58.33
       ]
     }
   ],
-  "finalCorrect": 0,
-  "finalAccuracy": 0,
+  "finalCorrect": 4,
+  "finalAccuracy": 1,
   "OUT_PER_CLUSTER": 8
 }

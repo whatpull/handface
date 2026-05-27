@@ -69,6 +69,15 @@ function inferRegion(name: string): 'V1' | 'V2' | 'OTHER' {
   return 'OTHER';
 }
 
+// UX MEDIUM #2 (2026-05-25): cluster hue palette — TRAINED phase 영역 각 cluster
+// row 영역 unique hue dot. 6 distinct hue (mod 6) 영역 cluster id 25+ 영역 hue
+// collapse 회피 (golden-angle rotation 영역 hue 영역 1° 미만 영역 collapse 사실).
+// 단 base-4 grid 영역만 hue dot 표시 (HIGH #1 정합) — cluster label 영역 1차
+// identity source. 0°/60°/120°/180°/240°/300° (red/yellow/green/cyan/blue/magenta).
+function clusterHue(cluster: number): number {
+  return (cluster % 6) * 60;
+}
+
 // NodeLearn — 그리드 학습 전용. 카메라 모드에서는 추론만 가능.
 export default function NodeLearn() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
@@ -547,6 +556,17 @@ export default function NodeLearn() {
   const stripActive = regionFired.V1 || regionFired.V2;
   const phaseTone = phaseInfo.tone;
   const isLearning = phaseTone === 'amber' || phaseTone === 'orange';
+  // UX HIGH #1 (2026-05-25): TRAINED phase visualization — N/4 clusters badge +
+  // animated check sequence. gridProgress.trained 영역 base-4 hardcoded
+  // (`0|1|2|3`) — ART expansion 영역 5+ cluster 영역 badge 영역 base-4 grid 영역
+  // 만 표시 (totalClusterSlots = 4 hard-cap). clusterLabels.length === 0
+  // (zero-init) 영역 badge hide (LOW #5 정합 — clusterLabels.length > 0 gate).
+  const isTrained = phaseTone === 'green';
+  const trainedCount = useMemo(() =>
+    (Object.values(gridProgress.trained) as boolean[]).filter(Boolean).length,
+    [gridProgress.trained],
+  );
+  const totalClusterSlots = 4;
 
   return (
     <NodeShell
@@ -615,6 +635,26 @@ export default function NodeLearn() {
               {isLearning && (
                 <span className="snn-pipeline-tick-spinner" aria-label="학습 중" />
               )}
+              {/* UX HIGH #1 (2026-05-25): TRAINED phase badge — N/4 clusters
+                  + animated check sequence (1회 fade-in, phase transition key
+                  영역 재생). clusterLabels.length === 0 영역 hide (LOW #5
+                  zero-init + trainedCount=4 모순 path 회피). */}
+              {isTrained && clusterLabels.length > 0 && (
+                <span
+                  className="snn-pipeline-trained-badge"
+                  role="status"
+                  aria-label={`${trainedCount} of ${totalClusterSlots} clusters trained`}
+                  title="모든 cluster 학습 완료 — frozen"
+                >
+                  <span
+                    className="snn-pipeline-trained-badge-check"
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                  {trainedCount} / {totalClusterSlots} clusters
+                </span>
+              )}
             </div>
             <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
           </div>
@@ -648,12 +688,14 @@ export default function NodeLearn() {
               return (
                 <ClusterRow
                   key={i}
+                  clusterIdx={i}
                   label={clusterLabels[i] ?? `패턴 ${i + 1}`}
                   count={count}
                   done={done}
                   active={active || spawnActive}
                   capturingPulse={active ? capturingPulse : 0}
                   spawnPulse={spawnActive ? spawnPulseKey : 0}
+                  showHueDot={isTrained && done && i < 4}
                 />
               );
             })}
@@ -1078,9 +1120,18 @@ function AutoLearnProgressRow({ label, progress, total }: {
   );
 }
 
-function ClusterRow({ label, count, done, active = false, capturingPulse = 0, spawnPulse = 0 }:
-  { label: string; count: number; done: boolean; active?: boolean; capturingPulse?: number; spawnPulse?: number }) {
+function ClusterRow({ clusterIdx, label, count, done, active = false, capturingPulse = 0, spawnPulse = 0, showHueDot = false }:
+  { clusterIdx: number; label: string; count: number; done: boolean; active?: boolean; capturingPulse?: number; spawnPulse?: number; showHueDot?: boolean }) {
   const fillRef = useRef<HTMLDivElement | null>(null);
+  const hueDotRef = useRef<HTMLSpanElement | null>(null);
+  // UX MEDIUM #2 (2026-05-25): hue dot color — cluster id 영역 deterministic
+  // hue (clusterHue 정합). CSS var --hue 영역 setProperty (inline style 회피 —
+  // fillRef 패턴 정합).
+  useEffect(() => {
+    if (hueDotRef.current && showHueDot) {
+      hueDotRef.current.style.setProperty('--hue', String(clusterHue(clusterIdx)));
+    }
+  }, [clusterIdx, showHueDot]);
   // capturingPulse 변경 시점 — bar 옆 pulse dot 재생 (frame 1개 capture 시각 신호).
   // 사용자 catch 2026-05-07: 학습 중 batch supervised pulse 시각 catch 강화.
   const [bumpKey, setBumpKey] = useState<number>(0);
@@ -1125,6 +1176,19 @@ function ClusterRow({ label, count, done, active = false, capturingPulse = 0, sp
           <span className="snn-pipeline-tick-spinner snn-pipeline-tick-spinner--inline" aria-hidden />
         )}
       </span>
+      {/* UX MEDIUM #2 (2026-05-25): TRAINED phase 영역 base-4 cluster 영역
+          unique hue dot (6 distinct hue mod-6). ART expansion 영역 5+
+          cluster 영역 hue dot 영역 표시 X (HIGH #1 정합 — base-4 grid 영역
+          만 highlight). aria-hidden: dot 영역 redundant decoration — row
+          label 영역 cluster 식별 1차 source. */}
+      {showHueDot && (
+        <span
+          ref={hueDotRef}
+          className="snn-pipeline-cluster-hue-dot"
+          aria-hidden
+          title={`cluster ${clusterIdx + 1} identity`}
+        />
+      )}
     </div>
   );
 }

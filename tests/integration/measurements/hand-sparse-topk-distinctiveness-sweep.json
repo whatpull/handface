@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-05-26T21:36:04.219Z",
+  "scenario": "hand-sparse-topk-distinctiveness-sweep",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "baseline_threshold02_distinctiveness": 0.0185,
+  "topKResults": [
+    {
+      "K": 5,
+      "avgDistinctiveness": 0.8683862433862434,
+      "perGestureActive": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "K": 8,
+      "avgDistinctiveness": 0.8301587301587302,
+      "perGestureActive": [
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "K": 10,
+      "avgDistinctiveness": 0.7242452536570183,
+      "perGestureActive": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "K": 15,
+      "avgDistinctiveness": 0.5452836637047164,
+      "perGestureActive": [
+        15,
+        15,
+        15,
+        15
+      ]
+    },
+    {
+      "K": 20,
+      "avgDistinctiveness": 0.45840455840455846,
+      "perGestureActive": [
+        20,
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "K": 25,
+      "avgDistinctiveness": 0.49246126285974484,
+      "perGestureActive": [
+        25,
+        25,
+        25,
+        25
+      ]
+    },
+    {
+      "K": 30,
+      "avgDistinctiveness": 0.5171866958049461,
+      "perGestureActive": [
+        30,
+        30,
+        30,
+        30
+      ]
+    }
+  ],
+  "meanSubResults": [
+    {
+      "K": 5,
+      "avgDistinctiveness": 0.7387566137566136,
+      "perGestureActive": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "K": 8,
+      "avgDistinctiveness": 0.6679542679542679,
+      "perGestureActive": [
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "K": 10,
+      "avgDistinctiveness": 0.5238095238095238,
+      "perGestureActive": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "K": 15,
+      "avgDistinctiveness": 0.40053565285763426,
+      "perGestureActive": [
+        15,
+        15,
+        15,
+        15
+      ]
+    },
+    {
+      "K": 20,
+      "avgDistinctiveness": 0.3143407317320361,
+      "perGestureActive": [
+        20,
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "K": 25,
+      "avgDistinctiveness": 0.251145697845735,
+      "perGestureActive": [
+        25,
+        25,
+        25,
+        25
+      ]
+    },
+    {
+      "K": 30,
+      "avgDistinctiveness": 0.2042793412575196,
+      "perGestureActive": [
+        30,
+        30,
+        30,
+        30
+      ]
+    }
+  ]
+}

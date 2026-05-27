@@ -13,7 +13,7 @@ describe('n16-hand — basic build', () => {
     ];
     const result = buildN16HandPreset({ clusterActiveInputs: activeInputs, seed: 57 });
     expect(result.preset).toBe('n16_hand');
-    expect(result.inputDim).toBe(75);
+    expect(result.inputDim).toBe(95);
     expect(result.outClusters).toBe(4);
     expect(result.outTotal).toBe(4 * N16Pools.OUT_PER_CLUSTER);
     expect(result.neuronsAdded).toBeGreaterThan(0);
@@ -22,7 +22,7 @@ describe('n16-hand — basic build', () => {
     expect(result.homeostaticNeurons).toBeGreaterThan(0);
   });
 
-  it('input neurons = N_INPUT_N16 (75)', () => {
+  it('input neurons = N_INPUT_N16 (95)', () => {
     const result = buildN16HandPreset({ clusterActiveInputs: [[0, 1, 2]], seed: 57 });
     const net = result.net;
     // Check that all input neurons exist.
@@ -63,7 +63,7 @@ describe('n16-hand — basic build', () => {
   it('default options work', () => {
     const result = buildN16HandPreset({ clusterActiveInputs: [[0]] });
     expect(result.preset).toBe('n16_hand');
-    expect(result.inputDim).toBe(75);
+    expect(result.inputDim).toBe(95);
   });
 
   it('empty cluster list → input neurons only', () => {

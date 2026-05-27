@@ -662,9 +662,46 @@ export class SNNWorkerCore {
     }
     // P218 diagnostic — reset 영역 spawn 영역 영역 첫 reinforce 영역 영역 log.
     this._p218LoggedFirstReinforce = false;
+    // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
+    //   payload.forceDisjoint=true 영역 기존 registry 영역 모든 slot 영역
+    //   activeInputs 영역 union 영역 claimed 산출 + payload.activeInputs 영역
+    //   영역 claimed 영역 제거 영역 disjoint sub-pool 영역 자동 확보.
+    //
+    //   결과 영역 길이 0 영역 edge case (rare — 모든 features 영역 이미 claimed
+    //   영역) 영역 fallback: claimed 무시 + payload.activeInputs 그대로 (학술
+    //   정합 단 disjoint 깨짐) + console.warn 영역 정직 catch.
+    //
+    //   학술 정합: Carpenter & Grossberg 1987 ART vigilance + sparse coding
+    //   (Olshausen & Field 1996) 영역 cluster active inputs disjoint canonical.
+    // worker single-threaded — concurrent spawn race 0 (postMessage queue 영역
+    // 순차 dispatch 영역 정합, claimed Set 산출 ↔ expandCluster 영역 race 0).
+    let activeInputs = payload.activeInputs;
+    let fallbackUsed: boolean | undefined;
+    let claimedSize: number | undefined;
+    if (payload.forceDisjoint) {
+      const claimed = new Set<number>();
+      for (const slot of registry.slots) {
+        for (const ai of slot.activeInputs) claimed.add(ai);
+      }
+      claimedSize = claimed.size;
+      const filtered = payload.activeInputs.filter((i) => !claimed.has(i));
+      if (filtered.length === 0) {
+        fallbackUsed = true;
+        console.warn(
+          '[handleExpandCluster] forceDisjoint fallback — 모든 candidate activeInputs 영역 ' +
+            `이미 claimed (existing slots: ${registry.slots.length}, candidate: ` +
+            `[${payload.activeInputs.join(',')}], claimedSize: ${claimedSize}). ` +
+            'disjoint 영역 깨짐 영역 인정 + plain activeInputs 영역 spawn. ' +
+            'registry capacity 영역 점검 권장.',
+        );
+      } else {
+        fallbackUsed = false;
+        activeInputs = filtered;
+      }
+    }
     const before = net.neurons.length;
     const result = expandCluster(net, registry, {
-      activeInputs: payload.activeInputs,
+      activeInputs,
       seed: payload.seed,
     });
     // 새 뉴런들에도 monitor listener 부착 (없으면 firing rate 0 으로 보임).
@@ -677,6 +714,8 @@ export class SNNWorkerCore {
       neuronsAdded: result.neuronsAdded,
       synapsesAdded: result.synapsesAdded,
       activeInputs: result.newSlot.activeInputs,
+      fallbackUsed,
+      claimedSize,
     };
   }
 

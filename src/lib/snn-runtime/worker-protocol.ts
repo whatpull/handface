@@ -80,6 +80,24 @@ export interface FiringRatesPayload {
 export interface ExpandClusterPayload {
   activeInputs: number[]; // 길이 4 권장 (n13 cluster slot 정합).
   seed?: number;
+  // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
+  //   true 영역 worker 영역 기존 registry.slots[].activeInputs 영역 union
+  //   (claimed) 영역 산출 + payload.activeInputs 영역 영역 claimed 영역 제거
+  //   영역 disjoint sub-pool 영역 자동 확보. 학술 정합 (Carpenter & Grossberg
+  //   1987 ART vigilance + active inputs disjoint).
+  //   결과 영역 0 영역 fallback: claimed 무시 + payload.activeInputs 그대로
+  //   (rare — 모든 features 영역 이미 claimed 영역 edge case). worker 영역
+  //   console.warn 영역 정직 catch.
+  //
+  // QA MEDIUM 2 dual-default 정직 명시 (2026-05-25):
+  //   - worker handle 영역 omit 시 default = false (backward compat). legacy
+  //     test / batch supervised path 영역 client 영역 사전 disjoint 처리 정합.
+  //   - live-snn `expandClusterAsync` 영역 production wire default = true
+  //     (production single-frame dispatch — triggerWithVigilance →
+  //     runAutoLearnLoop 영역 매 spawn 영역 자동 disjoint sub-pool 확보).
+  //   본 dual-default 영역 layer 별 명시 — protocol level 영역 conservative
+  //   (legacy compat) / live-snn level 영역 production 정합.
+  forceDisjoint?: boolean;
 }
 
 export interface ClusterFiringRatesPayload {
@@ -270,6 +288,16 @@ export interface ExpandClusterResult {
   neuronsAdded: number;
   synapsesAdded: number;
   activeInputs: number[];
+  // QA MEDIUM 4 + UX MEDIUM 2 telemetry (2026-05-25):
+  //   payload.forceDisjoint=true 영역 worker 영역 claimed exhaustion 영역 hit
+  //   영역 plain activeInputs fallback path 영역 catch 영역 caller 영역 시각
+  //   warning 영역 emit catch (showToast warning + 'snn-error' event).
+  //   미동봉 (legacy / forceDisjoint=false path) 영역 undefined.
+  fallbackUsed?: boolean;
+  // 동시 보고 — registry 영역 union (claimed) size 영역 caller 영역 capacity
+  //   진단 catch (registry 영역 모든 features 영역 이미 claimed 영역 edge case).
+  //   undefined = forceDisjoint=false path 영역 미산출.
+  claimedSize?: number;
 }
 
 export interface ClusterFiringRatesResult {

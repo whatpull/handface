@@ -925,17 +925,72 @@ export class LiveSnn {
    * triggerWithVigilance 영역 vigilance miss 시점 영역 호출. activeInputs 영역
    * pattern 영역 v > 0.5 영역 binary 영역 catch (sharpenForGesture 정합).
    *
+   * @param activeInputs   binary active input idx 배열 (v > threshold).
+   * @param opts.forceDisjoint default = true (production wire 2026-05-27).
+   *   - worker 영역 기존 registry.slots[].activeInputs union 영역 산출 +
+   *     candidate 영역 영역 claimed 영역 제거 영역 disjoint sub-pool 자동 확보.
+   *   - backwards-compatible — legacy caller (테스트 / batch supervised path)
+   *     영역 explicit `false` 영역 명시 영역 legacy non-disjoint path 영역 활성.
+   *   - protocol layer default 영역 false (worker-protocol.ts 영역 명시) —
+   *     live-snn layer 영역 production 영역 자동 true override.
+   *
    * @returns newClusterId  worker 영역 할당 영역 신규 cluster id (registry
    *                        length 직전 영역 ↑ 영역 정합).
    * @returns totalClusters worker 영역 registry 영역 신규 length.
+   * @returns fallbackUsed  forceDisjoint=true 영역 worker 영역 claimed
+   *                        exhaustion 영역 plain activeInputs fallback path
+   *                        영역 hit 영역 (disjoint 깨짐 정직 catch). 미정의 =
+   *                        forceDisjoint=false path 정합.
    */
-  async expandClusterAsync(activeInputs: number[]): Promise<{
+  async expandClusterAsync(
+    activeInputs: number[],
+    opts: { forceDisjoint?: boolean } = {},
+  ): Promise<{
     newClusterId: number;
     totalClusters: number;
+    fallbackUsed?: boolean;
   }> {
     const root = await getRootLocalSnnFor(this.substrateKind);
-    const r = await root.client.expandCluster({ activeInputs });
-    return { newClusterId: r.newClusterId, totalClusters: r.totalClusters };
+    // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
+    //   default true — production worker dispatch path (triggerWithVigilance →
+    //   runAutoLearnLoop) 영역 매 spawn 시점 영역 자동 disjoint sub-pool 영역
+    //   확보. f880a89 batch forced-disjoint 4/4 wire 영역 production 영역 자동
+    //   적용. legacy caller (테스트 등) 영역 opts.forceDisjoint=false 영역 명시
+    //   영역 opt-out.
+    const r = await root.client.expandCluster({
+      activeInputs,
+      forceDisjoint: opts.forceDisjoint ?? true,
+    });
+    // QA MEDIUM 4 + UX MEDIUM 2 (2026-05-25): fallback path 영역 시각 catch —
+    //   worker console.warn only 영역 silent path 영역 정정. showToast warning
+    //   amber pill + 'snn-error' event 영역 telemetry hook 영역 emit. 사용자
+    //   영역 cluster spawn 영역 disjoint 깨짐 영역 즉시 인지 catch (registry
+    //   capacity 영역 점검 affordance).
+    if (r.fallbackUsed) {
+      showToast({
+        kind: 'warning',
+        message:
+          `cluster ${r.newClusterId} spawn — disjoint sub-pool 고갈 fallback ` +
+          `(claimed ${r.claimedSize ?? '?'} features). 학습 영역 cluster 영역 ` +
+          `weight overlap 영역 가능 영역 — 패턴 영역 더 명확 영역 영역 권장.`,
+        duration: 6000,
+      });
+      emitBackendEvent('snn-error', {
+        source: 'rpc',
+        message: 'expandCluster forceDisjoint fallback — claimed exhaustion',
+        context: {
+          newClusterId: r.newClusterId,
+          totalClusters: r.totalClusters,
+          claimedSize: r.claimedSize,
+          candidateActiveInputs: activeInputs,
+        },
+      });
+    }
+    return {
+      newClusterId: r.newClusterId,
+      totalClusters: r.totalClusters,
+      fallbackUsed: r.fallbackUsed,
+    };
   }
 
   /**

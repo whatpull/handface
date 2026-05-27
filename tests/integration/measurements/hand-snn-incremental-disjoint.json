@@ -1,0 +1,263 @@
+{
+  "timestamp": "2026-05-27T11:38:26.158Z",
+  "scenario": "hand-snn-incremental-disjoint",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "sparseTopK": 5,
+  "candidateTopK": [
+    [
+      74,
+      76,
+      77,
+      78,
+      84
+    ],
+    [
+      74,
+      77,
+      78,
+      84,
+      85
+    ],
+    [
+      1,
+      74,
+      77,
+      78,
+      85
+    ],
+    [
+      74,
+      76,
+      77,
+      78,
+      84
+    ]
+  ],
+  "plainPairwiseJaccard": [
+    {
+      "i": 0,
+      "j": 1,
+      "jaccard": 0.6666666666666666,
+      "intersect": [
+        74,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "i": 0,
+      "j": 2,
+      "jaccard": 0.42857142857142855,
+      "intersect": [
+        74,
+        77,
+        78
+      ]
+    },
+    {
+      "i": 0,
+      "j": 3,
+      "jaccard": 1,
+      "intersect": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "i": 1,
+      "j": 2,
+      "jaccard": 0.6666666666666666,
+      "intersect": [
+        74,
+        77,
+        78,
+        85
+      ]
+    },
+    {
+      "i": 1,
+      "j": 3,
+      "jaccard": 0.6666666666666666,
+      "intersect": [
+        74,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "i": 2,
+      "j": 3,
+      "jaccard": 0.42857142857142855,
+      "intersect": [
+        74,
+        77,
+        78
+      ]
+    }
+  ],
+  "plainMaxJaccard": 1,
+  "plainMeanJaccard": 0.6428571428571427,
+  "spawned": [
+    {
+      "gesture": "open_palm",
+      "newClusterId": 0,
+      "resultActiveInputs": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "gesture": "closed_fist",
+      "newClusterId": 1,
+      "resultActiveInputs": [
+        85
+      ]
+    },
+    {
+      "gesture": "thumbs_up",
+      "newClusterId": 2,
+      "resultActiveInputs": [
+        1
+      ]
+    },
+    {
+      "gesture": "peace_sign",
+      "newClusterId": 3,
+      "resultActiveInputs": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    }
+  ],
+  "incrementalPairwiseJaccard": [
+    {
+      "i": 0,
+      "j": 1,
+      "jaccard": 0,
+      "intersect": [],
+      "iAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ],
+      "jAi": [
+        85
+      ]
+    },
+    {
+      "i": 0,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": [],
+      "iAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ],
+      "jAi": [
+        1
+      ]
+    },
+    {
+      "i": 0,
+      "j": 3,
+      "jaccard": 1,
+      "intersect": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ],
+      "iAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ],
+      "jAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "i": 1,
+      "j": 2,
+      "jaccard": 0,
+      "intersect": [],
+      "iAi": [
+        85
+      ],
+      "jAi": [
+        1
+      ]
+    },
+    {
+      "i": 1,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": [],
+      "iAi": [
+        85
+      ],
+      "jAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    },
+    {
+      "i": 2,
+      "j": 3,
+      "jaccard": 0,
+      "intersect": [],
+      "iAi": [
+        1
+      ],
+      "jAi": [
+        74,
+        76,
+        77,
+        78,
+        84
+      ]
+    }
+  ],
+  "incrementalAllDisjoint": false,
+  "incMaxJaccard": 1,
+  "incMeanJaccard": 0.16666666666666666,
+  "disjointCount": 3,
+  "neuronsTotal": 95,
+  "synapsesTotal": 0,
+  "limitations": [
+    "mock anatomical landmarks 한정 (makeOpenPalm/Fist/ThumbsUp/PeaceSign)",
+    "realistic MediaPipe noise / hand variance / occlusion / fast motion 미검증",
+    "production 영역 noise 영역 영역 active-input pool drift → fallback hit rate 변동 가능"
+  ]
+}

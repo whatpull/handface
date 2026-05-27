@@ -1137,6 +1137,43 @@
   }
 }
 
+/* UX MEDIUM 1 (2026-05-25): LEARNING phase mini dot indicator —
+   disjoint cluster slot allocation progress (trainedCount/4) 영역 TRAINED
+   badge ("✓ N/4 clusters") 영역 visual continuity. inline ●●○○ glyph 영역
+   8px font / 3px gap — phase-sub line 영역 자연 align. fill 영역 amber
+   (LEARNING phase tone 정합) / empty 영역 muted. fade-in transition 320ms
+   영역 fill 변경 영역 visual flow + prefers-reduced-motion 영역 instant. */
+.snn-pipeline-phase-progress-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  font-size: 8px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.snn-pipeline-phase-progress-dot {
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  align-items: center;
+  justify-content: center;
+  transition: color 320ms ease, opacity 320ms ease;
+}
+.snn-pipeline-phase-progress-dot--filled {
+  color: #f59e0b;
+  opacity: 1;
+}
+.snn-pipeline-phase-progress-dot--empty {
+  color: rgba(255, 255, 255, 0.32);
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-phase-progress-dot {
+    transition: none;
+  }
+}
+
 /* 5) winner fade-in */
 .snn-pipeline-winner-fade {
   animation: snn-pipeline-winner-fade-in 360ms ease-out;

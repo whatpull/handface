@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-26T01:24:46.501Z",
+  "timestamp": "2026-05-27T11:26:58.199Z",
   "scenario": "hand-snn-supervised-ewc",
   "gestures": [
     "open_palm",
@@ -7,8 +7,8 @@
     "thumbs_up",
     "peace_sign"
   ],
-  "neuronsTotal": 1531,
-  "synapsesTotal": 81060,
+  "neuronsTotal": 1551,
+  "synapsesTotal": 84534,
   "trainingRounds": 2,
   "config": {
     "injectionWeight": 30,
@@ -20,76 +20,76 @@
     {
       "round": 1,
       "gestureIdx": 0,
-      "predictedWinner": 3,
+      "predictedWinner": 2,
       "correct": false,
       "firingRates": [
-        48.44,
+        12.5,
+        25,
+        50,
+        25
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 1,
+      "predictedWinner": 1,
+      "correct": true,
+      "firingRates": [
+        12.5,
+        50,
+        50,
+        12.5
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 2,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        75,
         37.5,
+        50,
+        37.5
+      ],
+      "ewcApplied": false
+    },
+    {
+      "round": 1,
+      "gestureIdx": 3,
+      "predictedWinner": 0,
+      "correct": false,
+      "firingRates": [
+        62.5,
+        50,
         37.5,
         50
       ],
       "ewcApplied": false
     },
     {
-      "round": 1,
-      "gestureIdx": 1,
-      "predictedWinner": 0,
-      "correct": false,
-      "firingRates": [
-        37.5,
-        37.5,
-        37.5,
-        37.5
-      ],
-      "ewcApplied": false
-    },
-    {
-      "round": 1,
-      "gestureIdx": 2,
-      "predictedWinner": 2,
-      "correct": true,
-      "firingRates": [
-        39.06,
-        37.5,
-        50,
-        37.5
-      ],
-      "ewcApplied": false
-    },
-    {
-      "round": 1,
-      "gestureIdx": 3,
-      "predictedWinner": 1,
-      "correct": false,
-      "firingRates": [
-        29.69,
-        50,
-        37.5,
-        37.5
-      ],
-      "ewcApplied": false
-    },
-    {
       "round": 2,
       "gestureIdx": 0,
-      "predictedWinner": 1,
+      "predictedWinner": 2,
       "correct": false,
       "firingRates": [
         25,
-        50,
-        37.5,
-        37.5
+        62.5,
+        75,
+        25
       ],
       "ewcApplied": true
     },
     {
       "round": 2,
       "gestureIdx": 1,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 1,
+      "correct": true,
       "firingRates": [
-        50,
         12.5,
+        75,
         12.5,
         12.5
       ],
@@ -98,26 +98,26 @@
     {
       "round": 2,
       "gestureIdx": 2,
-      "predictedWinner": 0,
+      "predictedWinner": 3,
       "correct": false,
       "firingRates": [
-        37.5,
+        25,
+        28.13,
         12.5,
-        12.5,
-        12.5
+        50
       ],
       "ewcApplied": true
     },
     {
       "round": 2,
       "gestureIdx": 3,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 3,
+      "correct": true,
       "firingRates": [
-        25,
         12.5,
-        25,
-        12.5
+        12.5,
+        37.5,
+        62.5
       ],
       "ewcApplied": true
     }
@@ -125,49 +125,49 @@
   "finalTests": [
     {
       "gestureIdx": 0,
-      "predictedWinner": 0,
-      "correct": true,
+      "predictedWinner": 1,
+      "correct": false,
       "firingRates": [
-        25,
         12.5,
-        25,
+        37.5,
+        37.5,
         12.5
       ]
     },
     {
       "gestureIdx": 1,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 1,
+      "correct": true,
       "firingRates": [
-        25,
         12.5,
+        37.5,
         25,
         12.5
       ]
     },
     {
       "gestureIdx": 2,
-      "predictedWinner": 0,
-      "correct": false,
+      "predictedWinner": 2,
+      "correct": true,
       "firingRates": [
-        25,
         12.5,
-        25,
+        12.5,
+        37.5,
         12.5
       ]
     },
     {
       "gestureIdx": 3,
-      "predictedWinner": 1,
-      "correct": false,
+      "predictedWinner": 3,
+      "correct": true,
       "firingRates": [
         25,
+        25,
         37.5,
-        37.5,
-        37.5
+        75
       ]
     }
   ],
-  "finalCorrect": 1,
-  "finalAccuracy": 0.25
+  "finalCorrect": 3,
+  "finalAccuracy": 0.75
 }

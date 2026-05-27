@@ -538,9 +538,13 @@ export default function NodeLearn() {
           : 'all clusters captured',
       },
       trained: {
+        // UX LOW 3 (2026-05-25): "disjoint guaranteed" 정직 명시 — production
+        // incremental forced-disjoint wire (worker forceDisjoint=true default)
+        // 영역 사용자 가치 (자동 disjoint 보장) 영역 sub 영역 catch. 학술 정합
+        // (Carpenter & Grossberg 1987 ART vigilance disjoint active inputs).
         label: '✓ TRAINED — frozen',
         tone: 'green',
-        sub: '4 clusters locked · weight permanent',
+        sub: '4 clusters locked — disjoint guaranteed · weight permanent',
         hint: '학습 완료 — Infer 노드에서 winner 확인',
       },
       inference: {
@@ -656,7 +660,40 @@ export default function NodeLearn() {
                 </span>
               )}
             </div>
-            <div className="snn-pipeline-phase-sub">{phaseInfo.sub}</div>
+            <div className="snn-pipeline-phase-sub">
+              {phaseInfo.sub}
+              {/* UX MEDIUM 1 (2026-05-25): LEARNING phase mini dot indicator —
+                  disjoint cluster slot allocation progress (trainedCount/4) 영역
+                  TRAINED badge ("✓ N/4 clusters") 영역 visual continuity. frame
+                  progress (CLUSTER_TARGET 30) 영역 hint 영역 catch + slot
+                  progress 영역 본 dot 영역 catch. progressive disclosure
+                  principle (Nielsen Norman) 정합 — LEARNING / PARTIAL phase
+                  영역 만 visible, TRAINED 영역 badge 영역 흡수, UNTRAINED /
+                  INFERENCE 영역 hide. clusterLabels.length === 0 (zero-init)
+                  영역 hide (TRAINED badge gate 정합). */}
+              {isLearning && clusterLabels.length > 0 && (
+                <span
+                  className="snn-pipeline-phase-progress-dots"
+                  role="status"
+                  aria-label={`${trainedCount} of ${totalClusterSlots} clusters allocated`}
+                  title="disjoint cluster slot 할당 진행"
+                >
+                  {Array.from({ length: totalClusterSlots }, (_, i) => (
+                    <span
+                      key={i}
+                      className={`snn-pipeline-phase-progress-dot ${
+                        i < trainedCount
+                          ? 'snn-pipeline-phase-progress-dot--filled'
+                          : 'snn-pipeline-phase-progress-dot--empty'
+                      }`}
+                      aria-hidden
+                    >
+                      {i < trainedCount ? '●' : '○'}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
           </div>
           <div className="snn-pipeline-hint">{phaseInfo.hint}</div>
           <div className="snn-pipeline-cluster-list">

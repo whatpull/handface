@@ -92,6 +92,30 @@ export const SATURATION_HZ = 400;
 export const WINNER_MARGIN = WINNER_MARGIN_DEFAULT;
 export const HISTORY_MAX = 32;
 
+// UX MEDIUM #1 (2026-05-25 QA audit catch): magic number hoist —
+// 직전 NodeInfer.tsx:161 영역 `fireDeltaHz < 3` 영역 inline literal 영역 magic.
+// 본 const 영역 hoist + 학술 정합 catch 영역 단일 source.
+//
+// 학술 정합 — P215 selectivity 시리즈 측정 영역 stable WTA winner 영역
+// top-1 vs top-2 firing rate gap ≥ 3Hz 영역 정합 (Roxin & Compte 2008 WTA
+// selectivity + Diehl & Cook 2015 spike-rate decoding). 50ms observe window
+// (scaled to Hz) 영역 sample stability 영역 정합 — gap < 3Hz 영역 amber
+// pulse (winner 불안정 신호).
+//
+// 측정 reference: P215 selectivity 시리즈 commit 영역 measurement JSON 영역
+// neuronface backend repo `measurements/P215_selectivity_*.json` 정합.
+export const FIRE_DELTA_LOW_THRESHOLD_HZ = 3;
+
+// UX HIGH #3 (2026-05-25 QA audit catch): confusion matrix N hard-cap.
+// TRAINED badge `totalClusterSlots = 4` 정합 catch — base-4 hard-cap 영역
+// matrix 영역 동일 cap. N > cap 영역 truncate (matrix grid overflow 회피)
+// + "{remaining} more clusters not shown" hint 영역 정직 catch.
+//
+// 학술 정합: Carpenter & Grossberg 1987 ART vigilance — incremental cluster
+// expansion 영역 N+ 영역 추론 영역 정합 단 UI 영역 base-4 reference frame
+// 영역 사용자 mental model 정합 (TRAINED badge `N/4 clusters`).
+export const CONFUSION_MATRIX_MAX_N = 4;
+
 // 5 노드 default expanded — 모든 device 동일.
 // 호환 보존을 위해 helper 형태로 유지 (단순 false 반환).
 export function initialCollapsedForMobile(): boolean {

@@ -24,7 +24,7 @@ import {
 import { isUntrustworthy } from '@/lib/snn/untrustworthy';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { SATURATION_HZ, WINNER_MARGIN, resolveClusterLabel } from './shared';
+import { SATURATION_HZ, WINNER_MARGIN, FIRE_DELTA_LOW_THRESHOLD_HZ, resolveClusterLabel } from './shared';
 
 export default function NodeInfer() {
   const [phase, setPhase] = useState<TrainingPhaseDetail | null>(null);
@@ -145,6 +145,21 @@ export default function NodeInfer() {
     ? (clusterLabels[winner.cluster] ?? `패턴 ${winner.cluster + 1}`)
     : null;
   const confPct = (winner.confidence * 100).toFixed(0);
+  // UX HIGH (2026-05-25): confidence margin — top-1 vs top-2 firing rate gap (Hz).
+  // Roxin & Compte 2008 WTA selectivity 정합 metric — winner stability 영역 ratio
+  // (winner.margin) 영역 보완 absolute Hz gap. clusterRates sort 영역 top-2
+  // 산출 — winner.max 영역 top-1 (정합 cross-check). gap < threshold 영역 amber pulse.
+  // QA MEDIUM #1 (2026-05-25 audit): magic 3 영역 FIRE_DELTA_LOW_THRESHOLD_HZ 영역
+  // const hoist (shared.ts) — 학술 정합 single-source.
+  const fireDeltaHz = useMemo(() => {
+    if (winner.clusterRates.length < 2) return null;
+    const sorted = [...winner.clusterRates].sort((a, b) => b - a);
+    const top1 = sorted[0];
+    const top2 = sorted[1];
+    if (top1 <= 0) return null; // no winner — gap 영역 의미 0
+    return top1 - top2;
+  }, [winner.clusterRates]);
+  const fireDeltaLow = fireDeltaHz !== null && fireDeltaHz < FIRE_DELTA_LOW_THRESHOLD_HZ;
   // PR-K (Phase 5, 사용자 catch 2026-05-09 catch 3): fresh state winner hide —
   // trial=0 + initState='fresh' 영역 winner card 영역 amber pill 영역 강화 +
   // winner cluster name 영역 dim + history hide. n13 INPUT→V1_L4_E weight
@@ -263,7 +278,27 @@ export default function NodeInfer() {
                       </span>
                     </div>
                   )
-                  : `${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`)
+                  : (
+                    <>
+                      {`${winnerLabel} · 정확도 ${confPct}% · 안정도 ${(winner.margin * 100).toFixed(0)}%`}
+                      {/* UX HIGH (2026-05-25): confidence margin — Δfire top1-top2 Hz
+                          gap mono badge. fireDeltaLow (<3Hz) 영역 amber outline pulse
+                          (WTA selectivity 학술 정합 — Roxin & Compte 2008). non-exact
+                          winner 영역만 표시 (EXACT 영역 deterministic 영역 gap 영역 무의미). */}
+                      {fireDeltaHz !== null && (
+                        <span
+                          className={`snn-pipeline-confidence-margin${fireDeltaLow ? ' snn-pipeline-confidence-margin--low' : ''}`}
+                          role="status"
+                          aria-label={`confidence margin ${fireDeltaHz.toFixed(1)} hertz between top 1 and top 2, measured over 50 millisecond observation window`}
+                          title={fireDeltaLow
+                            ? `top-1 vs top-2 firing rate gap ${fireDeltaHz.toFixed(1)}Hz — 낮음 (winner 영역 불안정, threshold ${FIRE_DELTA_LOW_THRESHOLD_HZ}Hz) · 50ms observe window scaled to Hz`
+                            : `top-1 vs top-2 firing rate gap ${fireDeltaHz.toFixed(1)}Hz · 50ms observe window scaled to Hz`}
+                        >
+                          Δfire {fireDeltaHz.toFixed(1)}Hz
+                        </span>
+                      )}
+                    </>
+                  ))
               : '—'}
           </div>
           {/* PR-H 사용자 catch 2026-05-09 (catch 1 enhancement): consecutive

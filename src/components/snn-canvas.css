@@ -1520,7 +1520,18 @@
   .snn-pipeline-rate-value { min-width: 30px; width: auto; font-size: var(--pipe-font-sm); }
   .snn-pipeline-node-sub { display: none; }
   .snn-pipeline-node-title { font-size: var(--pipe-font-xl); }
-  .snn-pipeline-current-value { font-size: var(--pipe-font-title); }
+  /* UX MEDIUM #4 (2026-05-25 follow-up): Δfire pill mobile overflow catch fix —
+     winner row `${label} · 정확도 N% · 안정도 N%` + Δfire pill 영역 단일
+     line 영역 480px viewport 영역 horizontal overflow risk. flex-wrap 영역
+     pill 영역 second line 영역 fall — text 영역 truncation 회피. */
+  .snn-pipeline-current-value {
+    font-size: var(--pipe-font-title);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 4px;
+  }
+  .snn-pipeline-confidence-margin { margin-left: 6px; }
   .snn-pipeline-node { max-height: none; height: auto; }
   .snn-pipeline-node--input { max-height: none; }
   .snn-val-header { min-height: 44px; padding: 10px 0; }
@@ -2286,4 +2297,281 @@
 .auth-progress-fill[data-pct="80"]  { width: 80%; }
 .auth-progress-fill[data-pct="90"]  { width: 90%; }
 .auth-progress-fill[data-pct="100"] { width: 100%; }
+
+/* ─── UX HIGH (2026-05-25) — confidence margin (NodeInfer) ─────────────
+   winner gesture label 옆 mono "Δfire X.XHz" pill. WTA selectivity 학술
+   정합 (Roxin & Compte 2008 — top-1 vs top-2 absolute Hz gap).
+   gap < 3Hz 영역 amber outline pulse (winner 영역 불안정 영역 시각 catch).
+   prefers-reduced-motion 영역 instant. */
+.snn-pipeline-confidence-margin {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  line-height: 1.2;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.snn-pipeline-confidence-margin--low {
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.60);
+  color: #fbbf24;
+  animation: snn-pipeline-confidence-margin-pulse 1.6s ease-in-out infinite;
+}
+@keyframes snn-pipeline-confidence-margin-pulse {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.50);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.0);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 0.95);
+    box-shadow: 0 0 6px 0 rgba(245, 158, 11, 0.45);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-confidence-margin--low {
+    animation: none;
+    border-color: rgba(245, 158, 11, 0.80);
+  }
+}
+
+/* ─── UX HIGH (2026-05-25) — confusion matrix (NodeLearn) ────────────
+   TRAINED phase self-verification 결과 영역 N×N grid (collapse-default).
+   Bishop 1995 ML evaluation 표준 metric 정합. diagonal=green / off-diagonal
+   영역 orange opacity 영역 confusion rate 영역 비례 (samplesPerCluster=1
+   영역 binary: 0 or 1). mobile-safe — grid 영역 horizontal scroll allowed. */
+.snn-pipeline-confusion-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.snn-pipeline-confusion-matrix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 4px;
+  background: transparent;
+  border: 0;
+  color: var(--pipe-text, #e5e7eb);
+  font-size: var(--pipe-font-xs, 10px);
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.snn-pipeline-confusion-matrix-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.snn-pipeline-confusion-matrix-toggle:focus-visible {
+  outline: 2px solid rgba(var(--pipe-tone-learn, 251 191 36), 0.6);
+  outline-offset: 1px;
+}
+/* UX LOW (2026-05-25 follow-up): chevron affordance 강화 — width 10→14px,
+   font 9→11px 영역 mobile touch context 영역 visual catch 강화. toggle 영역
+   width:100% 영역 hit area 영역 cover 정합 단 visual hint 약함 catch fix. */
+.snn-pipeline-confusion-matrix-chevron {
+  display: inline-flex;
+  width: 14px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  transition: transform 0.18s ease;
+}
+.snn-pipeline-confusion-matrix-summary {
+  flex: 1;
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.02em;
+}
+/* QA HIGH #2 (2026-05-25 audit): self-verify 정직 한계 inline note —
+   dim color, small font 영역 panel 상단 영역 표기. samplesPerCluster=1
+   영역 false confidence catch — 사용자 영역 일반화 0 영역 명시. */
+.snn-pipeline-confusion-matrix-honesty {
+  font-size: 9px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+  padding: 0 4px 2px;
+  letter-spacing: 0.01em;
+}
+/* QA HIGH #3 (2026-05-25 audit): truncation hint — N > cap 영역 표기. */
+.snn-pipeline-confusion-matrix-truncate-hint {
+  font-size: 9px;
+  line-height: 1.3;
+  color: rgba(251, 191, 36, 0.65);
+  padding: 3px 4px 0;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+.snn-pipeline-confusion-matrix-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.10);
+  overflow-x: auto;
+  max-width: 100%;
+  animation: snn-pipeline-confusion-matrix-expand 220ms ease-out;
+}
+@keyframes snn-pipeline-confusion-matrix-expand {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snn-pipeline-confusion-matrix-grid-wrap { animation: none; }
+  .snn-pipeline-confusion-matrix-chevron { transition: none; }
+}
+/* QA MEDIUM #5 (2026-05-25 audit): mobile ≤480px horizontal scroll mandatory.
+   grid-wrap 영역 overflow-x: auto 영역 desktop 정합 단 mobile 영역 명시 +
+   cell min-width 영역 fixed (32px) 영역 N=4 base + 추가 cluster scroll path.
+   UX MEDIUM #3 (2026-05-25 follow-up): row/col label sticky 영역 horizontal
+   scroll 영역 함께 이동 catch fix — row-label `position: sticky; left: 0`
+   영역 scroll 시 visible 유지 + col-label 영역 vertical scroll context
+   future-proof. corner 영역 sticky left+top 영역 cross-axis 정합. 480px
+   영역 corner/row-label min-width 48→44px 영역 viewport gain. */
+@media (max-width: 480px) {
+  .snn-pipeline-confusion-matrix-grid-wrap {
+    overflow-x: auto;
+  }
+  .snn-pipeline-confusion-matrix-cell,
+  .snn-pipeline-confusion-matrix-col-label {
+    min-width: 32px;
+  }
+  .snn-pipeline-confusion-matrix-corner,
+  .snn-pipeline-confusion-matrix-row-label {
+    min-width: 44px;
+  }
+  .snn-pipeline-confusion-matrix-row-label {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: rgba(20, 22, 28, 0.96);
+  }
+  .snn-pipeline-confusion-matrix-col-label {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: rgba(20, 22, 28, 0.96);
+  }
+  .snn-pipeline-confusion-matrix-corner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    background: rgba(20, 22, 28, 0.98);
+  }
+}
+.snn-pipeline-confusion-matrix-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 2px;
+}
+.snn-pipeline-confusion-matrix-corner,
+.snn-pipeline-confusion-matrix-col-label,
+.snn-pipeline-confusion-matrix-row-label,
+.snn-pipeline-confusion-matrix-cell {
+  min-width: 24px;
+  min-height: 22px;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+.snn-pipeline-confusion-matrix-corner {
+  min-width: 56px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.40);
+  font-family: ui-monospace, monospace;
+  font-size: 8px;
+}
+.snn-pipeline-confusion-matrix-col-label {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+.snn-pipeline-confusion-matrix-row-label {
+  min-width: 56px;
+  justify-content: flex-start;
+  padding-left: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.snn-pipeline-confusion-matrix-cell {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+/* diagonal cell — correct prediction (green tone). opacity 영역 data attr 영역
+   driven (0..5 quantize). */
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="0"] {
+  background: rgba(34, 197, 94, 0.04);
+  color: rgba(74, 222, 128, 0.50);
+  border: 1px solid rgba(74, 222, 128, 0.10);
+}
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="1"],
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="2"] {
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.30);
+}
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="3"],
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="4"] {
+  background: rgba(34, 197, 94, 0.26);
+  color: #86efac;
+  border: 1px solid rgba(74, 222, 128, 0.55);
+}
+.snn-pipeline-confusion-matrix-cell.is-diagonal[data-opacity-step="5"] {
+  background: rgba(34, 197, 94, 0.42);
+  color: #bbf7d0;
+  border: 1px solid rgba(74, 222, 128, 0.85);
+  font-weight: 600;
+}
+/* off-diagonal cell — confusion (orange tone). opacity-step=0 영역 거의
+   invisible (count=0 영역 정합). */
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="0"] {
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.22);
+}
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="1"],
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="2"] {
+  background: rgba(249, 115, 22, 0.16);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="3"],
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="4"] {
+  background: rgba(249, 115, 22, 0.30);
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.55);
+}
+.snn-pipeline-confusion-matrix-cell.is-off-diagonal[data-opacity-step="5"] {
+  background: rgba(249, 115, 22, 0.46);
+  color: #fed7aa;
+  border: 1px solid rgba(249, 115, 22, 0.85);
+  font-weight: 600;
+}
 

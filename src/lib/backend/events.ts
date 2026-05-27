@@ -9,7 +9,22 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done' | 'confusion-matrix-ready';
+
+// UX HIGH (2026-05-25): TRAINED phase self-verification batch — each cluster
+// 영역 cached lastFeature 영역 inferOnceForValidation 영역 winner 산출 → N×N
+// confusion matrix. NodeLearn 영역 collapsible panel 영역 display (Bishop 1995
+// confusion matrix 표준 ML evaluation 정합).
+export interface ConfusionMatrixReadyDetail {
+  // N×N matrix. matrix[expected][predicted] = sample count (0..samplesPerCluster).
+  matrix: number[][];
+  // 영역 row/col label — clusterLabels 정합 (사용자 명명 우선 + '패턴 N' fallback).
+  labels: string[];
+  // 영역 cluster 영역 영역 sample 수 — diagonal 정확도 derive 영역 정합.
+  samplesPerCluster: number;
+  // 영역 timestamp — 사용자 mental model 영역 "언제 측정?" catch.
+  measuredAt: number;
+}
 
 // Backend v0.2.1-dynamic-cluster (audit fix #4) — POST /networks/{id}/cluster/vigilance
 // 응답 영역 is_novel===true && action==='spawned' 시점 영역 emit. NodeLearn 영역

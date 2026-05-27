@@ -14,14 +14,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  emitBackendEvent,
   onBackendEvent,
   type TrainingPhaseDetail,
   type GridTrainingDetail,
   type ClusterSpawnedDetail,
+  type ConfusionMatrixReadyDetail,
 } from '@/lib/backend/events';
 import { getClient } from '@/lib/backend/client';
 import { useEngineMode } from '@/lib/snn/engine-mode';
-import { onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
+import { getLiveSnn, onLiveTick, type LiveTickDetail } from '@/lib/snn/live-snn';
 import {
   getRootLocalSnnFor,
   subscribeLocalSnnInitState,
@@ -38,7 +40,12 @@ import {
 import { isUntrustworthy } from '@/lib/snn/untrustworthy';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
-import { CLUSTER_TARGET, getClusterLabel, resolveClusterLabel } from './shared';
+import {
+  CLUSTER_TARGET,
+  CONFUSION_MATRIX_MAX_N,
+  getClusterLabel,
+  resolveClusterLabel,
+} from './shared';
 
 // path Y (2026-05-07): grid 학습 진행 — GridInput 가 broadcast 하는
 // grid-training event 의 누적 state. cluster 별 학습 완료 여부 + 마지막
@@ -510,6 +517,105 @@ export default function NodeLearn() {
     return Array.from({ length: n }, (_, i) => resolveClusterLabel(exemplars, i, 'grid'));
   }, [exemplars, winner.cluster]);
 
+  // UX HIGH (2026-05-25): TRAINED phase self-verification batch — auto-learn 완료
+  // 시점 영역 각 cluster 영역 cached lastFeature 영역 inferOnceForValidation 영역
+  // winner 산출 → N×N confusion matrix → ConfusionMatrixReadyDetail emit.
+  // Bishop 1995 ML evaluation 표준 metric 정합.
+  //
+  // trigger: isAutoLearning false-transition (auto-learn loop 1회 완료) + clusterLabels
+  // 영역 >= 2 영역 (단일 cluster 영역 1×1 matrix 영역 의미 0 — 최소 2 cluster 영역 mandatory).
+  //
+  // 정직 한계:
+  //  - 영역 cluster 영역 1 sample 영역 (lastFeature 영역 1개 영역 store) — N=5 multi-sample
+  //    영역 backend cached frame 영역 retrieve 영역 추가 RPC mandatory. 본 PR 영역
+  //    1 sample 영역 정합 (matrix[i][j] ∈ {0,1}) — 확장 path 영역 명시.
+  //  - Live mode 영역만 supported (engineMode='backend' 영역 inferOnceForValidation
+  //    영역 0 영역 silent skip).
+  //  - lastFeature 영역 16-dim feature snapshot — actual training 영역 reinforce
+  //    pattern 영역 noise augmentation 영역 영역 (P218 noise weakness fix path) 영역
+  //    동일 영역 0 단 cluster identity 영역 representative.
+  const [confusionMatrix, setConfusionMatrix] = useState<ConfusionMatrixReadyDetail | null>(null);
+  const [confusionExpanded, setConfusionExpanded] = useState<boolean>(false);
+  const wasAutoLearningRef = useRef<boolean>(false);
+  const verifyInFlightRef = useRef<boolean>(false);
+  // QA MEDIUM #4 (2026-05-25 audit): clusterLabels / exemplars 영역 ref 영역
+  // mirror — effect deps 영역 isAutoLearning + isLiveMode 단순화. 직전 deps 영역
+  // clusterLabels / exemplars 영역 포함 → labels 변경 (ART expansion) 영역 effect
+  // re-fire + transient race window 잔존. ref 영역 update on change but not in
+  // deps 영역 race window 영역 close (idempotent gate).
+  const clusterLabelsRef = useRef<readonly string[]>(clusterLabels);
+  const exemplarsRef = useRef<OutExemplars>(exemplars);
+  useEffect(() => {
+    clusterLabelsRef.current = clusterLabels;
+  }, [clusterLabels]);
+  useEffect(() => {
+    exemplarsRef.current = exemplars;
+  }, [exemplars]);
+
+  // confusion-matrix-ready event subscribe — runSelfVerification 영역 emit 영역
+  // 정합 store. external trigger (예: research panel) 영역 호환 path 영역 보존.
+  useEffect(() => {
+    return onBackendEvent<ConfusionMatrixReadyDetail>('confusion-matrix-ready', (d) => {
+      setConfusionMatrix(d);
+    });
+  }, []);
+
+  // self-verification trigger — isAutoLearning false-transition + clusterLabels >= 2.
+  // engineMode='live' 영역만 supported (backend mode 영역 silent skip).
+  // QA MEDIUM #4 정합: deps 영역 isAutoLearning + isLiveMode 영역 한정 — labels
+  // / exemplars 영역 ref read (effect re-fire 영역 race window 영역 close).
+  useEffect(() => {
+    const prev = wasAutoLearningRef.current;
+    wasAutoLearningRef.current = isAutoLearning;
+    if (!isLiveMode) return;
+    if (!(prev === true && isAutoLearning === false)) return;
+    const currentLabels = clusterLabelsRef.current;
+    if (currentLabels.length < 2) return;
+    if (verifyInFlightRef.current) return;
+    verifyInFlightRef.current = true;
+    const snapshot = exemplarsRef.current;
+    const labels = currentLabels.slice();
+    void (async () => {
+      try {
+        const N = labels.length;
+        const matrix: number[][] = Array.from({ length: N }, () =>
+          Array.from({ length: N }, () => 0),
+        );
+        const live = getLiveSnn();
+        for (let ci = 0; ci < N; ci += 1) {
+          // 영역 cluster 영역 영역 representative pattern — out_{ci}_0..7 영역
+          // 첫 lastFeature 영역 길이 16 영역 정합 sample. 미존재 영역 skip (matrix[ci] 영역 0).
+          let pattern: number[] | null = null;
+          for (let n = 0; n < 8; n += 1) {
+            const ex = snapshot[`out_${ci}_${n}`];
+            if (ex && Array.isArray(ex.lastFeature) && ex.lastFeature.length === 16) {
+              pattern = ex.lastFeature;
+              break;
+            }
+          }
+          if (!pattern) continue;
+          try {
+            const { winner: predicted } = await live.inferOnceForValidation(pattern);
+            if (predicted !== null && predicted >= 0 && predicted < N) {
+              matrix[ci][predicted] += 1;
+            }
+            // null winner 영역 row 영역 0 — diagonal/off-diagonal 모두 0 (silent miss).
+          } catch (e) {
+            console.warn('[NodeLearn] self-verification 영역 cluster', ci, 'failed:', e);
+          }
+        }
+        emitBackendEvent<ConfusionMatrixReadyDetail>('confusion-matrix-ready', {
+          matrix,
+          labels,
+          samplesPerCluster: 1,
+          measuredAt: Date.now(),
+        });
+      } finally {
+        verifyInFlightRef.current = false;
+      }
+    })();
+  }, [isAutoLearning, isLiveMode]);
+
   const phaseInfo = useMemo(() => {
     const p = effectivePhase;
     const activeLabel = activeCluster >= 0 ? getClusterLabel(activeCluster, 'grid') : '';
@@ -764,9 +870,186 @@ export default function NodeLearn() {
           </span>
         </div>
       )}
+      {/* UX HIGH (2026-05-25): confusion matrix collapsible panel — TRAINED phase
+          self-verification 결과 영역 N×N grid display. Bishop 1995 ML evaluation
+          표준 metric 정합. collapse-default + chevron 영역 tap-to-expand —
+          progressive disclosure (Nielsen Norman). diagonal=green / off-diagonal
+          영역 orange opacity 영역 confusion rate 영역 비례. */}
+      {confusionMatrix && confusionMatrix.matrix.length >= 2 && (
+        <ConfusionMatrixPanel
+          data={confusionMatrix}
+          expanded={confusionExpanded}
+          onToggle={() => setConfusionExpanded((v) => !v)}
+        />
+      )}
     </NodeShell>
   );
 }
+
+// UX HIGH (2026-05-25): ConfusionMatrixPanel — N×N grid + chevron toggle.
+// row label = expected cluster (학습 시점 영역 cached lastFeature), col label =
+// predicted cluster (inferOnceForValidation 영역 winner). diagonal cell 영역
+// green (correct prediction), off-diagonal 영역 orange opacity 영역 confusion rate.
+//
+// 정직 한계:
+//  - samplesPerCluster=1 영역 matrix cell 영역 ∈ {0, 1} — opacity 영역 binary
+//    (0=transparent / 1=full). 영역 cluster 영역 multi-sample 영역 backend cached
+//    frame retrieve 영역 extension path 영역 명시 — 본 PR scope-out.
+//  - aria-label 영역 N of N correct (diagonal sum / total samples) 영역 1차
+//    a11y signal. screen reader 영역 cell-by-cell read 영역 per-cell aria-label
+//    영역 정합.
+function ConfusionMatrixPanel({
+  data,
+  expanded,
+  onToggle,
+}: {
+  data: ConfusionMatrixReadyDetail;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { matrix, labels, samplesPerCluster } = data;
+  const fullN = matrix.length;
+  // QA HIGH #3 (2026-05-25 audit): N hard-cap (CONFUSION_MATRIX_MAX_N = 4)
+  // 영역 truncate — base-4 TRAINED badge 영역 정합. fullN > cap 영역 truncated
+  // hint 영역 정직 표기. diagonalSum / totalSamples 영역 truncated view 정합
+  // (truncated 영역 N×N 영역만 — summary 영역 visible portion catch).
+  const N = Math.min(fullN, CONFUSION_MATRIX_MAX_N);
+  const truncated = fullN > N;
+  const remaining = Math.max(0, fullN - N);
+  // diagonal sum (correct predictions) / total samples (N × samplesPerCluster).
+  // labels.length 영역 row 영역 정합 — undefined 영역 fallback '패턴 N' (row label).
+  const diagonalSum = useMemo(() => {
+    let sum = 0;
+    for (let i = 0; i < N; i += 1) {
+      sum += matrix[i]?.[i] ?? 0;
+    }
+    return sum;
+  }, [matrix, N]);
+  const totalSamples = N * samplesPerCluster;
+  const correctPct = totalSamples > 0 ? Math.round((diagonalSum / totalSamples) * 100) : 0;
+  // QA HIGH #2 (2026-05-25 audit): self-verify 정직 한계 inline note —
+  // samplesPerCluster=1 + cached lastFeature 영역 trained sample only 영역
+  // catch (일반화 측정 X). aria 영역 동봉 — screen reader 영역 catch.
+  const honestyHint = 'trained sample only — 일반화 측정 X (noise/held-out 검증 별도)';
+  return (
+    <div
+      className="snn-pipeline-confusion-matrix"
+      aria-label={`confusion matrix: ${diagonalSum} of ${totalSamples} correct (${honestyHint})`}
+    >
+      <button
+        type="button"
+        className="snn-pipeline-confusion-matrix-toggle"
+        onClick={onToggle}
+        aria-expanded={expanded ? 'true' : 'false'}
+        aria-controls="snn-pipeline-confusion-matrix-grid"
+      >
+        <span className="snn-pipeline-confusion-matrix-chevron" aria-hidden>
+          {expanded ? '▼' : '▶'}
+        </span>
+        <span className="snn-pipeline-confusion-matrix-summary">
+          self-verify · {diagonalSum}/{totalSamples} correct ({correctPct}%)
+        </span>
+      </button>
+      {/* QA HIGH #2 (2026-05-25 audit): inline honesty note — dim color, small
+          font 영역 panel 상단 영역 표기 mandatory. samplesPerCluster=1 영역
+          false confidence catch — 사용자 영역 일반화 0 영역 명시. */}
+      <div
+        className="snn-pipeline-confusion-matrix-honesty"
+        role="note"
+        aria-label={honestyHint}
+      >
+        {honestyHint}
+      </div>
+      {expanded && (
+        <>
+          <div
+            id="snn-pipeline-confusion-matrix-grid"
+            className="snn-pipeline-confusion-matrix-grid-wrap"
+            role="grid"
+            aria-label={
+              truncated
+                ? `${N} by ${N} confusion matrix, showing first ${N} of ${fullN} clusters`
+                : `${N} by ${N} confusion matrix`
+            }
+          >
+            {/* header row — predicted labels (col headers). */}
+            <div className="snn-pipeline-confusion-matrix-row" role="row">
+              <div className="snn-pipeline-confusion-matrix-corner" role="columnheader" aria-label="expected vs predicted">
+                {/* small ↓→ glyph 영역 row=expected col=predicted 영역 visual cue. */}
+                <span aria-hidden>↓\\→</span>
+              </div>
+              {labels.slice(0, N).map((label, j) => (
+                <div
+                  key={j}
+                  className="snn-pipeline-confusion-matrix-col-label snn-pipeline-mono"
+                  role="columnheader"
+                  title={`predicted ${label}`}
+                >
+                  {j + 1}
+                </div>
+              ))}
+            </div>
+            {/* data rows — expected (row) × predicted (col). truncated view 영역
+                fullN > N 영역 영역 N 영역만 표시 (HIGH #3 정합). */}
+            {matrix.slice(0, N).map((row, i) => (
+              <div key={i} className="snn-pipeline-confusion-matrix-row" role="row">
+                <div
+                  className="snn-pipeline-confusion-matrix-row-label snn-pipeline-mono"
+                  role="rowheader"
+                  title={`expected ${labels[i] ?? `패턴 ${i + 1}`}`}
+                >
+                  {labels[i] ?? `패턴 ${i + 1}`}
+                </div>
+                {row.slice(0, N).map((count, j) => {
+                  const isDiagonal = i === j;
+                  const rate = samplesPerCluster > 0 ? count / samplesPerCluster : 0;
+                  // opacity quantize — CSS variant 영역 0..5 step (inline style 회피 — data attr).
+                  const opacityStep = Math.min(5, Math.round(rate * 5));
+                  // QA hook fix (2026-05-25): cell 영역 inline — jsx-a11y 영역
+                  // role=row child role=cell 영역 static analyzer 영역 trace
+                  // mandatory (component boundary 영역 trace 0). 직전 ConfusionCell
+                  // function component 영역 inline 영역 hierarchy 영역 명시.
+                  const expectedLabel = labels[i] ?? `패턴 ${i + 1}`;
+                  const predictedLabel = labels[j] ?? `패턴 ${j + 1}`;
+                  const cellAriaLabel = `${expectedLabel} predicted as ${predictedLabel}: ${count} of ${samplesPerCluster}`;
+                  return (
+                    <div
+                      key={j}
+                      className={`snn-pipeline-confusion-matrix-cell ${isDiagonal ? 'is-diagonal' : 'is-off-diagonal'}`}
+                      data-opacity-step={opacityStep}
+                      role="cell"
+                      aria-label={cellAriaLabel}
+                      title={cellAriaLabel}
+                    >
+                      <span className="snn-pipeline-mono">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {/* QA HIGH #3 (2026-05-25 audit): truncation hint — N > cap 영역 표기
+              mandatory. ART expansion path 영역 추가 cluster 영역 사용자 인지
+              + matrix grid overflow 회피. grid 영역 외부 영역 hoist (role=grid
+              영역 role=note child 영역 불허 — a11y lint 정합). */}
+          {truncated && (
+            <div
+              className="snn-pipeline-confusion-matrix-truncate-hint"
+              role="note"
+              aria-label={`${remaining} more clusters not shown in confusion matrix`}
+            >
+              {`+${remaining} more clusters not shown`}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// QA hook fix (2026-05-25): ConfusionCell function 영역 inline 영역 흡수 —
+// jsx-a11y static analyzer 영역 role=row > role=cell 영역 component boundary
+// 영역 trace 0 영역 인접 hierarchy 영역 mandatory.
 
 // LiveLearnPanel — Live 모드 전용 패널.
 // event-driven 1-shot pivot (사용자 catch 2026-05-09 B):

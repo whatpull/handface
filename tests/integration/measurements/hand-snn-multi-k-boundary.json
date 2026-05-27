@@ -1,0 +1,975 @@
+{
+  "timestamp": "2026-05-27T15:44:05.528Z",
+  "scenario": "hand-snn-multi-k-boundary",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "K_values": [
+    5,
+    10,
+    15
+  ],
+  "seed_pairs": [
+    {
+      "train": 1000,
+      "infer": 2000
+    },
+    {
+      "train": 1100,
+      "infer": 2100
+    },
+    {
+      "train": 1200,
+      "infer": 2200
+    },
+    {
+      "train": 1300,
+      "infer": 2300
+    },
+    {
+      "train": 1400,
+      "infer": 2400
+    }
+  ],
+  "n_seed_pairs": 5,
+  "n_samples_train": 20,
+  "n_samples_infer": 20,
+  "noise_params": {
+    "jitterSigma": 0.01,
+    "scaleRange": [
+      0.85,
+      1.15
+    ],
+    "rotationRange": [
+      -0.26,
+      0.26
+    ],
+    "translationRange": [
+      -0.05,
+      0.05
+    ]
+  },
+  "preset": "n16_hand",
+  "accuracy_path_candidate_selector": "selectForcedDisjointTopK",
+  "accuracy_path_spawn": "clusterActiveInputs pre-register (init-time, worker forceDisjoint=false equivalent — candidates already pair-disjoint)",
+  "fallback_path_candidate_selector": "selectMeanSubtractedTopK",
+  "fallback_path_spawn": "sequential expandCluster forceDisjoint=true (worker side filter, fallbackUsed telemetry)",
+  "per_k_aggregates": [
+    {
+      "K": 5,
+      "candidate_active_inputs_baseline": [
+        [
+          67,
+          77,
+          78,
+          86,
+          88
+        ],
+        [
+          36,
+          65,
+          70,
+          75,
+          80
+        ],
+        [
+          63,
+          64,
+          68,
+          84,
+          90
+        ],
+        [
+          76,
+          81,
+          82,
+          85,
+          91
+        ]
+      ],
+      "mean_disjoint_jaccard_baseline": 0,
+      "per_seed_results": [
+        {
+          "K": 5,
+          "seed_pair_index": 0,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 5,
+          "seed_pair_index": 1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 5,
+          "seed_pair_index": 2,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "train_accuracy": 0.9875,
+          "train_correct": 79,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0.012499999999999956,
+          "per_gesture_train_correct": [
+            19,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 5,
+          "seed_pair_index": 3,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 5,
+          "seed_pair_index": 4,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        }
+      ],
+      "train_mean": 0.9974999999999999,
+      "train_std": 0.005590169943749454,
+      "inference_mean": 1,
+      "inference_std": 0,
+      "delta_mean": 0.002499999999999991,
+      "delta_std": 0.0055901699437494535,
+      "per_gesture_infer_correct_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_rate": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "fallback_measurement": {
+        "K": 5,
+        "candidate_top_k": [
+          [
+            70,
+            76,
+            77,
+            78,
+            85
+          ],
+          [
+            68,
+            70,
+            75,
+            76,
+            85
+          ],
+          [
+            68,
+            70,
+            77,
+            78,
+            84
+          ],
+          [
+            68,
+            70,
+            76,
+            84,
+            85
+          ]
+        ],
+        "actual_active_inputs": [
+          [
+            70,
+            76,
+            77,
+            78,
+            85
+          ],
+          [
+            68,
+            75
+          ],
+          [
+            84
+          ],
+          [
+            68,
+            70,
+            76,
+            84,
+            85
+          ]
+        ],
+        "fallback_per_spawn": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "fallback_count": 1,
+        "total_spawns": 4,
+        "fallback_rate": 0.25,
+        "mean_disjoint_jaccard_actual": 0.13253968253968254
+      }
+    },
+    {
+      "K": 10,
+      "candidate_active_inputs_baseline": [
+        [
+          48,
+          50,
+          62,
+          66,
+          67,
+          77,
+          78,
+          83,
+          86,
+          88
+        ],
+        [
+          13,
+          23,
+          24,
+          26,
+          36,
+          65,
+          70,
+          75,
+          80,
+          94
+        ],
+        [
+          7,
+          12,
+          35,
+          63,
+          64,
+          68,
+          84,
+          90,
+          92,
+          93
+        ],
+        [
+          11,
+          14,
+          30,
+          38,
+          76,
+          79,
+          81,
+          82,
+          85,
+          91
+        ]
+      ],
+      "mean_disjoint_jaccard_baseline": 0,
+      "per_seed_results": [
+        {
+          "K": 10,
+          "seed_pair_index": 0,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "train_accuracy": 0.9875,
+          "train_correct": 79,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0.012499999999999956,
+          "per_gesture_train_correct": [
+            19,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 10,
+          "seed_pair_index": 1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 10,
+          "seed_pair_index": 2,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "train_accuracy": 0.9875,
+          "train_correct": 79,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0.012499999999999956,
+          "per_gesture_train_correct": [
+            19,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 10,
+          "seed_pair_index": 3,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "train_accuracy": 0.9875,
+          "train_correct": 79,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0.012499999999999956,
+          "per_gesture_train_correct": [
+            19,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 10,
+          "seed_pair_index": 4,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        }
+      ],
+      "train_mean": 0.9925,
+      "train_std": 0.0068465319688145515,
+      "inference_mean": 1,
+      "inference_std": 0,
+      "delta_mean": 0.007499999999999974,
+      "delta_std": 0.006846531968814552,
+      "per_gesture_infer_correct_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_rate": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "fallback_measurement": {
+        "K": 10,
+        "candidate_top_k": [
+          [
+            67,
+            68,
+            70,
+            75,
+            76,
+            77,
+            78,
+            85,
+            86,
+            88
+          ],
+          [
+            64,
+            68,
+            70,
+            75,
+            76,
+            80,
+            81,
+            84,
+            85,
+            86
+          ],
+          [
+            64,
+            68,
+            70,
+            76,
+            77,
+            78,
+            84,
+            85,
+            86,
+            90
+          ],
+          [
+            64,
+            65,
+            68,
+            70,
+            75,
+            76,
+            81,
+            84,
+            85,
+            86
+          ]
+        ],
+        "actual_active_inputs": [
+          [
+            67,
+            68,
+            70,
+            75,
+            76,
+            77,
+            78,
+            85,
+            86,
+            88
+          ],
+          [
+            64,
+            80,
+            81,
+            84
+          ],
+          [
+            90
+          ],
+          [
+            65
+          ]
+        ],
+        "fallback_per_spawn": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "fallback_count": 0,
+        "total_spawns": 4,
+        "fallback_rate": 0,
+        "mean_disjoint_jaccard_actual": 0
+      }
+    },
+    {
+      "K": 15,
+      "candidate_active_inputs_baseline": [
+        [
+          42,
+          44,
+          47,
+          48,
+          50,
+          60,
+          62,
+          66,
+          67,
+          77,
+          78,
+          83,
+          86,
+          87,
+          88
+        ],
+        [
+          8,
+          10,
+          13,
+          23,
+          24,
+          25,
+          26,
+          36,
+          37,
+          54,
+          65,
+          70,
+          75,
+          80,
+          94
+        ],
+        [
+          6,
+          7,
+          9,
+          12,
+          20,
+          35,
+          56,
+          63,
+          64,
+          68,
+          72,
+          84,
+          90,
+          92,
+          93
+        ],
+        [
+          11,
+          14,
+          18,
+          19,
+          30,
+          32,
+          38,
+          49,
+          59,
+          76,
+          79,
+          81,
+          82,
+          85,
+          91
+        ]
+      ],
+      "mean_disjoint_jaccard_baseline": 0,
+      "per_seed_results": [
+        {
+          "K": 15,
+          "seed_pair_index": 0,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 15,
+          "seed_pair_index": 1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 15,
+          "seed_pair_index": 2,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 15,
+          "seed_pair_index": 3,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        },
+        {
+          "K": 15,
+          "seed_pair_index": 4,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "train_accuracy": 1,
+          "train_correct": 80,
+          "train_total": 80,
+          "inference_accuracy": 1,
+          "inference_correct": 80,
+          "inference_total": 80,
+          "train_inference_delta": 0,
+          "per_gesture_train_correct": [
+            20,
+            20,
+            20,
+            20
+          ],
+          "per_gesture_infer_correct": [
+            20,
+            20,
+            20,
+            20
+          ]
+        }
+      ],
+      "train_mean": 1,
+      "train_std": 0,
+      "inference_mean": 1,
+      "inference_std": 0,
+      "delta_mean": 0,
+      "delta_std": 0,
+      "per_gesture_infer_correct_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_total": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_gesture_infer_rate": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "fallback_measurement": {
+        "K": 15,
+        "candidate_top_k": [
+          [
+            48,
+            64,
+            65,
+            66,
+            67,
+            68,
+            70,
+            75,
+            76,
+            77,
+            78,
+            81,
+            85,
+            86,
+            88
+          ],
+          [
+            13,
+            36,
+            64,
+            65,
+            68,
+            70,
+            75,
+            76,
+            77,
+            80,
+            81,
+            84,
+            85,
+            86,
+            88
+          ],
+          [
+            12,
+            63,
+            64,
+            65,
+            68,
+            70,
+            76,
+            77,
+            78,
+            81,
+            84,
+            85,
+            86,
+            90,
+            91
+          ],
+          [
+            64,
+            65,
+            68,
+            70,
+            75,
+            76,
+            77,
+            81,
+            82,
+            84,
+            85,
+            86,
+            88,
+            90,
+            91
+          ]
+        ],
+        "actual_active_inputs": [
+          [
+            48,
+            64,
+            65,
+            66,
+            67,
+            68,
+            70,
+            75,
+            76,
+            77,
+            78,
+            81,
+            85,
+            86,
+            88
+          ],
+          [
+            13,
+            36,
+            80,
+            84
+          ],
+          [
+            12,
+            63,
+            90,
+            91
+          ],
+          [
+            82
+          ]
+        ],
+        "fallback_per_spawn": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "fallback_count": 0,
+        "total_spawns": 4,
+        "fallback_rate": 0,
+        "mean_disjoint_jaccard_actual": 0
+      }
+    }
+  ],
+  "open_palm_rates_per_k": {
+    "K_5": 1,
+    "K_10": 1,
+    "K_15": 1
+  },
+  "hypothesis_verdict": "H0_failed_to_reject",
+  "hypothesis_rationale": "inference: K=5/10/15 모두 100.0%/100.0%/100.0% saturation (H0_failed_to_reject). train side: K=10 영역 3/5 seed pair 영역 open_palm 19/20 miss (1 sample boundary case sensitive). K=5 / K=15 영역 train 100% — K=10 asymmetric — multi-seed-variance (7cf2931) 영역 동일 path direct reproduce (seed pair 0 영역 K=10 영역 99.25%, K=5 / K=15 영역 100%). K-monotonic train trend 영역 없음 — non-monotonic boundary sensitivity 영역 hypothesis (K=10 영역 specific seed × open_palm 영역 selector 영역 영역 영역 영역 영역 candidate set 영역 영역 영역). frequentist: failure to reject ≠ accept H0. 정직: n=5 seed pair × 3 K 영역 statistical power 영역 limited — K broader sweep (e.g. K ∈ {3,5,8,10,12,15,20}) 영역 conclusive evidence 영역 영역.",
+  "limitations": [
+    "5 seed pair × 3 K = 15 (K, seed) combinations — statistical power 영역 limited.",
+    "K ∈ {5, 10, 15} 영역 영역 영역 — K broader sweep (e.g. K ∈ {3,5,8,10,12,15,20}) 영역 별도 R&D.",
+    "simulated noise only — realistic MediaPipe capture 미검증.",
+    "frequentist: H0_failed_to_reject ≠ accept H0; H1_supported (monotonic trend) 영역 sample size 영역 limited 영역 conservative.",
+    "open_palm asymmetric hypothesis 영역 single-gesture focus — 기타 3 gesture (closed_fist / thumbs_up / peace_sign) 영역 K-dependence 영역 측정 영역 보조 영역.",
+    "accuracy path 영역 selectForcedDisjointTopK + clusterActiveInputs pre-register (hand-snn-multi-seed-variance.test.ts 영역 동일 path) — 다른 selector (selectMeanSubtractedTopK + sequential expandCluster forceDisjoint=true) path 영역 accuracy 측정 영역 별도 R&D.",
+    "fallback path 영역 selectMeanSubtractedTopK + sequential expandCluster forceDisjoint=true — clean baseline 영역 deterministic (seed-independent). K 영역 1회 측정 — 영역 영역 seed independence 영역 보장 (sample / inference seed 영역 fallback path 영역 영역 영역).",
+    "fallback frequency 영역 candidate selector 영역 영역 영역 selectMeanSubtractedTopK 영역 결과 (overlapping mean-sub top-K) — 다른 candidate (top-K active 등) 영역 fallback 영역 영역 (variance 영역 별도 R&D).",
+    "SNN build seed (=57) 영역 fixed — SNN init variance 영역 별도 R&D.",
+    "sequential K × seed pair execution — concurrent worker isolation 영역 영역 영역 영역 보수적.",
+    "K=15 inference saturation (100%) 영역 본 config (DEFAULT_NOISE_PARAMS: σ=0.01, scale=[0.85,1.15], rot=±15°, trans=±0.05) + K=10 mean-sub topology 한정 — 영역 noise (σ≥0.03) / K=20+ / topology variance 영역 별도 broader sweep R&D 권장."
+  ],
+  "notes": {
+    "dual_path_design": "accuracy path 영역 forced-disjoint pre-registered topology 영역 K-dependence 영역 fair comparison (hand-snn-multi-seed-variance.test.ts 영역 동일 path 영역 K=5/10/15 영역 확장). fallback path 영역 별도 — 영역 candidate selector (selectMeanSubtractedTopK) 영역 영역 worker side filter forceDisjoint=true 영역 fallbackUsed telemetry 영역 측정. dual path 영역 영역 R&D — single metric 영역 결합 영역 noise (예: forced-disjoint accuracy + selectMeanSubtractedTopK fallback) 영역 정합.",
+    "open_palm_k_dependence_hypothesis": "open_palm (4 finger curl=0 + thumb curl=0) 영역 closed_fist (curl=1) / peace_sign (mixed) 영역 noise boundary case. low K (=5) 영역 high distinctiveness but boundary case sensitivity expected; high K (=15) 영역 robustness but lower distinctiveness margin expected.",
+    "fallback_telemetry_path": "fallback 측정 path 영역 sequential expandCluster forceDisjoint=true + selectMeanSubtractedTopK candidates 영역 worker telemetry (fallbackUsed: boolean). K=5 영역 4th spawn 영역 candidate top-K 영역 prior 3 cluster claimed 영역 영역 영역 영역 영역 fallback hit expected. K=5 fallback 25% (1/4 spawn) 영역 commit 7acb78a (incremental forced-disjoint wire) measurement (tests/integration/measurements/hand-snn-incremental-disjoint.json) 영역 4th cluster fallback assertion 영역 direct reproduce — same selector (selectMeanSubtractedTopK) + same build seed=57. K=10/15 영역 K/D ratio (K/95) 영역 영역 영역 fallback 0 또는 low expected.",
+    "seed_pair_0_k10_baseline_compat": "K=10 seed pair 0 (train=1000, infer=2000) accuracy path 영역 hand-snn-multi-seed-variance.test.ts 영역 직접 reproduce 영역 — 동일 candidate selector (selectForcedDisjointTopK), 동일 spawn path (clusterActiveInputs pre-register), 동일 build seed (=57), 동일 N_SAMPLES_TRAIN/INFER=20. 결과 영역 multi-seed 영역 seed pair 0 결과 영역 일치 expected."
+  }
+}

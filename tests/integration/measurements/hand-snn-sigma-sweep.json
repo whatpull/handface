@@ -1,0 +1,1337 @@
+{
+  "timestamp": "2026-05-27T23:56:02.150Z",
+  "scenario": "hand-snn-sigma-sweep",
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "sigma_values": [
+    0.05,
+    0.1,
+    0.15
+  ],
+  "seed_pairs": [
+    {
+      "train": 1000,
+      "infer": 2000
+    },
+    {
+      "train": 1100,
+      "infer": 2100
+    },
+    {
+      "train": 1200,
+      "infer": 2200
+    },
+    {
+      "train": 1300,
+      "infer": 2300
+    },
+    {
+      "train": 1400,
+      "infer": 2400
+    }
+  ],
+  "n_seed_pairs": 5,
+  "n_samples_train": 20,
+  "n_held_out_per_cluster": 5,
+  "sparse_top_k": 10,
+  "reinforce_batch_intensity": 25,
+  "preset": "n16_hand",
+  "total_combinations": 15,
+  "per_combination": [
+    {
+      "sigma": 0.05,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_accuracy": 0.75,
+      "baseline_correct": 3,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.05,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.05,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 0.95,
+      "held_out_correct": 19,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          4,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.05,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.05,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.15,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.15,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.15,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.15,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.15,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_accuracy": 1,
+      "baseline_correct": 4,
+      "baseline_total": 4,
+      "held_out_accuracy": 1,
+      "held_out_correct": 20,
+      "held_out_total": 20,
+      "held_out_confusion_matrix": [
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "mean_disjoint_jaccard": 0
+    }
+  ],
+  "per_sigma_aggregate": [
+    {
+      "sigma": 0.05,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 0.95,
+      "baseline_accuracy_std": 0.11180339887498947,
+      "held_out_accuracy_mean": 0.99,
+      "held_out_accuracy_std": 0.022360679774997918,
+      "aggregated_held_out_confusion": [
+        [
+          25,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          24,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          25,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          25
+        ]
+      ],
+      "mean_disjoint_jaccard_mean": 0,
+      "per_seed": [
+        {
+          "sigma": 0.05,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_accuracy": 0.75,
+          "baseline_correct": 3,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.05,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.05,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 0.95,
+          "held_out_correct": 19,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              4,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.05,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.05,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    },
+    {
+      "sigma": 0.1,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 1,
+      "baseline_accuracy_std": 0,
+      "held_out_accuracy_mean": 1,
+      "held_out_accuracy_std": 0,
+      "aggregated_held_out_confusion": [
+        [
+          25,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          25,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          25,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          25
+        ]
+      ],
+      "mean_disjoint_jaccard_mean": 0,
+      "per_seed": [
+        {
+          "sigma": 0.1,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    },
+    {
+      "sigma": 0.15,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 1,
+      "baseline_accuracy_std": 0,
+      "held_out_accuracy_mean": 1,
+      "held_out_accuracy_std": 0,
+      "aggregated_held_out_confusion": [
+        [
+          25,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          25,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          25,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          25
+        ]
+      ],
+      "mean_disjoint_jaccard_mean": 0,
+      "per_seed": [
+        {
+          "sigma": 0.15,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.15,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.15,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.15,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.15,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_accuracy": 1,
+          "baseline_correct": 4,
+          "baseline_total": 4,
+          "held_out_accuracy": 1,
+          "held_out_correct": 20,
+          "held_out_total": 20,
+          "held_out_confusion_matrix": [
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              5
+            ]
+          ],
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    }
+  ],
+  "hypothesis_verdict": "neither_H0_nor_H1_nonmonotonic",
+  "hypothesis_details": {
+    "accuracy_means_by_sigma": [
+      {
+        "sigma": 0.05,
+        "held_out_accuracy_mean": 0.99
+      },
+      {
+        "sigma": 0.1,
+        "held_out_accuracy_mean": 1
+      },
+      {
+        "sigma": 0.15,
+        "held_out_accuracy_mean": 1
+      }
+    ],
+    "h0_saturation": false,
+    "h1_strict_monotonic": false,
+    "h1_nonincreasing_monotonic": false,
+    "frequentist_note": "failure to reject H0 ≠ accept H0. N=5 seed pair × N=5 held-out/cluster = 25 noisy samples per (σ, cluster) → 95% Wilson CI ±10%. statistical power < 0.5."
+  },
+  "academic_alignment": [
+    "Goodfellow et al. 2014 — noise injection regularization (typical σ~0.1).",
+    "Bishop 1995 (Neural Networks for Pattern Recognition, ch.9.3) — feature-level noise injection regularization.",
+    "Olshausen & Field 1996 — sparse coding noise tolerance.",
+    "Diehl & Cook 2015 — STDP topology fixed, R-STDP weight robustness."
+  ],
+  "limitations": [
+    "3 σ values × 5 seed pair = 15 combinations — statistical power < 0.5.",
+    "σ sweep [0.05, 0.10, 0.15] 한정 — σ=0.20+ extreme noise / σ=0.03 mild 별도 broader sweep R&D 권장.",
+    "feature-level noise (held-out) only — held-out 영역 input-level (landmark-layer) noise 별도 R&D. training 영역 input-level applyRealisticNoise (jitterSigma override) 영역 영역 dual-level partial.",
+    "simulated noise only — actual MediaPipe capture 미검증.",
+    "N=5/cluster × 4 gesture = 20 noisy held-out per (σ, seed) → 95% Wilson CI ±10%. aggregate (5 seed × 20) = 100 → 95% Wilson CI ±5%.",
+    "frequentist: H0/H1 verdict 영역 failure to reject ≠ accept. small N + simulated noise + fixed gesture topology — broader replication 권장.",
+    "cluster topology (forced-disjoint top-K) 영역 clean anatomical baseline 영역 영역 — noisy mean topK 영역 별도 R&D (Diehl & Cook 2015 topology-fixed STDP 정합).",
+    "mock anatomical hand 영역 actual MediaPipe Hand 영역 z-depth coordinate scale 영역 다를 가능.",
+    "sigma sweep 영역 input-level applyRealisticNoise jitterSigma override + feature-level addFeatureNoise sigma 영역 동일 σ value 영역 영역 — input-level vs feature-level sigma 영역 분리 sweep 영역 별도 R&D."
+  ]
+}

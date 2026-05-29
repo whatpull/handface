@@ -115,10 +115,7 @@
 
 ## 7. 자동 commit 영역 정직성
 
-본 저장소의 일부 commit message 는 LLM-assisted 자동 작성되었으며, 이전에 다음과 같은 **과장 표현** 이 사용되었습니다:
-
-- "★★★★★★ 영원 진화 + 완벽한 인공지능 26 phase 완성"
-- "★★ 완벽한 인공지능 완성 선언"
+본 저장소의 일부 commit message 는 LLM-assisted 자동 작성되었으며, 이전에 일부 commit 영역 과장 표현 (예: "완벽한 인공지능 완성") 이 사용된 사실이 있습니다.
 
 → **본 문서로 정정합니다**. 실제로는 "26 algorithm building blocks (pure functions + unit tests)" 이며, 완성된 cognitive AI 시스템이 아닙니다.
 

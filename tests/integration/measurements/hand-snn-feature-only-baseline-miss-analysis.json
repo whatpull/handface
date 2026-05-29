@@ -1,0 +1,1076 @@
+{
+  "timestamp": "2026-05-29T07:48:26.129Z",
+  "scenario": "hand-snn-feature-only-baseline-miss-analysis",
+  "elapsed_ms": 645422,
+  "elapsed_minutes": 10.757033333333334,
+  "focused_scope": {
+    "variant": "feature_only",
+    "sigma_values": [
+      0.1,
+      1,
+      5
+    ],
+    "seed_pairs": [
+      {
+        "train": 1000,
+        "infer": 2000
+      },
+      {
+        "train": 1100,
+        "infer": 2100
+      },
+      {
+        "train": 1200,
+        "infer": 2200
+      },
+      {
+        "train": 1300,
+        "infer": 2300
+      },
+      {
+        "train": 1400,
+        "infer": 2400
+      }
+    ],
+    "measurement_target": "baseline per-gesture systematic miss empirical identification — 직전 commits 218c01e / 9b72acd / 5c5eb94 영역 baseline_correct=3/4 systematic outlier 영역 gesture index empirical catch."
+  },
+  "gestures": [
+    "open_palm",
+    "closed_fist",
+    "thumbs_up",
+    "peace_sign"
+  ],
+  "n_samples_train": 20,
+  "sparse_top_k": 10,
+  "reinforce_batch_intensity": 25,
+  "preset": "n16_hand",
+  "total_combinations": 15,
+  "total_baseline_trials": 60,
+  "per_combination": [
+    {
+      "sigma": 0.1,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 0.1,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 1,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 1,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 1,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 1,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 1,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 5,
+      "train_seed": 1000,
+      "infer_seed": 2000,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 5,
+      "train_seed": 1100,
+      "infer_seed": 2100,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 5,
+      "train_seed": 1200,
+      "infer_seed": 2200,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 5,
+      "train_seed": 1300,
+      "infer_seed": 2300,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    },
+    {
+      "sigma": 5,
+      "train_seed": 1400,
+      "infer_seed": 2400,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "baseline_predicted_winner_per_gesture": [
+        3,
+        1,
+        2,
+        3
+      ],
+      "baseline_max_rate_per_gesture": [
+        95.83333333333333,
+        44.095855184409835,
+        41.24789556921527,
+        96.95896898516747
+      ],
+      "baseline_accuracy": 0.75,
+      "baseline_correct_total": 3,
+      "baseline_total": 4,
+      "mean_disjoint_jaccard": 0
+    }
+  ],
+  "per_sigma_aggregate": [
+    {
+      "sigma": 0.1,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 0.75,
+      "baseline_accuracy_std": 0,
+      "gesture_miss_frequency": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "gesture_miss_frequency_ratio": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "baseline_confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "per_seed": [
+        {
+          "sigma": 0.1,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 0.1,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    },
+    {
+      "sigma": 1,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 0.75,
+      "baseline_accuracy_std": 0,
+      "gesture_miss_frequency": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "gesture_miss_frequency_ratio": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "baseline_confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "per_seed": [
+        {
+          "sigma": 1,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 1,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 1,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 1,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 1,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    },
+    {
+      "sigma": 5,
+      "n_seed_pairs": 5,
+      "baseline_accuracy_mean": 0.75,
+      "baseline_accuracy_std": 0,
+      "gesture_miss_frequency": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "gesture_miss_frequency_ratio": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "baseline_confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5
+        ]
+      ],
+      "per_seed": [
+        {
+          "sigma": 5,
+          "train_seed": 1000,
+          "infer_seed": 2000,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 5,
+          "train_seed": 1100,
+          "infer_seed": 2100,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 5,
+          "train_seed": 1200,
+          "infer_seed": 2200,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 5,
+          "train_seed": 1300,
+          "infer_seed": 2300,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        },
+        {
+          "sigma": 5,
+          "train_seed": 1400,
+          "infer_seed": 2400,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "baseline_predicted_winner_per_gesture": [
+            3,
+            1,
+            2,
+            3
+          ],
+          "baseline_max_rate_per_gesture": [
+            95.83333333333333,
+            44.095855184409835,
+            41.24789556921527,
+            96.95896898516747
+          ],
+          "baseline_accuracy": 0.75,
+          "baseline_correct_total": 3,
+          "baseline_total": 4,
+          "mean_disjoint_jaccard": 0
+        }
+      ]
+    }
+  ],
+  "hypothesis_verdict": "H_single_gesture_systematic",
+  "systematic_miss_gesture_index": 0,
+  "systematic_miss_gesture_name": "open_palm",
+  "systematic_miss_gesture_indices_per_sigma": [
+    {
+      "sigma": 0.1,
+      "gesture_index": 0,
+      "gesture_name": "open_palm"
+    },
+    {
+      "sigma": 1,
+      "gesture_index": 0,
+      "gesture_name": "open_palm"
+    },
+    {
+      "sigma": 5,
+      "gesture_index": 0,
+      "gesture_name": "open_palm"
+    }
+  ],
+  "verdict_evidence": "gesture index 0 영역 15/15 instance 영역 systematic miss — 다른 gesture miss 영역 영역.",
+  "hypothesis_details": {
+    "definitions": {
+      "H_single_gesture_systematic": "단일 gesture index 영역 5/5 seed × 3/3 σ = 15/15 instance 영역 miss AND 다른 gesture 영역 miss 없음 → systematic boundary case (Olshausen & Field 1996 sparse coding boundary case sensitivity / Bishop 1995 classification boundary case).",
+      "H_distributed": "miss 영역 영역 영역 gesture 영역 distribute (≥ 2 gesture 영역 miss instance 영역 영역) → noise-driven random miss.",
+      "H_per_sigma_specific": "per σ 영역 dominant miss gesture index 영역 다름 (모든 σ 영역 단일 dominant gesture 영역 영역) → σ-dependent boundary.",
+      "H_no_systematic_miss": "60 baseline trial 영역 영역 영역 miss 없음 → baseline 100% achievable (직전 commits 영역 systematic outlier 영역 reproduce 영역 영역 영역 — 영역 영역 영역 가능)."
+    },
+    "frequentist_note": "failure to reject H0 ≠ accept H0. 5 seed × 3 σ = 15 instance per gesture frequency — 95% Wilson CI ±25% (small sample). hypothesis verdict 영역 empirical observation 영역 — formal hypothesis test (binomial / multinomial) 별도 R&D.",
+    "frequency_threshold_for_systematic": "gesture_miss_frequency[g] === n_seed_pairs (모든 seed 영역 miss) AND 모든 σ 영역 동일 g → H_single_gesture_systematic. partial frequency (e.g. 4/5) 영역 H_distributed 영역 영역 영역 — 영역 conservative threshold."
+  },
+  "academic_alignment": [
+    "Olshausen & Field 1996 — sparse coding boundary case sensitivity (top-K mask preserve 영역 영역 영역 영역 영역 boundary feature 영역 영역 영역 misclassification 영역 영역 영역).",
+    "Diehl & Cook 2015 — STDP topology fixed (forced-disjoint K=10 영역 topology 영역 영역 영역 영역 baseline 영역 systematic miss 영역 트레이닝 weight 영역 영역).",
+    "Bishop 1995 — classification boundary case (Bayes optimal decision boundary 영역 영역 영역 feature vector 영역 영역 영역 misclassification 영역 영역 영역 — Bio-SNN R-STDP 영역 direct mapping 한계).",
+    "Goodfellow et al. 2014 — noise injection regularization (training noise 영역 trained weight 영역 specific gesture 영역 systematic bias 영역 영역 가능 — fully-connected MLP 가정 한계)."
+  ],
+  "limitations": [
+    "focused scope: variant=feature_only 한정 — jitter_only / combined variant 영역 별도 R&D.",
+    "σ ∈ {0.10, 1.0, 5.0} 한정 — finer granularity / σ ≥ 10 별도 R&D.",
+    "5 seed × 3 σ = 15 instance per gesture frequency — 95% Wilson CI ±25% (small sample) — moderate statistical power.",
+    "baseline N=1 per gesture per (σ, seed) = single trial — clean sparse pattern self-classification 영역 영역 영역 noisy (winner cluster 영역 spike rate tie 영역 first-cluster-wins resolve — runtime jitter dependent).",
+    "forced-disjoint K=10 mean-sub topology baseline — overlapping variant 별도 R&D.",
+    "simulated feature noise only — actual MediaPipe capture 미검증.",
+    "frequentist: H0/H1 failure to reject ≠ accept.",
+    "baseline 한정 measurement — held-out 영역 영역 영역 영역 (직전 R&D 영역 영역 영역). baseline systematic miss 영역 held-out 영역 영역 영역 영역 영역 — joint 측정 별도 R&D.",
+    "feature_only variant 영역 training set 영역 input jitter=0 (DEFAULT_NOISE_PARAMS scale/rotation/translation 보존) — trained weight 영역 systematic bias 영역 affine perturbation 영역 영역 영역 영역 영역 영역.",
+    "mock anatomical hand 영역 actual MediaPipe Hand 영역 z-depth coordinate scale 영역 다를 가능 — 영역 영역 boundary case identification 영역 mock-specific.",
+    "classifyHypothesisVerdict 영역 frequency_threshold 영역 strict (n_seed_pairs) — partial frequency (e.g. 4/5) 영역 distributed 영역 영역 → conservative bias.",
+    "elapsed_ms 영역 wall-time benchmark (CPU / runtime jitter 영역 dependent — 영역 환경 영역 다른 wall-time 예상).",
+    "open_palm → peace_sign cluster 3 architectural bias 영역 root cause hypothesis (forced-disjoint K=10 mean-sub topology 영역 cluster_active_inputs 영역 open_palm 영역 mean-subtracted residual 영역 peace_sign 영역 영역 영역 영역 영역) — empirical evidence (15/15 instance) 영역 strong support 단 weight matrix 영역 cluster active inputs 영역 직접 grep verify 0 — 영역 hypothesis 한정 명시 (별도 R&D 영역 weight matrix 영역 cluster_active_inputs 영역 영역 영역 영역 검증 mandatory).",
+    "mock anatomy hypothesis (open_palm vs peace_sign thumb position proximity → boundary case) 영역 synthetic anatomical mock landmark 한정 — actual MediaPipe Hand real landmarks 영역 동일 systematic 영역 영역 영역 영역 영역 영역 영역 영역. real MediaPipe capture 영역 baseline miss 영역 다른 gesture index / 영역 systematic miss 영역 영역 영역 영역 영역 가능. 별도 R&D mandatory.",
+    "15/15 instance reproducibility 영역 deterministic seed variance 0 — '강한 reproducibility' 영역 deterministic computation 영역 trivial result 영역 영역. random seed pool size 영역 영역 (5 seed × 3 σ = 15 instance) 영역 영역 — frequency 영역 5/5 영역 영역 single deterministic outcome — Wilson CI ±25% 영역 lower bound 영역 영역 영역 영역.",
+    "CI conditional skip (it.skipIf(process.env.CI === 'true' || process.env.SKIP_HEAVY_TESTS === '1')) — wall-time 10.76 min × CI runner 영역 slower CPU + vitest concurrency limit 영역 영역 영역 영역 영역 — 직전 catastrophic test (commit 493733f) 영역 동일 pattern conservative skip."
+  ],
+  "cross_reference": {
+    "prior_input_vs_feature_sweep": {
+      "test_path": "tests/integration/hand-snn-input-vs-feature-sigma.test.ts",
+      "commit": "218c01e",
+      "measurement_path": "tests/integration/measurements/hand-snn-input-vs-feature-sigma.json",
+      "note": "σ ∈ {0.10, 0.30, 0.50} — feature_only variant baseline=3/4 systematic outlier 발견 — per-gesture index 영역 미명시."
+    },
+    "prior_extreme_sweep": {
+      "test_path": "tests/integration/hand-snn-extreme-sigma-sweep.test.ts",
+      "commit": "9b72acd",
+      "measurement_path": "tests/integration/measurements/hand-snn-extreme-sigma-sweep.json",
+      "note": "σ ∈ {1.0, 2.0, 5.0} — feature_only baseline=3/4 reproduce — per-gesture index 영역 미명시."
+    },
+    "prior_catastrophic_sweep": {
+      "test_path": "tests/integration/hand-snn-catastrophic-sigma-sweep.test.ts",
+      "commit": "5c5eb94",
+      "measurement_path": "tests/integration/measurements/hand-snn-catastrophic-sigma-sweep.json",
+      "note": "σ ∈ {10.0, 20.0, 50.0} — feature_only baseline=3/4 reproduce — per-gesture index 영역 미명시. limitations 영역 \"별도 R&D 권장\" 명시."
+    }
+  }
+}

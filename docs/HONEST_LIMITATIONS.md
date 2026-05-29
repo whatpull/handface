@@ -119,6 +119,29 @@
 
 → **본 문서로 정정합니다**. 실제로는 "26 algorithm building blocks (pure functions + unit tests)" 이며, 완성된 cognitive AI 시스템이 아닙니다.
 
+### 7.1 해당 commit 영역 정정 reference
+
+git history 영역 보존 (force push 영역 collaborator 충돌 + downstream SHA cross-reference 영역 breakage 회피) 한 채, 본 문서 영역 정정 reference 영역 통합:
+
+- **"완벽한 인공지능 N 단계" (N=5..21) 영역 표기** (예: `0f8085d Phase Z — Death Awareness / Mortality (완벽한 인공지능 21 단계) + 14 unit tests`)
+  → **읽을 때 "cognitive AI algorithm block N" 로 해석**. 실제로는 인지과학 phenomenon 영역 pure function reference implementation + unit tests 영역 학습 알고리즘 building block.
+
+- **"★★★★★★ 영원 진화 + 완벽한 인공지능 26 phase 완성"** 류 표현
+  → **읽을 때 "iterative refinement + 26 algorithm building blocks (pure functions + unit tests)" 로 해석**. 완성된 AI 시스템 / sentience / generality / self-awareness claim 아님 — 학술 paper 영역 simplified algorithmic approximation 영역 TypeScript reference implementation.
+
+- **"완벽한 인공지능 완성 선언"** 류 표현
+  → **읽을 때 "cognitive AI algorithm blocks 완료" 로 해석**. "완성" 영역 algorithm building block 영역 unit test 영역 통과 (pure function level) — production-deployable cognitive AI 영역 아님.
+
+- **"★" symbol** (다중 별표 prefix)
+  → **decorative emphasis 영역 — quality/completeness claim 아님**. star count 영역 implementation milestone 영역 아니라 LLM-assisted commit message 영역 formatting artifact.
+
+### 7.2 향후 commit message guideline
+
+- "완벽한" / "완성" / "완전한" / "perfect" / "complete" 영역 absolute claim 영역 영역 영역 영역
+- "★" symbol prefix 영역 영역 영역 영역
+- 학술 정합 영역 reference implementation / building block / approximation 영역 정확 표기 영역
+- Section 1-6 영역 한계 (4 gestures, mock anatomical landmarks, simulated noise only, MediaPipe runtime capture 미검증 등) 영역 commit message 영역 reflect 영역
+
 ## 문의
 
 학술 정합성 / framing 에 관한 의견: GitHub Issues — https://github.com/whatpull/handface/issues

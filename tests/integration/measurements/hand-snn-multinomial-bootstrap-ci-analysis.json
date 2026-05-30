@@ -1,0 +1,232 @@
+{
+  "timestamp": "2026-05-30T04:48:35.987Z",
+  "scenario": "hand-snn-multinomial-bootstrap-ci-analysis",
+  "elapsed_ms": 21,
+  "focused_scope": {
+    "analysis_type": "Existing tie-break (commit 15f9381 / hand-snn-tie-break-mechanism-analysis) Phase A/B/C open_palm winner data 영역 pure statistical reanalysis. NO SNN run, NO MediaPipe Hand encoder call — frequentist multinomial chi-squared test + Wilson / Clopper-Pearson / bootstrap CI 영역 majority cluster significance 영역 정량 quantify.",
+    "input_data": {
+      "phase_a_winners": [
+        2,
+        0,
+        2,
+        2,
+        2
+      ],
+      "phase_b_winners": [
+        1,
+        3,
+        1,
+        1,
+        3
+      ],
+      "phase_c_winners": [
+        1,
+        2,
+        2
+      ],
+      "K_clusters": 4,
+      "phase_a_source": "open_palm untrained — seeds ∈ {57, 100, 200, 500, 1000}",
+      "phase_b_source": "open_palm post-RSTDP — same seeds (trained winner)",
+      "phase_c_source": "open_palm cluster sequence variants — [0,1,2,3] / [3,2,1,0] / [0,3,1,2] (build seed=57 fixed)"
+    },
+    "bootstrap_config": {
+      "iterations": 1000,
+      "method": "resample with replacement (Efron 1979) — deterministic SeededGaussian",
+      "phase_a_seed": 11,
+      "phase_b_seed": 22,
+      "phase_c_seed": 33,
+      "uniform_null_seed_offset": 7919
+    },
+    "confidence_level": 0.95,
+    "chi_squared_approximation": "Wilson & Hilferty 1931 cubic-root normal approximation (df=3) — large-sample, N≥5 limit (exact multinomial test 영역 별도 R&D)."
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "winners": [
+      2,
+      0,
+      2,
+      2,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "majority_cluster": 2,
+    "majority_count": 4,
+    "majority_proportion": 0.8,
+    "chi_squared_statistic": 8.6,
+    "chi_squared_df": 3,
+    "chi_squared_p_value": 0.03457823788513348,
+    "multinomial_significance": true,
+    "majority_wilson_ci": {
+      "lower": 0.37553462976252533,
+      "upper": 0.9637758913675698,
+      "point": 0.8
+    },
+    "majority_clopper_pearson_ci": {
+      "lower": 0.283582063857466,
+      "upper": 0.9949492369778454,
+      "point": 0.8
+    },
+    "bootstrap_majority_ci": {
+      "lower": 0.6,
+      "upper": 1,
+      "mean": 0.8203999999999981
+    },
+    "bootstrap_uniform_null": {
+      "majority_count_95th_percentile": 4,
+      "majority_count_mean": 2.483,
+      "observed_majority_count": 4,
+      "observed_exceeds_null_95th": false
+    },
+    "hypothesis_verdict": "H_not_significant",
+    "evidence": "Phase A (untrained): winners=[2, 0, 2, 2, 2] (N=5, K=4), counts=[1, 0, 4, 0], majority cluster=2 (count=4, p̂=0.800), χ²=8.600 (df=3, p=0.0346), Wilson 95% CI=[0.376, 0.964], Clopper-Pearson 95% CI=[0.284, 0.995], bootstrap 95% CI=[0.600, 1.000], uniform-null majority 95th percentile=4 (observed=4, exceeds=false)."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "winners": [
+      1,
+      3,
+      1,
+      1,
+      3
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "majority_cluster": 1,
+    "majority_count": 3,
+    "majority_proportion": 0.6,
+    "chi_squared_statistic": 5.4,
+    "chi_squared_df": 3,
+    "chi_squared_p_value": 0.1428915209529822,
+    "multinomial_significance": false,
+    "majority_wilson_ci": {
+      "lower": 0.2307242812760128,
+      "upper": 0.882379225767352,
+      "point": 0.6
+    },
+    "majority_clopper_pearson_ci": {
+      "lower": 0.14663279941305518,
+      "upper": 0.947255049366504,
+      "point": 0.6
+    },
+    "bootstrap_majority_ci": {
+      "lower": 0.6,
+      "upper": 1,
+      "mean": 0.7066000000000049
+    },
+    "bootstrap_uniform_null": {
+      "majority_count_95th_percentile": 4,
+      "majority_count_mean": 2.529,
+      "observed_majority_count": 3,
+      "observed_exceeds_null_95th": false
+    },
+    "hypothesis_verdict": "H_not_significant",
+    "evidence": "Phase B (trained): winners=[1, 3, 1, 1, 3] (N=5, K=4), counts=[0, 3, 0, 2], majority cluster=1 (count=3, p̂=0.600), χ²=5.400 (df=3, p=0.1429), Wilson 95% CI=[0.231, 0.882], Clopper-Pearson 95% CI=[0.147, 0.947], bootstrap 95% CI=[0.600, 1.000], uniform-null majority 95th percentile=4 (observed=3, exceeds=false)."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "winners": [
+      1,
+      2,
+      2
+    ],
+    "N": 3,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "majority_cluster": 2,
+    "majority_count": 2,
+    "majority_proportion": 0.6666666666666666,
+    "chi_squared_statistic": 3.666666666666667,
+    "chi_squared_df": 3,
+    "chi_squared_p_value": 0.2993252415458596,
+    "multinomial_significance": false,
+    "majority_wilson_ci": {
+      "lower": 0.2076596008020477,
+      "upper": 0.9385080552796037,
+      "point": 0.6666666666666666
+    },
+    "majority_clopper_pearson_ci": {
+      "lower": 0.09429932432249188,
+      "upper": 0.9915962410159409,
+      "point": 0.6666666666666666
+    },
+    "bootstrap_majority_ci": {
+      "lower": 0.6666666666666666,
+      "upper": 1,
+      "mean": 0.7819999999999949
+    },
+    "bootstrap_uniform_null": {
+      "majority_count_95th_percentile": 3,
+      "majority_count_mean": 1.694,
+      "observed_majority_count": 2,
+      "observed_exceeds_null_95th": false
+    },
+    "hypothesis_verdict": "H_not_significant",
+    "evidence": "Phase C (sequence): winners=[1, 2, 2] (N=3, K=4), counts=[0, 1, 2, 0], majority cluster=2 (count=2, p̂=0.667), χ²=3.667 (df=3, p=0.2993), Wilson 95% CI=[0.208, 0.939], Clopper-Pearson 95% CI=[0.094, 0.992], bootstrap 95% CI=[0.667, 1.000], uniform-null majority 95th percentile=3 (observed=2, exceeds=false)."
+  },
+  "overall_verdict": {
+    "verdict": "H_not_significant",
+    "evidence": "모든 3 phase 영역 chi-squared p ≥ 0.05 OR bootstrap observed ≤ null 95th — uniform null failure to reject (architectural bias 영역 statistical evidence 영역 부족 in current N).",
+    "per_phase_verdicts": {
+      "phase_a": "H_not_significant",
+      "phase_b": "H_not_significant",
+      "phase_c": "H_not_significant"
+    }
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_significant_majority": "chi-squared p < 0.05 AND bootstrap observed majority count > uniform null 95th percentile → uniform null rejection (architectural bias confirmed).",
+      "H_not_significant": "p ≥ 0.05 OR bootstrap observed ≤ null 95th percentile → uniform null failure to reject (insufficient statistical evidence in current N).",
+      "H_partial_significance": "3 phase 영역 영역 영역 verdict 영역 mixed (예: Phase A significant, Phase B not) — partial systematic 영역 catch — broader N / phase 영역 sample 영역 영역 영역 영역."
+    },
+    "threshold_rationale": "Dual criterion — chi-squared p<0.05 (frequentist large-sample) + bootstrap >null 95th (distribution-free small-N robust) — both 영역 영역 영역 significance 영역 영역 영역 영역 conservative 영역 stance.",
+    "frequentist_note": "Multinomial chi-squared 영역 large-sample approximation — N=5 / N=3 영역 영역 영역 영역 small (Cochran 1954 영역 \"expected count ≥ 5 per cell\" rule 영역 violated, E=N/K=1.25 < 5). Wilson & Hilferty 1931 cubic-root normal approximation 영역 limit accuracy 영역 영역 — exact multinomial test (Bishop 1995 ch.2.1.3) 별도 R&D mandatory. Wilson CI / Clopper-Pearson CI 영역 binomial 영역 (majority vs not-majority) — multinomial joint CI (Sison & Glaz 1995) 별도 R&D. Bootstrap resample 영역 deterministic SeededGaussian seed (Phase A=11, B=22, C=33) — multi-seed bootstrap variance 영역 영역 R&D 한정."
+  },
+  "academic_alignment": [
+    "Bishop 1995 (Neural Networks for Pattern Recognition, ch.2.1) — multinomial distribution + chi-squared goodness-of-fit test.",
+    "Wilson 1927 — score interval for binomial proportion (small-N robust vs Wald).",
+    "Clopper & Pearson 1934 — exact binomial confidence interval (conservative coverage guarantee).",
+    "Efron 1979 — bootstrap method (resample with replacement, distribution-free CI).",
+    "Sison & Glaz 1995 — multinomial joint confidence interval (referenced in limitations).",
+    "Wilson & Hilferty 1931 — chi-squared cubic-root normal approximation.",
+    "Cochran 1954 — chi-squared expected count rule (≥5 per cell) — current N=5 / N=3 violation note."
+  ],
+  "limitations": [
+    "Existing data reanalysis 한정 — 직전 tie-break R&D (commit 15f9381) 영역 5-seed Phase A/B/C / 3-sequence Phase C 영역 영역 영역 — broader seed pool / sequence permutation 별도 R&D.",
+    "Multinomial chi-squared 영역 large-sample approximation (df=3, k=4 영역 N=5 / N=3 영역 영역 영역 small — Cochran 1954 E≥5 per cell rule 영역 violated, E=N/K=1.25 < 5) — exact multinomial test (permutation / Fisher-type) 영역 별도 R&D.",
+    "Wilson & Hilferty 1931 cubic-root normal approximation 영역 small df / small chi 영역 영역 accuracy 영역 영역 영역 영역 — exact χ² survival (incomplete gamma) 별도 R&D.",
+    "Bootstrap resample 영역 deterministic (SeededGaussian seed=fixed per phase) — multi-seed bootstrap / multi-RNG variance 영역 별도 R&D.",
+    "Bootstrap iteration=1000 — Efron & Tibshirani 1993 영역 영역 영역 영역 (≥10000 영역 영역 영역 영역 영역 영역 영역 quantile stability) — current 1000 영역 lighter stance.",
+    "Wilson CI / Clopper-Pearson CI 영역 binomial 영역 (majority vs not-majority dichotomy) — multinomial joint CI (Sison & Glaz 1995) 별도 R&D mandatory.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 significance pattern 보장 X (input data 영역 prior commit 15f9381 mock-anatomical baseline 영역 inherited).",
+    "Frequentist: p-value failure to reject ≠ accept H0 / proportion CI 영역 single-shot 영역 산출.",
+    "Phase C N=3 영역 영역 영역 영역 small — bootstrap resample 영역 sample space 영역 영역 영역 영역 영역 (3^3=27 영역 영역 영역 영역 영역 → 영역 영역 quantile coarse-grained) — N≥10 영역 별도 R&D.",
+    "Multinomial test 영역 single-tailed (uniform null vs observed majority) — two-tailed / specific alternative (예: cluster X 영역 specific majority) 영역 별도 R&D."
+  ],
+  "cross_reference": {
+    "prior_tie_break_mechanism_analysis": {
+      "test_path": "tests/integration/hand-snn-tie-break-mechanism-analysis.test.ts",
+      "commit": "15f9381",
+      "measurement_path": "tests/integration/measurements/hand-snn-tie-break-mechanism-analysis.json",
+      "note": "Frequentist note 영역 명시 — \"모든 phase verdict 영역 unique=2 영역 binomial significance threshold N/A — multinomial test / bootstrap CI 별도 R&D mandatory\". 본 R&D 영역 직접 followup."
+    }
+  }
+}

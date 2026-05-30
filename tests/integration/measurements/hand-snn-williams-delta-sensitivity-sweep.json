@@ -1,0 +1,414 @@
+{
+  "timestamp": "2026-05-30T08:35:28.147Z",
+  "scenario": "hand-snn-williams-delta-sensitivity-sweep",
+  "elapsed_ms": 10,
+  "focused_scope": {
+    "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 Conv 3 (symmetric Laplace, inside-log) T_sym(δ) = 2 Σ (E+δ) log((E+δ)/(O+δ)) δ ∈ {0.1, 0.5, 1.0} sensitivity sweep. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 7c65a31 영역 정직 한계 \"Laplace smoothing δ=0.5 ad-hoc — δ sensitivity sweep 별도 R&D mandatory\" 영역 직접 followup.",
+    "input_data": {
+      "phase_a_counts": [
+        1,
+        0,
+        4,
+        0
+      ],
+      "phase_b_counts": [
+        0,
+        3,
+        0,
+        2
+      ],
+      "phase_c_counts": [
+        0,
+        1,
+        2,
+        0
+      ],
+      "N_phase_a": 5,
+      "N_phase_b": 5,
+      "N_phase_c": 3,
+      "K_clusters": 4,
+      "prior_7c65a31_delta_0_5_p_A": 0.0625,
+      "prior_7c65a31_delta_0_5_p_B": 0.1797,
+      "prior_7c65a31_delta_0_5_p_C": 0.625,
+      "phase_a_source": "open_palm untrained — counts=[1,0,4,0] (cluster 2 dominant)",
+      "phase_b_source": "open_palm post-RSTDP — counts=[0,3,0,2] (cluster 1 + 3 active)",
+      "phase_c_source": "open_palm cluster sequence — counts=[0,1,2,0] (cluster 1 + 2 active, N=3)",
+      "zero_cluster_phase_a": "[1,0,4,0] → 2 zero clusters (idx 1, 3)",
+      "zero_cluster_phase_b": "[0,3,0,2] → 2 zero clusters (idx 0, 2)",
+      "zero_cluster_phase_c": "[0,1,2,0] → 2 zero clusters (idx 0, 3)"
+    },
+    "delta_sweep": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal Laplace smoothing. T_sym(0.1) = 2 Σ (E+0.1) log((E+0.1)/(O+0.1)). 영역 δ 영역 영역 영역 영역 raw +∞ (Cressie & Read 1984 §3 strict form) 영역 가까워 영역 — (E+0.1)/(O+0.1) ratio 영역 zero-cell 영역 영역 영역 영역 magnify (E+0.1)/0.1 = 10E 영역 영역 영역 → observed statistic 영역 magnitude 영역 영역."
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Laplace 1812 (7c65a31 baseline)",
+        "description": "δ=0.5 — 7c65a31 baseline reproduce verify. T_sym(0.5) = 2 Σ (E+0.5) log((E+0.5)/(O+0.5)). Williams 1976 §3 inspired (정확 §3 form 영역 영역 영역 영역 — 영역 R&D 영역 interpretation choice). expected exact p: Phase A=0.0625, Phase B=0.1797, Phase C=0.6250 (7c65a31 reproduce)."
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule). T_sym(1.0) = 2 Σ (E+1.0) log((E+1.0)/(O+1.0)). 영역 δ 영역 영역 영역 영역 uniform 영역 영역 ratio 영역 영역 영역 영역 (1+E vs 1+O 영역 영역 영역 영역 영역 영역) → observed statistic 영역 magnitude 영역 영역. add-one rule 영역 standard Bayesian Laplace prior (uniform Dirichlet prior α=1) 영역 영역."
+      }
+    ],
+    "conv3_formula": "T_sym(δ) = 2 Σ_{all i} (E_i + δ) × log((E_i + δ) / (O_i + δ)) — Williams 1976 §3 inspired symmetric Laplace (inside-log), both E and O smoothed by δ. factor 2 영역 7c65a31 baseline 영역 영역 — exact p 영역 outcome ordering 영역 영역 (factor 2 multiplicative 영역 영역 영역 영역).",
+    "exact_enumeration_method": {
+      "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
+      "framework_reuse": "Same exact enumeration framework as commits a1d6d4d / 6cfecf7 / 493f850 / 7c65a31. Multinomial PMF + outcome enumeration reused without modification — δ parameterized 영역 영역 확장.",
+      "exact_p_value_definition": "exact p(δ) = Σ P[outcome] over all outcomes with T_sym(δ)[outcome] ≥ T_sym(δ)[observed] (reject side rule)."
+    },
+    "reproduce_verify_7c65a31": {
+      "phase_a_delta_0_5_p_current": 0.06250000000000024,
+      "phase_a_delta_0_5_p_prior": 0.0625,
+      "phase_a_reproduce": true,
+      "phase_b_delta_0_5_p_current": 0.17968750000000047,
+      "phase_b_delta_0_5_p_prior": 0.1797,
+      "phase_b_reproduce": true,
+      "phase_c_delta_0_5_p_current": 0.6249999999999999,
+      "phase_c_delta_0_5_p_prior": 0.625,
+      "phase_c_reproduce": true,
+      "overall_reproduce_verify": true,
+      "reproduce_tolerance": 0.001
+    }
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "N": 5,
+    "K": 4,
+    "expected_per_cell": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "prior_7c65a31_delta_0_5_p": 0.0625,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal Laplace smoothing. T_sym(0.1) = 2 Σ (E+0.1) log((E+0.1)/(O+0.1)). 영역 δ 영역 영역 영역 영역 raw +∞ (Cressie & Read 1984 §3 strict form) 영역 가까워 영역 — (E+0.1)/(O+0.1) ratio 영역 zero-cell 영역 영역 영역 영역 magnify (E+0.1)/0.1 = 10E 영역 영역 영역 → observed statistic 영역 magnitude 영역 영역.",
+        "observed_statistic": 11.608086786142115,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.06250000000000024,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Laplace 1812 (7c65a31 baseline)",
+        "description": "δ=0.5 — 7c65a31 baseline reproduce verify. T_sym(0.5) = 2 Σ (E+0.5) log((E+0.5)/(O+0.5)). Williams 1976 §3 inspired (정확 §3 form 영역 영역 영역 영역 — 영역 R&D 영역 interpretation choice). expected exact p: Phase A=0.0625, Phase B=0.1797, Phase C=0.6250 (7c65a31 reproduce).",
+        "observed_statistic": 6.003252527920001,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.06250000000000024,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule). T_sym(1.0) = 2 Σ (E+1.0) log((E+1.0)/(O+1.0)). 영역 δ 영역 영역 영역 영역 uniform 영역 영역 ratio 영역 영역 영역 영역 (1+E vs 1+O 영역 영역 영역 영역 영역 영역) → observed statistic 영역 magnitude 영역 영역. add-one rule 영역 standard Bayesian Laplace prior (uniform Dirichlet prior α=1) 영역 영역.",
+        "observed_statistic": 4.235110973420713,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.06250000000000024,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      }
+    ],
+    "delta_p_range": 0,
+    "delta_p_min": 0.06250000000000024,
+    "delta_p_max": 0.06250000000000024,
+    "reject_decisions_unanimous": true,
+    "evidence": "Phase A (untrained): counts=[1, 0, 4, 0] (N=5, K=4), E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), prior 7c65a31 δ=0.5 p=0.0625, δ sweep: δ=0.1: T=11.608 → p=0.0625 (reject@0.05=false); δ=0.5: T=6.003 → p=0.0625 (reject@0.05=false); δ=1: T=4.235 → p=0.0625 (reject@0.05=false), p_range=0.0000 (min=0.0625, max=0.0625), reject_unanimous=true, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "expected_per_cell": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "prior_7c65a31_delta_0_5_p": 0.1797,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal Laplace smoothing. T_sym(0.1) = 2 Σ (E+0.1) log((E+0.1)/(O+0.1)). 영역 δ 영역 영역 영역 영역 raw +∞ (Cressie & Read 1984 §3 strict form) 영역 가까워 영역 — (E+0.1)/(O+0.1) ratio 영역 zero-cell 영역 영역 영역 영역 magnify (E+0.1)/0.1 = 10E 영역 영역 영역 → observed statistic 영역 magnitude 영역 영역.",
+        "observed_statistic": 10.617072568836209,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.17968750000000047,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Laplace 1812 (7c65a31 baseline)",
+        "description": "δ=0.5 — 7c65a31 baseline reproduce verify. T_sym(0.5) = 2 Σ (E+0.5) log((E+0.5)/(O+0.5)). Williams 1976 §3 inspired (정확 §3 form 영역 영역 영역 영역 — 영역 R&D 영역 interpretation choice). expected exact p: Phase A=0.0625, Phase B=0.1797, Phase C=0.6250 (7c65a31 reproduce).",
+        "observed_statistic": 5.094963343722204,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.17968750000000047,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule). T_sym(1.0) = 2 Σ (E+1.0) log((E+1.0)/(O+1.0)). 영역 δ 영역 영역 영역 영역 uniform 영역 영역 ratio 영역 영역 영역 영역 (1+E vs 1+O 영역 영역 영역 영역 영역 영역) → observed statistic 영역 magnitude 영역 영역. add-one rule 영역 standard Bayesian Laplace prior (uniform Dirichlet prior α=1) 영역 영역.",
+        "observed_statistic": 3.4146639678479174,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.17968750000000047,
+        "sum_of_pmf_total": 1.0000000000000013,
+        "outcomes_total": 56,
+        "rejects_at_alpha_005": false
+      }
+    ],
+    "delta_p_range": 0,
+    "delta_p_min": 0.17968750000000047,
+    "delta_p_max": 0.17968750000000047,
+    "reject_decisions_unanimous": true,
+    "evidence": "Phase B (trained): counts=[0, 3, 0, 2] (N=5, K=4), E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), prior 7c65a31 δ=0.5 p=0.1797, δ sweep: δ=0.1: T=10.617 → p=0.1797 (reject@0.05=false); δ=0.5: T=5.095 → p=0.1797 (reject@0.05=false); δ=1: T=3.415 → p=0.1797 (reject@0.05=false), p_range=0.0000 (min=0.1797, max=0.1797), reject_unanimous=true, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "N": 3,
+    "K": 4,
+    "expected_per_cell": 0.75,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 20,
+    "expected_outcomes_combinatorial": 20,
+    "sum_of_probabilities": 0.9999999999999999,
+    "prior_7c65a31_delta_0_5_p": 0.625,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal Laplace smoothing. T_sym(0.1) = 2 Σ (E+0.1) log((E+0.1)/(O+0.1)). 영역 δ 영역 영역 영역 영역 raw +∞ (Cressie & Read 1984 §3 strict form) 영역 가까워 영역 — (E+0.1)/(O+0.1) ratio 영역 zero-cell 영역 영역 영역 영역 magnify (E+0.1)/0.1 = 10E 영역 영역 영역 → observed statistic 영역 magnitude 영역 영역.",
+        "observed_statistic": 5.300339803887591,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.6249999999999999,
+        "sum_of_pmf_total": 0.9999999999999999,
+        "outcomes_total": 20,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Laplace 1812 (7c65a31 baseline)",
+        "description": "δ=0.5 — 7c65a31 baseline reproduce verify. T_sym(0.5) = 2 Σ (E+0.5) log((E+0.5)/(O+0.5)). Williams 1976 §3 inspired (정확 §3 form 영역 영역 영역 영역 — 영역 R&D 영역 interpretation choice). expected exact p: Phase A=0.0625, Phase B=0.1797, Phase C=0.6250 (7c65a31 reproduce).",
+        "observed_statistic": 2.3927818159860257,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.6249999999999999,
+        "sum_of_pmf_total": 0.9999999999999999,
+        "outcomes_total": 20,
+        "rejects_at_alpha_005": false
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule). T_sym(1.0) = 2 Σ (E+1.0) log((E+1.0)/(O+1.0)). 영역 δ 영역 영역 영역 영역 uniform 영역 영역 ratio 영역 영역 영역 영역 (1+E vs 1+O 영역 영역 영역 영역 영역 영역) → observed statistic 영역 magnitude 영역 영역. add-one rule 영역 standard Bayesian Laplace prior (uniform Dirichlet prior α=1) 영역 영역.",
+        "observed_statistic": 1.5634628887977253,
+        "observed_statistic_is_finite": true,
+        "observed_statistic_sign": "positive",
+        "exact_p_value": 0.6249999999999999,
+        "sum_of_pmf_total": 0.9999999999999999,
+        "outcomes_total": 20,
+        "rejects_at_alpha_005": false
+      }
+    ],
+    "delta_p_range": 0,
+    "delta_p_min": 0.6249999999999999,
+    "delta_p_max": 0.6249999999999999,
+    "reject_decisions_unanimous": true,
+    "evidence": "Phase C (sequence): counts=[0, 1, 2, 0] (N=3, K=4), E=N/K=0.750, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), prior 7c65a31 δ=0.5 p=0.6250, δ sweep: δ=0.1: T=5.300 → p=0.6250 (reject@0.05=false); δ=0.5: T=2.393 → p=0.6250 (reject@0.05=false); δ=1: T=1.563 → p=0.6250 (reject@0.05=false), p_range=0.0000 (min=0.6250, max=0.6250), reject_unanimous=true, enumerated=20 (expected C(6,3)=20), Σ pmf=1.000000."
+  },
+  "overall_verdict": {
+    "verdict": "H_delta_invariant",
+    "evidence": "영역 3 phase (A/B/C) 영역 영역 영역 영역 δ ∈ {0.1, 0.5, 1.0} sweep 영역 reject decision (α=0.05) 동일 AND max p_range=0.0000 < 0.05 → δ choice 영역 verdict 영역 영역 영역 영역 — small N (5 / 5 / 3) + discrete sample space (56 / 56 / 20 outcomes) 영역 영역 영역 영역 영역 영역 영역.",
+    "per_delta_summary": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "phase_a_observed": 11.608086786142115,
+        "phase_a_sign": "positive",
+        "phase_a_p": 0.06250000000000024,
+        "phase_a_rejects_at_alpha_005": false,
+        "phase_b_observed": 10.617072568836209,
+        "phase_b_sign": "positive",
+        "phase_b_p": 0.17968750000000047,
+        "phase_b_rejects_at_alpha_005": false,
+        "phase_c_observed": 5.300339803887591,
+        "phase_c_sign": "positive",
+        "phase_c_p": 0.6249999999999999,
+        "phase_c_rejects_at_alpha_005": false
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "phase_a_observed": 6.003252527920001,
+        "phase_a_sign": "positive",
+        "phase_a_p": 0.06250000000000024,
+        "phase_a_rejects_at_alpha_005": false,
+        "phase_b_observed": 5.094963343722204,
+        "phase_b_sign": "positive",
+        "phase_b_p": 0.17968750000000047,
+        "phase_b_rejects_at_alpha_005": false,
+        "phase_c_observed": 2.3927818159860257,
+        "phase_c_sign": "positive",
+        "phase_c_p": 0.6249999999999999,
+        "phase_c_rejects_at_alpha_005": false
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "phase_a_observed": 4.235110973420713,
+        "phase_a_sign": "positive",
+        "phase_a_p": 0.06250000000000024,
+        "phase_a_rejects_at_alpha_005": false,
+        "phase_b_observed": 3.4146639678479174,
+        "phase_b_sign": "positive",
+        "phase_b_p": 0.17968750000000047,
+        "phase_b_rejects_at_alpha_005": false,
+        "phase_c_observed": 1.5634628887977253,
+        "phase_c_sign": "positive",
+        "phase_c_p": 0.6249999999999999,
+        "phase_c_rejects_at_alpha_005": false
+      }
+    ],
+    "alpha": 0.05,
+    "alpha_rationale": "α=0.05 standard convention (Fisher 1925 영역 historical). reject_at_alpha_005 = (exact_p < 0.05). reject_unanimous = (모든 δ 영역 reject decision 동일).",
+    "per_phase_summary": [
+      {
+        "phase_label": "Phase A (untrained)",
+        "p_min": 0.06250000000000024,
+        "p_max": 0.06250000000000024,
+        "p_range": 0,
+        "reject_decisions_unanimous": true,
+        "reject_count_at_alpha_005": 0
+      },
+      {
+        "phase_label": "Phase B (trained)",
+        "p_min": 0.17968750000000047,
+        "p_max": 0.17968750000000047,
+        "p_range": 0,
+        "reject_decisions_unanimous": true,
+        "reject_count_at_alpha_005": 0
+      },
+      {
+        "phase_label": "Phase C (sequence)",
+        "p_min": 0.6249999999999999,
+        "p_max": 0.6249999999999999,
+        "p_range": 0,
+        "reject_decisions_unanimous": true,
+        "reject_count_at_alpha_005": 0
+      }
+    ]
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_delta_invariant": "영역 3 phase 영역 영역 영역 영역 δ ∈ {0.1, 0.5, 1.0} sweep 영역 reject decision (α=0.05) 동일 AND max p_range < 0.05 → δ choice 영역 verdict 영역 영역 영역 영역 — rare 영역 영역 small N + discrete sample space 영역 영역 영역 영역 영역 영역 영역.",
+      "H_delta_sensitive": "영역 δ choice 영역 reject decision 영역 영역 영역 영역 phase ∃ — additional indeterminacy on top of method choice. δ choice 영역 ad-hoc 영역 영역 영역 영역 정직 한계 영역 — α=0.05 reject 영역 δ choice 영역 영역 영역 영역.",
+      "H_partial_delta_sensitivity": "mixed signal — reject decisions unanimous per phase 단 max p_range ≥ 0.05 (p 값 영역 영역 영역 영역). reject decision 영역 동일 단 effect size 영역 δ choice 영역 영역 영역."
+    },
+    "threshold_rationale": "δ_invariant criterion — (1) 영역 phase 영역 모든 δ 영역 reject decision (α=0.05) 동일 AND (2) max p_range < 0.05 (p 값 영역 영역 영역 영역). δ_sensitive criterion — 영역 phase 영역 reject decision 영역 영역 영역 — δ choice 영역 reject 영역 결정 영역. δ choice 영역 ad-hoc 영역 영역 영역 — 영역 sweep 영역 sensitivity 영역 명시.",
+    "comparison_to_7c65a31_baseline": "7c65a31 (williams-formal-symmetric-convention) 영역 δ=0.5 single baseline — Phase A p=0.0625 (marginal proximity 단 fail-to-reject), Phase B p=0.1797 (fail-to-reject), Phase C p=0.6250 (fail-to-reject). 본 R&D 영역 δ ∈ {0.1, 1.0} 추가 — δ choice 영역 verdict 영역 영역 영역 영역 verify. Phase A δ=0.5 p=0.0625 영역 α=0.05 영역 0.0125 marginal → δ=0.1 영역 영역 영역 reject 영역 영역 영역 영역, δ=1.0 영역 영역 fail-to-reject 영역 영역 영역 영역 — 영역 case 영역 영역 verify."
+  },
+  "academic_alignment": [
+    "Laplace 1812 — additive smoothing principle (δ choice 영역 기본 원리, both E and O smoothed by same δ).",
+    "Williams 1976 — improved likelihood ratio for sparse contingency tables (§3 영역 inspired only, 정확 form 영역 직접 verify 영역 영역 — 본 R&D 영역 interpretation choice).",
+    "Read & Cressie 1988 §2.3 — continuity correction for power divergence.",
+    "Cressie & Read 1984 §3 — power divergence limit forms (Convention 2 raw form 영역 reference).",
+    "Fisher 1925 — Statistical Methods for Research Workers (α=0.05 historical convention).",
+    "Cochran 1954 — E≥5 rule (본 R&D 영역 violation 영역 — N=5/K=4 영역 E=1.25, N=3/K=4 영역 E=0.75).",
+    "7c65a31 — Williams 1976 §3 inspired symmetric Laplace δ=0.5 baseline (본 R&D 영역 baseline reproduce verify).",
+    "493f850 — continuity correction R&D (Method 2 Williams δ outside-log variant — 7c65a31 영역 sufficient statistic equivalent 영역 영역).",
+    "6cfecf7 — power divergence λ sweep R&D (Convention 2 raw +∞ rule reference).",
+    "a1d6d4d — exact multinomial test framework (enumeration reused)."
+  ],
+  "limitations": [
+    "Existing data reanalysis 한정 (NO SNN run, NO MediaPipe Hand encoder call).",
+    "3 δ values 한정 — full continuous δ sweep (예: δ ∈ [0.01, 5.0] step=0.05) 별도 R&D. δ=0.1 / 0.5 / 1.0 영역 representative 영역 단 continuous behavior 영역 영역 영역.",
+    "δ=0.5 reproduces 7c65a31 baseline (sanity check) — δ=0.1 / 1.0 영역 본 R&D novel.",
+    "Conv 3 inside-log Laplace 영역 한정 — 영역 convention (Conv 1 zero-skip / Conv 2 strict +∞) 영역 δ sweep 별도 R&D (단 Conv 1 영역 δ-parameter 없음, Conv 2 영역 +∞ → δ 영역 영역 영역 — sufficient statistic equivalent 영역 493f850 Method 2 영역 동일 outcome 영역 expected).",
+    "Williams δ Method 2 영역 outside-log additive count variant 영역 7c65a31 영역 영역 영역 영역 영역 영역 sufficient statistic equivalent 영역 — 본 R&D 영역 Conv 3 inside-log 한정 결과 영역 outside-log Williams δ Method 2 영역 동일 outcome 영역 expected (Cochran 1972 sufficient statistic principle).",
+    "Exact enumeration N≤5 한정 (N≥10 Monte Carlo mandatory — Mehta & Patel 1983 network algorithm).",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 zero-cell pattern 보장 X.",
+    "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",
+    "Uniform null (p_i = 1/K) 한정 — non-uniform prior 영역 별도 R&D.",
+    "Single-tailed test (observed statistic ≥ threshold) — two-tailed / specific alternative 영역 별도 R&D.",
+    "α=0.05 standard convention 한정 — α=0.10 / α=0.01 영역 영역 reject decision 영역 영역 영역 영역 영역.",
+    "factor 2 영역 7c65a31 baseline 영역 동일 — request 영역 factor 2 영역 영역 단 exact p 영역 outcome ordering 영역 영역 (multiplicative scaling 영역 영역 영역 영역) → reproduce verify 정합."
+  ],
+  "cross_reference": {
+    "prior_williams_formal_symmetric_convention": {
+      "test_path": "tests/integration/hand-snn-williams-formal-symmetric-convention.test.ts",
+      "commit": "7c65a31",
+      "measurement_path": "tests/integration/measurements/hand-snn-williams-formal-symmetric-convention.json",
+      "note": "정직 한계 명시 — \"Laplace smoothing δ=0.5 ad-hoc — δ sensitivity sweep 별도 R&D mandatory\". 본 R&D 영역 직접 followup — δ ∈ {0.1, 0.5, 1.0} sensitivity sweep 영역 δ choice 영역 verdict 영역 영역 영역 영역 verify."
+    },
+    "prior_continuity_correction": {
+      "test_path": "tests/integration/hand-snn-continuity-correction-zero-cell.test.ts",
+      "commit": "493f850",
+      "measurement_path": "tests/integration/measurements/hand-snn-continuity-correction-zero-cell.json",
+      "note": "Method 2 Williams δ outside-log additive count variant 영역 reference — 7c65a31 영역 영역 영역 영역 영역 영역 sufficient statistic equivalent 영역."
+    },
+    "prior_power_divergence_lambda_sweep": {
+      "test_path": "tests/integration/hand-snn-power-divergence-lambda-sweep.test.ts",
+      "commit": "6cfecf7",
+      "measurement_path": "tests/integration/measurements/hand-snn-power-divergence-lambda-sweep.json",
+      "note": "Convention 2 (strict +∞) raw rule reference — δ 영역 영역 영역 영역 영역 영역 영역 영역."
+    },
+    "prior_exact_multinomial_test": {
+      "test_path": "tests/integration/hand-snn-exact-multinomial-test.test.ts",
+      "commit": "a1d6d4d",
+      "measurement_path": "tests/integration/measurements/hand-snn-exact-multinomial-test.json"
+    }
+  }
+}

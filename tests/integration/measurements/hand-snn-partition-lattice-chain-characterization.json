@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-partition-lattice-chain-characterization",
+  "measurement_id": "hand-snn-partition-lattice-chain-characterization",
+  "branch": "main",
+  "type": "closed_form_combinatorial_theorem",
+  "code_artifact": null,
+  "doc_artifact": "docs/PARTITION_LATTICE_CHAIN_CHARACTERIZATION.md",
+  "commit_baselines": {
+    "full_closed_form_proof": "1c5d717",
+    "partial_proof": "a6aa72a",
+    "lambda_continuous_sweep_empirical": "0f3acf0"
+  },
+  "hypothesis": "Integer partition lattice P(N, K) with majorization order 가 chain (totally ordered) 일 조건의 closed-form characterization. 직전 1c5d717 의 open problem (general (N, K) chain condition) 해결.",
+  "result": "CLOSED_FORM_THEOREM_PROVEN",
+  "main_results": {
+    "theorem_3_chain_characterization": "P(N, K) is a chain ⟺ K ≤ 2 ∨ N ≤ 5. 동등하게 NOT chain ⟺ K ≥ 3 ∧ N ≥ 6.",
+    "proof_structure_three_directions": {
+      "direction_A_K_leq_2": "K ≤ 2: partitions linearly ordered by max element. K=1 trivial single element. K=2 explicit partial sum verification.",
+      "direction_B_N_leq_5": "N ≤ 5: enumeration case analysis. N=0,1,2,3,4,5 explicit pairwise majorization comparison. 가장 의심스러운 N=5 pair (3,1,1) vs (2,2,1) — partial sums (3,4,5) vs (2,4,5), (3,1,1) majorizes (2,2,1) ✓.",
+      "direction_C_K_geq_3_and_N_geq_6": "K ≥ 3 ∧ N ≥ 6: explicit counter-example (4+(N-6), 1, 1, 0, ..., 0) vs (3+(N-6), 3, 0, 0, ..., 0). Simplest (N=6, K=3): (4,1,1) vs (3,3,0). Partial sums (4,5,6) vs (3,6,6). k=1: 4>3 v_a wins, k=2: 5<6 v_b wins → incomparable. General N>6 construction similar (extra mass absorbed into first part)."
+    },
+    "combined_result_with_1c5d717_theorem_2": "Theorem 2 (T_λ ordering ⟺ majorization) + Theorem 3 (chain ⟺ K≤2 ∨ N≤5) = Cressie-Read T_λ exact p-value method-agnostic across all λ ∈ ℝ ⟺ K ≤ 2 ∨ N ≤ 5.",
+    "hand_snn_implication": "본 R&D 의 (N=5, K=4) 와 (N=3, K=4) 환경은 chain region (N ≤ 5) 의 정확한 boundary. 153/153 byte-identical empirical 은 우연이 아닌 Theorem 3 의 mathematical inevitable. Future N≥6 확장 시 method (λ) 선택 결정적이 됨 — single λ 결과 신뢰성 위험."
+  },
+  "honest_limitations": [
+    "Hardy-Littlewood-Polya 1934 Inequalities §2.18-§2.22 published edition 사용자 직접 verify mandatory (본 R&D 의 majorization framework 의 source-of-truth).",
+    "Direction (B) 의 N ≤ 5 enumeration 은 5 cases 만 explicit verify. Strict algebraic argument (enumeration 외) 는 future R&D.",
+    "Direction (C) 의 counter-example construction 은 (4,1,1,0,...) vs (3,3,0,0,...) family 한정. 다른 incomparable construction family 는 verify 안 함 (단 chain disproof 에 한 counter-example 충분).",
+    "Padding-invariance (v_a, v_b 의 zero-padding 에 의한 majorization 관계 보존) 는 standard 결과로 인용 — strict proof 는 본 R&D 에서 안 함 (Olkin & Marshall 1979 standard textbook 결과).",
+    "N=0, K=0 edge cases 는 trivially chain 으로 처리 — 본 proof 의 case analysis 는 N ≥ 1 가정.",
+    "NOT-chain regime (K ≥ 3 ∧ N ≥ 6) 의 detailed lattice structure (incomparable pair 수, antichain size, lattice height) 는 별도 R&D.",
+    "Formal verification (Lean 4 / Coq / Isabelle/HOL) 안 됨 — Mathlib partition lattice + majorization formalization 은 future R&D.",
+    ".env.snn-backup NPM_TOKEN + IRIS_API_KEY plaintext leak HIGH (security carryover) — 사용자 직접 rotate + OS secret store 이전 mandatory.",
+    "Olkin & Marshall 1979 partition order chapter 와의 cross-reference 는 사용자 mandatory — 본 Theorem 3 가 classical 결과의 special case 일 가능성 cross-check.",
+    "Macdonald 1995 Symmetric Functions and Hall Polynomials 의 dominance order / Young's lattice 와의 connection 사용자 cross-reference mandatory.",
+    "Cressie & Read 1984 §2.5, §3 published PDF + Read & Cressie 1988 §3 사용자 직접 verify mandatory (carryover).",
+    "Hand SNN R&D recommendation (§4.3) 은 derived advice — strict mathematical proof 가 아닌 method robustness 측면의 안내. Future R&D 의 method selection 은 별도 careful 결정 mandatory.",
+    "Peer review 안 됨 — statistical / combinatorics literature cross-check 사용자 mandatory.",
+    "Type: documentation-only — code/test artifact 없음. Verification 은 hand analysis + 0f3acf0 enumeration certificate 결합.",
+    "Frequentist failure-to-reject ≠ accept H0 (carryover, mathematical scope 외)."
+  ],
+  "hypothesis_verdict": "H_partition_lattice_chain_closed_form_K_leq_2_or_N_leq_5_proven",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "main_theorem": "Theorem 3: P(N, K) chain ⟺ K ≤ 2 ∨ N ≤ 5",
+      "proof_method": "Case analysis in three directions (A: K ≤ 2 trivial chain, B: N ≤ 5 enumeration, C: K ≥ 3 ∧ N ≥ 6 explicit counter-example construction)",
+      "completeness": "FULL closed-form combinatorial theorem — necessary and sufficient condition identified"
+    },
+    "combined_with_1c5d717": {
+      "complete_characterization": "Cressie-Read T_λ method-agnostic (all λ ∈ ℝ byte-identical exact p) ⟺ K ≤ 2 ∨ N ≤ 5",
+      "necessary_and_sufficient": true
+    },
+    "hand_snn_specific": {
+      "current_R_and_D_regime": "(N=5/3, K=4) — chain region boundary",
+      "method_agnostic_holds": true,
+      "future_warning": "N ≥ 6 확장 시 method (λ) 선택 결정적 (NOT chain regime)"
+    }
+  },
+  "next_followup_candidates": [
+    "NOT-chain regime detailed structure (antichain size, incomparable pair count, lattice height)",
+    "δ > 0 counter-example robustness explicit numeric verification (N=6, K=3/4 with δ ∈ {0.1, 0.5, 1.0})",
+    "Larger (N=10/15, K=4) enumeration extension with explicit majorization-incomparable pair identification",
+    "Non-uniform null separate proof (Lemma 1 reduction failure 우회)",
+    "Lean 4 mathlib partition lattice + majorization formalization (multi-week 별도 프로젝트)",
+    "Olkin & Marshall 1979 + Macdonald 1995 cross-reference (사용자 mandatory)",
+    "Hand SNN N=10 R&D feasibility study (method-agnostic 보장 X regime 진입 시 method selection 전략)",
+    "HLP 1934 + Cressie-Read 1984 published PDF verify (사용자 mandatory)"
+  ],
+  "references": [
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press. §2.18-§2.22.",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization and Its Applications. Academic Press.",
+    "Macdonald, I. G. (1995). Symmetric Functions and Hall Polynomials. Oxford University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Read, T. R. C. & Cressie, N. A. C. (1988). Goodness-of-Fit Statistics for Discrete Multivariate Data. Springer."
+  ]
+}

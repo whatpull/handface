@@ -1,0 +1,424 @@
+{
+  "timestamp": "2026-05-30T09:22:13.917Z",
+  "scenario": "hand-snn-williams-method-2-outside-log-delta-verify",
+  "elapsed_ms": 6,
+  "focused_scope": {
+    "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 Method 2 outside-log (additive count smoothing → raw Pearson χ²) δ ∈ {0.1, 0.5, 1.0} 영역 영역 exact p compute → dc2038f Conv 3 (inside-log Laplace LR, δ-invariant 0.0625/0.1797/0.6250) 영역 byte-identical verify. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit dc2038f 영역 정직 한계 \"Method 2 outside-log δ ∈ {0.1, 1.0} direct verify 영역 X — 'expected — direct verify 별도 R&D mandatory'\" 영역 직접 followup.",
+    "input_data": {
+      "phase_a_counts": [
+        1,
+        0,
+        4,
+        0
+      ],
+      "phase_b_counts": [
+        0,
+        3,
+        0,
+        2
+      ],
+      "phase_c_counts": [
+        0,
+        1,
+        2,
+        0
+      ],
+      "N_phase_a": 5,
+      "N_phase_b": 5,
+      "N_phase_c": 3,
+      "K_clusters": 4,
+      "dc2038f_conv_3_baseline_p_A": 0.0625,
+      "dc2038f_conv_3_baseline_p_B": 0.1797,
+      "dc2038f_conv_3_baseline_p_C": 0.625,
+      "phase_a_source": "open_palm untrained — counts=[1,0,4,0] (cluster 2 dominant)",
+      "phase_b_source": "open_palm post-RSTDP — counts=[0,3,0,2] (cluster 1 + 3 active)",
+      "phase_c_source": "open_palm cluster sequence — counts=[0,1,2,0] (cluster 1 + 2 active, N=3)",
+      "zero_cluster_phase_a": "[1,0,4,0] → 2 zero clusters (idx 1, 3)",
+      "zero_cluster_phase_b": "[0,3,0,2] → 2 zero clusters (idx 0, 2)",
+      "zero_cluster_phase_c": "[0,1,2,0] → 2 zero clusters (idx 0, 3)",
+      "dc2038f_baseline_note": "dc2038f (hand-snn-williams-delta-sensitivity-sweep) Conv 3 inside-log Laplace δ-invariant exact p — Phase A=0.0625 / B=0.1797 / C=0.6250 (모든 δ ∈ {0.1, 0.5, 1.0} 영역 영역 영역 영역)."
+    },
+    "delta_sweep": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Williams 1976 inspired + Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal additive smoothing. O'_i = O_i + 0.1, N' = N + 0.4, E' = N'/4. T_χ² = Σ (O'_i - E')² / E'. raw Pearson χ² on uniformly smoothed counts."
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Read & Cressie 1988 §2.3 (Method 2 outside-log baseline)",
+        "description": "δ=0.5 — 7c65a31 sufficient statistic equivalence baseline. O'_i = O_i + 0.5, N' = N + 2.0, E' = N'/4. expected exact p (Conv 3 baseline): Phase A=0.0625, Phase B=0.1797, Phase C=0.6250."
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (add-one rule, high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule, uniform Dirichlet prior α=1). O'_i = O_i + 1.0, N' = N + 4.0, E' = N'/4. Bayesian Laplace prior 정합."
+      }
+    ],
+    "method_2_outside_log_formula": "O'_i = O_i + δ (additive count smoothing, all cells). N' = N + δ × K. E'_i = N'/K (uniform null, smoothed expected). T_χ²(δ) = Σ_i (O'_i - E'_i)² / E'_i (raw Pearson χ² on smoothed counts). Williams 1976 §3 inspired + Read & Cressie 1988 §2.3 additive count variant + Cressie & Read 1984 λ=1 (Pearson χ²) — 영역 cell 영역 영역 영역 δ smoothing (493f850 zero-cell only variant 영역 generalize).",
+    "conv_3_inside_log_formula_reference": "T_sym(δ) = 2 Σ_{all i} (E_i + δ) × log((E_i + δ) / (O_i + δ)). dc2038f baseline.",
+    "exact_enumeration_method": {
+      "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
+      "framework_reuse": "Same exact enumeration framework as commits a1d6d4d / 6cfecf7 / 493f850 / 7c65a31 / dc2038f. Multinomial PMF + outcome enumeration reused without modification — Method 2 outside-log statistic 영역 영역 확장.",
+      "exact_p_value_definition": "exact p(method, δ) = Σ P[outcome] over all outcomes with T_method(δ)[outcome] ≥ T_method(δ)[observed] (reject side rule). uniform null PMF 영역 method 간 동일 → outcome ordering 영역 영역 영역 영역 exact p 영역 byte-identical.",
+      "byte_identical_tolerance": 1e-9,
+      "pmf_epsilon": 1e-9,
+      "byte_identical_definition": "|p_method_2 - p_conv_3_inside_log| < 1e-9 (IEEE 754 floating point rounding tolerance — exact arithmetic on multinomial PMF 영역 1e-15 rounding 영역, 1e-9 영역 conservative threshold 영역 true byte-identical 영역 distinguish 영역 sufficient)."
+    }
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "N": 5,
+    "K": 4,
+    "expected_per_cell_raw": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "dc2038f_conv_3_baseline_p": 0.0625,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Williams 1976 inspired + Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal additive smoothing. O'_i = O_i + 0.1, N' = N + 0.4, E' = N'/4. T_χ² = Σ (O'_i - E')² / E'. raw Pearson χ² on uniformly smoothed counts.",
+        "observed_statistic_method_2_outside_log": 7.962962962962961,
+        "observed_statistic_conv_3_inside_log": 11.608086786142115,
+        "exact_p_value_method_2": 0.06250000000000024,
+        "exact_p_value_conv_3_inside_log_reference": 0.06250000000000024,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Read & Cressie 1988 §2.3 (Method 2 outside-log baseline)",
+        "description": "δ=0.5 — 7c65a31 sufficient statistic equivalence baseline. O'_i = O_i + 0.5, N' = N + 2.0, E' = N'/4. expected exact p (Conv 3 baseline): Phase A=0.0625, Phase B=0.1797, Phase C=0.6250.",
+        "observed_statistic_method_2_outside_log": 6.142857142857143,
+        "observed_statistic_conv_3_inside_log": 6.003252527920001,
+        "exact_p_value_method_2": 0.06250000000000024,
+        "exact_p_value_conv_3_inside_log_reference": 0.06250000000000024,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (add-one rule, high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule, uniform Dirichlet prior α=1). O'_i = O_i + 1.0, N' = N + 4.0, E' = N'/4. Bayesian Laplace prior 정합.",
+        "observed_statistic_method_2_outside_log": 4.777777777777778,
+        "observed_statistic_conv_3_inside_log": 4.235110973420713,
+        "exact_p_value_method_2": 0.06250000000000024,
+        "exact_p_value_conv_3_inside_log_reference": 0.06250000000000024,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      }
+    ],
+    "all_deltas_byte_identical": true,
+    "evidence": "Phase A (untrained): counts=[1, 0, 4, 0] (N=5, K=4), E_raw=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), dc2038f Conv 3 baseline p=0.0625, δ sweep: δ=0.1: M2_T=7.9630, M2_p=0.0625, C3_p=0.0625, Δp=0.00e+0, byte_identical=true; δ=0.5: M2_T=6.1429, M2_p=0.0625, C3_p=0.0625, Δp=0.00e+0, byte_identical=true; δ=1: M2_T=4.7778, M2_p=0.0625, C3_p=0.0625, Δp=0.00e+0, byte_identical=true, all_byte_identical=true, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "expected_per_cell_raw": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "dc2038f_conv_3_baseline_p": 0.1797,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Williams 1976 inspired + Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal additive smoothing. O'_i = O_i + 0.1, N' = N + 0.4, E' = N'/4. T_χ² = Σ (O'_i - E')² / E'. raw Pearson χ² on uniformly smoothed counts.",
+        "observed_statistic_method_2_outside_log": 5,
+        "observed_statistic_conv_3_inside_log": 10.617072568836209,
+        "exact_p_value_method_2": 0.17968750000000047,
+        "exact_p_value_conv_3_inside_log_reference": 0.17968750000000047,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Read & Cressie 1988 §2.3 (Method 2 outside-log baseline)",
+        "description": "δ=0.5 — 7c65a31 sufficient statistic equivalence baseline. O'_i = O_i + 0.5, N' = N + 2.0, E' = N'/4. expected exact p (Conv 3 baseline): Phase A=0.0625, Phase B=0.1797, Phase C=0.6250.",
+        "observed_statistic_method_2_outside_log": 3.857142857142857,
+        "observed_statistic_conv_3_inside_log": 5.094963343722204,
+        "exact_p_value_method_2": 0.17968750000000047,
+        "exact_p_value_conv_3_inside_log_reference": 0.17968750000000047,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (add-one rule, high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule, uniform Dirichlet prior α=1). O'_i = O_i + 1.0, N' = N + 4.0, E' = N'/4. Bayesian Laplace prior 정합.",
+        "observed_statistic_method_2_outside_log": 3,
+        "observed_statistic_conv_3_inside_log": 3.4146639678479174,
+        "exact_p_value_method_2": 0.17968750000000047,
+        "exact_p_value_conv_3_inside_log_reference": 0.17968750000000047,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 1.0000000000000013,
+        "outcomes_total": 56
+      }
+    ],
+    "all_deltas_byte_identical": true,
+    "evidence": "Phase B (trained): counts=[0, 3, 0, 2] (N=5, K=4), E_raw=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), dc2038f Conv 3 baseline p=0.1797, δ sweep: δ=0.1: M2_T=5.0000, M2_p=0.1797, C3_p=0.1797, Δp=0.00e+0, byte_identical=true; δ=0.5: M2_T=3.8571, M2_p=0.1797, C3_p=0.1797, Δp=0.00e+0, byte_identical=true; δ=1: M2_T=3.0000, M2_p=0.1797, C3_p=0.1797, Δp=0.00e+0, byte_identical=true, all_byte_identical=true, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "N": 3,
+    "K": 4,
+    "expected_per_cell_raw": 0.75,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 20,
+    "expected_outcomes_combinatorial": 20,
+    "sum_of_probabilities": 0.9999999999999999,
+    "dc2038f_conv_3_baseline_p": 0.625,
+    "per_delta_results": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "citation": "Williams 1976 inspired + Laplace 1812 additive smoothing (low δ — minimal smoothing)",
+        "description": "δ=0.1 — minimal additive smoothing. O'_i = O_i + 0.1, N' = N + 0.4, E' = N'/4. T_χ² = Σ (O'_i - E')² / E'. raw Pearson χ² on uniformly smoothed counts.",
+        "observed_statistic_method_2_outside_log": 3.235294117647059,
+        "observed_statistic_conv_3_inside_log": 5.300339803887591,
+        "exact_p_value_method_2": 0.6249999999999999,
+        "exact_p_value_conv_3_inside_log_reference": 0.6249999999999999,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 0.9999999999999999,
+        "outcomes_total": 20
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "citation": "Williams 1976 §3 inspired + Read & Cressie 1988 §2.3 (Method 2 outside-log baseline)",
+        "description": "δ=0.5 — 7c65a31 sufficient statistic equivalence baseline. O'_i = O_i + 0.5, N' = N + 2.0, E' = N'/4. expected exact p (Conv 3 baseline): Phase A=0.0625, Phase B=0.1797, Phase C=0.6250.",
+        "observed_statistic_method_2_outside_log": 2.2,
+        "observed_statistic_conv_3_inside_log": 2.3927818159860257,
+        "exact_p_value_method_2": 0.6249999999999999,
+        "exact_p_value_conv_3_inside_log_reference": 0.6249999999999999,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 0.9999999999999999,
+        "outcomes_total": 20
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "citation": "Laplace 1812 additive smoothing (add-one rule, high δ — heavy smoothing)",
+        "description": "δ=1.0 — heavy Laplace smoothing (add-one rule, uniform Dirichlet prior α=1). O'_i = O_i + 1.0, N' = N + 4.0, E' = N'/4. Bayesian Laplace prior 정합.",
+        "observed_statistic_method_2_outside_log": 1.5714285714285714,
+        "observed_statistic_conv_3_inside_log": 1.5634628887977253,
+        "exact_p_value_method_2": 0.6249999999999999,
+        "exact_p_value_conv_3_inside_log_reference": 0.6249999999999999,
+        "byte_identical_match": true,
+        "byte_identical_delta_p": 0,
+        "sum_of_pmf": 0.9999999999999999,
+        "outcomes_total": 20
+      }
+    ],
+    "all_deltas_byte_identical": true,
+    "evidence": "Phase C (sequence): counts=[0, 1, 2, 0] (N=3, K=4), E_raw=N/K=0.750, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), dc2038f Conv 3 baseline p=0.6250, δ sweep: δ=0.1: M2_T=3.2353, M2_p=0.6250, C3_p=0.6250, Δp=0.00e+0, byte_identical=true; δ=0.5: M2_T=2.2000, M2_p=0.6250, C3_p=0.6250, Δp=0.00e+0, byte_identical=true; δ=1: M2_T=1.5714, M2_p=0.6250, C3_p=0.6250, Δp=0.00e+0, byte_identical=true, all_byte_identical=true, enumerated=20 (expected C(6,3)=20), Σ pmf=1.000000."
+  },
+  "overall_verdict": {
+    "verdict": "H_method_2_equivalence_broader_delta_confirmed",
+    "evidence": "영역 9 cells (3 phases × 3 δ) 영역 영역 영역 영역 Method 2 outside-log (additive count → raw Pearson χ²) exact p 영역 dc2038f Conv 3 inside-log (Laplace LR) exact p 영역 byte-identical (9/9, tol=1e-9) → Cochran 1972 sufficient statistic equivalence broader δ ∈ {0.1, 0.5, 1.0} empirical confirm. 7c65a31 δ=0.5 한정 verified 영역 영역 δ regime 영역 영역 영역 — outside-log additive count + raw Pearson 영역 inside-log Laplace LR 영역 uniform null + reject side rule 영역 영역 영역 outcome ordering 영역 영역 영역 → exact p byte-identical. 단 정직 한계 — 영역 confirmation 영역 empirical 한정, mathematical proof 별도 R&D.",
+    "total_cells": 9,
+    "match_count": 9,
+    "match_ratio": 1,
+    "per_delta_summary": [
+      {
+        "delta": 0.1,
+        "delta_label": "delta_0.1",
+        "phase_a_method_2_observed": 7.962962962962961,
+        "phase_a_method_2_p": 0.06250000000000024,
+        "phase_a_conv_3_p": 0.06250000000000024,
+        "phase_a_delta_p": 0,
+        "phase_a_byte_identical": true,
+        "phase_b_method_2_observed": 5,
+        "phase_b_method_2_p": 0.17968750000000047,
+        "phase_b_conv_3_p": 0.17968750000000047,
+        "phase_b_delta_p": 0,
+        "phase_b_byte_identical": true,
+        "phase_c_method_2_observed": 3.235294117647059,
+        "phase_c_method_2_p": 0.6249999999999999,
+        "phase_c_conv_3_p": 0.6249999999999999,
+        "phase_c_delta_p": 0,
+        "phase_c_byte_identical": true
+      },
+      {
+        "delta": 0.5,
+        "delta_label": "delta_0.5",
+        "phase_a_method_2_observed": 6.142857142857143,
+        "phase_a_method_2_p": 0.06250000000000024,
+        "phase_a_conv_3_p": 0.06250000000000024,
+        "phase_a_delta_p": 0,
+        "phase_a_byte_identical": true,
+        "phase_b_method_2_observed": 3.857142857142857,
+        "phase_b_method_2_p": 0.17968750000000047,
+        "phase_b_conv_3_p": 0.17968750000000047,
+        "phase_b_delta_p": 0,
+        "phase_b_byte_identical": true,
+        "phase_c_method_2_observed": 2.2,
+        "phase_c_method_2_p": 0.6249999999999999,
+        "phase_c_conv_3_p": 0.6249999999999999,
+        "phase_c_delta_p": 0,
+        "phase_c_byte_identical": true
+      },
+      {
+        "delta": 1,
+        "delta_label": "delta_1.0",
+        "phase_a_method_2_observed": 4.777777777777778,
+        "phase_a_method_2_p": 0.06250000000000024,
+        "phase_a_conv_3_p": 0.06250000000000024,
+        "phase_a_delta_p": 0,
+        "phase_a_byte_identical": true,
+        "phase_b_method_2_observed": 3,
+        "phase_b_method_2_p": 0.17968750000000047,
+        "phase_b_conv_3_p": 0.17968750000000047,
+        "phase_b_delta_p": 0,
+        "phase_b_byte_identical": true,
+        "phase_c_method_2_observed": 1.5714285714285714,
+        "phase_c_method_2_p": 0.6249999999999999,
+        "phase_c_conv_3_p": 0.6249999999999999,
+        "phase_c_delta_p": 0,
+        "phase_c_byte_identical": true
+      }
+    ],
+    "per_phase_summary": [
+      {
+        "phase_label": "Phase A (untrained)",
+        "dc2038f_conv_3_baseline_p": 0.0625,
+        "all_deltas_byte_identical": true,
+        "byte_identical_count": 3,
+        "total_deltas": 3
+      },
+      {
+        "phase_label": "Phase B (trained)",
+        "dc2038f_conv_3_baseline_p": 0.1797,
+        "all_deltas_byte_identical": true,
+        "byte_identical_count": 3,
+        "total_deltas": 3
+      },
+      {
+        "phase_label": "Phase C (sequence)",
+        "dc2038f_conv_3_baseline_p": 0.625,
+        "all_deltas_byte_identical": true,
+        "byte_identical_count": 3,
+        "total_deltas": 3
+      }
+    ]
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_method_2_equivalence_broader_delta_confirmed": "영역 3 δ × 영역 3 phase (총 9 cells) 영역 영역 영역 영역 Method 2 outside-log (additive count → raw Pearson χ²) exact p 영역 dc2038f Conv 3 inside-log (Laplace LR) exact p 영역 byte-identical (|Δp| < 1e-9) → Cochran 1972 sufficient statistic equivalence broader δ ∈ {0.1, 0.5, 1.0} empirical confirm. 7c65a31 δ=0.5 한정 verified 영역 broader δ regime 영역 영역 영역 영역 — outside-log additive count + raw Pearson 영역 inside-log Laplace LR 영역 uniform null + reject side rule 영역 영역 영역 outcome ordering 동등 → exact p byte-identical.",
+      "H_method_2_equivalence_broken": "영역 (phase, δ) cell 영역 byte-identical 영역 영역 (matchCount=0) — 7c65a31 δ=0.5 한정 verified 영역 broader δ regime 영역 영역 영역 영역 영역 영역 → inside-log vs outside-log variant 영역 fundamentally different outcome ordering. Cochran 1972 sufficient statistic principle 영역 본 variant pair 영역 영역 영역 영역 — 7c65a31 δ=0.5 coincidence 영역 영역.",
+      "H_partial_equivalence": "mixed signal — 일부 (phase, δ) cell 영역 byte-identical, 영역 cell 영역 영역 영역. δ regime 영역 영역 영역 영역 영역 영역 — Cochran 1972 sufficient statistic principle 영역 partial 영역. broader δ continuous sweep + mathematical proof 별도 R&D mandatory."
+    },
+    "threshold_rationale": "byte_identical criterion — |p_method_2 - p_conv_3_inside_log| < 1e-9. IEEE 754 floating point rounding tolerance (multinomial PMF 영역 exact arithmetic — 1e-15 rounding 영역, 1e-9 영역 conservative). matchCount/totalCells ratio 영역 verdict 영역 결정.",
+    "comparison_to_dc2038f_baseline": "dc2038f Conv 3 inside-log Laplace δ-invariant baseline — Phase A=0.0625 / B=0.1797 / C=0.6250 (모든 δ ∈ {0.1, 0.5, 1.0}). 본 R&D 영역 Method 2 outside-log 영역 영역 영역 영역 영역 영역 영역 byte-identical 영역 verify → Cochran 1972 sufficient statistic equivalence broader δ confirm.",
+    "comparison_to_7c65a31_baseline": "7c65a31 (williams-formal-symmetric-convention) 영역 Conv 3 δ=0.5 한정 — Method 2 (493f850 outside-log) 영역 동일 exact p (Phase A=0.0625, B=0.1797, C=0.6250) verified. 단 7c65a31 영역 δ=0.5 단일 한정. 본 R&D 영역 δ ∈ {0.1, 1.0} 영역 영역 영역 verify → broader δ regime equivalence empirical confirm."
+  },
+  "academic_alignment": [
+    "Williams 1976 — improved likelihood ratio for sparse contingency tables (Method 2 outside-log additive count variant inspired).",
+    "Cochran 1972 — sufficient statistic principle (broader theoretical context, 본 R&D 영역 empirical confirmation 한정 — mathematical proof 별도 R&D).",
+    "Read & Cressie 1988 §2.3 — continuity correction for power divergence.",
+    "Cressie & Read 1984 §3 — power divergence limit forms (λ=1 Pearson χ² + λ→-1 Modified LR).",
+    "Laplace 1812 — additive smoothing principle (δ choice 영역 기본 원리, both E and O smoothed by same δ).",
+    "Pearson 1900 — chi-squared goodness-of-fit (raw Pearson χ² baseline).",
+    "Fisher 1925 — Statistical Methods for Research Workers (α=0.05 historical convention).",
+    "Cochran 1954 — E≥5 rule (본 R&D 영역 violation 영역 — N=5/K=4 영역 E=1.25, N=3/K=4 영역 E=0.75).",
+    "7c65a31 — Williams 1976 §3 inspired symmetric Laplace δ=0.5 baseline (Conv 3 vs Method 2 영역 영역 영역 sufficient statistic equivalent 영역 영역 영역 verified — 단 δ=0.5 단일 한정).",
+    "493f850 — continuity correction R&D (Method 2 Williams δ outside-log additive count variant — zero-cell only smoothing + Modified LR baseline).",
+    "dc2038f — Conv 3 inside-log Laplace δ ∈ {0.1, 0.5, 1.0} sensitivity sweep (δ-invariant baseline 영역).",
+    "6cfecf7 — power divergence λ sweep R&D (Convention 2 raw +∞ rule reference).",
+    "a1d6d4d — exact multinomial test framework (enumeration reused)."
+  ],
+  "limitations": [
+    "Existing Phase A/B/C data reanalysis 한정 (NO SNN run, NO MediaPipe Hand encoder call).",
+    "3 δ values 한정 (Method 2 영역 dc2038f Conv 3 영역 동일 δ sweep) — full continuous δ ∈ [0.01, 5.0] 별도 R&D. δ → 0+ (singular limit at O=0 영역 Method 2 영역 영역 영역 영역 영역 영역 — additive smoothing) 또는 δ → ∞ (uniform smoothing) regime 영역 영역 영역 ordering preservation 영역 깨질 영역 영역 — broader continuous δ range 별도 R&D mandatory.",
+    "Method 2 outside-log additive count (raw Pearson on smoothed counts) 영역 한정 — Williams 1976 영역 영역 영역 영역 영역 variant (G² on smoothed counts, λ→0 limit form, λ→-1 Modified LR form) 별도 R&D. 본 R&D 영역 raw Pearson χ² (Cressie & Read 1984 λ=1) 영역 한정.",
+    "Cochran 1972 sufficient statistic principle 영역 broader theoretical context — 본 R&D 영역 empirical confirmation 한정 (mathematical proof 별도 R&D mandatory). empirical byte-identical match 영역 sufficient statistic equivalence 영역 strong evidence 영역 단 proof 영역 영역 영역 영역.",
+    "Exact enumeration N≤5 한정 (N=5/K=4 → 56, N=3/K=4 → 20). N≥10 enumeration intractable — Monte Carlo exact (Mehta & Patel 1983 network algorithm) mandatory.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 zero-cell pattern 보장 X.",
+    "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",
+    "Uniform null (p_i = 1/K) 한정 — non-uniform prior 영역 별도 R&D. uniform null 영역 영역 영역 method 간 PMF 영역 동일 → outcome ordering 영역 영역 exact p 영역 결정 — non-uniform prior 영역 영역 영역 영역 영역 영역 영역 (PMF 영역 method 간 동일하다는 조건 영역 보장 X).",
+    "Single-tailed test (observed statistic ≥ threshold) — two-tailed / specific alternative 영역 별도 R&D.",
+    "α=0.05 standard convention 영역 별도 reject decision 영역 본 R&D 영역 영역 영역 영역 (byte-identical verification 영역 한정 — α threshold-free).",
+    "Method 2 outside-log \"additive smoothing to ALL cells\" 영역 본 R&D 영역 generalize variant — 493f850 Method 2 영역 zero-cell only smoothing + Modified LR 영역 차이 영역. 영역 generalize variant 영역 Cressie & Read 1984 λ=1 Pearson χ² 영역 generalize 영역 — published canonical \"Williams Method 2\" form 영역 영역 영역 영역 영역 영역 영역 영역 (interpretation choice).",
+    "byte_identical tolerance 1e-9 영역 IEEE 754 floating point rounding 영역 conservative — true byte-identical 영역 distinguish 영역 sufficient 단 ulp-level exact equality 영역 영역 영역."
+  ],
+  "cross_reference": {
+    "prior_williams_delta_sensitivity_sweep": {
+      "test_path": "tests/integration/hand-snn-williams-delta-sensitivity-sweep.test.ts",
+      "commit": "dc2038f",
+      "measurement_path": "tests/integration/measurements/hand-snn-williams-delta-sensitivity-sweep.json",
+      "note": "정직 한계 명시 — \"Williams Method 2 outside-log δ ∈ {0.1, 1.0} direct verify 영역 X — 'expected — direct verify 별도 R&D mandatory'\". 본 R&D 영역 직접 followup — Method 2 outside-log δ ∈ {0.1, 0.5, 1.0} 영역 Conv 3 inside-log baseline 영역 byte-identical verify."
+    },
+    "prior_williams_formal_symmetric_convention": {
+      "test_path": "tests/integration/hand-snn-williams-formal-symmetric-convention.test.ts",
+      "commit": "7c65a31",
+      "measurement_path": "tests/integration/measurements/hand-snn-williams-formal-symmetric-convention.json",
+      "note": "Conv 3 vs Method 2 δ=0.5 한정 sufficient statistic equivalence baseline verified."
+    },
+    "prior_continuity_correction": {
+      "test_path": "tests/integration/hand-snn-continuity-correction-zero-cell.test.ts",
+      "commit": "493f850",
+      "measurement_path": "tests/integration/measurements/hand-snn-continuity-correction-zero-cell.json",
+      "note": "Method 2 Williams δ outside-log additive count baseline (zero-cell only smoothing + Modified LR 한정). 본 R&D 영역 generalize variant (모든 cell smoothing + raw Pearson χ²) 영역 분리."
+    },
+    "prior_power_divergence_lambda_sweep": {
+      "test_path": "tests/integration/hand-snn-power-divergence-lambda-sweep.test.ts",
+      "commit": "6cfecf7",
+      "measurement_path": "tests/integration/measurements/hand-snn-power-divergence-lambda-sweep.json",
+      "note": "Cressie & Read 1984 λ sweep — λ=1 Pearson χ² 영역 본 R&D Method 2 outside-log 영역 base form."
+    },
+    "prior_exact_multinomial_test": {
+      "test_path": "tests/integration/hand-snn-exact-multinomial-test.test.ts",
+      "commit": "a1d6d4d",
+      "measurement_path": "tests/integration/measurements/hand-snn-exact-multinomial-test.json",
+      "note": "Exact multinomial enumeration framework baseline (reused)."
+    }
+  }
+}

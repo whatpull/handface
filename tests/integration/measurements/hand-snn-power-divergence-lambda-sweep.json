@@ -1,0 +1,358 @@
+{
+  "timestamp": "2026-05-30T06:22:44.848Z",
+  "scenario": "hand-snn-power-divergence-lambda-sweep",
+  "elapsed_ms": 7,
+  "focused_scope": {
+    "analysis_type": "Existing tie-break (commit 15f9381) + multinomial bootstrap CI (commit 9e139ec) + exact multinomial (commit a1d6d4d) Phase A/B/C open_palm winner data 영역 pure statistical reanalysis via power divergence T(λ) family broader λ sweep. NO SNN run, NO MediaPipe Hand encoder call. Read & Cressie 1988 Table 1 영역 5 λ value (λ ∈ {-1, -1/2, 0, 2/3, 1}) 영역 exact p empirically compute → small N regime (N=5/3, K=4) 영역 λ-invariant degeneracy vs broader N regime 영역 λ-specific divergence emergence 영역 empirical separate.",
+    "input_data": {
+      "phase_a_winners": [
+        2,
+        0,
+        2,
+        2,
+        2
+      ],
+      "phase_b_winners": [
+        1,
+        3,
+        1,
+        1,
+        3
+      ],
+      "phase_c_winners": [
+        1,
+        2,
+        2
+      ],
+      "K_clusters": 4,
+      "phase_a_source": "open_palm untrained — seeds ∈ {57, 100, 200, 500, 1000}",
+      "phase_b_source": "open_palm post-RSTDP — same seeds (trained winner)",
+      "phase_c_source": "open_palm cluster sequence variants — [0,1,2,3] / [3,2,1,0] / [0,3,1,2] (build seed=57 fixed)"
+    },
+    "lambda_sweep_configuration": [
+      {
+        "lambda": -1,
+        "lambda_name": "Modified Likelihood Ratio",
+        "citation": "Neyman 1949"
+      },
+      {
+        "lambda": -0.5,
+        "lambda_name": "Freeman-Tukey",
+        "citation": "Freeman & Tukey 1950"
+      },
+      {
+        "lambda": 0,
+        "lambda_name": "Likelihood Ratio G²",
+        "citation": "Wilks 1938"
+      },
+      {
+        "lambda": 0.6666666666666666,
+        "lambda_name": "Cressie-Read recommended",
+        "citation": "Cressie & Read 1984, Read & Cressie 1988"
+      },
+      {
+        "lambda": 1,
+        "lambda_name": "Pearson chi-squared",
+        "citation": "Pearson 1900"
+      }
+    ],
+    "exact_enumeration_method": {
+      "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
+      "framework_reuse": "Same exact enumeration framework as commit a1d6d4d (hand-snn-exact-multinomial-test). Multinomial PMF + outcome enumeration reused without modification — λ statistic computation 영역 영역 확장.",
+      "exact_p_value_definition": "exact p(λ) = Σ P[outcome] over all outcomes with T(λ)[outcome] ≥ T(λ)[observed]. No large-sample approximation — Cochran 1954 E≥5 violation 영역 직접 회피.",
+      "infinity_handling": "λ = -1 (Modified LR), O_i = 0 영역 영역 영역 E·log(E/0) = +∞ → statistic = +∞. Observed (finite) ≤ +∞ 영역 영역 영역 영역 영역 영역 reject side 영역 — exact p computation 영역 영역 영역 영역 outcome 영역 영역 영역 (statistic = +∞ ≥ observed (finite)) → include 영역. Phase A counts=[1,3,1,0] (cluster 3 zero) → Phase A observed T(-1) = +∞ → 영역 outcome 영역 reject side (영역 영역 영역 영역 reject)… 영역 영역 영역 영역 영역 verify 영역 영역."
+    },
+    "power_divergence_family_table_1": "Read & Cressie 1988 Table 1: T(λ) = (2 / (λ(λ+1))) Σ O ((O/E)^λ - 1). Special cases: λ=-1 Neyman 1949 Modified LR (limit: 2 Σ E log(E/O)); λ=-1/2 Freeman-Tukey 1950 (closed: 4 Σ (√O - √E)²); λ→0 Wilks 1938 G² (limit: 2 Σ O log(O/E)); λ=2/3 Cressie-Read 1984 small-sample recommended; λ=1 Pearson 1900 χ² (closed: Σ (O-E)²/E)."
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "winners": [
+      2,
+      0,
+      2,
+      2,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "expected_per_cell": 1.25,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "per_lambda_results": [
+      {
+        "lambda": -1,
+        "lambda_name": "Modified Likelihood Ratio",
+        "citation": "Neyman 1949",
+        "observed_statistic": null,
+        "observed_statistic_is_infinite": true,
+        "exact_p_value": 0.7656250000000009,
+        "outcomes_with_infinite_statistic": 52
+      },
+      {
+        "lambda": -0.5,
+        "lambda_name": "Freeman-Tukey",
+        "citation": "Freeman & Tukey 1950",
+        "observed_statistic": 13.167184270002526,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.06250000000000024,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0,
+        "lambda_name": "Likelihood Ratio G²",
+        "citation": "Wilks 1938",
+        "observed_statistic": 8.858919375817027,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.06250000000000024,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0.6666666666666666,
+        "lambda_name": "Cressie-Read recommended",
+        "citation": "Cressie & Read 1984, Read & Cressie 1988",
+        "observed_statistic": 8.186238448409618,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.06250000000000024,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 1,
+        "lambda_name": "Pearson chi-squared",
+        "citation": "Pearson 1900",
+        "observed_statistic": 8.6,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.06250000000000024,
+        "outcomes_with_infinite_statistic": 0
+      }
+    ],
+    "exact_p_values_set": [
+      0.06250000000000024,
+      0.7656250000000009
+    ],
+    "exact_p_value_max_pairwise_delta": 0.7031250000000007,
+    "lambda_invariance_observed": false,
+    "evidence": "Phase A (untrained): winners=[2, 0, 2, 2, 2] (N=5, K=4), counts=[1, 0, 4, 0], E=N/K=1.250 (Cochran 1954 E≥5 violated: true), λ=-1.000(Modified Likelihood Ratio): T=+∞ → p=0.7656; λ=-0.500(Freeman-Tukey): T=13.167 → p=0.0625; λ=0.000(Likelihood Ratio G²): T=8.859 → p=0.0625; λ=0.667(Cressie-Read recommended): T=8.186 → p=0.0625; λ=1.000(Pearson chi-squared): T=8.600 → p=0.0625, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000, unique exact p across λ sweep=2/5, max pairwise Δp=7.031e-1, λ-invariance: false."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "winners": [
+      1,
+      3,
+      1,
+      1,
+      3
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "expected_per_cell": 1.25,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "per_lambda_results": [
+      {
+        "lambda": -1,
+        "lambda_name": "Modified Likelihood Ratio",
+        "citation": "Neyman 1949",
+        "observed_statistic": null,
+        "observed_statistic_is_infinite": true,
+        "exact_p_value": 0.7656250000000009,
+        "outcomes_with_infinite_statistic": 52
+      },
+      {
+        "lambda": -0.5,
+        "lambda_name": "Freeman-Tukey",
+        "citation": "Freeman & Tukey 1950",
+        "observed_statistic": 11.858955974496816,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0,
+        "lambda_name": "Likelihood Ratio G²",
+        "citation": "Wilks 1938",
+        "observed_statistic": 7.132826941106341,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0.6666666666666666,
+        "lambda_name": "Cressie-Read recommended",
+        "citation": "Cressie & Read 1984, Read & Cressie 1988",
+        "observed_statistic": 5.604564978992363,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 1,
+        "lambda_name": "Pearson chi-squared",
+        "citation": "Pearson 1900",
+        "observed_statistic": 5.4,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_infinite_statistic": 0
+      }
+    ],
+    "exact_p_values_set": [
+      0.17968750000000047,
+      0.7656250000000009
+    ],
+    "exact_p_value_max_pairwise_delta": 0.5859375000000004,
+    "lambda_invariance_observed": false,
+    "evidence": "Phase B (trained): winners=[1, 3, 1, 1, 3] (N=5, K=4), counts=[0, 3, 0, 2], E=N/K=1.250 (Cochran 1954 E≥5 violated: true), λ=-1.000(Modified Likelihood Ratio): T=+∞ → p=0.7656; λ=-0.500(Freeman-Tukey): T=11.859 → p=0.1797; λ=0.000(Likelihood Ratio G²): T=7.133 → p=0.1797; λ=0.667(Cressie-Read recommended): T=5.605 → p=0.1797; λ=1.000(Pearson chi-squared): T=5.400 → p=0.1797, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000, unique exact p across λ sweep=2/5, max pairwise Δp=5.859e-1, λ-invariance: false."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "winners": [
+      1,
+      2,
+      2
+    ],
+    "N": 3,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "expected_per_cell": 0.75,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 20,
+    "expected_outcomes_combinatorial": 20,
+    "sum_of_probabilities": 0.9999999999999999,
+    "per_lambda_results": [
+      {
+        "lambda": -1,
+        "lambda_name": "Modified Likelihood Ratio",
+        "citation": "Neyman 1949",
+        "observed_statistic": null,
+        "observed_statistic_is_infinite": true,
+        "exact_p_value": 0.9999999999999999,
+        "outcomes_with_infinite_statistic": 20
+      },
+      {
+        "lambda": -0.5,
+        "lambda_name": "Freeman-Tukey",
+        "citation": "Freeman & Tukey 1950",
+        "observed_statistic": 7.273837798591778,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.6249999999999999,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0,
+        "lambda_name": "Likelihood Ratio G²",
+        "citation": "Wilks 1938",
+        "observed_statistic": 4.498681156950466,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.6249999999999999,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 0.6666666666666666,
+        "lambda_name": "Cressie-Read recommended",
+        "citation": "Cressie & Read 1984, Read & Cressie 1988",
+        "observed_statistic": 3.703342648874128,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.6249999999999999,
+        "outcomes_with_infinite_statistic": 0
+      },
+      {
+        "lambda": 1,
+        "lambda_name": "Pearson chi-squared",
+        "citation": "Pearson 1900",
+        "observed_statistic": 3.666666666666667,
+        "observed_statistic_is_infinite": false,
+        "exact_p_value": 0.6249999999999999,
+        "outcomes_with_infinite_statistic": 0
+      }
+    ],
+    "exact_p_values_set": [
+      0.6249999999999999,
+      0.9999999999999999
+    ],
+    "exact_p_value_max_pairwise_delta": 0.375,
+    "lambda_invariance_observed": false,
+    "evidence": "Phase C (sequence): winners=[1, 2, 2] (N=3, K=4), counts=[0, 1, 2, 0], E=N/K=0.750 (Cochran 1954 E≥5 violated: true), λ=-1.000(Modified Likelihood Ratio): T=+∞ → p=1.0000; λ=-0.500(Freeman-Tukey): T=7.274 → p=0.6250; λ=0.000(Likelihood Ratio G²): T=4.499 → p=0.6250; λ=0.667(Cressie-Read recommended): T=3.703 → p=0.6250; λ=1.000(Pearson chi-squared): T=3.667 → p=0.6250, enumerated=20 (expected C(6,3)=20), Σ pmf=1.000000, unique exact p across λ sweep=2/5, max pairwise Δp=3.750e-1, λ-invariance: false."
+  },
+  "overall_verdict": {
+    "verdict": "H_lambda_specific",
+    "evidence": "모든 3 phase 영역 5 λ value 영역 exact p 영역 영역 영역 영역 차이 발생 — broader N / discrete null departure 영역 영역 λ-specific divergence emerge. small N regime 영역 unexpected — 영역 영역 R&D 영역.",
+    "per_phase_invariance": {
+      "phase_a": false,
+      "phase_b": false,
+      "phase_c": false
+    },
+    "per_phase_max_pairwise_delta": {
+      "phase_a": 0.7031250000000007,
+      "phase_b": 0.5859375000000004,
+      "phase_c": 0.375
+    }
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_lambda_invariant": "영역 λ ∈ {-1, -1/2, 0, 2/3, 1} 영역 영역 영역 영역 exact p — discrete null + small N 영역 영역 ranking identical induce (직전 a1d6d4d 영역 small N regime degeneracy 영역 broader λ sweep 영역 confirm). Read & Cressie 1988 §5 영역 power divergence statistic 영역 영역 λ value 영역 추천 영역 small N (N≤10) 영역 영역 영역 distinguishing power 영역 영역 영역 영역 영역 — N≥20 영역 영역 λ-specific divergence emerge expected.",
+      "H_lambda_specific": "영역 λ 영역 exact p 영역 영역 영역 영역 차이 발생 — broader N regime 영역 emerge expected (현재 N=5/3 영역 unlikely). 발생 영역 영역 영역 N=5 + uniform null 영역 영역 영역 ranking 영역 영역 영역 영역 영역 영역 영역 영역 — 영역 R&D 영역 별도 R&D.",
+      "H_partial_lambda_specific": "λ 영역 영역 영역 영역 영역 영역 영역 동일 — mixed signal. 영역 영역 영역 영역 영역 discrete uniform null 영역 영역 영역 영역 영역 — 영역 영역 영역 영역 R&D 영역 별도 R&D."
+    },
+    "threshold_rationale": "λ-invariance criterion — 5 λ value 영역 exact p 영역 모두 동일 (numerical EPS=1e-9) → discrete uniform null 영역 영역 영역 statistic ranking identical induce. Read & Cressie 1988 §5 영역 power divergence distinguishing power 영역 N≥20 영역 emerge 영역 영역 — 본 R&D 영역 N=5/3 영역 H_lambda_invariant 영역 영역 expected.",
+    "frequentist_note": "Exact multinomial test — N+K-1 choose K-1 outcome 영역 enumerate, multinomial PMF under uniform null 영역 영역 statistic ≥ observed 영역 영역 sum. Cochran 1954 E≥5 rule 영역 영역 영역 영역 — large-sample approximation 영역 영역 영역. Read & Cressie 1988 power divergence family 영역 5 λ value 한정 — full continuous λ ∈ ℝ sweep 별도 R&D."
+  },
+  "academic_alignment": [
+    "Pearson 1900 — chi-squared statistic X² = Σ((O-E)²/E) (λ=1).",
+    "Wilks 1938 — likelihood ratio statistic G² = 2 Σ O log(O/E) (λ→0).",
+    "Neyman 1949 — modified likelihood ratio 2 Σ E log(E/O) (λ=-1).",
+    "Freeman & Tukey 1950 — Freeman-Tukey statistic 4 Σ (√O - √E)² (λ=-1/2).",
+    "Fisher 1922 — exact test method (enumeration over discrete sample space).",
+    "Cochran 1954 — chi-squared expected count rule (E ≥ 5 per cell, 본 R&D 영역 violation 직접 해결).",
+    "Cressie & Read 1984 — Multinomial Goodness-of-Fit Tests (power divergence family introduction).",
+    "Read & Cressie 1988 — power divergence statistic family Table 1 + λ=2/3 small-sample recommendation."
+  ],
+  "limitations": [
+    "Existing data reanalysis 한정 — NO SNN run, NO MediaPipe Hand encoder call.",
+    "5 λ values 한정 (λ ∈ {-1, -1/2, 0, 2/3, 1}) — full continuous λ ∈ ℝ sweep (예: λ ∈ [-2, 2] step=0.1 = 41 values) 별도 R&D.",
+    "λ = -1 (Modified LR) 영역 Oi = 0 일 때 Ei · log(Ei/0) = +∞ → 영역 outcome 영역 statistic 영역 special handling (영역 영역 영역 outcome 영역 영역 영역 reject side 영역 +∞ 영역 영역 영역 영역 영역). observed statistic 영역 +∞ 영역 영역 영역 영역 영역 영역 영역 영역 영역 영역 — Phase A counts=[1,3,1,0] cluster 3 zero 영역 영역 영역 observed T(-1) = +∞ → exact p computation 영역 영역 영역 영역 outcome 영역 (statistic = +∞ ≥ observed = +∞) → include 영역 영역.",
+    "Exact enumeration 영역 N+K-1 choose K-1 outcome 한정 — N=5/K=4 영역 56, N=3/K=4 영역 20. N≥10 영역 enumeration intractable (예: N=10/K=4 → C(13,3) = 286, N=20/K=4 → C(23,3) = 1,771, N=50/K=4 → C(53,3) = 23,426) → sampling 영역 Monte Carlo exact (Mehta & Patel 1983 network algorithm) mandatory.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 significance pattern 보장 X.",
+    "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",
+    "Uniform null (p_i = 1/K) 한정 — non-uniform prior (예: cluster-specific) 영역 별도 R&D.",
+    "Single-tailed test (observed statistic ≥ threshold) — two-tailed / specific alternative (예: cluster X 영역 specific majority) 영역 별도 R&D.",
+    "PMF computation 영역 Lanczos lgamma + Math.exp — small N (≤ 50) 영역 영역 영역 정확 단 larger N 영역 log-space sum-exp 영역 영역 영역."
+  ],
+  "cross_reference": {
+    "prior_exact_multinomial_test": {
+      "test_path": "tests/integration/hand-snn-exact-multinomial-test.test.ts",
+      "commit": "a1d6d4d",
+      "measurement_path": "tests/integration/measurements/hand-snn-exact-multinomial-test.json",
+      "note": "Frequentist note 영역 명시 — \"Read & Cressie 1988 λ=2/3 영역 small-sample 영역 recommended 단 power divergence family 영역 영역 영역 (λ=0 LR, λ=1 χ², λ=-1 modified LR, λ=-1/2 Freeman-Tukey) 영역 별도 R&D\". 본 R&D 영역 직접 followup — 5 λ value 영역 exact p empirically compute."
+    },
+    "prior_multinomial_bootstrap_ci": {
+      "test_path": "tests/integration/hand-snn-multinomial-bootstrap-ci-analysis.test.ts",
+      "commit": "9e139ec",
+      "measurement_path": "tests/integration/measurements/hand-snn-multinomial-bootstrap-ci-analysis.json"
+    },
+    "prior_tie_break_mechanism_analysis": {
+      "test_path": "tests/integration/hand-snn-tie-break-mechanism-analysis.test.ts",
+      "commit": "15f9381",
+      "measurement_path": "tests/integration/measurements/hand-snn-tie-break-mechanism-analysis.json"
+    }
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "timestamp": "2026-05-30T05:29:43.681Z",
+  "scenario": "hand-snn-exact-multinomial-test",
+  "elapsed_ms": 7,
+  "focused_scope": {
+    "analysis_type": "Existing tie-break (commit 15f9381) + multinomial bootstrap CI (commit 9e139ec) Phase A/B/C open_palm winner data 영역 pure statistical reanalysis via EXACT multinomial enumeration. NO SNN run, NO MediaPipe Hand encoder call. Cochran 1954 E≥5 rule violation (E=N/K=1.25 < 5) 영역 chi-squared approximation 한계 → exact p-value enumeration 영역 직접 해결. Read & Cressie 1988 power divergence statistic family (χ², G², λ=2/3) 영역 exact distribution.",
+    "input_data": {
+      "phase_a_winners": [
+        2,
+        0,
+        2,
+        2,
+        2
+      ],
+      "phase_b_winners": [
+        1,
+        3,
+        1,
+        1,
+        3
+      ],
+      "phase_c_winners": [
+        1,
+        2,
+        2
+      ],
+      "K_clusters": 4,
+      "phase_a_source": "open_palm untrained — seeds ∈ {57, 100, 200, 500, 1000}",
+      "phase_b_source": "open_palm post-RSTDP — same seeds (trained winner)",
+      "phase_c_source": "open_palm cluster sequence variants — [0,1,2,3] / [3,2,1,0] / [0,3,1,2] (build seed=57 fixed)"
+    },
+    "exact_enumeration_method": {
+      "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
+      "multinomial_pmf_under_uniform_null": "P(o_0, ..., o_{K-1}) = (N! / Π o_i!) · (1/K)^N — uniform null p_i = 1/K.",
+      "exact_p_value_definition": "exact p = Σ P[outcome] over all outcomes with statistic ≥ observed statistic. No large-sample approximation — Cochran 1954 E≥5 violation 영역 직접 회피."
+    },
+    "statistics_tested": {
+      "chi_squared_pearson_1900": "X² = Σ((O_i - E)² / E), E = N/K (Pearson 1900).",
+      "g_squared_wilks_1938": "G² = 2 · Σ O_i · log(O_i / E), 0·log0 := 0 (Wilks 1938 LR).",
+      "cressie_read_lambda_2_3": "T(λ) = (2 / (λ·(λ+1))) · Σ O_i · ((O_i/E)^λ - 1), λ=2/3 (Read & Cressie 1988 §5 small-sample recommendation)."
+    },
+    "power_divergence_family_note": "Cressie-Read T(λ) family — λ=1: Pearson χ², λ→0: Wilks G², λ=-1/2: Freeman-Tukey, λ=-1: modified LR, λ=2/3: Cressie-Read recommended for small samples (본 R&D 영역 λ=2/3 단 선택 — λ ∈ {-1, -1/2, 0, 1} 영역 broader sweep 별도 R&D).",
+    "cochran_1954_violation_resolution": "E = N/K = 5/4 = 1.25 (Phase A, B) / 3/4 = 0.75 (Phase C) → all cells < 5. Cochran 1954 chi-squared expected count rule violated → large-sample p-value (Wilson & Hilferty 1931 W&H approximation, commit 9e139ec) UNRELIABLE. 본 R&D 영역 exact multinomial enumeration 영역 직접 해결 — no approximation, no asymptotic limit."
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "winners": [
+      2,
+      0,
+      2,
+      2,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "expected_per_cell": 1.25,
+    "cochran_violation": true,
+    "observed_chi_squared": 8.6,
+    "observed_g_squared": 8.858919375817027,
+    "observed_power_divergence_2_3": 8.186238448409618,
+    "multinomial_pmf_observed": 0.004882812500000018,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "exact_p_chi_squared": 0.06250000000000024,
+    "exact_p_g_squared": 0.06250000000000024,
+    "exact_p_power_divergence_2_3": 0.06250000000000024,
+    "approx_p_chi_squared_wilson_hilferty": 0.03457823788513348,
+    "approx_vs_exact_chi_squared_delta": 0.027921762114866758,
+    "hypothesis_verdict": "H_exact_not_significant",
+    "evidence": "Phase A (untrained): winners=[2, 0, 2, 2, 2] (N=5, K=4), counts=[1, 0, 4, 0], E=N/K=1.250 (Cochran 1954 E≥5 violated: true), observed χ²=8.600 → exact p=0.0625 (W&H approx p=0.0346, Δ=0.0279), observed G²=8.859 → exact p=0.0625, observed Cressie-Read λ=2/3=8.186 → exact p=0.0625, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "winners": [
+      1,
+      3,
+      1,
+      1,
+      3
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "expected_per_cell": 1.25,
+    "cochran_violation": true,
+    "observed_chi_squared": 5.4,
+    "observed_g_squared": 7.132826941106341,
+    "observed_power_divergence_2_3": 5.604564978992363,
+    "multinomial_pmf_observed": 0.009765625000000019,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "exact_p_chi_squared": 0.17968750000000047,
+    "exact_p_g_squared": 0.17968750000000047,
+    "exact_p_power_divergence_2_3": 0.17968750000000047,
+    "approx_p_chi_squared_wilson_hilferty": 0.1428915209529822,
+    "approx_vs_exact_chi_squared_delta": 0.036795979047018285,
+    "hypothesis_verdict": "H_exact_not_significant",
+    "evidence": "Phase B (trained): winners=[1, 3, 1, 1, 3] (N=5, K=4), counts=[0, 3, 0, 2], E=N/K=1.250 (Cochran 1954 E≥5 violated: true), observed χ²=5.400 → exact p=0.1797 (W&H approx p=0.1429, Δ=0.0368), observed G²=7.133 → exact p=0.1797, observed Cressie-Read λ=2/3=5.605 → exact p=0.1797, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "winners": [
+      1,
+      2,
+      2
+    ],
+    "N": 3,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "expected_per_cell": 0.75,
+    "cochran_violation": true,
+    "observed_chi_squared": 3.666666666666667,
+    "observed_g_squared": 4.498681156950466,
+    "observed_power_divergence_2_3": 3.703342648874128,
+    "multinomial_pmf_observed": 0.04687499999999997,
+    "total_enumerated_outcomes": 20,
+    "expected_outcomes_combinatorial": 20,
+    "sum_of_probabilities": 0.9999999999999999,
+    "exact_p_chi_squared": 0.6249999999999999,
+    "exact_p_g_squared": 0.6249999999999999,
+    "exact_p_power_divergence_2_3": 0.6249999999999999,
+    "approx_p_chi_squared_wilson_hilferty": 0.2993252415458596,
+    "approx_vs_exact_chi_squared_delta": 0.3256747584541403,
+    "hypothesis_verdict": "H_exact_not_significant",
+    "evidence": "Phase C (sequence): winners=[1, 2, 2] (N=3, K=4), counts=[0, 1, 2, 0], E=N/K=0.750 (Cochran 1954 E≥5 violated: true), observed χ²=3.667 → exact p=0.6250 (W&H approx p=0.2993, Δ=0.3257), observed G²=4.499 → exact p=0.6250, observed Cressie-Read λ=2/3=3.703 → exact p=0.6250, enumerated=20 (expected C(6,3)=20), Σ pmf=1.000000."
+  },
+  "overall_verdict": {
+    "verdict": "H_exact_not_significant",
+    "evidence": "모든 3 phase 영역 exact p-value (3 statistic) 모두 ≥ 0.05 — uniform null exact failure to reject (architectural bias 영역 statistical evidence 영역 부족 in current N, Cochran violation 해결 후 정직).",
+    "per_phase_verdicts": {
+      "phase_a": "H_exact_not_significant",
+      "phase_b": "H_exact_not_significant",
+      "phase_c": "H_exact_not_significant"
+    }
+  },
+  "comparison_to_commit_9e139ec_approximation": {
+    "note": "Commit 9e139ec Wilson & Hilferty 1931 cubic-root normal approximation p-value vs exact multinomial enumeration p-value (chi-squared statistic, df=3) — Cochran 1954 E≥5 violation 영역 영역 영역 영역 영역 difference 영역 정량.",
+    "phase_a": {
+      "chi_squared_observed": 8.6,
+      "approx_p_wilson_hilferty": 0.03457823788513348,
+      "exact_p_enumeration": 0.06250000000000024,
+      "delta_exact_minus_approx": 0.027921762114866758
+    },
+    "phase_b": {
+      "chi_squared_observed": 5.4,
+      "approx_p_wilson_hilferty": 0.1428915209529822,
+      "exact_p_enumeration": 0.17968750000000047,
+      "delta_exact_minus_approx": 0.036795979047018285
+    },
+    "phase_c": {
+      "chi_squared_observed": 3.666666666666667,
+      "approx_p_wilson_hilferty": 0.2993252415458596,
+      "exact_p_enumeration": 0.6249999999999999,
+      "delta_exact_minus_approx": 0.3256747584541403
+    }
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_exact_significant": "모든 3 statistic (χ² / G² / Cressie-Read λ=2/3) 영역 exact p-value < 0.05 — uniform null rejection consistent across statistic choice (robust significance).",
+      "H_exact_marginal": "영역 statistic 영역 exact p < 0.05 단 영역 영역 영역 영역 (mixed signal) — statistic choice 영역 영역 영역 영역 영역 — 영역 영역 R&D 영역 영역.",
+      "H_exact_not_significant": "모든 3 statistic 영역 exact p ≥ 0.05 — uniform null failure to reject (insufficient statistical evidence even after Cochran violation resolution)."
+    },
+    "threshold_rationale": "Multi-statistic consistency criterion — Cressie-Read 1984 power divergence family 영역 영역 영역 statistic (λ=1, λ→0, λ=2/3) 영역 simultaneous p<0.05 영역 보수적 significance criterion. statistic 영역 영역 영역 영역 영역 영역 영역 영역 robust 영역 stance.",
+    "frequentist_note": "Exact multinomial test — N+K-1 choose K-1 outcome 영역 enumerate, multinomial PMF under uniform null 영역 영역 statistic ≥ observed 영역 영역 sum. Cochran 1954 E≥5 rule 영역 영역 영역 영역 — large-sample approximation 영역 영역 영역. Read & Cressie 1988 power divergence family 영역 single λ=2/3 한정 — broader λ sweep 별도 R&D. Pearson 1900 / Wilks 1938 / Fisher 1922 정합."
+  },
+  "academic_alignment": [
+    "Pearson 1900 — chi-squared statistic X² = Σ((O-E)²/E).",
+    "Fisher 1922 — exact test method (enumeration over discrete sample space).",
+    "Wilks 1938 — likelihood ratio statistic G² = 2 Σ O log(O/E).",
+    "Cochran 1954 — chi-squared expected count rule (E ≥ 5 per cell, 본 R&D 영역 violation 직접 해결).",
+    "Read & Cressie 1988 — power divergence statistic family (Cressie-Read T(λ)), λ=2/3 small-sample recommendation.",
+    "Wilson & Hilferty 1931 — chi-squared cubic-root normal approximation (commit 9e139ec parity — 본 R&D 영역 영역 영역 영역 영역 영역)."
+  ],
+  "limitations": [
+    "Existing data reanalysis 한정 — broader seed pool / sequence permutation 별도 R&D.",
+    "Read & Cressie 1988 λ=2/3 영역 small-sample 영역 recommended 단 power divergence family 영역 영역 영역 (λ=0 LR, λ=1 χ², λ=-1 modified LR, λ=-1/2 Freeman-Tukey) 영역 별도 R&D.",
+    "Exact enumeration 영역 N+K-1 choose K-1 outcomes — N=5/K=4 영역 56, N=3/K=4 영역 20. larger N (예: N=50/K=4 → C(53,3) = 23,426) 영역 enumeration 영역 영역 영역 영역 — sampling 영역 Monte Carlo exact (Mehta & Patel 1983 network algorithm 등) mandatory.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 significance pattern 보장 X.",
+    "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",
+    "Uniform null (p_i = 1/K) 한정 — non-uniform prior (예: cluster-specific) 영역 별도 R&D.",
+    "Single-tailed test (observed statistic ≥ threshold) — two-tailed / specific alternative (예: cluster X 영역 specific majority) 영역 별도 R&D.",
+    "PMF computation 영역 Lanczos lgamma + Math.exp — small N (≤ 50) 영역 영역 영역 정확 단 larger N 영역 log-space sum-exp 영역 영역 영역."
+  ],
+  "cross_reference": {
+    "prior_multinomial_bootstrap_ci": {
+      "test_path": "tests/integration/hand-snn-multinomial-bootstrap-ci-analysis.test.ts",
+      "commit": "9e139ec",
+      "measurement_path": "tests/integration/measurements/hand-snn-multinomial-bootstrap-ci-analysis.json",
+      "note": "Frequentist note 영역 명시 — \"Multinomial chi-squared 영역 large-sample approximation (df=3, k=4 영역 N=5 / N=3 영역 영역 영역 small — Cochran 1954 E≥5 per cell rule 영역 violated, E=N/K=1.25 < 5) — exact multinomial test (permutation / Fisher-type) 영역 별도 R&D\". 본 R&D 영역 직접 followup — Read & Cressie 1988 exact enumeration 영역 해결."
+    },
+    "prior_tie_break_mechanism_analysis": {
+      "test_path": "tests/integration/hand-snn-tie-break-mechanism-analysis.test.ts",
+      "commit": "15f9381",
+      "measurement_path": "tests/integration/measurements/hand-snn-tie-break-mechanism-analysis.json"
+    }
+  }
+}

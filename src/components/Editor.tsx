@@ -203,14 +203,14 @@ export default function Editor() {
               <rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.9"/>
             </svg>
           </div>
-          <span className="text-sm font-semibold text-white">PatternKey</span>
+          <h1 className="text-sm font-semibold text-white m-0">PatternKey</h1>
           <span className="text-xs text-[#8888aa] ml-1">개발자 파이프라인</span>
         </div>
       )}
       {!embedMode && (
         <header className="flex items-center gap-3 border-b border-white/5 bg-[#0d0d10]/95 px-4 py-2">
           <HandFaceLogo size={24} />
-          <span className="text-sm font-semibold tracking-wider">HandFace</span>
+          <h1 className="text-sm font-semibold tracking-wider m-0">HandFace</h1>
           <span className="hidden sm:inline text-[11px] text-white/40">Neural Network Editor</span>
           <div className="ml-auto" />
         </header>

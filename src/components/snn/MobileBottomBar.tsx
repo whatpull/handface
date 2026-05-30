@@ -20,7 +20,7 @@ export default function MobileBottomBar(p: MobileBottomBarProps) {
   return (
     <nav
       role="toolbar"
-      aria-label="Mobile editor toolbar"
+      aria-label="모바일 에디터 툴바"
       className="flex w-full items-center gap-1 border-t border-white/5 bg-[#0d0d10]/95 px-2 md:hidden"
     >
       <button

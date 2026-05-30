@@ -35,6 +35,7 @@ export default function Toolbar({ onStatusChange }: ToolbarProps) {
   return (
     <div
       role="toolbar"
+      aria-label="에디터 툴바"
       className="hidden md:flex flex-wrap items-center gap-1 border-b border-white/5 bg-[#0d0d10]/95 px-3 py-2"
     >
       <div className={groupCls}>

@@ -764,7 +764,7 @@ export default function GridInput() {
         </div>
       )}
 
-      <div className="snn-grid-pixels" aria-label="4x4 orientation grid">
+      <div className="snn-grid-pixels" role="group" aria-label="4x4 방향 격자">
         {grid.map((v, i) => (
           <button
             key={i}
@@ -772,7 +772,8 @@ export default function GridInput() {
             className={`snn-grid-pixel ${v > 0.5 ? 'is-on' : ''}`}
             onClick={() => togglePixel(i)}
             disabled={isBusy && !isLiveMode}
-            aria-label={`pixel ${i} — ${v > 0.5 ? 'on' : 'off'}`}
+            aria-label={`픽셀 ${i}`}
+            aria-pressed={v > 0.5}
           />
         ))}
       </div>

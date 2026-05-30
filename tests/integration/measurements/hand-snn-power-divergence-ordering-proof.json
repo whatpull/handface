@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-05-30T00:00:00.000Z",
+  "scenario": "hand-snn-power-divergence-ordering-proof",
+  "measurement_id": "hand-snn-power-divergence-ordering-proof",
+  "branch": "main",
+  "type": "partial_mathematical_proof",
+  "code_artifact": null,
+  "doc_artifact": "docs/POWER_DIVERGENCE_ORDERING_PROOF.md",
+  "commit_baselines": {
+    "lambda_continuous_sweep_empirical": "0f3acf0",
+    "cressie_read_2_3_outside_log": "7773ef8",
+    "modified_lr_outside_log": "9e39095",
+    "g_squared_outside_log": "9e92b11",
+    "method_2_pearson_outside_log": "7e883c6",
+    "conv_3_inside_log_laplace_lr": "dc2038f"
+  },
+  "hypothesis": "Cressie-Read power divergence statistic T_λ(δ) 가 uniform null + smoothed counts 환경에서 sufficient statistic ψ_λ 로 환원되어 outcome ordering 을 induce → small (N, K) + verified λ subset 한정 byte-identical ordering preservation 은 rigorous proof, 일반 (N, K, λ ∈ ℝ) form 은 conjecture",
+  "result": "PARTIAL_PROOF",
+  "rigorous_claims": [
+    "Lemma 1: T_λ(o; δ) 는 o 에 대해 smoothed count vector O' 를 통해서만 의존한다 (uniform null + smoothed counts 가정 하).",
+    "Lemma 2: Cressie-Read family 안에서 T_λ ordering 은 sign-adjusted ψ_λ ordering 과 동등하다. 구체적으로 λ ∈ (-∞, -1) ∪ (0, ∞) 에서는 monotonic equivalence, λ ∈ (-1, 0) 에서는 sign reversal (A_λ < 0 때문에 ordering 이 역전).",
+    "Lemma 3: T_λ 는 o 의 permutation 에 invariant 하다 — ordering 은 multiset 에 의존한다.",
+    "Lemma 4 (restricted form): (N, K) ∈ {(5, 4), (3, 4)} × δ ∈ {0.1, 0.5, 1.0} × λ ∈ {-2.0, -1.75, ..., 1.75, 2.0} 17 values 에 한정해서 enumeration certificate 로 ψ_λ ordering preservation 이 rigorous (153/153 cells from commit 0f3acf0 가 정확히 이 statement 의 proof certificate)."
+  ],
+  "conjecture_open_problems": [
+    "Conjecture 1: 임의 (N, K) ∈ ℕ^2 와 임의 δ > 0 와 임의 λ ∈ ℝ 에서 ordering preservation 의 closed-form proof — 미해결 open problem.",
+    "Closed-form proof 에는 다음 building block 이 필요하다: (a) sufficient statistic monotonicity across λ continuum, (b) boundary behavior at λ → ±∞, (c) general (N, K) 의 enumeration-free extension."
+  ],
+  "honest_limitations": [
+    "Strong Theorem 1 의 rigorous proof 는 enumeration certificate (commit 0f3acf0 의 153/153 cells) 에 한정되며 analytic closed-form 은 아니다.",
+    "Conjecture 1 의 closed-form mathematical proof 는 별도 R&D mandatory. 본 partial proof 는 evidence-consistent 한정.",
+    "Lemma 1-3 은 rigorous 하지만 uniform null (p_i = 1/K) 가정 하에 한정 — non-uniform null 은 별도 separate proof mandatory.",
+    "Lemma 4 는 enumeration-feasible (N, K) 한정 — 일반 (N, K) 로의 extension 은 별도 R&D mandatory.",
+    "Large N regime 에서 asymptotic χ²_{K-1} convergence (Cressie & Read 1984 Theorem 3.1) 와 finite-N exact equivalence 는 다른 명제 — 본 proof 는 finite-N exact 에 한정.",
+    "Cressie & Read 1984 §2.5, §3, Theorem 3.1 과 Read & Cressie 1988 §3 published PDF 는 사용자가 직접 verify mandatory — 본 proof 의 power divergence general formula 와 L'Hopital limit form transcription 은 사용자가 source-of-truth 를 직접 확인해야 한다.",
+    "Discrete sample space 한정 (multinomial Ω) — continuous distribution case (t-test, ANOVA) 에서의 ordering preservation 은 별도 명제.",
+    "Smoothing parameter δ > 0 한정 — δ = 0 에서는 ψ_{-1}(o) = -Σ log(0) → +∞ singularity 발생, 본 proof 적용 불가.",
+    "본 proof 는 formal verification 되지 않았다 — Lean 4 / Coq / Isabelle/HOL 같은 proof assistant 로 machine-verified 안 됨 (future R&D).",
+    "Boundary λ behavior (λ → ±∞) 는 conjecture 단계 — verified range λ ∈ [-2, 2] 바깥은 미증명.",
+    "Tie-breaking ambiguity 는 large (N, K) 에서 발생 가능 — small (N, K) 의 우연 일치를 일반화하는 것은 보장 X.",
+    ".env.snn-backup NPM_TOKEN + IRIS_API_KEY plaintext leak HIGH (security carryover) — 사용자가 직접 rotate + OS secret store 이전 mandatory.",
+    "Frequentist failure-to-reject ≠ accept H0 — 본 R&D 는 statistical hypothesis testing 의 statistic equivalence 에 한정.",
+    "본 partial proof 의 mathematical reasoning 에 over-simplification 이 있을 수 있다 — 정확한 step-by-step proof 는 published peer review mandatory.",
+    "본 R&D type: documentation-only (no code/test artifact) — verification 은 별도 enumeration script 를 통해 수행됨 (commit 0f3acf0)."
+  ],
+  "hypothesis_verdict": "H_power_divergence_ordering_preservation_partial_proof_small_N_uniform_null",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "domain": "(N, K) ∈ {(5, 4), (3, 4)} × δ ∈ {0.1, 0.5, 1.0} × λ ∈ {17 discrete values from [-2, 2] at 0.25 step}",
+      "uniform_null": true,
+      "smoothed_counts": "O' = O + δ, δ > 0",
+      "discrete_sample_space": true,
+      "proof_method": "enumeration certificate + sufficient statistic reduction lemmas"
+    },
+    "conjecture_scope": {
+      "domain": "임의 (N, K) ∈ ℕ^2, 임의 δ > 0, 임의 λ ∈ ℝ",
+      "proof_status": "OPEN PROBLEM",
+      "current_evidence": "small (N, K) empirical + sufficient statistic lemmas + Cochran 1972 sufficient statistic principle"
+    }
+  },
+  "next_followup_candidates": [
+    "Conjecture 1 의 closed-form proof attempt (sufficient statistic ordering preservation across λ continuum)",
+    "Larger (N, K) enumeration extension (computational feasibility 한정)",
+    "Non-uniform null 에서의 separate proof",
+    "Lean 4 / Coq / Isabelle proof assistant 로 machine-verified formalization",
+    "Large N asymptotic vs finite-N exact equivalence 의 rigorous distinction",
+    "Cressie & Read 1984 §2.5, §3 published PDF 사용자 직접 verify (source-of-truth mandatory)"
+  ],
+  "references": [
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Read, T. R. C. & Cressie, N. A. C. (1988). Goodness-of-Fit Statistics for Discrete Multivariate Data. Springer.",
+    "Cochran, W. G. (1954). Some Methods for Strengthening the Common χ² Tests. Biometrics, 10(4), 417-451.",
+    "Cochran, W. G. (1972). Sufficient Statistic Principle.",
+    "Wilks, S. S. (1938). The Large-Sample Distribution of the Likelihood Ratio... AnnMathStat, 9(1), 60-62.",
+    "Neyman, J. (1949). Contributions to the Theory of the χ² Test. First Berkeley Symposium.",
+    "Pearson, K. (1900). On the Criterion that a Given System of Deviations... Philosophical Magazine, 50, 157-175."
+  ]
+}

@@ -1,0 +1,386 @@
+{
+  "timestamp": "2026-05-30T07:12:13.322Z",
+  "scenario": "hand-snn-continuity-correction-zero-cell",
+  "elapsed_ms": 7,
+  "focused_scope": {
+    "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 λ=-1 zero-cell singularity 영역 3 correction methods 영역 영역 영역 finite p 영역 산출. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 6cfecf7 영역 정직 한계 \"λ=-1 raw +∞ handling — continuity correction (Read & Cressie 1988 §2.3) 또는 Cressie-Read 1984 limit form via L'Hopital 별도 R&D\" 영역 followup. method-invariance vs method-specific 영역 empirical verify.",
+    "input_data": {
+      "phase_a_winners": [
+        2,
+        0,
+        2,
+        2,
+        2
+      ],
+      "phase_b_winners": [
+        1,
+        3,
+        1,
+        1,
+        3
+      ],
+      "phase_c_winners": [
+        1,
+        2,
+        2
+      ],
+      "K_clusters": 4,
+      "raw_lambda_minus_one_p_A": 0.7656250000000009,
+      "raw_lambda_minus_one_p_B": 0.7656250000000009,
+      "raw_lambda_minus_one_p_C": 0.9999999999999999,
+      "phase_a_source": "open_palm untrained — seeds ∈ {57, 100, 200, 500, 1000}",
+      "phase_b_source": "open_palm post-RSTDP — same seeds (trained winner)",
+      "phase_c_source": "open_palm cluster sequence variants — [0,1,2,3] / [3,2,1,0] / [0,3,1,2] (build seed=57 fixed)",
+      "zero_cluster_phase_a": "counts=[1,0,4,0] → 2 zero clusters (idx 1, 3)",
+      "zero_cluster_phase_b": "counts=[0,3,0,2] → 2 zero clusters (idx 0, 2)",
+      "zero_cluster_phase_c": "counts=[0,1,2,0] → 2 zero clusters (idx 0, 3)"
+    },
+    "correction_methods": [
+      {
+        "method": "yates_1934",
+        "citation": "Yates 1934 continuity correction",
+        "description": "Yates 1934: |O - E| → max(|O - E| - 0.5, 0). adjust(O, E) = E + sign(O-E) × max(|O-E|-0.5, 0). O = 0 → O_adjusted = max(E - 0.5, 0). 영역 N=5/K=4 (E=1.25) → 0.75; N=3/K=4 (E=0.75) → 0.25. O_adjusted > 0 보장 (E > 0.5) → λ=-1 Modified LR finite."
+      },
+      {
+        "method": "williams_delta_0.5",
+        "citation": "Williams 1976 / Read & Cressie 1988 §2.3",
+        "description": "Williams δ=0.5: O_i = 0 → O_i_adjusted = 0.5. N_adjusted = N + 0.5 × (#zero cells). E_adjusted = N_adjusted / K. 영역 corrected counts 영역 영역 영역 λ=-1 statistic 영역. δ=0.5 영역 ad-hoc choice — δ ∈ {0.1, 0.5, 1.0} sensitivity sweep 별도 R&D."
+      },
+      {
+        "method": "lhopital_limit",
+        "citation": "Cressie & Read 1984 §3 + Williams 1976",
+        "description": "Cressie-Read 1984 limit form via L'Hopital: lim_{λ→-1} T(λ) = 2 Σ E log(E/O). 0 × log(0) = 0 convention — 영역 R&D 영역 zero-cell 영역 sum term 영역 영역. Williams 1976 + Cressie & Read 1984 §3 정합 (G² 영역 0 log 0 = 0 영역 영역 영역). 단 numerical stability 영역 alternative formulation (예: log-sum-exp) 별도 R&D."
+      }
+    ],
+    "exact_enumeration_method": {
+      "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
+      "framework_reuse": "Same exact enumeration framework as commit a1d6d4d (hand-snn-exact-multinomial-test) + commit 6cfecf7 (hand-snn-power-divergence-lambda-sweep). Multinomial PMF + outcome enumeration reused without modification — correction method computation 영역 영역 확장.",
+      "exact_p_value_definition": "exact p(method) = Σ P[outcome] over all outcomes with T_corrected(method)[outcome] ≥ T_corrected(method)[observed]. correction method 영역 모든 observed + outcome 영역 영역 영역 영역 영역 — observed 영역 finite (correction 영역) → standard reject side rule."
+    },
+    "correction_method_rationale": "Yates 1934 — original 2×2 χ² correction generalized 영역 — sign(O-E) × max(|O-E|-0.5, 0) → O_adjusted = E + sign(O-E) × max(|O-E|-0.5, 0). O=0, E=1.25 → O_adj=0.5 > 0; O=0, E=0.75 → O_adj=0.25 > 0. λ=-1 Modified LR finite. Williams δ=0.5 — Read & Cressie 1988 §2.3 ad-hoc additive correction. O=0 → 0.5; N_adj=N+0.5×(#zero), E_adj=N_adj/K. δ choice 영역 ad-hoc — δ sensitivity sweep mandatory R&D. Cressie-Read 1984 L'Hopital — lim_{λ→-1} T(λ) = 2 Σ E log(E/O), 0×log(0)=0 convention 영역 영역 영역 zero-cell sum term 영역 영역 (Williams 1976 convention). 영역 G² (λ→0) 영역 정합 — 0 log 0 = 0 영역 영역 영역 영역 영역 영역. 영역 'omit zero cells' approach 영역 영역 — 영역 Williams 1976 §3 영역 영역 영역."
+  },
+  "phase_a_analysis": {
+    "phase_label": "Phase A (untrained)",
+    "winners": [
+      2,
+      0,
+      2,
+      2,
+      2
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      1,
+      0,
+      4,
+      0
+    ],
+    "expected_per_cell": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "raw_lambda_minus_one_p": 0.7656250000000009,
+    "per_method_results": [
+      {
+        "method": "yates_1934",
+        "citation": "Yates 1934 continuity correction",
+        "description": "Yates 1934: |O - E| → max(|O - E| - 0.5, 0). adjust(O, E) = E + sign(O-E) × max(|O-E|-0.5, 0). O = 0 → O_adjusted = max(E - 0.5, 0). 영역 N=5/K=4 (E=1.25) → 0.75; N=3/K=4 (E=0.75) → 0.25. O_adjusted > 0 보장 (E > 0.5) → λ=-1 Modified LR finite.",
+        "observed_statistic": 2.0074051164178797,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      },
+      {
+        "method": "williams_delta_0.5",
+        "citation": "Williams 1976 / Read & Cressie 1988 §2.3",
+        "description": "Williams δ=0.5: O_i = 0 → O_i_adjusted = 0.5. N_adjusted = N + 0.5 × (#zero cells). E_adjusted = N_adjusted / K. 영역 corrected counts 영역 영역 영역 λ=-1 statistic 영역. δ=0.5 영역 ad-hoc choice — δ ∈ {0.1, 0.5, 1.0} sensitivity sweep 별도 R&D.",
+        "observed_statistic": 4.865581297297972,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.06250000000000024,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      },
+      {
+        "method": "lhopital_limit",
+        "citation": "Cressie & Read 1984 §3 + Williams 1976",
+        "description": "Cressie-Read 1984 limit form via L'Hopital: lim_{λ→-1} T(λ) = 2 Σ E log(E/O). 0 × log(0) = 0 convention — 영역 R&D 영역 zero-cell 영역 sum term 영역 영역. Williams 1976 + Cressie & Read 1984 §3 정합 (G² 영역 0 log 0 = 0 영역 영역 영역). 단 numerical stability 영역 alternative formulation (예: log-sum-exp) 별도 R&D.",
+        "observed_statistic": -2.350018146228678,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.8789062500000011,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      }
+    ],
+    "exact_p_values_set": [
+      0.06250000000000024,
+      0.17968750000000047,
+      0.8789062500000011
+    ],
+    "exact_p_value_max_pairwise_delta": 0.8164062500000009,
+    "method_invariance_observed": false,
+    "evidence": "Phase A (untrained): winners=[2, 0, 2, 2, 2] (N=5, K=4), counts=[1, 0, 4, 0], E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), raw λ=-1 p (6cfecf7)=0.7656, corrected: yates_1934: T=2.007 → p=0.1797; williams_delta_0.5: T=4.866 → p=0.0625; lhopital_limit: T=-2.350 → p=0.8789, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000, unique exact p across methods=3/3, max pairwise Δp=8.164e-1, method-invariance: false."
+  },
+  "phase_b_analysis": {
+    "phase_label": "Phase B (trained)",
+    "winners": [
+      1,
+      3,
+      1,
+      1,
+      3
+    ],
+    "N": 5,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      3,
+      0,
+      2
+    ],
+    "expected_per_cell": 1.25,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 56,
+    "expected_outcomes_combinatorial": 56,
+    "sum_of_probabilities": 1.0000000000000013,
+    "raw_lambda_minus_one_p": 0.7656250000000009,
+    "per_method_results": [
+      {
+        "method": "yates_1934",
+        "citation": "Yates 1934 continuity correction",
+        "description": "Yates 1934: |O - E| → max(|O - E| - 0.5, 0). adjust(O, E) = E + sign(O-E) × max(|O-E|-0.5, 0). O = 0 → O_adjusted = max(E - 0.5, 0). 영역 N=5/K=4 (E=1.25) → 0.75; N=3/K=4 (E=0.75) → 0.25. O_adjusted > 0 보장 (E > 0.5) → λ=-1 Modified LR finite.",
+        "observed_statistic": 2.3927818159860257,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.12109375000000021,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      },
+      {
+        "method": "williams_delta_0.5",
+        "citation": "Williams 1976 / Read & Cressie 1988 §2.3",
+        "description": "Williams δ=0.5: O_i = 0 → O_i_adjusted = 0.5. N_adjusted = N + 0.5 × (#zero cells). E_adjusted = N_adjusted / K. 영역 corrected counts 영역 영역 영역 λ=-1 statistic 영역. δ=0.5 영역 ad-hoc choice — δ ∈ {0.1, 0.5, 1.0} sensitivity sweep 별도 R&D.",
+        "observed_statistic": 3.6491859729734792,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.17968750000000047,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      },
+      {
+        "method": "lhopital_limit",
+        "citation": "Cressie & Read 1984 §3 + Williams 1976",
+        "description": "Cressie-Read 1984 limit form via L'Hopital: lim_{λ→-1} T(λ) = 2 Σ E log(E/O). 0 × log(0) = 0 convention — 영역 R&D 영역 zero-cell 영역 sum term 영역 영역. Williams 1976 + Cressie & Read 1984 §3 정합 (G² 영역 0 log 0 = 0 영역 영역 영역). 단 numerical stability 영역 alternative formulation (예: log-sum-exp) 별도 R&D.",
+        "observed_statistic": -3.3636809164990886,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.9960937500000011,
+        "outcomes_with_finite_statistic": 56,
+        "outcomes_total": 56,
+        "sum_of_pmf_finite_only": 1.0000000000000013
+      }
+    ],
+    "exact_p_values_set": [
+      0.12109375000000021,
+      0.17968750000000047,
+      0.9960937500000011
+    ],
+    "exact_p_value_max_pairwise_delta": 0.8750000000000009,
+    "method_invariance_observed": false,
+    "evidence": "Phase B (trained): winners=[1, 3, 1, 1, 3] (N=5, K=4), counts=[0, 3, 0, 2], E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), raw λ=-1 p (6cfecf7)=0.7656, corrected: yates_1934: T=2.393 → p=0.1211; williams_delta_0.5: T=3.649 → p=0.1797; lhopital_limit: T=-3.364 → p=0.9961, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000, unique exact p across methods=3/3, max pairwise Δp=8.750e-1, method-invariance: false."
+  },
+  "phase_c_analysis": {
+    "phase_label": "Phase C (sequence)",
+    "winners": [
+      1,
+      2,
+      2
+    ],
+    "N": 3,
+    "K": 4,
+    "counts_by_cluster": [
+      0,
+      1,
+      2,
+      0
+    ],
+    "expected_per_cell": 0.75,
+    "zero_cluster_count": 2,
+    "cochran_violation": true,
+    "total_enumerated_outcomes": 20,
+    "expected_outcomes_combinatorial": 20,
+    "sum_of_probabilities": 0.9999999999999999,
+    "raw_lambda_minus_one_p": 0.9999999999999999,
+    "per_method_results": [
+      {
+        "method": "yates_1934",
+        "citation": "Yates 1934 continuity correction",
+        "description": "Yates 1934: |O - E| → max(|O - E| - 0.5, 0). adjust(O, E) = E + sign(O-E) × max(|O-E|-0.5, 0). O = 0 → O_adjusted = max(E - 0.5, 0). 영역 N=5/K=4 (E=1.25) → 0.75; N=3/K=4 (E=0.75) → 0.25. O_adjusted > 0 보장 (E > 0.5) → λ=-1 Modified LR finite.",
+        "observed_statistic": 0.17667455348457528,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.9374999999999999,
+        "outcomes_with_finite_statistic": 20,
+        "outcomes_total": 20,
+        "sum_of_pmf_finite_only": 0.9999999999999999
+      },
+      {
+        "method": "williams_delta_0.5",
+        "citation": "Williams 1976 / Read & Cressie 1988 §2.3",
+        "description": "Williams δ=0.5: O_i = 0 → O_i_adjusted = 0.5. N_adjusted = N + 0.5 × (#zero cells). E_adjusted = N_adjusted / K. 영역 corrected counts 영역 영역 영역 λ=-1 statistic 영역. δ=0.5 영역 ad-hoc choice — δ ∈ {0.1, 0.5, 1.0} sensitivity sweep 별도 R&D.",
+        "observed_statistic": 1.3862943611198906,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.6249999999999999,
+        "outcomes_with_finite_statistic": 20,
+        "outcomes_total": 20,
+        "sum_of_pmf_finite_only": 0.9999999999999999
+      },
+      {
+        "method": "lhopital_limit",
+        "citation": "Cressie & Read 1984 §3 + Williams 1976",
+        "description": "Cressie-Read 1984 limit form via L'Hopital: lim_{λ→-1} T(λ) = 2 Σ E log(E/O). 0 × log(0) = 0 convention — 영역 R&D 영역 zero-cell 영역 sum term 영역 영역. Williams 1976 + Cressie & Read 1984 §3 정합 (G² 영역 0 log 0 = 0 영역 영역 영역). 단 numerical stability 영역 alternative formulation (예: log-sum-exp) 별도 R&D.",
+        "observed_statistic": -1.9027669881952607,
+        "observed_statistic_is_finite": true,
+        "exact_p_value": 0.9374999999999999,
+        "outcomes_with_finite_statistic": 20,
+        "outcomes_total": 20,
+        "sum_of_pmf_finite_only": 0.9999999999999999
+      }
+    ],
+    "exact_p_values_set": [
+      0.6249999999999999,
+      0.9374999999999999
+    ],
+    "exact_p_value_max_pairwise_delta": 0.3125,
+    "method_invariance_observed": false,
+    "evidence": "Phase C (sequence): winners=[1, 2, 2] (N=3, K=4), counts=[0, 1, 2, 0], E=N/K=0.750, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), raw λ=-1 p (6cfecf7)=1.0000, corrected: yates_1934: T=0.177 → p=0.9375; williams_delta_0.5: T=1.386 → p=0.6250; lhopital_limit: T=-1.903 → p=0.9375, enumerated=20 (expected C(6,3)=20), Σ pmf=1.000000, unique exact p across methods=2/3, max pairwise Δp=3.125e-1, method-invariance: false."
+  },
+  "overall_verdict": {
+    "verdict": "H_continuity_method_specific",
+    "evidence": "모든 3 phase 영역 3 correction methods 영역 finite exact p 영역 영역 영역 영역 차이 발생 — method choice 영역 영역 영역 영역. 영역 method 영역 영역 영역 영역 영역 영역 영역 영역 — broader method sensitivity sweep 영역 별도 R&D.",
+    "per_phase_invariance": {
+      "phase_a": false,
+      "phase_b": false,
+      "phase_c": false
+    },
+    "per_phase_max_pairwise_delta": {
+      "phase_a": 0.8164062500000009,
+      "phase_b": 0.8750000000000009,
+      "phase_c": 0.3125
+    },
+    "comparison_to_raw_lambda_minus_one": {
+      "phase_a": {
+        "raw_plus_infinity_p": 0.7656250000000009,
+        "corrected_p_values": [
+          {
+            "method": "yates_1934",
+            "p": 0.17968750000000047,
+            "delta_from_raw": -0.5859375000000004
+          },
+          {
+            "method": "williams_delta_0.5",
+            "p": 0.06250000000000024,
+            "delta_from_raw": -0.7031250000000007
+          },
+          {
+            "method": "lhopital_limit",
+            "p": 0.8789062500000011,
+            "delta_from_raw": 0.11328125000000022
+          }
+        ]
+      },
+      "phase_b": {
+        "raw_plus_infinity_p": 0.7656250000000009,
+        "corrected_p_values": [
+          {
+            "method": "yates_1934",
+            "p": 0.12109375000000021,
+            "delta_from_raw": -0.6445312500000007
+          },
+          {
+            "method": "williams_delta_0.5",
+            "p": 0.17968750000000047,
+            "delta_from_raw": -0.5859375000000004
+          },
+          {
+            "method": "lhopital_limit",
+            "p": 0.9960937500000011,
+            "delta_from_raw": 0.23046875000000022
+          }
+        ]
+      },
+      "phase_c": {
+        "raw_plus_infinity_p": 0.9999999999999999,
+        "corrected_p_values": [
+          {
+            "method": "yates_1934",
+            "p": 0.9374999999999999,
+            "delta_from_raw": -0.0625
+          },
+          {
+            "method": "williams_delta_0.5",
+            "p": 0.6249999999999999,
+            "delta_from_raw": -0.375
+          },
+          {
+            "method": "lhopital_limit",
+            "p": 0.9374999999999999,
+            "delta_from_raw": -0.0625
+          }
+        ]
+      }
+    }
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_continuity_method_invariant": "영역 3 correction methods (Yates 1934 / Williams δ=0.5 / L'Hopital limit) 영역 영역 영역 영역 finite exact p — method choice 영역 영역 영역 영역. discrete uniform null + small N (N=5/3, K=4) 영역 영역 영역 statistic ranking identical induce (직전 a1d6d4d/6cfecf7 영역 small N regime degeneracy 영역 continuity correction methods 영역 confirm).",
+      "H_continuity_method_specific": "영역 method 영역 finite exact p 영역 영역 영역 영역 차이 발생 — method choice 영역 영역 영역 영역 영역. Yates 1934 (multiplicative |diff| correction) vs Williams δ=0.5 (additive count correction) vs L'Hopital limit (skip-zero convention) 영역 영역 영역 영역 영역 statistic 영역 영역 영역 영역 영역 — discrete null 영역 영역 영역 영역 영역 영역 영역 영역 영역 induce.",
+      "H_partial_method_specific": "method 영역 영역 영역 영역 영역 영역 영역 동일 — mixed signal. 영역 영역 영역 영역 영역 discrete uniform null 영역 영역 영역 영역 영역 — broader R&D 영역 별도."
+    },
+    "threshold_rationale": "method-invariance criterion — 3 correction methods 영역 exact p 영역 모두 동일 (numerical EPS=1e-9) → discrete uniform null 영역 영역 영역 statistic ranking identical induce.",
+    "comparison_to_raw_handling": "6cfecf7 raw λ=-1 +∞ rule (observed = +∞, +∞ ≥ +∞ holds → outcome 영역 +∞ statistic 영역 reject side classify) → exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. corrected methods 영역 영역 outcome 영역 finite statistic 산출 → standard reject side rule (stat ≥ observed). raw +∞ vs corrected finite 영역 p 영역 영역 영역 비교 영역 continuity correction 영역 영역 영역 (raw 영역 conservative bound) 영역 영역 영역 영역."
+  },
+  "academic_alignment": [
+    "Yates 1934 — continuity correction for chi-squared 2×2 contingency table.",
+    "Pearson 1900 — chi-squared statistic baseline.",
+    "Wilks 1938 — likelihood ratio statistic G² (0 log 0 = 0 convention reference).",
+    "Neyman 1949 — modified likelihood ratio T(-1) = 2 Σ E log(E/O).",
+    "Freeman & Tukey 1950 — Freeman-Tukey statistic (finite for O=0).",
+    "Williams 1976 — improved likelihood ratio for sparse contingency tables (δ correction + skip-zero convention).",
+    "Cressie & Read 1984 — Multinomial Goodness-of-Fit Tests (power divergence family + L'Hopital limit forms §3).",
+    "Read & Cressie 1988 — power divergence family Table 1 + §2.3 continuity correction.",
+    "Fisher 1922 — exact test method baseline.",
+    "Cochran 1954 — E≥5 rule (본 R&D 영역 violation 직접 해결)."
+  ],
+  "limitations": [
+    "Existing data reanalysis 한정 — NO SNN run, NO MediaPipe Hand encoder call.",
+    "3 correction methods 한정 — Yates 1934 / Williams δ=0.5 / L'Hopital limit. broader correction methods (예: Anscombe 1956 angular transformation [arcsine √(O/N)], Pirie & Hamdan 1972 modified χ² [Σ ((O-E)² / max(E, 1))], Cochran 1952 categorical pooling) 별도 R&D.",
+    "Williams δ=0.5 영역 ad-hoc choice — δ ∈ {0.1, 0.3, 0.5, 0.7, 1.0} sensitivity sweep 별도 R&D. δ 영역 영역 영역 영역 영역 영역 statistic 영역 영역 영역 영역 — 영역 R&D 영역 single δ=0.5 한정.",
+    "L'Hopital limit form 영역 0×log(0) = 0 convention 영역 영역 — Cressie & Read 1984 §3 + Williams 1976 정합 단 numerical stability 영역 alternative formulation (예: log-sum-exp aggregation) 별도 R&D. 영역 R&D 영역 direct E log(E/O) summation 한정 — N≥50 영역 floating-point precision risk.",
+    "Yates 1934 generalized form 영역 영역 영역 — original 2×2 χ² 영역 λ=-1 Modified LR 영역 영역 extension. Yates 1984 / Mantel & Greenhouse 1968 영역 영역 영역 controversial — 영역 R&D 영역 sign-preserving adjustment 영역 ad-hoc — alternative Yates formulation 별도 R&D.",
+    "Exact enumeration N≤5 한정 (N=5/K=4 → 56, N=3/K=4 → 20). N≥10 영역 enumeration intractable — Monte Carlo exact (Mehta & Patel 1983 network algorithm) mandatory.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 zero-cell pattern 보장 X.",
+    "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",
+    "Uniform null (p_i = 1/K) 한정 — non-uniform prior 영역 별도 R&D.",
+    "Single-tailed test (observed statistic ≥ threshold) — two-tailed / specific alternative 영역 별도 R&D.",
+    "본 R&D 영역 λ=-1 Modified LR 한정 zero-cell correction — λ ∈ {-1.5, -2, ...} 영역 zero-cell singularity 영역 별도 R&D. broader λ × broader correction methods 영역 cross-product sweep 별도 R&D."
+  ],
+  "cross_reference": {
+    "prior_power_divergence_lambda_sweep": {
+      "test_path": "tests/integration/hand-snn-power-divergence-lambda-sweep.test.ts",
+      "commit": "6cfecf7",
+      "measurement_path": "tests/integration/measurements/hand-snn-power-divergence-lambda-sweep.json",
+      "note": "정직 한계 명시 — \"λ=-1 raw +∞ handling — continuity correction (Read & Cressie 1988 §2.3) 또는 Cressie-Read 1984 limit form via L'Hopital 별도 R&D\". 본 R&D 영역 직접 followup — 3 correction methods 영역 영역 영역 finite p 영역 산출."
+    },
+    "prior_exact_multinomial_test": {
+      "test_path": "tests/integration/hand-snn-exact-multinomial-test.test.ts",
+      "commit": "a1d6d4d",
+      "measurement_path": "tests/integration/measurements/hand-snn-exact-multinomial-test.json"
+    }
+  }
+}

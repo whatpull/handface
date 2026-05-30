@@ -1,0 +1,964 @@
+{
+  "timestamp": "2026-05-30T04:09:44.894Z",
+  "scenario": "hand-snn-tie-break-mechanism-analysis",
+  "elapsed_ms": 3202241,
+  "focused_scope": {
+    "gesture_count": 4,
+    "gesture_names": [
+      "open_palm",
+      "closed_fist",
+      "thumbs_up",
+      "peace_sign"
+    ],
+    "topk": 10,
+    "feature_dim": 95,
+    "topology": "mean_subtracted_topk_raw (forced_disjoint=FALSE, ea3e641 baseline 동일)",
+    "cluster_active_inputs": [
+      [
+        67,
+        68,
+        70,
+        75,
+        76,
+        77,
+        78,
+        85,
+        86,
+        88
+      ],
+      [
+        64,
+        68,
+        70,
+        75,
+        76,
+        80,
+        81,
+        84,
+        85,
+        86
+      ],
+      [
+        64,
+        68,
+        70,
+        76,
+        77,
+        78,
+        84,
+        85,
+        86,
+        90
+      ],
+      [
+        64,
+        65,
+        68,
+        70,
+        75,
+        76,
+        81,
+        84,
+        85,
+        86
+      ]
+    ],
+    "preset": "n16_hand",
+    "phase_ab_seeds": [
+      57,
+      100,
+      200,
+      500,
+      1000
+    ],
+    "phase_c_cluster_sequences": [
+      [
+        0,
+        1,
+        2,
+        3
+      ],
+      [
+        3,
+        2,
+        1,
+        0
+      ],
+      [
+        0,
+        3,
+        1,
+        2
+      ]
+    ],
+    "phase_b_train_repeats_per_cluster": 10,
+    "measurement_target": "Spike encoding tie-break (winner first-cluster) / weight matrix init (seed-dependent) / R-STDP cluster sequence priority — 3 architectural mechanism 영역 separate verify. open_palm → peace_sign systematic bias (fd66191 15/15 instance) 영역 root cause empirical catch. 직전 ea3e641 H_distributed_signatures verdict 영역 mechanism gap 영역 명시 — 본 R&D 영역 직접 followup."
+  },
+  "phase_a_untrained": {
+    "per_seed_results": [
+      {
+        "seed": 57,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              50,
+              0,
+              54.43310539518174,
+              0
+            ],
+            "winner": 2,
+            "share": 0.5212246173203726,
+            "margin": 0.08144134645630831
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              61.237243569579455,
+              29.462782549439478,
+              37.79644730092272,
+              41.24789556921527
+            ],
+            "winner": 0,
+            "share": 0.3607615612479682,
+            "margin": 0.3264246859454367
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              40.824829046386306,
+              38.888888888888886,
+              40.824829046386306
+            ],
+            "winner": 0,
+            "share": 0.25299934874497315,
+            "margin": 0
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              41.24789556921527,
+              40.824829046386306,
+              33.333333333333336
+            ],
+            "winner": 0,
+            "share": 0.3406669352410474,
+            "margin": 0.3082517618381671
+          }
+        ]
+      },
+      {
+        "seed": 100,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              50,
+              0,
+              47.62896722078402,
+              0
+            ],
+            "winner": 0,
+            "share": 0.512143080310652,
+            "margin": 0.047420655584319606
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              61.237243569579455,
+              29.462782549439478,
+              56.69467095138408,
+              29.462782549439478
+            ],
+            "winner": 0,
+            "share": 0.34625192952658673,
+            "margin": 0.0741799002274486
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              40.824829046386306,
+              38.888888888888886,
+              47.62896722078402
+            ],
+            "winner": 3,
+            "share": 0.2832233528970805,
+            "margin": 0.1428571428571428
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              41.24789556921527,
+              47.62896722078402,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.31819805261184436,
+            "margin": 0.2012379369716327
+          }
+        ]
+      },
+      {
+        "seed": 200,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              44.44444444444445,
+              0,
+              47.62896722078402,
+              0
+            ],
+            "winner": 2,
+            "share": 0.5172933896916856,
+            "margin": 0.06686105036831301
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              40.824829046386306,
+              35.35533905932737,
+              37.79644730092272,
+              35.35533905932737
+            ],
+            "winner": 0,
+            "share": 0.27338307592894484,
+            "margin": 0.07417990022744865
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              34.020690871988585,
+              40.824829046386306,
+              33.333333333333336,
+              54.43310539518174
+            ],
+            "winner": 3,
+            "share": 0.33474232675213395,
+            "margin": 0.25
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              52.174919474995086,
+              38.30161731427132,
+              47.62896722078402,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.29478289464675894,
+            "margin": 0.087129070824723
+          }
+        ]
+      },
+      {
+        "seed": 500,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              38.888888888888886,
+              0,
+              54.43310539518174,
+              0
+            ],
+            "winner": 2,
+            "share": 0.5832827064270428,
+            "margin": 0.28556549168823986
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              40.824829046386306,
+              35.35533905932737,
+              43.30842919897395,
+              41.24789556921527
+            ],
+            "winner": 2,
+            "share": 0.2694374402765477,
+            "margin": 0.04757811973026946
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              40.824829046386306,
+              43.75000000000001,
+              40.824829046386306
+            ],
+            "winner": 2,
+            "share": 0.26319828536077006,
+            "margin": 0.06686105036831316
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              41.24789556921527,
+              40.824829046386306,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.3301868803596676,
+            "margin": 0.3082517618381671
+          }
+        ]
+      },
+      {
+        "seed": 1000,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              38.888888888888886,
+              0,
+              61.237243569579455,
+              0
+            ],
+            "winner": 2,
+            "share": 0.6116010083079986,
+            "margin": 0.3649471037228798
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              61.237243569579455,
+              41.24789556921527,
+              37.79644730092272,
+              35.35533905932737
+            ],
+            "winner": 0,
+            "share": 0.34865813891687875,
+            "margin": 0.3264246859454367
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              54.43310539518174,
+              40.824829046386306,
+              33.333333333333336,
+              49.330001764383454
+            ],
+            "winner": 0,
+            "share": 0.3059392816616732,
+            "margin": 0.09374999999999999
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              52.174919474995086,
+              41.24789556921527,
+              40.824829046386306,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.3013513010635205,
+            "margin": 0.20943058495790517
+          }
+        ]
+      }
+    ],
+    "verdict": "H_initial_bias_seed_dependent",
+    "evidence": "open_palm per-seed initial winners=[2, 0, 2, 2, 2], unique cluster count=2 (1=systematic / 2=seed_dependent / ≥3=random).",
+    "open_palm_initial_winners": [
+      2,
+      0,
+      2,
+      2,
+      2
+    ],
+    "unique_winner_count": 2
+  },
+  "phase_b_trained": {
+    "per_seed_results": [
+      {
+        "seed": 57,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              38.888888888888886,
+              47.516444521870525,
+              34.020690871988585,
+              44.72135954999579
+            ],
+            "winner": 1,
+            "share": 0.2877214486787979,
+            "margin": 0.0588235294117647
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              47.62896722078402,
+              35.35533905932737,
+              44.095855184409835,
+              35.35533905932737
+            ],
+            "winner": 0,
+            "share": 0.293217720677945,
+            "margin": 0.07417990022744873
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              34.020690871988585,
+              33.333333333333336,
+              40.824829046386306
+            ],
+            "winner": 0,
+            "share": 0.27398537013812024,
+            "margin": 0
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              47.14045207910317,
+              40.824829046386306,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.31975349764308236,
+            "margin": 0.20943058495790512
+          }
+        ]
+      },
+      {
+        "seed": 100,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              33.333333333333336,
+              44.72135954999579,
+              40.824829046386306,
+              52.174919474995086
+            ],
+            "winner": 3,
+            "share": 0.30501937889791786,
+            "margin": 0.14285714285714285
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              54.43310539518174,
+              31.67249124064744,
+              44.095855184409835,
+              41.24789556921527
+            ],
+            "winner": 0,
+            "share": 0.31748797078553287,
+            "margin": 0.1899074126990177
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              47.62896722078402,
+              47.62896722078402,
+              33.333333333333336,
+              47.62896722078402
+            ],
+            "winner": 0,
+            "share": 0.27028091990655995,
+            "margin": 0
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              35.35533905932737,
+              47.62896722078402,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.32852853584735203,
+            "margin": 0.2012379369716327
+          }
+        ]
+      },
+      {
+        "seed": 200,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              33.333333333333336,
+              52.174919474995086,
+              47.62896722078402,
+              44.72135954999579
+            ],
+            "winner": 1,
+            "share": 0.2933505912307629,
+            "margin": 0.087129070824723
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              40.824829046386306,
+              41.24789556921527,
+              44.095855184409835,
+              41.24789556921527
+            ],
+            "winner": 2,
+            "share": 0.2633901776223586,
+            "margin": 0.06458565330651461
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              47.62896722078402,
+              47.62896722078402,
+              39.583333333333336,
+              40.824829046386306
+            ],
+            "winner": 0,
+            "share": 0.2711335202559827,
+            "margin": 0
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              41.24789556921527,
+              34.020690871988585,
+              36.11111111111111
+            ],
+            "winner": 0,
+            "share": 0.34868788418593305,
+            "margin": 0.3082517618381671
+          }
+        ]
+      },
+      {
+        "seed": 500,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              33.333333333333336,
+              52.174919474995086,
+              40.824829046386306,
+              44.72135954999579
+            ],
+            "winner": 1,
+            "share": 0.30501937889791786,
+            "margin": 0.14285714285714285
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              37.422759959187445,
+              41.24789556921527,
+              44.095855184409835,
+              41.24789556921527
+            ],
+            "winner": 2,
+            "share": 0.26885354880708257,
+            "margin": 0.06458565330651461
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              34.020690871988585,
+              40.824829046386306,
+              33.333333333333336,
+              54.43310539518174
+            ],
+            "winner": 3,
+            "share": 0.33474232675213395,
+            "margin": 0.25
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              44.72135954999579,
+              47.14045207910317,
+              40.824829046386306,
+              38.888888888888886
+            ],
+            "winner": 1,
+            "share": 0.2747504390561496,
+            "margin": 0.05131670194948634
+          }
+        ]
+      },
+      {
+        "seed": 1000,
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              33.333333333333336,
+              44.72135954999579,
+              40.824829046386306,
+              57.76508941874457
+            ],
+            "winner": 3,
+            "share": 0.3270130290291936,
+            "margin": 0.22580645161290339
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              79.09810627737346,
+              35.35533905932737,
+              44.095855184409835,
+              41.24789556921527
+            ],
+            "winner": 0,
+            "share": 0.3958919735871275,
+            "margin": 0.4425169291692164
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              68.04138174397717,
+              34.020690871988585,
+              27.777777777777775,
+              34.020690871988585
+            ],
+            "winner": 0,
+            "share": 0.4152395764007314,
+            "margin": 0.5
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              35.35533905932737,
+              54.43310539518174,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.3166576672874733,
+            "margin": 0.08712907082472303
+          }
+        ]
+      }
+    ],
+    "verdict": "H_trained_winner_seed_dependent",
+    "evidence": "open_palm per-seed trained winners=[1, 3, 1, 1, 3], unique cluster count=2, all_cluster_3=false (peace_sign systematic bias 영역 인디케이터).",
+    "open_palm_trained_winners": [
+      1,
+      3,
+      1,
+      1,
+      3
+    ],
+    "unique_winner_count": 2,
+    "systematic_to_cluster_3": false
+  },
+  "phase_c_cluster_sequence": {
+    "per_sequence_results": [
+      {
+        "cluster_sequence": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              38.888888888888886,
+              47.516444521870525,
+              34.020690871988585,
+              44.72135954999579
+            ],
+            "winner": 1,
+            "share": 0.2877214486787979,
+            "margin": 0.0588235294117647
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              47.62896722078402,
+              35.35533905932737,
+              44.095855184409835,
+              35.35533905932737
+            ],
+            "winner": 0,
+            "share": 0.293217720677945,
+            "margin": 0.07417990022744873
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              34.020690871988585,
+              33.333333333333336,
+              40.824829046386306
+            ],
+            "winner": 0,
+            "share": 0.27398537013812024,
+            "margin": 0
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              47.14045207910317,
+              40.824829046386306,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.31975349764308236,
+            "margin": 0.20943058495790512
+          }
+        ]
+      },
+      {
+        "cluster_sequence": [
+          3,
+          2,
+          1,
+          0
+        ],
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              44.44444444444445,
+              29.814239699997195,
+              61.237243569579455,
+              44.72135954999579
+            ],
+            "winner": 2,
+            "share": 0.3397967226077895,
+            "margin": 0.2697032566597786
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              61.237243569579455,
+              35.35533905932737,
+              37.79644730092272,
+              35.35533905932737
+            ],
+            "winner": 0,
+            "share": 0.3607615612479682,
+            "margin": 0.3827866001516324
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              47.62896722078402,
+              40.824829046386306,
+              27.777777777777775,
+              40.824829046386306
+            ],
+            "winner": 0,
+            "share": 0.30326027008963097,
+            "margin": 0.1428571428571428
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              74.53559924999298,
+              35.35533905932737,
+              47.62896722078402,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.37949216821212356,
+            "margin": 0.36099034957730614
+          }
+        ]
+      },
+      {
+        "cluster_sequence": [
+          0,
+          3,
+          1,
+          2
+        ],
+        "per_gesture": [
+          {
+            "gestureIndex": 0,
+            "gestureName": "open_palm",
+            "clusterRates": [
+              50,
+              52.174919474995086,
+              61.237243569579455,
+              59.62847939999439
+            ],
+            "winner": 2,
+            "share": 0.274556434640823,
+            "margin": 0.02627100887970476
+          },
+          {
+            "gestureIndex": 1,
+            "gestureName": "closed_fist",
+            "clusterRates": [
+              47.62896722078402,
+              36.828478186799344,
+              31.497039417435598,
+              47.14045207910317
+            ],
+            "winner": 0,
+            "share": 0.2920321631368817,
+            "margin": 0.010256681389212964
+          },
+          {
+            "gestureIndex": 2,
+            "gestureName": "thumbs_up",
+            "clusterRates": [
+              40.824829046386306,
+              40.824829046386306,
+              27.777777777777775,
+              54.43310539518174
+            ],
+            "winner": 3,
+            "share": 0.3321916611205851,
+            "margin": 0.25
+          },
+          {
+            "gestureIndex": 3,
+            "gestureName": "peace_sign",
+            "clusterRates": [
+              59.62847939999439,
+              35.35533905932737,
+              47.62896722078402,
+              38.888888888888886
+            ],
+            "winner": 0,
+            "share": 0.32852853584735203,
+            "margin": 0.2012379369716327
+          }
+        ]
+      }
+    ],
+    "verdict": "H_cluster_sequence_priority",
+    "evidence": "open_palm per-sequence winners=[[0,1,2,3]→1, [3,2,1,0]→2, [0,3,1,2]→2], unique cluster count=2 (≥2 → cluster sequence priority root cause).",
+    "open_palm_winners_by_sequence": [
+      {
+        "sequence": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "winner": 1
+      },
+      {
+        "sequence": [
+          3,
+          2,
+          1,
+          0
+        ],
+        "winner": 2
+      },
+      {
+        "sequence": [
+          0,
+          3,
+          1,
+          2
+        ],
+        "winner": 2
+      }
+    ],
+    "unique_winner_count": 2
+  },
+  "root_cause_identification": {
+    "tag": "cluster_sequence_priority",
+    "explain": "R-STDP cluster sequence priority — 영역 영역 cluster 영역 영역 영역 reinforce 영역 cluster winner bias 영역 영역 (Phase C 영역 sequence variant 별 winner 다름). training order 영역 randomize 영역 mitigation."
+  },
+  "hypothesis_details": {
+    "definitions": {
+      "H_initial_bias_seed_dependent": "per-seed open_palm untrained winner 영역 영역 2 다른 cluster 영역 catch (unique=2) → weight matrix init seed variance 영역 root cause.",
+      "H_initial_bias_systematic": "per-seed open_palm untrained winner 영역 동일 cluster 영역 모든 seed 영역 catch (unique=1) → R-STDP weight init 영역 systematic bias.",
+      "H_initial_bias_random": "per-seed open_palm untrained winner 영역 ≥3 다른 cluster 영역 distribute (unique≥3) → tie-break first-cluster-wins implementation 영역 영역 영역 영역.",
+      "H_trained_winner_seed_dependent": "per-seed open_palm trained winner 영역 영역 영역 영역 영역 다양 → initial bias propagation 영역 학습 영역 영역 영역.",
+      "H_trained_winner_seed_independent": "per-seed open_palm trained winner 영역 cluster 영역 영역 영역 영역 (unique=1) → systematic bias 영역 seed-independent (root cause 영역 architectural).",
+      "H_cluster_sequence_priority": "3 cluster sequence variant 영역 영역 영역 영역 winner 영역 다름 (unique≥2) → R-STDP cluster sequence priority 영역 root cause.",
+      "H_cluster_sequence_invariant": "3 cluster sequence variant 영역 영역 영역 영역 winner 영역 일관 (unique=1) → cluster sequence priority 영역 root cause 영역 영역."
+    },
+    "threshold_rationale": "Phase A unique_count thresholds: 1=systematic, 2=seed_dependent, ≥3=random — conservative 영역 5 seed 영역 영역 영역 sufficient variance signal 영역 catch. Phase B / C 영역 unique=1 영역 systematic / invariant 영역 strict 영역 — 영역 cluster 영역 영역 영역 영역 catch 영역 영역 systematic 영역 영역 영역. Phase C 영역 forward sequence + 2 variant 영역 영역 영역 4! = 24 permutation 영역 sufficient directional signal (별도 R&D 영역 full sweep).",
+    "frequentist_note": "5-seed 영역 binomial baseline p=1/4 (4 cluster) 영역 영역 — unique=1 영역 5 consecutive same-cluster 확률=(1/4)^4≈0.39% (significant). 단 single forward pass / mock anatomical 영역 N=1 영역 frequentist failure-to-reject ≠ accept."
+  },
+  "academic_alignment": [
+    "Bishop 1995 (Neural Networks for Pattern Recognition, ch.10) — winner selection tie-break (first-cluster vs random tie-break implementation 영역 distinct).",
+    "Olshausen & Field 1996 — sparse coding initial weight bias (sparse representation 영역 dense weight init 영역 영역 cluster winner asymmetry 영역 영역).",
+    "Diehl & Cook 2015 — STDP weight initialization seed sensitivity (R-STDP weight 영역 random init seed 영역 영역 cluster winner trajectory 영역 영역)."
+  ],
+  "limitations": [
+    "Phase A/B/C focused scope: 5 seed × 4 gesture × 4 cluster — broader gesture pool / K / R-STDP rule 별도 R&D.",
+    "Untrained initial bias 영역 forward pass 1회 영역 산출 — N≥10 forward pass 영역 mean / variance 영역 별도 R&D.",
+    "Cluster sequence variant 3개 한정 (영역 4! = 24 permutation) — full permutation 영역 별도 R&D.",
+    "Spike rate tie (first-cluster-wins) 영역 implementation detail — formal tie-break algorithm 영역 verify 영역 영역 영역 영역. clusterFiringRates.winner 영역 argmax first-occurrence 영역 catch — tied rates 영역 deterministic order dependency 영역 영역 직접 catch 0.",
+    "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 systematic bias 보장 X.",
+    "Phase B train_repeats=10 per cluster 영역 fixed — repeats variance / convergence criterion 영역 별도 R&D.",
+    "Phase C cluster sequence 영역 [0,1,2,3] / [3,2,1,0] / [0,3,1,2] 3개 — full 4!=24 permutation 영역 별도 R&D (현재 영역 directional signal 영역 영역).",
+    "Frequentist: H0/H1 failure to reject ≠ accept — empirical verdict 영역 single-shot measurement 영역 산출.",
+    "PHASE_AB_SEEDS={57, 100, 200, 500, 1000} 영역 ad-hoc — broader seed pool / systematic seed sweep (예: 50 seed) 별도 R&D."
+  ],
+  "cross_reference": {
+    "prior_joint_criterion_evaluation": {
+      "test_path": "tests/integration/hand-snn-joint-criterion-pair-evaluation.test.ts",
+      "commit": "ea3e641",
+      "measurement_path": "tests/integration/measurements/hand-snn-joint-criterion-pair-evaluation.json",
+      "note": "H_distributed_signatures verdict 영역 명시 — joint criterion (overlap × sign × magnitude) 영역 op-pe specific systematic miss 영역 explain 영역 영역. cf-tu top joint_score 영역 NO miss, op-pe rank 2 영역 systematic miss. 정직 한계 명시 — \"Spike encoding tie-break / weight init / R-STDP cluster sequence priority 영역 mandatory R&D\" — 본 R&D 영역 직접 followup."
+    },
+    "prior_feature_only_baseline_miss": {
+      "test_path": "tests/integration/hand-snn-feature-only-baseline-miss-analysis.test.ts",
+      "commit": "fd66191",
+      "note": "feature_only baseline 영역 open_palm → peace_sign architectural bias 15/15 instance σ-independent reproduce. 본 R&D 영역 architectural mechanism 영역 separate verify 영역 root cause empirical catch."
+    }
+  }
+}

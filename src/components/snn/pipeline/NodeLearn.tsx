@@ -658,12 +658,20 @@ export default function NodeLearn() {
         // 영역 inline note 영역 정합 (measurement 영역 lower-bound 추정).
         const baseSeed = Date.now() & 0x7fffffff;
         for (let ci = 0; ci < N; ci += 1) {
-          // representative pattern — out_{ci}_0..7 영역 첫 lastFeature 영역 길이
-          // 16 영역 정합 sample. 미존재 영역 skip (matrix[ci] 영역 0).
+          // representative pattern — out_{ci}_0..7 영역 첫 lastFeature 영역
+          // 미존재 영역 skip (matrix[ci] 영역 0).
+          //
+          // 사용자 production catch 2026-05-31:
+          //   직전 `length === 16` 영역 hardcoded check 영역 Phase 2A.1
+          //   substrate orientation-5x5 (25-dim raw) 영역 reject — 모든 cluster
+          //   영역 pattern=null fallthrough → matrix 영역 all-zero →
+          //   CFM-1 total=0% / self-verify 0/20 correct false report.
+          //   length > 0 영역 정정 (substrate 영역 dispatchFeature 영역 자동
+          //   handle: n13=16→32 / n14=25→50 / n15=36→72 / n16=95).
           let pattern: number[] | null = null;
           for (let n = 0; n < 8; n += 1) {
             const ex = snapshot[`out_${ci}_${n}`];
-            if (ex && Array.isArray(ex.lastFeature) && ex.lastFeature.length === 16) {
+            if (ex && Array.isArray(ex.lastFeature) && ex.lastFeature.length > 0) {
               pattern = ex.lastFeature;
               break;
             }

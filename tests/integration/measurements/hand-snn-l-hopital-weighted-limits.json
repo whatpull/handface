@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-l-hopital-weighted-limits",
+  "measurement_id": "hand-snn-l-hopital-weighted-limits",
+  "branch": "main",
+  "type": "closed_form_limit_derivation",
+  "code_artifact": null,
+  "doc_artifact": "docs/L_HOPITAL_WEIGHTED_LIMITS.md",
+  "commit_baselines": {
+    "non_uniform_null_partial_framework": "8c80e40",
+    "reproducer_artifact": "00775a6",
+    "delta_robustness": "94dbf07",
+    "chain_characterization": "6f6104d",
+    "full_closed_form_proof": "1c5d717",
+    "partial_proof": "a6aa72a",
+    "lambda_continuous_sweep_empirical": "0f3acf0"
+  },
+  "hypothesis": "직전 8c80e40 (Theorem 5 Lemma 5.1) 의 §7 item 4 honest_limitation (L'Hopital limits weighted form 동등 작동 별도 verify) 의 직접 해결. λ ∈ {0, -1} 의 L'Hopital limits 가 non-uniform null 환경에서 일관 weighted form 으로 closed-form derivation.",
+  "result": "CLOSED_FORM_LIMIT_FORM_DERIVED",
+  "main_results": {
+    "lemma_5_2_g_squared_weighted_limit": "T_0(o; δ, p) = 2 × Σ_i O'_i × ln(O'_i / E'_i). L'Hopital from Lemma 5.1: differentiate numerator (E'_i × r_i^{λ+1} × ln(r_i) at λ=0 → O'_i × ln(r_i)), denominator (2λ+1 at λ=0 → 1). Result = 2 × Σ O'_i × ln(O'_i/E'_i).",
+    "lemma_5_2_modified_lr_weighted_limit": "T_{-1}(o; δ, p) = 2 × Σ_i E'_i × ln(E'_i / O'_i). L'Hopital from Lemma 5.1: differentiate numerator (E'_i × r_i^{λ+1} × ln(r_i) at λ=-1 → E'_i × ln(r_i)), denominator (2λ+1 at λ=-1 → -1). Result = -2 × Σ E'_i × ln(r_i) = 2 × Σ E'_i × ln(E'_i/O'_i).",
+    "consistency_with_uniform_null": "p_i = 1/K (uniform null) → E'_i = N/K + δ constant in i → 두 limit forms 모두 uniform null Lemma 1 (1c5d717) 의 form 으로 정확 환원 (T_0 의 Σ O'_i × ln(E') term 이 o-invariant 가 됨, T_{-1} 도 동일 패턴).",
+    "sufficient_statistic_decomposition": "T_0 = 2 × (Σ O'_i × ln(O'_i) - Σ O'_i × ln(E'_i)). 두 번째 term Σ O'_i × ln(E'_i) 는 uniform null 에서 constant (cancel) 단 non-uniform null 에서 o-dependent weighted form. T_{-1} 도 유사 decomposition.",
+    "implication_for_conjecture_5": "Conjecture 5 의 'T_λ ordering preservation for all λ ∈ ℝ ⟺ r-vector weighted majorization' claim 이 λ ∈ {0, -1} boundary 까지 well-defined. Strict proof 는 별도 multi-cycle R&D."
+  },
+  "honest_limitations": [
+    "Conjecture 5 의 closed-form proof 안 됨 (carryover from 8c80e40) — 본 Lemma 5.2 는 boundary cases 의 consistency 만 verify. Full proof multi-cycle R&D mandatory.",
+    "§4 decomposition (ψ_0^A, ψ_0^B, ψ_{-1}^A, ψ_{-1}^B) 은 mathematical 정의 한정 — strict closed-form connection 별도 R&D.",
+    "Olkin & Marshall 1979 ch. 14 weighted HLP-Karamata theorem 의 boundary case 적용 verify 별도 R&D.",
+    "본 derivation 의 L'Hopital strict justification (measure-theoretic, dominated convergence) 별도 R&D — 단 본 case 의 연속성 + 미분 가능성은 명백.",
+    "Cressie & Read 1984 §2.5 + §3 의 L'Hopital limit form 정확성 사용자 직접 verify mandatory.",
+    "Hand SNN R&D 의 uniform null 한정 결론 (Theorem 2-4) 약화 0 — 본 R&D 는 mathematical extension scope 한정.",
+    "Formal verification (Lean 4 / Coq) 안 됨 — Mathlib L'Hopital + weighted majorization library 활용 formalization future R&D.",
+    "본 R&D 의 numerical verification 안 함 — Reproducer script (00775a6) 는 uniform null 한정. Non-uniform null reproducer 별도 R&D.",
+    ".env.snn-backup HIGH carryover — 사용자 직접 rotate mandatory.",
+    "HLP 1934 + Olkin & Marshall 1979 + Cressie-Read 1984 + Macdonald 1995 published PDF 사용자 직접 verify mandatory (carryover).",
+    "Peer review 안 됨 — published statistical literature cross-check 사용자 mandatory.",
+    "Type: documentation-only — code/test artifact 없음."
+  ],
+  "hypothesis_verdict": "H_l_hopital_weighted_limits_lemma_5_2_closed_form_proven_boundary_consistency",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "lemma_5_2_derivation": "Closed-form L'Hopital derivation for both λ ∈ {0, -1} cases is rigorous (standard textbook calculus).",
+      "consistency_check": "Uniform null special case recovery to Lemma 1 (1c5d717) form is verified.",
+      "well_defined_at_boundary": "Conjecture 5 statement is well-defined for λ ∈ {0, -1} L'Hopital limits."
+    },
+    "what_is_NOT_proven": {
+      "conjecture_5_full_closed_form": "Multi-cycle R&D — Lemma 5.2 only verifies boundary consistency",
+      "strict_l_hopital_justification": "Measure-theoretic argument (dominated convergence) future R&D",
+      "numerical_verification": "Non-uniform null reproducer 별도 R&D",
+      "weighted_HLP_Karamata_boundary_application": "Olkin & Marshall 1979 ch. 14 boundary case 적용 strict proof 별도 R&D"
+    }
+  },
+  "next_followup_candidates": [
+    "Conjecture 5 (⇐) direction strict proof (weighted HLP-Karamata + boundary cases 일관 적용)",
+    "Conjecture 6 의 chain characterization (r-space weighted majorization structure)",
+    "Non-uniform null reproducer script (Lemma 5.1 + 5.2 numerical verify)",
+    "Hand SNN R&D 의 non-uniform prior practical motivation 식별",
+    "Lean 4 mathlib L'Hopital + weighted majorization formalization (multi-week)",
+    "Cressie & Read 1984 §2.5 + §3 published PDF 사용자 직접 verify (mandatory)"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization and Its Applications. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464. (§2.5 + §3 L'Hopital limit forms)",
+    "Read, T. R. C. & Cressie, N. A. C. (1988). Goodness-of-Fit Statistics for Discrete Multivariate Data. Springer."
+  ]
+}

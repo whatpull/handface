@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-non-uniform-prior-practical-motivation",
+  "measurement_id": "hand-snn-non-uniform-prior-practical-motivation",
+  "branch": "main",
+  "type": "practical_application_guide",
+  "code_artifact": null,
+  "doc_artifact": "docs/NON_UNIFORM_PRIOR_PRACTICAL_MOTIVATION.md",
+  "commit_baselines": {
+    "lemma_6_4": "7b263b3",
+    "theorem_7_1": "b1e3b1e",
+    "theorem_6_3_synthesis": "bc7e84a",
+    "N5K4_enumeration": "f446675",
+    "non_uniform_framework": "8c80e40",
+    "l_hopital_weighted": "8f0e34d"
+  },
+  "hypothesis": "직전 mathematical R&D 시리즈 (Theorem 5 + 6.3 + 7.1 + Lemma 6.4) 의 Hand SNN R&D 적용 motivation 식별 + practical recommendation framework. Phase 1 (current, uniform null) 유지 권장 + Phase 2 (future, non-uniform prior) 도입 시 multi-lambda cross-check + weighted-comparable pair 선별 framework.",
+  "result": "PRACTICAL_APPLICATION_GUIDE",
+  "main_results": {
+    "current_regime_classification": "Hand SNN R&D 의 (N=5/3, K=4, p uniform) regime ∈ Theorem 6.3 Regime (B) → chain → method-agnostic ✓. Current Phase 1 R&D 영역 유지 권장.",
+    "non_uniform_motivations_3": "3 가지 motivations 식별: (A) Cluster activation 실측 data, (B) Domain knowledge prior, (C) Bayesian hierarchical prior. 모두 Theorem 6.3 Regime (D) 또는 unverified.",
+    "decision_tree": "Uniform null → method-agnostic (Regime B). Non-uniform → multi-lambda cross-check mandatory (Regime D 또는 unverified).",
+    "implementation_guidance": "§4.2 의 pseudo-code (statisticalAnalysis function) + §5.1 의 weighted-majorization check algorithm.",
+    "phase_recommendation": "Phase 1 (current): uniform null 유지. Phase 2 (future): 명확한 motivation 식별 후 도입."
+  },
+  "honest_limitations": [
+    "본 motivation document 는 hypothetical scenarios — 실제 cluster activation data 수집 별도 R&D.",
+    "§4.2 의 implementation guidance 는 pseudo-code — production-ready implementation 별도 R&D + audit cycle.",
+    "§5.1 의 weighted majorization check algorithm 의 정확성 (Olkin & Marshall 1979 ch. 14) 사용자 직접 verify mandatory.",
+    "§6.2 의 95% confidence interval 추정 권장 — 정확 statistical methodology 별도 R&D.",
+    "Theorem 6.3 Regime (D) 의 unverified configurations (p_mobile, p_gaming, p_music) 실제 enumeration 별도 verify.",
+    "Phase 2 R&D 시기 안 정해짐 — 본 document 의 권장은 명확 motivation 식별 후 적용.",
+    "Hand SNN R&D 의 actual production status 영향 0 — 현재 4/4 = 100% accuracy + uniform null 결론 (Theorem 2-4) 유효.",
+    "Olkin & Marshall 1979 ch. 14 published edition 사용자 직접 verify mandatory (carryover).",
+    "Cressie-Read 1984 + HLP 1934 + Macdonald 1995 published PDF user verify (carryover).",
+    "Formal verification (Lean 4 / Coq) of implementation algorithm 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover — 사용자 직접 rotate.",
+    "Type: documentation-only — practical motivation + recommendation framework.",
+    "Theorem 7.1 의 (⇐) direction 한정 strict — (⇒) direction Conjecture 7.2 strict proof 없이는 weighted-comparable pair 식별 완성도 partial.",
+    "본 document 의 future Hand SNN UI/report integration 은 ux-designer + handface-frontend agent 별도 cycle."
+  ],
+  "hypothesis_verdict": "H_practical_motivation_framework_phase_2_readiness",
+  "next_followup_candidates": [
+    "Hand SNN actual cluster activation data 수집 (Phase 2 Motivation A 정량화)",
+    "§4.2 implementation 의 production-ready coding + audit cycle",
+    "§5.1 weighted majorization check 의 Lean 4 formal verification",
+    "Hand SNN UI/report 의 method-dependent disclosure framework integration",
+    "Theorem 6.3 Regime (D) 의 다른 p configurations enumeration"
+  ],
+  "references": [
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press."
+  ]
+}

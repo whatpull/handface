@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-05-31T13:58:36.481Z",
+  "scenario": "phase-2a-1-incremental-cluster-add-interference",
+  "variantA_N4": {
+    "N": 4,
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0.6
+    ],
+    "totalAccuracy": 0.9
+  },
+  "variantB_N5": {
+    "N": 5,
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0.4,
+      1
+    ],
+    "totalAccuracy": 0.88
+  },
+  "interferenceDelta": [
+    {
+      "cluster": 0,
+      "beforeAddC4": 1,
+      "afterAddC4": 1,
+      "delta": 0
+    },
+    {
+      "cluster": 1,
+      "beforeAddC4": 1,
+      "afterAddC4": 1,
+      "delta": 0
+    },
+    {
+      "cluster": 2,
+      "beforeAddC4": 1,
+      "afterAddC4": 1,
+      "delta": 0
+    },
+    {
+      "cluster": 3,
+      "beforeAddC4": 0.6,
+      "afterAddC4": 0.4,
+      "delta": -0.19999999999999996
+    }
+  ],
+  "verdict": "interference 영향 미미 — fix 효과 안정적"
+}

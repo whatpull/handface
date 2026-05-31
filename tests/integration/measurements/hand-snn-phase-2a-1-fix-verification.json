@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-05-31T12:46:42.815Z",
+  "scenario": "phase-2a-1-incremental-fairness-fix-verification",
+  "variantA": {
+    "description": "직전 production (fixed 30 trials per spawn)",
+    "roundsPerSpawn": [
+      30,
+      30,
+      30,
+      30
+    ],
+    "perClusterSize": [
+      6,
+      5,
+      7,
+      3
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "totalAccuracy": 0.75,
+    "matrix": [
+      [
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ]
+    ],
+    "totalReinforces": 120
+  },
+  "variantB": {
+    "description": "새 fix (incremental — 6*totalClusters * 5 chunk)",
+    "roundsPerSpawn": [
+      30,
+      60,
+      90,
+      120
+    ],
+    "perClusterSize": [
+      6,
+      5,
+      7,
+      3
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0.2
+    ],
+    "totalAccuracy": 0.8,
+    "matrix": [
+      [
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        4,
+        1
+      ]
+    ],
+    "totalReinforces": 300
+  },
+  "improvement": {
+    "totalAccuracy": 0.050000000000000044,
+    "lastClusterAccuracy": 0.2
+  },
+  "verdict": "△ partial improvement — Guide 영역 영역 영역 영역 도달 못함"
+}

@@ -1257,29 +1257,27 @@ export class LiveSnn {
     // P218 50 trials 시도 (2026-05-25) REVERTED — STDP saturation / over-noise
     // exposure 가 cluster receptive field 손상:
     //   Mean noise: 41.3 → 33.8%, Best 75 → 63%, Lucky 20% → 0%.
-    // 1st spawn baseline 30 trials 복원 — sweet spot.
+    // baseline 30 trials 복원 — sweet spot.
     //
-    // Phase 2A.1 incremental-fairness fix (2026-05-31, measurement
-    // phase-2a-1-last-spawn-reinforce-analysis): N번째 spawn 의 R-STDP rounds
-    // 를 N에 비례 확대. prior N-1 cluster 이미 강한 weights 인 상태에서
-    // 신규 cluster 가 동일 30 trials 로는 winner-take-all 경쟁 불가
-    // (실측: 4th spawn 30 round=0%, 90 round=80%, 180 round=100%).
-    //   1st spawn: 6 round × 5 chunk = 30 trials  (P218 baseline, 안전)
-    //   2nd spawn: 12 round × 5 chunk = 60 trials
-    //   3rd spawn: 18 round × 5 chunk = 90 trials
-    //   4th spawn: 24 round × 5 chunk = 120 trials
-    // 1st spawn 은 30 유지 (P218 sweet spot 보존, STDP saturation 회피).
-    // 학술 정합: McCloskey & Cohen 1989 sequential interference compensation.
+    // 직전 incremental-fairness fix (commit 14a03fe, 2026-05-31) REVERTED:
+    //   ROUNDS = 6 * totalClusters 시도. 의도: 후순위 spawn 영역 over-training
+    //   compensation. 결과 (measurement phase-2a-1-rounds-multiplier-sweep):
+    //     [30, 60, 90, 120]:  total 80% (last 20%)
+    //     [30, 60, 120, 180]: total 75% (last 0%)  ← 더 나빠짐
+    //     [30, 90, 150, 240]: total 75% (last 0%)
+    //     [30, 120, 240, 360]: total 75% (last 0%)
+    //   Root cause: mid clusters (c1/c2) 영역 60-90 round 영역 STDP saturation
+    //   영역 영역 — last cluster 영역 boost 영역 prior 영역 over-train 영역
+    //   net effect 영역 negative. P218 reverted 영역 동일 영역.
+    //   = wrong direction. baseline 30 영역 영역 안전.
+    //
+    // Phase 2A.1 H3 (catastrophic forgetting) mitigation 영역 영역 영역
+    // 영역 design 영역 필요 — 단순 ROUNDS 증가 영역 영역 catch 불가능.
+    const ROUNDS = 6;
     const CHUNK = 5;
-    const BASE_ROUNDS = 6;
-    // ROUNDS / TOTAL 는 expandClusterAsync 후 totalClusters 로 계산. catch
-    // block 의 cleanup emit 에서도 참조 가능하도록 let 으로 선언.
-    let ROUNDS = BASE_ROUNDS;
-    let TOTAL = ROUNDS * CHUNK;
+    const TOTAL = ROUNDS * CHUNK;
     try {
-      const { newClusterId, totalClusters } = await this.expandClusterAsync(activeInputs);
-      ROUNDS = BASE_ROUNDS * Math.max(1, totalClusters);
-      TOTAL = ROUNDS * CHUNK;
+      const { newClusterId } = await this.expandClusterAsync(activeInputs);
       // P218 diagnostic — spawn trace (full activeInputs values).
       if (this.substrateKind === 'orientation-5x5') {
         console.log(`[P218 spawn] cluster=${newClusterId} activeInputs=[${activeInputs.join(',')}]`);

@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-05-31T12:55:54.261Z",
+  "scenario": "phase-2a-1-rounds-multiplier-sweep",
+  "variants": [
+    {
+      "name": "v1_fixed_30",
+      "schedule": [
+        30,
+        30,
+        30,
+        30
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 120
+    },
+    {
+      "name": "v2_6x_linear",
+      "schedule": [
+        30,
+        60,
+        90,
+        120
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.2
+      ],
+      "totalAccuracy": 0.8,
+      "totalReinforces": 300
+    },
+    {
+      "name": "v3_progressive",
+      "schedule": [
+        30,
+        60,
+        120,
+        180
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 390
+    },
+    {
+      "name": "v4_3x_progressive",
+      "schedule": [
+        30,
+        90,
+        150,
+        240
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 510
+    },
+    {
+      "name": "v5_4x_progressive",
+      "schedule": [
+        30,
+        120,
+        240,
+        360
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 750
+    }
+  ],
+  "analysis": {
+    "bestTotal": {
+      "name": "v2_6x_linear",
+      "schedule": [
+        30,
+        60,
+        90,
+        120
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.2
+      ],
+      "totalAccuracy": 0.8,
+      "totalReinforces": 300
+    }
+  }
+}

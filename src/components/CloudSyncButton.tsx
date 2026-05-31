@@ -111,7 +111,8 @@ export default function CloudSyncButton() {
 
   const handleSave = useCallback(async () => {
     setStatus('saving');
-    const exemplars = loadExemplars('orientation');
+    // Phase 2A.1 (2026-05-31): 'orientation' → 'orientation-5x5' substrate.
+    const exemplars = loadExemplars('orientation-5x5');
     const count = Object.keys(exemplars).length;
     if (count === 0) {
       showToast({ kind: 'warning', message: '저장할 패턴이 없습니다' });
@@ -148,7 +149,8 @@ export default function CloudSyncButton() {
     if (result.exemplars) {
       Object.entries(result.exemplars).forEach(([outKey, val]) => {
         const label = (val as { label?: string }).label ?? null;
-        setExemplarLabel(outKey, 'orientation', label);
+        // Phase 2A.1 (2026-05-31): 'orientation' → 'orientation-5x5' substrate.
+        setExemplarLabel(outKey, 'orientation-5x5', label);
       });
     }
     showToast({ kind: 'success', message: `${result.patternCount}개 패턴을 불러왔습니다` });

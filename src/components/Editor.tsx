@@ -59,7 +59,8 @@ export default function Editor() {
   useEffect(() => {
     if (!embedMode) return;
     return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
-      const exemplars = loadExemplars('orientation');
+      // Phase 2A.1 (2026-05-31): 'orientation' → 'orientation-5x5' substrate.
+      const exemplars = loadExemplars('orientation-5x5');
       const label = resolveClusterLabel(exemplars, d.clusterIdx, 'grid');
       postToParent({ type: 'PK_PATTERN_LEARNED', patternId: d.clusterIdx, label });
     });
@@ -84,7 +85,8 @@ export default function Editor() {
         postToParent(msg);
         return;
       }
-      const exemplars = loadExemplars('orientation');
+      // Phase 2A.1 (2026-05-31): 'orientation' → 'orientation-5x5' substrate.
+      const exemplars = loadExemplars('orientation-5x5');
       const label = resolveClusterLabel(exemplars, winnerCluster, 'grid');
       // consecutiveWinnerCount 는 PipelineEventContext 내부 — 여기서는
       // grid-infer 단일 결과이므로 EXACT (deterministic single-shot 추론).

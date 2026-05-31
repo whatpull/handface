@@ -233,8 +233,10 @@ export class LiveSnn {
   //   member check + skip + clear.
   private _forcedExactIncrementedClusters: Set<number> = new Set();
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
-  // GRID input (orientation) / CAMERA input (gesture) 가 별도 회로 정합.
-  private substrateKind: SubstrateKind = 'orientation';
+  // GRID input (orientation-5x5) / CAMERA input (gesture) 가 별도 회로 정합.
+  // Phase 2A.1 (2026-05-31): default 'orientation' → 'orientation-5x5'.
+  // 생성자 영역 즉시 reassign (정합 안전망 유지).
+  private substrateKind: SubstrateKind = 'orientation-5x5';
   // PR #171 audit fix (Fix 2 — QA HIGH): input-mode event 영역 derive 영역
   // GridInput / CameraInput 동시 mount last-write-wins race 회피.
   private _unsubscribeInputMode: (() => void) | null = null;
@@ -274,15 +276,18 @@ export class LiveSnn {
   constructor(opts: LiveSnnOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
     // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역
-    // localStorage hydrate — page reload 영역 학습 횟수 보존 정합. default
-    // substrate ('orientation') 영역 hydrate — input-mode event 영역 substrate
-    // 변경 시점 영역 별도 hydrate (setSubstrate 영역 swap path).
+    // localStorage hydrate — page reload 영역 학습 횟수 보존 정합.
+    // Phase 2A.1 (2026-05-31): default substrate 영역 'orientation' →
+    // 'orientation-5x5' (n14_extended, 50 features). NodeLearn / NodeInfer /
+    // NodeOut 정합 — UI 영역 'orientation-5x5' exemplar 영역 read 영역 engine
+    // 영역 'orientation-5x5' 영역 train 영역 mandatory 정합.
+    this.substrateKind = 'orientation-5x5';
     this.trialCount = loadTrialCount(this.substrateKind);
     // input-mode event listener — NodeInput tab change 영역 emit 영역 정합.
     //   mode='camera' → substrate='gesture'
-    //   mode='grid'   → substrate='orientation'
+    //   mode='grid'   → substrate='orientation-5x5'  (Phase 2A.1 upgrade)
     this._unsubscribeInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
-      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation';
+      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation-5x5';
       void this.setSubstrate(next);
     });
   }

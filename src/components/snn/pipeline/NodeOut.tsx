@@ -171,8 +171,10 @@ export default function NodeOut() {
   // 사용자 catch 2026-05-09: GRID / CAMERA mode 별 cluster label 표시.
   // input-mode hoist: PipelineEventContext 에서 단일 구독 — 직접 구독 제거.
   const { winner, isAutoLearning } = usePipelineEvents();
-  // orientation substrate 고정 — 단일 운용.
-  const substrate = 'orientation' as const satisfies SubstrateKind;
+  // Phase 2A.1 (2026-05-31): substrate 'orientation' (n13, 4×4, 32 feat) →
+  // 'orientation-5x5' (n14_extended, 5×5, 50 feat). 단일 운용 — NodeLearn /
+  // NodeInfer 정합.
+  const substrate = 'orientation-5x5' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
 
   useEffect(() => {

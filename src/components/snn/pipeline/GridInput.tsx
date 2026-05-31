@@ -176,7 +176,9 @@ export default function GridInput() {
   // RenameButton 영역 명시 명명 path 영역 진입 (강제 modal 회피 — UX 권고).
   useEffect(() => {
     return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
-      const exemplars = loadExemplars('orientation');
+      // Phase 2A.1 (2026-05-31): substrate upgrade 'orientation' →
+      // 'orientation-5x5'. NodeLearn / NodeInfer / NodeOut 정합.
+      const exemplars = loadExemplars('orientation-5x5');
       const label = resolveClusterLabel(exemplars, d.clusterIdx, 'grid');
       // shared.ts getClusterLabel 정합 — '패턴 {idx+1}' 한국어.
       // F4 UX polish (2, 2026-05-11): action 영역 OUT RenameButton scroll/focus
@@ -291,7 +293,11 @@ export default function GridInput() {
         // Step 2: 영속 (IndexedDB) + cache + localStorage 영역 wipe.
         await purgeAllLearningData();
         // Step 3: UI count 영역 양 substrate 영역 clear (사용자 명시 전체 삭제).
+        // Phase 2A.1 (2026-05-31): 'orientation' (legacy n13) +
+        // 'orientation-5x5' (현재 production substrate) 양쪽 wipe — 잔존 legacy
+        // localStorage 영역 정합 제거.
         clearExemplars('orientation');
+        clearExemplars('orientation-5x5');
         clearExemplars('gesture');
         setStatus({
           kind: 'ok',

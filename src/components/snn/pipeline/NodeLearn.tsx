@@ -43,6 +43,7 @@ import { isUntrustworthy } from '@/lib/snn/untrustworthy';
 // console.log. UI panel 영역 Phase 2 defer (production observation 영역 빠른
 // root cause 진단 path).
 import { logCfm1FromConfusionMatrix } from '@/lib/snn/diagnostic';
+import { showToast } from '@/components/ui/Toast';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import {
@@ -135,12 +136,54 @@ export default function NodeLearn() {
       setInitState(null);
       return;
     }
-    const kind = 'orientation' as const satisfies SubstrateKind;
+    // Phase 2A.1 substrate upgrade (2026-05-31): 'orientation' (n13, 4×4, 32
+    // features) → 'orientation-5x5' (n14_extended, 5×5, 50 features). 32 features
+    // 영역 sub-pool exhaustion + sparse code overlap 영역 root cause — 50 features
+    // 영역 disjoint cluster 보장 강화 영역 인식률 회복. 기존 사용자 학습 데이터
+    // 영역 dimension mismatch — localStorage substrate suffix 영역 자동 namespace
+    // 분리 (Option A 정합 — orientation.* 영역 보존 단 orphan, orientation-5x5.*
+    // 영역 fresh start). 사용자 영역 신규 학습 mandatory.
+    const kind = 'orientation-5x5' as const satisfies SubstrateKind;
     setInitState(getLastLocalSnnInitState(kind));
     return subscribeLocalSnnInitState((state) => {
       if (state.kind === kind) setInitState(state);
     });
   }, [isLiveMode, inputMode]);
+
+  // Phase 2A.1 (2026-05-31): substrate upgrade 일회성 사용자 안내.
+  // 'orientation' (n13_orientation, 4×4, 32 features) → 'orientation-5x5'
+  // (n14_extended, 5×5, 50 features). localStorage key 영역 substrate 접미사
+  // 영역 자동 namespace 분리 (Option A) — 기존 학습 데이터 영역 silent orphan
+  // (legacy orientation.* localStorage 영역 보존 단 production 영역 미참조).
+  // 사용자 영역 신규 학습 mandatory — 1회 toast + console.info 영역 안내.
+  // 일회성 gate (handface.phase2a1.substrate-upgrade.notified.v1=1).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const FLAG = 'handface.phase2a1.substrate-upgrade.notified.v1';
+    try {
+      if (window.localStorage.getItem(FLAG) === '1') return;
+      const hasLegacy = window.localStorage.getItem('handface.out.exemplars.v1.orientation');
+      const legacyHint = hasLegacy
+        ? ' 기존 학습 데이터 (4×4) 는 사용되지 않습니다 — 새로 학습해 주세요.'
+        : '';
+      console.info(
+        '[handface][Phase 2A.1] substrate upgrade: orientation (4×4, 32 feat) → '
+        + 'orientation-5x5 (5×5, 50 feat). disjoint cluster 보장 강화 + 인식률 회복 예상.'
+        + legacyHint,
+      );
+      if (hasLegacy) {
+        showToast({
+          kind: 'warning',
+          message: '학습 substrate 가 5×5 (50 features) 로 갱신되었습니다. 기존 학습 데이터는 무효 — 다시 학습해 주세요.',
+          duration: 8000,
+        });
+      }
+      window.localStorage.setItem(FLAG, '1');
+    } catch {
+      // SSR / quota / disabled — silent skip.
+    }
+  }, []);
+
   // circuit-changed event — backend network 이 새로 만들어진 시점.
   //
   // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역
@@ -293,8 +336,10 @@ export default function NodeLearn() {
       const v2Total = v2PerCluster * clusterCount;
       setRegionTotals({ V1: v1Total, V2: v2Total });
 
-      // mount-time prebuild — orientation substrate 고정.
-      const kind = 'orientation' as const satisfies SubstrateKind;
+      // mount-time prebuild — Phase 2A.1 (2026-05-31) substrate upgrade:
+      // 'orientation' (n13, 32 features) → 'orientation-5x5' (n14_extended,
+      // 50 features). 사용자 4 패턴 학습 영역 32-feature 부족 영역 정정.
+      const kind = 'orientation-5x5' as const satisfies SubstrateKind;
       let cancelled = false;
       void getRootLocalSnnFor(kind).catch((e) => {
         if (!cancelled) {
@@ -477,7 +522,8 @@ export default function NodeLearn() {
   // 영역 사용자 명명 영역 우선 + fallback '패턴 N' (resolveClusterLabel 정합).
   // substrate-aware exemplar subscribe (NodeOut mirror) — 사용자 RenameButton
   // 영역 명명 영역 NodeLearn 영역 즉시 sync.
-  const substrate = 'orientation' as const satisfies SubstrateKind;
+  // Phase 2A.1 (2026-05-31): substrate 'orientation' → 'orientation-5x5'.
+  const substrate = 'orientation-5x5' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));

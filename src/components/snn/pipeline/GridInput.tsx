@@ -1,7 +1,9 @@
 'use client';
 
-// GridInput — 4×4 픽셀 grid orientation 입력 (path Y, 2026-05-07).
-// 16 픽셀 click toggle + 4 preset (─ │ ╱ ╲) + R-STDP 학습 + 추론 trigger.
+// GridInput — 5×5 픽셀 grid orientation 입력 (Phase 2A.1, 2026-05-31).
+// 25 픽셀 click toggle + 4 preset (─ │ ╱ ╲) + R-STDP 학습 + 추론 trigger.
+// 직전 4×4 (16-dim) → Phase 2A.1 substrate orientation-5x5 (25 input, 50 features)
+// 동기화. 사용자 catch (2026-05-31): UI ↔ 엔진 dimension mismatch 정합 hotfix.
 // 추론 결과 (winner / cluster_rates) 는 INFER 노드에서 표시 (사용자 catch
 // 2026-05-07 — INPUT 노드와 INFER 노드 중복 표시 폐기). 본 컴포넌트는 입력
 // 과 trigger 만 담당.
@@ -54,16 +56,22 @@ const ART_VIGILANCE_THRESHOLD = 1.0;
 export const ORIENTATION_LABELS = ['horizontal', 'vertical', 'diag-back', 'diag-fore'] as const;
 export const ORIENTATION_GLYPHS = ['─', '│', '╲', '╱'] as const;
 
-// 16-dim preset pattern — row-major 4×4 grid.
+// 25-dim preset pattern — row-major 5×5 grid (Phase 2A.1, 2026-05-31).
+// 5×5 index map:
+//    0  1  2  3  4
+//    5  6  7  8  9
+//   10 11 12 13 14
+//   15 16 17 18 19
+//   20 21 22 23 24
 export const ORIENTATION_PRESETS: ReadonlyArray<readonly number[]> = [
-  // ─ horizontal: row 1 (index 4..7)
-  [0, 0, 0, 0,  1, 1, 1, 1,  0, 0, 0, 0,  0, 0, 0, 0],
-  // │ vertical: col 1 (index 1, 5, 9, 13)
-  [0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0],
-  // ╲ diag-back: top-left → bottom-right (0, 5, 10, 15)
-  [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1],
-  // ╱ diag-fore: top-right → bottom-left (3, 6, 9, 12)
-  [0, 0, 0, 1,  0, 0, 1, 0,  0, 1, 0, 0,  1, 0, 0, 0],
+  // ─ horizontal: row 1 (index 5..9)
+  [0, 0, 0, 0, 0,  1, 1, 1, 1, 1,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0],
+  // │ vertical: col 1 (index 1, 6, 11, 16, 21)
+  [0, 1, 0, 0, 0,  0, 1, 0, 0, 0,  0, 1, 0, 0, 0,  0, 1, 0, 0, 0,  0, 1, 0, 0, 0],
+  // ╲ diag-back: top-left → bottom-right (0, 6, 12, 18, 24)
+  [1, 0, 0, 0, 0,  0, 1, 0, 0, 0,  0, 0, 1, 0, 0,  0, 0, 0, 1, 0,  0, 0, 0, 0, 1],
+  // ╱ diag-fore: top-right → bottom-left (4, 8, 12, 16, 20)
+  [0, 0, 0, 0, 1,  0, 0, 0, 1, 0,  0, 0, 1, 0, 0,  0, 1, 0, 0, 0,  1, 0, 0, 0, 0],
 ] as const;
 
 // PR #196 polish (UX LOW-1/2): Status 영역 hint 영역 secondary line + warning
@@ -87,7 +95,7 @@ const TRAIN_FRAMES = 30;
 // 영역 폐기 영역 caller 0 — constant 폐기.
 
 function emptyGrid(): number[] {
-  return new Array<number>(16).fill(0);
+  return new Array<number>(25).fill(0);
 }
 
 function isGridEmpty(g: number[]): boolean {
@@ -766,11 +774,11 @@ export default function GridInput() {
               영역만 학습 + 추론 trigger) 영역 정합. 처음 보는 패턴 영역 30회
               학습 + 새 cluster 추가 영역 vigilance miss path 영역 정합 — 본
               조건 영역 추론 button click 영역만 trigger. */}
-          LIVE — 4×4 그리드를 그린 후 추론 버튼을 누르세요. 처음 보는 패턴은 30회 학습 + 새 cluster 추가.
+          LIVE — 5×5 그리드를 그린 후 추론 버튼을 누르세요. 처음 보는 패턴은 30회 학습 + 새 cluster 추가.
         </div>
       )}
 
-      <div className="snn-grid-pixels" role="group" aria-label="4x4 방향 격자">
+      <div className="snn-grid-pixels" role="group" aria-label="5x5 방향 격자">
         {grid.map((v, i) => (
           <button
             key={i}
@@ -927,8 +935,8 @@ export default function GridInput() {
             isAutoLearning
               ? '학습 중 — 추론 대기 (신규 패턴 30회 학습 후 enable)'
               : isLiveMode
-                ? '4×4 패턴 영역 추론 (STDP off — 가중치 변경 0)'
-                : '4×4 패턴 영역 추론'
+                ? '5×5 패턴 추론 (STDP off — 가중치 변경 0)'
+                : '5×5 패턴 추론'
           }
         >
           {isAutoLearning ? '학습 중…' : '추론'}

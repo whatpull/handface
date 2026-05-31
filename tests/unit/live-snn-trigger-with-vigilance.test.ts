@@ -194,7 +194,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V4: empty pattern (activeInputs 0) → auto-learn skip', async () => {
     const live = new LiveSnn();
-    const emptyPattern = new Array(16).fill(0);
+    const emptyPattern = new Array(25).fill(0);
     const { trialToken } = live.triggerWithVigilance(emptyPattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // vigilance miss but 빈 pattern — auto-learn skip.

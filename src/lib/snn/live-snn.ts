@@ -1255,14 +1255,31 @@ export class LiveSnn {
     }
     let registeredClusterId: number | null = null;
     // P218 50 trials 시도 (2026-05-25) REVERTED — STDP saturation / over-noise
-    // exposure 영역 cluster receptive field 영역 손상:
+    // exposure 가 cluster receptive field 손상:
     //   Mean noise: 41.3 → 33.8%, Best 75 → 63%, Lucky 20% → 0%.
-    // baseline 30 trials 복원 — sweet spot.
-    const ROUNDS = 6;
+    // 1st spawn baseline 30 trials 복원 — sweet spot.
+    //
+    // Phase 2A.1 incremental-fairness fix (2026-05-31, measurement
+    // phase-2a-1-last-spawn-reinforce-analysis): N번째 spawn 의 R-STDP rounds
+    // 를 N에 비례 확대. prior N-1 cluster 이미 강한 weights 인 상태에서
+    // 신규 cluster 가 동일 30 trials 로는 winner-take-all 경쟁 불가
+    // (실측: 4th spawn 30 round=0%, 90 round=80%, 180 round=100%).
+    //   1st spawn: 6 round × 5 chunk = 30 trials  (P218 baseline, 안전)
+    //   2nd spawn: 12 round × 5 chunk = 60 trials
+    //   3rd spawn: 18 round × 5 chunk = 90 trials
+    //   4th spawn: 24 round × 5 chunk = 120 trials
+    // 1st spawn 은 30 유지 (P218 sweet spot 보존, STDP saturation 회피).
+    // 학술 정합: McCloskey & Cohen 1989 sequential interference compensation.
     const CHUNK = 5;
-    const TOTAL = ROUNDS * CHUNK;
+    const BASE_ROUNDS = 6;
+    // ROUNDS / TOTAL 는 expandClusterAsync 후 totalClusters 로 계산. catch
+    // block 의 cleanup emit 에서도 참조 가능하도록 let 으로 선언.
+    let ROUNDS = BASE_ROUNDS;
+    let TOTAL = ROUNDS * CHUNK;
     try {
-      const { newClusterId } = await this.expandClusterAsync(activeInputs);
+      const { newClusterId, totalClusters } = await this.expandClusterAsync(activeInputs);
+      ROUNDS = BASE_ROUNDS * Math.max(1, totalClusters);
+      TOTAL = ROUNDS * CHUNK;
       // P218 diagnostic — spawn trace (full activeInputs values).
       if (this.substrateKind === 'orientation-5x5') {
         console.log(`[P218 spawn] cluster=${newClusterId} activeInputs=[${activeInputs.join(',')}]`);

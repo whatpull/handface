@@ -1,0 +1,68 @@
+name: Nightly R&D measurement
+
+# R&D 측정 sweep 25개 영역 nightly 1회 + 수동 trigger.
+#
+# 분리 사유 (2026-05-31 사용자 catch):
+#   매 push 영역 R&D sweep 1h 13m 영역 deploy 차단 매우 불편 → R&D 만 nightly.
+#   자동 측정 mandate (2026-05-25) 영역 본질 (사용자 PC 없이 CI 영역 측정 수집)
+#   영역 유지 — 주기 만 매 push → 1일 1회 (KST 04:00 = UTC 19:00).
+#
+# Production verify + deploy 영역 deploy.yml 영역 별도 (5분 내 완료).
+
+on:
+  schedule:
+    # KST 04:00 = UTC 19:00 (직전 일 KST 19:00 KST 영역 사용자 inactive 시간대).
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  rd-measurement:
+    runs-on: ubuntu-latest
+    # R&D sweep 25개 영역 단일 test 18분 영역 가능 — 6h 안전 margin (default 6h).
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # R&D sweep 25개 — vitest.config.rd.ts 영역 정의 (sweep / variance /
+      # measurement / analysis / outside-log / multi-k / williams-formal 등).
+      - run: npm run test:rd
+
+      # R&D 측정 JSON 영역 artifact (90일 보존).
+      - name: Upload R&D measurement results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snn-rd-measurements-${{ github.run_id }}
+          path: tests/integration/measurements/
+          retention-days: 90
+
+      # GitHub Actions Summary 영역 측정 결과 표 영역 자동 게시.
+      - name: Publish R&D measurement summary
+        if: always()
+        run: |
+          echo "## ★ SNN R&D Measurement Summary (nightly ${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "자동 측정 mandate (2026-05-25): 사용자 PC 없이 CI 에서 측정 수집." >> $GITHUB_STEP_SUMMARY
+          echo "주기 (2026-05-31 분리): nightly cron KST 04:00 + workflow_dispatch." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for f in tests/integration/measurements/*.json; do
+            if [ -f "$f" ]; then
+              name=$(basename "$f" .json)
+              echo "### \`$name\`" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          done

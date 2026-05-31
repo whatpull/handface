@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:rd": "vitest run --config vitest.config.rd.ts",
     "test:watch": "vitest",
     "verify": "tsc --noEmit && eslint && npm run test:unit && npm run test:integration",
     "deploy": "next build && touch out/.nojekyll && gh-pages -d out -t"

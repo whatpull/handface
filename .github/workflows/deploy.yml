@@ -29,42 +29,24 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # Fail-fast 분리 (2026-05-31): unit test 1개 fail 로 R&D 1시간 burn 방지.
-      # 직전 #508 / #509 catch — live-snn-trigger-with-vigilance.test.ts (2.6s)
-      # fail 이 R&D sweep 1h 13m 뒤에 보고. 분리 시 unit fail → integration skip.
+      # Fast deploy 분리 (2026-05-31): unit + light integration 만 (R&D 25개
+      # sweep 은 vitest.config.ts 의 exclude 로 제외, nightly-rd.yml 가 담당).
+      # 사용자 catch: 매 push 1h 13m verify 영역 deploy 차단 영역 불편.
+      # 직전 #508 / #509 — unit test fail 영역 1h R&D 영역 뒤 보고. 분리 후 ~5분.
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:unit
       - run: npm run test:integration
 
-      # 자동 측정 mandate (2026-05-25): 매 push 의 측정 결과 JSON 을 artifact
-      # 로 upload. 사용자 PC production 측정 없이도 CI 에서 회귀 detect.
-      - name: Upload measurement results
+      # Production integration 측정 JSON 영역 artifact upload (light set).
+      # R&D 전체 sweep 측정 JSON 영역 nightly-rd.yml 영역 별도 upload.
+      - name: Upload production measurement results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: snn-measurements-${{ github.sha }}
           path: tests/integration/measurements/
           retention-days: 90
-
-      # GitHub Actions Summary 에 측정 결과 표를 자동 게시.
-      - name: Publish measurement summary
-        if: always()
-        run: |
-          echo "## ★ SNN Measurement Summary (commit ${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "자동 측정 mandate (2026-05-25): 사용자 PC 없이 CI 에서 매 push 마다 검증." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          for f in tests/integration/measurements/*.json; do
-            if [ -f "$f" ]; then
-              name=$(basename "$f" .json)
-              echo "### \`$name\`" >> $GITHUB_STEP_SUMMARY
-              echo '```json' >> $GITHUB_STEP_SUMMARY
-              cat "$f" >> $GITHUB_STEP_SUMMARY
-              echo '' >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-            fi
-          done
 
   build:
     needs: verify

@@ -271,7 +271,55 @@ User-perceived behavior:
 - `8fed0e3` (2026-05-31): Diagnostic framework design
 - `97cda88` (2026-05-31): Mathematical R&D ultra final summary
 
+### Closure cycle (2026-05-31)
+
+- `da2020b`: GridInput 4×4 → 5×5 (UI dimension 정합)
+- `973df92`: clusterPoolUsage worker whitelist (CPM-1 진단 unblock)
+- `598eb14`: restoreSnapshot preset forward (CPM-1 inputDim stale fix)
+- `335ee70`: self-verify lastFeature.length === 16 stale gate (CFM-1 unblock)
+- `880c750`: Phase 2A.1 verification measurement (CPM-1 + CFM-1 직접 측정)
+- `343123d`: v2 measurement — mutual interference 가설 진행
+- `318c789`: v3 forceDisjoint 정합 — root cause c3 under-allocation 확정
+- `c7d308d`: under-training 가설 확정 (last spawn +150 round = 100%)
+- `14a03fe`: incremental fairness fix 시도
+- `69b9d21`: 14a03fe revert (over-training catch, P218 reverted 패턴 재현)
+- **`8da3cbe`**: **2nd+ spawn ROUNDS = 18 (90 trials) — H3 mitigation 90% accuracy** ✓ closure
+
+---
+
+## 11. Phase 2A.1 Closure Verdict (2026-05-31)
+
+### Final hypothesis verdict (Verification Guide §4 정합)
+
+| H | 직전 (4×4 n13) | 5×5 N=4 측정 | 판정 |
+|---|----------------|---------------|------|
+| H2 sub-pool exhaustion | 18/32 (56%) | 21/50 (42%) | ↓ below Guide expected 50-70% (substrate over-capacity 단 harm 없음) |
+| H3 catastrophic forgetting | 87% noisy | 75% → **90%** (commit 8da3cbe) | ✅ **mitigated** |
+| H4 sparse code overlap | 0.55–0.83 | **0.231** | ✅ **mitigated** (3-4x 개선) |
+
+### Decision tree §5 적용
+
+- H4 ✓ + H3 ✓ → 모든 root cause mitigated
+- → **추가 Phase 2 fix 불필요** (Phase 2A.2 / 2B / 2D 불요)
+- Phase 2A.1 cycle **종결**
+
+### Measurement artifacts (전 8건, 모두 R&D nightly 분류)
+
+- `hand-snn-phase-2a-1-verification.json` (v1/v2/v3 — root cause 확정)
+- `hand-snn-phase-2a-1-spawn-order.json` (spawn 순서 영향 0)
+- `hand-snn-phase-2a-1-last-spawn-reinforce.json` (interleaved 환경 under-training 확정)
+- `hand-snn-phase-2a-1-rounds-sweep.json` (ROUNDS 무작정 증가 → over-train catch)
+- `hand-snn-phase-2a-1-interleaved-vs-sequential.json` (학습 패턴 영향 0)
+- `hand-snn-phase-2a-1-extra-rounds-new-cluster.json` (확정 design [30, 90, 90, 90])
+- `hand-snn-phase-2a-1-fix-verification.json` (commit 14a03fe wrong 영역 catch)
+
+### CI deploy time 영역 (사용자 mandate)
+
+- Phase 2A.1 cycle 의 모든 R&D measurement 파일은 `analysis` / `measurement` 패턴 영역 nightly cron 영역 분류
+- push verify (deploy time): **3-4분 영역 유지** ([[feedback-ci-deploy-time-preservation]] 정합)
+
 ---
 
 **Generated**: 2026-05-31
 **Author**: handface project R&D team
+**Closure**: 2026-05-31 (commit 8da3cbe — H3 mitigation 90% accuracy)

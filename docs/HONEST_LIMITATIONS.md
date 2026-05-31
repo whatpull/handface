@@ -1,6 +1,6 @@
 # Honest Limitations & Disclaimer
 
-**최종 업데이트**: 2026-05-26
+**최종 업데이트**: 2026-05-31 (Phase 2A.1 H3 mitigation 종결)
 
 본 문서는 handface 저장소의 **정직한 한계** 와 학술적 framing 을 명시합니다.
 
@@ -12,6 +12,7 @@
 |------|------|
 | 4×4 grid 패턴 인식 (N=3) | ✅ 100% 정확도, browser-only 작동 |
 | 4×4 grid 패턴 인식 (N=5) | ✅ 100% 재현 / 100% 노이즈 / ~20% 부분단서 |
+| 5×5 substrate (N=4 Phase 2A.1) | ✅ 90% noisy accuracy (commit 8da3cbe 후 2nd+ spawn 90 trials) |
 | 5×5 substrate (N=8, lucky seed 86) | ✅ 100% recall, 88% noise (P218) |
 | Mega 9-substrate Ensemble | ✅ 100% recall / 88% noise / 100% partial / 96% WTA margin (commit 1102b3a) |
 
@@ -21,7 +22,10 @@
 |------|------|
 | 6×6 substrate "Bottom row" 패턴 | ⚠️ 4 시드 모두 학습 실패 (-1) — 원인 미파악 |
 | Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 |
-| 학습 안정화 | ⚠️ N>5 패턴에서 catastrophic forgetting 영향 |
+| 학습 안정화 N>5 (4×4) | ⚠️ catastrophic forgetting 영향 (5×5 영역 N=4 영역 commit 8da3cbe 영역 완화) |
+| H2 (sub-pool exhaustion) — 5×5 N=4 | ↓ Guide expected 50-70% 영역 측정 42% (under-utilization, no harm) |
+| H3 catastrophic forgetting — 5×5 N=4 | ✅ commit 8da3cbe 영역 75% → 90% (2nd+ spawn 90 trials) |
+| H4 sparse code overlap — 5×5 N=4 | ✅ Jaccard 0.55-0.83 → 0.23 (Phase 2A.1 substrate upgrade 효과) |
 
 ### 1.3 Pure functions 만 (실제 SNN 통합 안 됨)
 

@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-diagnostic-framework",
+  "measurement_id": "hand-snn-diagnostic-framework",
+  "branch": "main",
+  "type": "architecture_diagnostic_design",
+  "code_artifact": null,
+  "doc_artifact": "docs/HAND_SNN_DIAGNOSTIC_FRAMEWORK.md",
+  "commit_baselines": {
+    "ultra_final_summary": "97cda88",
+    "theorem_9_final": "15e5bd9",
+    "practical_motivation": "ce0472c"
+  },
+  "production_observation": {
+    "source": "handface.whatpull.com production page screenshots (2026-05-31)",
+    "screenshot_1": {
+      "V1_size": 256,
+      "V2_size": 144,
+      "frequency_Hz": 66,
+      "training_epoch": 47,
+      "winner_pattern": 2,
+      "match_type": "EXACT",
+      "console_message": "cluster 1 spawn - disjoint sub-pool exhaustion fallback (claimed 18 features)",
+      "toast": "vigilance miss - new cluster spawn + 30 R-STDP epochs"
+    },
+    "screenshot_2": {
+      "V1_size": 512,
+      "V2_size": 288,
+      "frequency_Hz": 60,
+      "training_epoch": 107,
+      "winner_pattern": 4,
+      "patterns_status": {
+        "pattern_1": "60Hz active",
+        "pattern_2": "60Hz active",
+        "pattern_3": "0Hz inactive",
+        "pattern_4": "11/30 learning"
+      },
+      "self_verify": "10/15 correct (87%)",
+      "noise_environment": "n=5/cluster, σ=0.05 feature-noise"
+    },
+    "user_reported_phenomena": [
+      "same pattern re-learning occurs",
+      "similar patterns not recognized",
+      "recognition accuracy degraded over time (PRIMARY CONCERN)"
+    ]
+  },
+  "hypothesis": "사용자 production 의 3 phenomena 의 systematic root cause analysis via 4 diagnostic metrics + 4 hypotheses + architectural parameter change recommendations.",
+  "result": "DIAGNOSTIC_FRAMEWORK_DESIGN_COMPLETE",
+  "main_results": {
+    "CFM_1_per_pattern_forgetting": "CFM-1(p, t) := self_verify_accuracy(pattern p, after epoch t). Forgetting_p(t) > 0.1 → significant catastrophic forgetting.",
+    "CFM_2_cluster_drift": "CFM-2(c, t) := ||W_c(t) - W_c(t_0)||_2. Threshold: 5% drift → forgetting risk.",
+    "CPM_1_cluster_pool_usage": "Spawn count V1, V2 + sub_pool_overlap_matrix (K × K Jaccard). 0 = forced-disjoint OK, > 0 = fallback mode.",
+    "CPM_2_weight_overlap_matrix": "K × K cosine similarity. Threshold: 0.3 = redundant cluster, merge recommended.",
+    "hypotheses_4": {
+      "H1": "Vigilance threshold too strict → vigilance miss high → re-learning perception",
+      "H2": "Sub-pool exhaustion (CONFIRMED by Screenshot 1 console) → fallback weight overlap → accuracy degradation",
+      "H3": "Catastrophic forgetting via R-STDP weight drift → patterns 1, 2, 3 accuracy degraded over time",
+      "H4": "Sparse code overlap (forced-disjoint fallback) → similar inputs activate multiple clusters → recognition failure"
+    },
+    "architectural_recommendations": {
+      "vigilance_threshold": "If H1 confirmed: 0.85 → 0.80 relaxation",
+      "sub_pool_allocation": "V1 size expansion (current claimed 18 / 256 too small)",
+      "R_STDP_learning_rate": "If H3 confirmed: reduce rate or introduce EWC (advanced)",
+      "sparse_code_constraint": "If H4 confirmed: enforce forced-disjoint or soft-disjoint penalty"
+    }
+  },
+  "honest_limitations": [
+    "본 framework 는 design document 한정 — implementation 별도 handface-frontend / neuronface-backend agent cycle mandatory.",
+    "4 metric 정확한 threshold values production data 의존 — calibration mandatory.",
+    "H1-H4 hypotheses 의 truth 확정 안 됨 — production measurement 후 dominant cause 식별.",
+    "§7 architectural recommendation parameter values 별도 cycle.",
+    "§8 pseudo-code sketch — production-ready TypeScript 별도 R&D + audit mandatory.",
+    "본 framework architectural behavior diagnostic 한정 — mathematical R&D Theorem 2-9 영향 없음.",
+    "EWC (Elastic Weight Consolidation) advanced technique — 별도 multi-cycle R&D.",
+    "본 R&D production data dependence.",
+    "Self-verify accuracy noisy environment 한정 (σ=0.05).",
+    "사용자 reported 3 phenomena frequency 측정 안 됨.",
+    "Hand SNN architecture parameters documentation 확인 mandatory.",
+    "Cluster pool visualization UI changes 별도 ux-designer + handface-frontend cycle.",
+    "본 R&D measurement 결과 Theorem 9 Regime B 영향 없음.",
+    ".env.snn-backup HIGH carryover (사용자 직접 mandatory).",
+    "Mathematical R&D references (Olkin & Marshall 1979 등) user verify carryover."
+  ],
+  "hypothesis_verdict": "H_diagnostic_framework_design_complete_implementation_pending",
+  "next_followup_candidates": [
+    "Phase 1: CFM-1 + CPM-1 implementation (handface-frontend agent)",
+    "Phase 2: Hypothesis confirmation via production data",
+    "Phase 3: Architectural parameter adjustment (vigilance + sub-pool + R-STDP + sparse code)",
+    "Phase 4: UI/UX enhancement (visualizations)"
+  ],
+  "references": [
+    "Mathematical R&D series (commits a6aa72a → 97cda88)",
+    "Carpenter & Grossberg 1987 — ART vigilance",
+    "Olshausen & Field 1996 — Sparse coding",
+    "Kirkpatrick et al. 2017 — Elastic Weight Consolidation (EWC)",
+    "Goodfellow et al. 2014 — Catastrophic Forgetting in neural networks"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-theorem-9-final-chain",
+  "measurement_id": "hand-snn-theorem-9-final-chain",
+  "branch": "main",
+  "type": "final_synthesis_closed_form",
+  "code_artifact": null,
+  "doc_artifact": "docs/THEOREM_9_FINAL_CHAIN_SYNTHESIS.md",
+  "commit_baselines": {
+    "theorem_8_strict_proof": "28c44be",
+    "lemma_7_6_universal_falsification": "4ee1b03",
+    "lemma_7_5_systematic": "51c9431",
+    "lemma_7_5_proposed": "899912d",
+    "lemma_6_4": "7b263b3",
+    "theorem_6_3_initial": "bc7e84a",
+    "N5K4_enumeration": "f446675",
+    "lemma_6_1_conjecture_6_2_partial": "90ee122",
+    "theorem_3_uniform_chain": "6f6104d"
+  },
+  "hypothesis": "직전 chain characterization 결과들의 final synthesis. Theorem 3 + Lemma 6.1 + bc7e84a + f446675 결합 + Regime (D') symmetry extension.",
+  "result": "FINAL_CLOSED_FORM_SYNTHESIS_FOR_VERIFIED_REGIMES_OPEN_REGIMES_EXPLICIT",
+  "main_results": {
+    "theorem_9_statement": "For r-space R(N, K, p, δ) with p_i > 0, δ > 0: Regime A (K ≤ 2 → chain), Regime B (K ≥ 3 ∧ N ≤ 5 ∧ p uniform → chain), Regime C (K ≥ 3 ∧ N ≥ 6 → NOT chain), Regime D' (K = 4 ∧ N = 5 ∧ p ∈ NU_5_4 ∪ permutations → NOT chain).",
+    "regime_d_prime_symmetry_extension": "T_λ 의 permutation invariance → NU_5_4 의 permutations 도 NOT chain. Total ~96 distinct p configurations.",
+    "open_regimes_explicit": "(N ≤ 5, K = 3, p non-uniform), (N = 3 또는 4, K = 4, p non-uniform), (N = 5, K = 4, p ∉ NU_5_4 ∪ permutations), (N = 5, K ≥ 5, p non-uniform).",
+    "implicit_stronger_conjecture": "All r-space chain regimes occur ONLY in Regimes A, B (uniform p). Consistent with numerical evidence but not strictly proven for open regimes.",
+    "hand_snn_final_decision_tree": "Phase 1 (current uniform null) Regime B chain ✓. Phase 2 (non-uniform prior) Regime D' or open — multi-lambda cross-check mandatory."
+  },
+  "honest_limitations": [
+    "Open regimes 다수 — §2 unverified configurations 별도 systematic enumeration mandatory.",
+    "Regime (D') symmetry extension argument 별도 explicit verify 권고.",
+    "NU_5_4 size 4 한정 — Δ_{K-1} simplex systematic coverage 별도 R&D.",
+    "Implicit stronger conjecture (§3 마지막) strict proof 안 됨 — multi-cycle R&D.",
+    "L'Hopital limits (λ ∈ {0, -1}) 의 Regime (D') 적용 strict verify 별도.",
+    "Theorem 9 proof union 의 strict 정합성 — unified proof structure 별도 R&D.",
+    "Hand SNN R&D context 영향 0 (current uniform null regime B 유효).",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Macdonald 1995 PDF user verify mandatory (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — final synthesis.",
+    "본 R&D mathematical 가치: Conjecture 6.2 final reformulation + verified regimes closed-form union + open regimes explicit. Strict 새 theorem 아닌 landscape synthesis.",
+    "Phase 2 readiness recommendation framework implementation 별도 cycle (ce0472c §4.2 production-ready coding).",
+    "본 final synthesis future R&D 시 incremental update mandatory."
+  ],
+  "hypothesis_verdict": "H_theorem_9_final_synthesis_verified_regimes_a_b_c_d_prime_open_regimes_explicit",
+  "next_followup_candidates": [
+    "Open regimes systematic enumeration (Dirichlet sampling)",
+    "Implicit stronger conjecture strict proof",
+    "Lean 4 formal verification of Theorem 9 union",
+    "Phase 2 implementation production-ready coding"
+  ],
+  "references": [
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Macdonald, I. G. (1995). Symmetric Functions and Hall Polynomials. Oxford University Press."
+  ]
+}

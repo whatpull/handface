@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-diagnostic-deep-analysis",
+  "measurement_id": "hand-snn-diagnostic-deep-analysis",
+  "branch": "main",
+  "type": "production_console_log_root_cause_analysis",
+  "code_artifact": null,
+  "doc_artifact": "docs/DIAGNOSTIC_DEEP_ANALYSIS_2026_05_31.md",
+  "commit_baselines": {
+    "phase_1_diagnostic_implementation": "7dd386a",
+    "diagnostic_framework_design": "8fed0e3"
+  },
+  "production_console_log_source": "사용자 직접 제공 (handface.whatpull.com production, 2026-05-31)",
+  "hypothesis": "직전 7dd386a Phase 1 diagnostic implementation 후 사용자 제공 production console log 의 strict root cause identification.",
+  "result": "ROOT_CAUSE_CONFIRMED_H2_PLUS_H4_n13_orientation_substrate_user_patterns_packed_18_features",
+  "main_results": {
+    "substrate_confirmed": "n13_orientation (4×4 grid, 32 features). activeInputs max index = 31 → 32-dim → orientation type confirmed.",
+    "feature_usage_analysis": "c0 claimed 18/32 = 56%. c1, c2 candidates 100% subset of c0 → no unclaimed features for disjoint → fallback mandatory for all subsequent clusters.",
+    "cluster_jaccard_overlap": {
+      "c0_c1": 0.833,
+      "c0_c2": 0.556,
+      "c1_c2": 0.667
+    },
+    "h2_confirmed_with_numbers": "Sub-pool exhaustion: c0 claimed 18 / 32 features. c1 candidates ⊂ c0 (15/15 = 100% overlap). c2 candidates ⊂ c0 ∪ c1 (10/10 = 100% overlap). forced-disjoint constraint mathematically impossible.",
+    "h4_confirmed_with_numbers": "Sparse code overlap: all cluster pair Jaccard 0.556-0.833 (far above CPM-2 threshold 0.3). Severe redundancy.",
+    "h3_indirect_evidence": "Catastrophic forgetting inevitable consequence of H2 + H4 (overlap region weight drift). Direct CFM-1 time series measurement user mandatory.",
+    "h1_not_primary_cause": "Vigilance miss is consequence of H2 + H4 (ambiguous cluster activation), not primary cause.",
+    "geometric_interpretation": "n13_orientation 32 features = 16 pixels × 2 orientation channels. c0 active 18 features = ~10 pixels (62.5% grid) + 8 orientation features. 사용자 4 patterns 가 grid 의 same region 에 packed."
+  },
+  "root_cause_synthesis": "사용자의 4 패턴이 n13_orientation 32-dim feature space 의 18/32 = 56% region 에 packed. 3 possible underlying causes: (1) visually too similar patterns, (2) n13_orientation dimensionality 32 features 부족, (3) sparse code top-K threshold 너무 inclusive.",
+  "honest_limitations": [
+    "사용자 직접 패턴 시각화 확인 mandatory — '패턴 visually similar' 가정 추정.",
+    "Substrate dimension 정확 32 strict verify — source code grep 결정, runtime substrate.inputDim 직접 verify 별도.",
+    "§4.3 geometric interpretation (16 pixel + 16 orientation) — substrate internal split 정확 별도 source code analysis.",
+    "§5.3 H3 indirect evidence — direct CFM-1 time series measurement 사용자 production 추가 verify mandatory.",
+    "§7.2 architectural recommendations specific parameter values 별도 cycle.",
+    "n14_extended (50 features) / n15_extended_6x6 (72 features) 실제 disjoint capacity 추정.",
+    "Sparse code top-K 정확 동작 mechanism source code verify 별도.",
+    "EWC integration (§7.3 Phase 2D) 본 R&D scope 외 — multi-cycle R&D.",
+    "사용자 production observation 3 phenomena frequency quantification 추가 mandatory.",
+    "Mathematical R&D series 영향 0 (Theorem 2-9 결론 영향 없음).",
+    ".env.snn-backup HIGH carryover.",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 PDF user verify mandatory (carryover).",
+    "Formal verification 안 됨.",
+    "Peer review 안 됨.",
+    "Type: documentation-only — deep analysis production deploy 영향 0."
+  ],
+  "hypothesis_verdict": "H_substrate_n13_confirmed_h2_h4_confirmed_root_cause_18_features_packed_56_percent_feature_space",
+  "recommended_actions": {
+    "user_immediate_workaround_effort_0": [
+      "패턴 1-4 를 4×4 grid 의 다른 quadrant 에 분리 배치 (좌상/우상/좌하/우하)",
+      "2 패턴 부터 시작 — 점진적 추가",
+      "학습 reset 후 가장 visually distinct 한 2 패턴 으로 시작"
+    ],
+    "phase_2_architectural_changes": [
+      "Priority 1 HIGH: Substrate upgrade orientation → orientation-5x5 (50 features) 또는 orientation-6x6 (72 features)",
+      "Priority 2 MEDIUM: Sparse code top-K 조정 (감소)",
+      "Priority 3 LOW: Vigilance threshold 조정 (supplementary only)"
+    ]
+  },
+  "next_followup_candidates": [
+    "사용자 §7.1 workaround 시도 + production console log 비교",
+    "Phase 2A (substrate upgrade UI) handface-frontend agent 위임",
+    "Phase 2B (sparse code top-K parameter sweep)",
+    "Phase 2C (CFM-1 + CPM-1 UI panel) ux-designer + handface-frontend",
+    "Phase 2D EWC catastrophic forgetting mitigation (multi-cycle)"
+  ],
+  "references": [
+    "Mathematical R&D series (commits a6aa72a → 97cda88)",
+    "Carpenter & Grossberg 1987 — ART vigilance",
+    "Olshausen & Field 1996 — Sparse coding"
+  ]
+}

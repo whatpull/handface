@@ -103,7 +103,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     },
     lab: { save: mocks.mockSave },
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 
@@ -242,7 +242,7 @@ describe('LiveSnn — exact-match badge propagation (사용자 catch 2026-05-12)
     });
 
     const snn = new LiveSnn();
-    snn.setPattern(new Array(25).fill(0)); // silent.
+    snn.setPattern(new Array(36).fill(0)); // silent.
     await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
@@ -270,7 +270,7 @@ describe('LiveSnn — exact-match badge propagation (사용자 catch 2026-05-12)
     });
 
     const snn = new LiveSnn();
-    snn.setPattern(new Array(25).fill(0));
+    snn.setPattern(new Array(36).fill(0));
     await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');

@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => {
       totalClusters: 5,
       neuronsAdded: 96,
       synapsesAdded: 1200,
-      activeInputs: [5, 6, 7, 8, 9],
+      activeInputs: [6, 7, 8, 9, 10, 11],
     };
   });
   const mockClient = {
@@ -56,7 +56,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lab: { save: mocks.mockSave } as any,
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 
@@ -83,7 +83,7 @@ beforeEach(() => {
 describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
   it('V1: triggerWithVigilance → triggerBackground RPC (stdpGain=0) 1회', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
+    const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     expect(trialToken).toBeGreaterThan(0);
     // fire-and-forget — microtask wait 영역 worker dispatch 완료 catch.
@@ -102,7 +102,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V2: vigilance miss (margin < threshold) → expandCluster + 30 reinforce', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // vigilance follow-up 영역 handleTriggerComplete 영역 dispatch — 직접
@@ -140,13 +140,13 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     // = 31 RPC catch (sequential).
     await new Promise((r) => setTimeout(r, 200));
     expect(mocks.mockExpandCluster).toHaveBeenCalledTimes(1);
-    // Phase 2A.1 (2026-05-31): substrate 'orientation-5x5' (n14_extended, 50-dim).
+    // Phase 2A.1 (2026-05-31): substrate 'orientation-6x6' (n14_extended, 50-dim).
     // 5×5 row 1 horizontal pattern (indices 5-9 active) + orientation row-sum
     // feature 26 → active indices: raw [5,6,7,8,9] + row1 sum feature [26].
     // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
     //   expandClusterAsync 영역 default forceDisjoint=true 영역 worker payload 동봉.
     expect(mocks.mockExpandCluster).toHaveBeenCalledWith({
-      activeInputs: [5, 6, 7, 8, 9, 26],
+      activeInputs: [6, 7, 8, 9, 10, 11, 37],
       forceDisjoint: true,
     });
     // Phase 2A.1 H3 fix (2026-05-31): 2nd+ spawn = 90 trials (ROUNDS=18, CHUNK=5).
@@ -164,7 +164,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V3: vigilance pass (margin >= threshold) → expand/reinforce 0 호출', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // Fix #22 (사용자 catch 2026-05-10): inputMatch 0.9 >= 0.15 → vigilance pass.
@@ -195,7 +195,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V4: empty pattern (activeInputs 0) → auto-learn skip', async () => {
     const live = new LiveSnn();
-    const emptyPattern = new Array(25).fill(0);
+    const emptyPattern = new Array(36).fill(0);
     const { trialToken } = live.triggerWithVigilance(emptyPattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // vigilance miss but 빈 pattern — auto-learn skip.
@@ -278,7 +278,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       totalClusters: 1,
       neuronsAdded: 96,
       synapsesAdded: 1200,
-      activeInputs: [5, 6, 7, 8, 9],
+      activeInputs: [6, 7, 8, 9, 10, 11],
     }));
     const localReinforceBackground = vi.fn(async () => null);
     const localClient = {
@@ -299,12 +299,12 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       lab: { save: mocks.mockSave } as any,
       status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-      kind: 'orientation-5x5' as const,
+      kind: 'orientation-6x6' as const,
     });
 
     try {
       const live = new LiveSnn();
-      const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
+      const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
       live.triggerWithVigilance(pattern, 0.15);
 
       // microtask drain — push handler fire + RPC await resolve + runAutoLearnLoop
@@ -316,13 +316,13 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // handleTriggerComplete 영역 vigilance miss path 영역 dispatch → expandCluster
       // 호출. pre-fix 영역 fail (expandCluster 호출 0).
       expect(localExpandCluster).toHaveBeenCalledTimes(1);
-      // Phase 2A.1 (2026-05-31): substrate 'orientation-5x5' (n14_extended, 50-dim).
+      // Phase 2A.1 (2026-05-31): substrate 'orientation-6x6' (n14_extended, 50-dim).
     // 5×5 row 1 horizontal pattern (indices 5-9 active) + orientation row-sum
     // feature 26 → active indices: raw [5,6,7,8,9] + row1 sum feature [26].
       // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
       //   expandClusterAsync 영역 default forceDisjoint=true 영역 worker payload 동봉.
       expect(localExpandCluster).toHaveBeenCalledWith({
-        activeInputs: [5, 6, 7, 8, 9, 26],
+        activeInputs: [6, 7, 8, 9, 10, 11, 37],
         forceDisjoint: true,
       });
 
@@ -336,7 +336,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         lab: { save: mocks.mockSave } as any,
         status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-        kind: 'orientation-5x5' as const,
+        kind: 'orientation-6x6' as const,
       }));
     }
   });
@@ -442,7 +442,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     };
     expect(lastNeuronFiring.winner_cluster).toBe(1);
     // incrementCount 영역 winner cluster (out_1_0) 영역 호출.
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-5x5', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-6x6', expect.any(Array));
     // expandCluster + reinforce 영역 0 — vigilance pass.
     await new Promise((r) => setTimeout(r, 50));
     expect(mocks.mockExpandCluster).not.toHaveBeenCalled();

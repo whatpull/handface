@@ -67,7 +67,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lab: { save: mocks.mockSave } as any,
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 
@@ -102,7 +102,7 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
     const live = new LiveSnn();
     // patternRef 영역 set — featSnap 영역 동봉 정합.
     // P218 (substrate upgrade): 5×5 raw-dim (25) → row 1 (indices 5..9) active.
-    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     live.setPattern(pattern);
 
     // private runAutoLearnLoop 영역 reflective access — caller path 영역 ART
@@ -118,7 +118,7 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     const [outKey, substrate, featSnap] = mocks.mockIncrementCount.mock.calls[0];
     expect(outKey).toBe('out_4_0'); // newClusterId=4 (mockExpandCluster 정합).
-    expect(substrate).toBe('orientation-5x5');
+    expect(substrate).toBe('orientation-6x6');
     expect(featSnap).toEqual(pattern);
     live.dispose();
   });
@@ -126,7 +126,7 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
   it('C2: runAutoLearnLoop success 영역 lastWinnerCluster 영역 신규 cluster 영역 set', async () => {
     const live = new LiveSnn();
     // P218 (substrate upgrade): 5×5 raw-dim (25) → row 1 (indices 5..9) active.
-    live.setPattern([0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    live.setPattern([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const liveAny = live as unknown as {
       runAutoLearnLoop: (token: number, activeInputs: number[]) => Promise<void>;
       lastWinnerCluster: number;
@@ -157,15 +157,15 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
       layer: 'OUT' as const,
     };
     liveAny.emitTick(cfr, 0, 0);
-    // localStorage 영역 substrate key (orientation-5x5) 영역 persist 정합.
-    const stored = window.localStorage.getItem(`${TRIAL_COUNT_KEY}.orientation-5x5`);
+    // localStorage 영역 substrate key (orientation-6x6) 영역 persist 정합.
+    const stored = window.localStorage.getItem(`${TRIAL_COUNT_KEY}.orientation-6x6`);
     expect(stored).toBe('7');
     live.dispose();
   });
 
   it('C4: LiveSnn fresh constructor 영역 localStorage trialCount 영역 hydrate', () => {
     // pre-seed — 페이지 reload 영역 시뮬레이션 (직전 세션 영역 trialCount=42 영역 persist).
-    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-5x5`, '42');
+    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-6x6`, '42');
     const live = new LiveSnn();
     const liveAny = live as unknown as { trialCount: number };
     expect(liveAny.trialCount).toBe(42);
@@ -173,27 +173,27 @@ describe('LiveSnn — cluster commit + trialCount hydrate (cluster-evict-hydrate
   });
 
   it('C5: setSubstrate swap 영역 신규 substrate 영역 trialCount 영역 별도 hydrate', async () => {
-    // pre-seed — orientation-5x5=10, gesture=20 영역 별도 store.
-    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-5x5`, '10');
+    // pre-seed — orientation-6x6=10, gesture=20 영역 별도 store.
+    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-6x6`, '10');
     window.localStorage.setItem(`${TRIAL_COUNT_KEY}.gesture`, '20');
     const live = new LiveSnn();
     const liveAny = live as unknown as { trialCount: number };
-    expect(liveAny.trialCount).toBe(10); // default substrate=orientation-5x5.
+    expect(liveAny.trialCount).toBe(10); // default substrate=orientation-6x6.
     await live.setSubstrate('gesture');
     expect(liveAny.trialCount).toBe(20); // swap 영역 별도 hydrate.
-    await live.setSubstrate('orientation-5x5');
+    await live.setSubstrate('orientation-6x6');
     expect(liveAny.trialCount).toBe(10); // swap-back 영역 별도 hydrate.
     live.dispose();
   });
 
   it('C6: resetTrigger 영역 localStorage trialCount 영역 wipe', () => {
-    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-5x5`, '99');
+    window.localStorage.setItem(`${TRIAL_COUNT_KEY}.orientation-6x6`, '99');
     const live = new LiveSnn();
     const liveAny = live as unknown as { trialCount: number };
     expect(liveAny.trialCount).toBe(99);
     live.resetTrigger();
     expect(liveAny.trialCount).toBe(0);
-    expect(window.localStorage.getItem(`${TRIAL_COUNT_KEY}.orientation-5x5`)).toBeNull();
+    expect(window.localStorage.getItem(`${TRIAL_COUNT_KEY}.orientation-6x6`)).toBeNull();
     live.dispose();
   });
 });

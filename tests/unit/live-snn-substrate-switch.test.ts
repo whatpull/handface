@@ -99,7 +99,7 @@ afterEach(() => {
 describe('LiveSnn — setSubstrate state reset (Fix 2)', () => {
   it('SS1: setSubstrate(다른 kind) — trialCount/lastWinnerCluster/patternRef reset', async () => {
     const snn = new LiveSnn();
-    // Phase 2A.1 (2026-05-31): default substrate 'orientation-5x5' (25-dim, 5×5 grid).
+    // Phase 2A.1 (2026-05-31): default substrate 'orientation-6x6' (25-dim, 5×5 grid).
     snn.setPattern([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     // 1회 trigger 영역 trial=1 + lastWinner=0.
@@ -122,14 +122,14 @@ describe('LiveSnn — setSubstrate state reset (Fix 2)', () => {
 
   it('SS2: 같은 kind 영역 setSubstrate — early return, state 영역 보존', async () => {
     const snn = new LiveSnn();
-    // Phase 2A.1 (2026-05-31): default substrate 'orientation-5x5' (25-dim).
+    // Phase 2A.1 (2026-05-31): default substrate 'orientation-6x6' (25-dim).
     snn.setPattern([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
 
     // 같은 kind 영역 setSubstrate — early return.
-    await snn.setSubstrate('orientation-5x5');
-    expect(snn.getSubstrate()).toBe('orientation-5x5');
+    await snn.setSubstrate('orientation-6x6');
+    expect(snn.getSubstrate()).toBe('orientation-6x6');
 
     // pattern + lastWinner 영역 보존 — early-return 영역 state 영역 mutation 0.
     // 사용자 catch 2026-05-12 (increment-per-trigger): 매 valid trigger 영역 +1
@@ -143,12 +143,12 @@ describe('LiveSnn — setSubstrate state reset (Fix 2)', () => {
 
   it('SS3: setSubstrate 후 incrementCount 영역 새 substrate 영역 store', async () => {
     const snn = new LiveSnn();
-    // Phase 2A.1 (2026-05-31): default substrate 'orientation-5x5' (25-dim).
+    // Phase 2A.1 (2026-05-31): default substrate 'orientation-6x6' (25-dim).
     snn.setPattern([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenLastCalledWith(
       'out_0_0',
-      'orientation-5x5',
+      'orientation-6x6',
       expect.any(Array),
     );
 

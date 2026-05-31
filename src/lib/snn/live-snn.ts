@@ -46,13 +46,16 @@ import type {
 import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './root-local-snn';
 import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
 import { compute50DimFeature, RAW_DIM_N14 } from '@/lib/snn-runtime/builders/n14-extended';
+import { compute72DimFeature, RAW_DIM_N15 } from '@/lib/snn-runtime/builders/n15-extended-6x6';
 import { SeededRandom } from '@/lib/snn-runtime/prng';
 
-// P218 (2026-05-20) — raw pattern length 영역 영역 dispatch (n13: 16→32, n14: 25→50).
-// 이미 expanded (32 or 50) 영역 그대로.
+// P218 (2026-05-20) — raw pattern length 별 dispatch.
+// Phase 2A.2 (2026-06-01) — n15 추가 (36 → 72).
+// n13: 16→32, n14: 25→50, n15: 36→72. 이미 expanded 면 그대로 return.
 function dispatchFeature(pattern: number[]): number[] {
   if (pattern.length === 16) return compute32DimFeature(pattern);
   if (pattern.length === RAW_DIM_N14) return compute50DimFeature(pattern);
+  if (pattern.length === RAW_DIM_N15) return compute72DimFeature(pattern);
   return pattern;
 }
 import { incrementCount, loadExemplars } from './out-exemplars';
@@ -185,10 +188,14 @@ const DEFAULT_OPTIONS: Required<LiveSnnOptions> = {
 const TICK_EVENT = 'handface.live-snn.tick';
 const SAVE_THROTTLE_MS = 500;
 
-// P218 (2026-05-20) — substrate kind 영역 영역 raw dim 영역 dispatch.
-// orientation: 16 (4×4), orientation-5x5: 25 (5×5), gesture: 16 (legacy).
+// P218 (2026-05-20) — substrate kind 별 raw dim dispatch.
+// Phase 2A.2 (2026-06-01) — orientation-6x6 (36) 추가.
+// orientation: 16 (4×4 legacy), orientation-5x5: 25, orientation-6x6: 36,
+// gesture: 16 (legacy).
 function rawDimForKind(kind: SubstrateKind): number {
-  return kind === 'orientation-5x5' ? 25 : 16;
+  if (kind === 'orientation-6x6') return 36;
+  if (kind === 'orientation-5x5') return 25;
+  return 16;
 }
 
 export class LiveSnn {
@@ -277,17 +284,17 @@ export class LiveSnn {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
     // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역
     // localStorage hydrate — page reload 영역 학습 횟수 보존 정합.
-    // Phase 2A.1 (2026-05-31): default substrate 영역 'orientation' →
-    // 'orientation-5x5' (n14_extended, 50 features). NodeLearn / NodeInfer /
-    // NodeOut 정합 — UI 영역 'orientation-5x5' exemplar 영역 read 영역 engine
-    // 영역 'orientation-5x5' 영역 train 영역 mandatory 정합.
-    this.substrateKind = 'orientation-5x5';
+    // Phase 2A.2 (2026-06-01): default substrate 5×5 → 6×6 (n15_extended_6x6,
+    // 36 input / 72 features). 측정 evidence: 5×5 c3 sub-pool=3 inherent
+    // limit 60% (commit 2db71ef), 6×6 N=4/5 모두 100% (commit b8458e5).
+    // UI / engine 모두 6×6 동기화.
+    this.substrateKind = 'orientation-6x6';
     this.trialCount = loadTrialCount(this.substrateKind);
-    // input-mode event listener — NodeInput tab change 영역 emit 영역 정합.
+    // input-mode event listener — NodeInput tab change 시 emit.
     //   mode='camera' → substrate='gesture'
-    //   mode='grid'   → substrate='orientation-5x5'  (Phase 2A.1 upgrade)
+    //   mode='grid'   → substrate='orientation-6x6'  (Phase 2A.2)
     this._unsubscribeInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
-      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation-5x5';
+      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation-6x6';
       void this.setSubstrate(next);
     });
   }

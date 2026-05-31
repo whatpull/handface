@@ -36,8 +36,8 @@ export default function NodeInfer() {
   // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
   const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
   // Phase 2A.1 (2026-05-31): substrate 'orientation' (n13, 4×4, 32 feat) →
-  // 'orientation-5x5' (n14_extended, 5×5, 50 feat). NodeLearn / NodeOut 정합.
-  const substrate = 'orientation-5x5' as const satisfies SubstrateKind;
+  // 'orientation-6x6' (n14_extended, 5×5, 50 feat). NodeLearn / NodeOut 정합.
+  const substrate = 'orientation-6x6' as const satisfies SubstrateKind;
   const [exemplars, setExemplars] = useState<OutExemplars>(() => loadExemplars(substrate));
   useEffect(() => {
     setExemplars(loadExemplars(substrate));

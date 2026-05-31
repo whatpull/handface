@@ -97,7 +97,7 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
   it('G1: pixel toggle 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
     render(<GridInput />);
     const pixels = screen.getAllByRole('button', { name: /^픽셀 \d+/ });
-    expect(pixels).toHaveLength(25);
+    expect(pixels).toHaveLength(36);
     fireEvent.click(pixels[0]);
     expect(mockSetPattern).toHaveBeenCalled();
     expect(mockTriggerOnce).not.toHaveBeenCalled();

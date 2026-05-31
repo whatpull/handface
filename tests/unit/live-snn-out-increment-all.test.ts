@@ -76,7 +76,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     },
     lab: { save: mocks.mockSave },
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 
@@ -121,7 +121,7 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature.
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation-5x5', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation-6x6', expect.any(Array));
     snn.dispose();
   });
 
@@ -142,7 +142,7 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     // 3 calls 모두 동일 outKey (out_0_0) + substrate (orientation).
     for (let i = 0; i < 3; i += 1) {
       expect(mocks.mockIncrementCount.mock.calls[i][0]).toBe('out_0_0');
-      expect(mocks.mockIncrementCount.mock.calls[i][1]).toBe('orientation-5x5');
+      expect(mocks.mockIncrementCount.mock.calls[i][1]).toBe('orientation-6x6');
     }
     snn.dispose();
   });
@@ -195,7 +195,7 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
     });
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(2);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-5x5', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-6x6', expect.any(Array));
     snn.dispose();
   });
 
@@ -213,7 +213,7 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
       margin: 0,
       layer: 'OUT',
     });
-    snn.setPattern(new Array(25).fill(0));
+    snn.setPattern(new Array(36).fill(0));
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 미증가.
     snn.dispose();
@@ -221,10 +221,9 @@ describe('LiveSnn — single representative neuron incrementCount (PR-E 2026-05-
 
   it('O5: feature snapshot 영역 increment 호출 영역 동일 array (lastFeature 정합)', async () => {
     const snn = new LiveSnn();
-    // P218 (substrate upgrade): 5×5 raw-dim (25) — pattern semantics 보존 영역
-    // 4×4 source [1,0,1,0, 1,1,1,1, ...] 영역 등가 5×5 cluster row 0 (col 0,2)
-    // + row 1 (col 0..4) 영역 확장.
-    const pattern = [1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    // Phase 2A.2 (substrate upgrade): 6×6 raw-dim (36) — pattern semantics
+    // 4×4 source [1,0,1,0, 1,1,1,1, ...] 등가 6×6 row 0 (col 0,2) + row 1 (col 0..5).
+    const pattern = [1, 0, 1, 0, 0, 0,  1, 1, 1, 1, 1, 1,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0];
     snn.setPattern(pattern);
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);

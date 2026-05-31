@@ -70,7 +70,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     },
     lab: { save: mocks.mockSave },
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 

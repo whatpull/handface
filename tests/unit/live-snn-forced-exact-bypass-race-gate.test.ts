@@ -69,7 +69,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lab: { save: mocks.mockSave } as any,
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation-5x5' as const,
+    kind: 'orientation-6x6' as const,
   })),
 }));
 
@@ -120,7 +120,7 @@ describe('LiveSnn — forcedExact bypass of race-gate (forced-exact-bypass-race-
   it('F1: forced winner + isAutoLearning → incrementCount fire (+1)', () => {
     const live = new LiveSnn();
     // P218 (substrate upgrade): 5×5 raw-dim → row 1 (indices 5..9) active.
-    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     live.setPattern(pattern);
     const liveAny = live as unknown as LiveSnnInternals;
     // simulate runAutoLearnLoop in flight — cluster 4 영역 register.
@@ -139,7 +139,7 @@ describe('LiveSnn — forcedExact bypass of race-gate (forced-exact-bypass-race-
     });
     // forced-exact 영역 race-gate bypass → +1.
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_4_0', 'orientation-5x5', pattern);
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_4_0', 'orientation-6x6', pattern);
     // mark set (finally commit double-increment guard).
     expect(liveAny._forcedExactIncrementedClusters.has(4)).toBe(true);
     live.dispose();
@@ -241,7 +241,7 @@ describe('LiveSnn — forcedExact bypass of race-gate (forced-exact-bypass-race-
     await liveAny.runAutoLearnLoop(1, [4, 5, 6, 7]);
     // PR #224 semantic 보존 — finally commit 영역 신규 cluster 영역 +1.
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_4_0', 'orientation-5x5', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_4_0', 'orientation-6x6', expect.any(Array));
     live.dispose();
   });
 });

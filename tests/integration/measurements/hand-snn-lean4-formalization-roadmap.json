@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-lean4-formalization-roadmap",
+  "measurement_id": "hand-snn-lean4-formalization-roadmap",
+  "branch": "main",
+  "type": "plan_only_roadmap",
+  "code_artifact": null,
+  "doc_artifact": "docs/LEAN4_FORMALIZATION_ROADMAP.md",
+  "commit_baselines": {
+    "practical_motivation": "ce0472c",
+    "lemma_6_4": "7b263b3",
+    "theorem_7_1": "b1e3b1e",
+    "theorem_6_3_synthesis": "bc7e84a"
+  },
+  "hypothesis": "본 R&D 시리즈 (a6aa72a → ce0472c) 의 mathematical results 의 Lean 4 / Coq formal verification roadmap (plan-only). 실제 Lean 4 install + formal proof 안 함.",
+  "result": "PLAN_ONLY_ROADMAP_8_TO_10_MONTHS_ESTIMATED",
+  "main_results": {
+    "recommendation_lean4_mathlib": "Lean 4 + Mathlib4 (Coq + Isabelle 대비 majorization library coverage 강함).",
+    "5_phase_plan": "Phase 1 (Setup + Tier 1): 월 1-1.5. Phase 2 (Tier 2): 월 1.5-3. Phase 3 (Tier 3): 월 3-5. Phase 4 (Tier 4): 월 5-8. Phase 5 (Mathlib contribution): 월 8-10.",
+    "priority_tier_1": "Theorem 2 (uniform null ordering full closed-form) — 2-3 weeks.",
+    "priority_tier_2": "Theorem 3 + Theorem 4 — 1-2 weeks each.",
+    "priority_tier_3": "Theorem 5 (Lemma 5.1 + 5.2) + Theorem 7.1 — 4-6 weeks total.",
+    "priority_tier_4": "Theorem 6.3 + Lemma 6.1 + 6.4 + Conjecture 7.2 — 2-3 months total.",
+    "total_estimated_effort": "8-10 months single developer FTE."
+  },
+  "honest_limitations": [
+    "본 roadmap 은 plan-only — 실제 Lean 4 install 안 함, formal proof 안 함.",
+    "8-10 개월 estimated effort 는 single developer FTE — 사용자 Lean 4 학습 곡선에 따라 +50-100%.",
+    "Mathlib4 의 weighted majorization coverage 정확성 본 R&D 에서 검증 안 함 — Phase 1 'API fit 검증' dependency.",
+    "Olkin & Marshall 1979 ch. 14 + HLP 1934 published edition 사용자 직접 access mandatory (carryover).",
+    "Lean 4 + Mathlib4 의 best practices 시기적 변화 — 본 roadmap 의 specific tactics 는 2026-05 기준.",
+    "Conjecture 7.2 strict negative result 가능성 — Phase 4 의 multi-month effort 가 negative result 로 끝날 수도.",
+    "Formal verification 의 actual reduction in error marginal value 의 cost-benefit 분석 별도 R&D.",
+    "Hand SNN R&D production status 영향 없음 — Theorem 2-4 결과 utility 영향 0.",
+    "Alternative path: published peer review (§7.3) 가 더 cost-effective 가능성.",
+    "Long-term R&D 의 사용자 motivation 미확정 — 8-10 개월 commitment 별도 결정 mandatory.",
+    ".env.snn-backup HIGH carryover.",
+    "Cressie-Read 1984 published PDF user verify mandatory (carryover).",
+    "Peer review 안 됨 (본 roadmap 자체).",
+    "Type: documentation-only — plan/roadmap 한정.",
+    "본 roadmap 의 mathematical 가치: long-term formalization strategic plan + cost-benefit + alternatives. Strict 새 mathematical 결과 아님."
+  ],
+  "hypothesis_verdict": "H_lean4_formalization_roadmap_plan_only_8_to_10_months",
+  "next_followup_candidates": [
+    "사용자 의 long-term R&D commitment 결정 (8-10 개월 또는 1.5 개월 Phase 1 부분)",
+    "elan + Lean 4 install (사용자 PC, 2-4 시간)",
+    "handface-formalization Lean project setup",
+    "Mathlib API fit 검증 (Phase 1 첫 step)",
+    "또는 alternative: §7.3 published peer review path"
+  ],
+  "references": [
+    "Lean 4 official documentation: https://leanprover.github.io/lean4/",
+    "Mathlib4: https://github.com/leanprover-community/mathlib4",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Ch. 14. (사용자 직접 verify mandatory)",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. (사용자 직접 verify mandatory)"
+  ]
+}

@@ -216,6 +216,12 @@ const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
   'resetHomeostatic',
   'resetClusterWeights',
   'reset',
+  // CPM-1 (Phase 1 diagnostic, 2026-05-31 7dd386a) — cluster pool usage.
+  // 직전 commit 영역 protocol / worker-client / worker-core case 영역 추가 영역
+  // 본 whitelist 영역 누락 영역 'disallowed request type: clusterPoolUsage' 영역
+  // production fail (사용자 console log catch 2026-05-31). Phase 2A.1 H2/H3/H4
+  // mitigation 측정 영역 sub-pool capacity / Jaccard / fallback 데이터 수집 정합.
+  'clusterPoolUsage',
   'triggerBackground',
   'reinforceBackground',
 ]);

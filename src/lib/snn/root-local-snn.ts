@@ -308,7 +308,7 @@ export async function purgeAllLearningData(): Promise<void> {
   // instance 영역 생성 영역 remove(netId).
   try {
     const sink = new IndexedDBSink();
-    for (const kind of ['orientation', 'gesture', 'orientation-5x5'] as const) {
+    for (const kind of ['orientation', 'gesture', 'orientation-5x5', 'orientation-6x6'] as const) {
       try {
         await sink.remove(netIdFor(kind));
       } catch (e) {
@@ -341,7 +341,7 @@ export async function purgeAllLearningData(): Promise<void> {
   }
   // Step 4: out-exemplars 영역 substrate 별 dispatch — UI 영역 즉시 0 row.
   try {
-    for (const kind of ['orientation', 'gesture', 'orientation-5x5'] as const) {
+    for (const kind of ['orientation', 'gesture', 'orientation-5x5', 'orientation-6x6'] as const) {
       window.dispatchEvent(new CustomEvent(`handface:out-exemplars-changed:${kind}`, { detail: {} }));
     }
   } catch {

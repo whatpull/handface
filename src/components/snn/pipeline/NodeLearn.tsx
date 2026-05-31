@@ -28,6 +28,7 @@ import {
   getRootLocalSnnFor,
   subscribeLocalSnnInitState,
   getLastLocalSnnInitState,
+  purgeAllLearningData,
   type SubstrateKind,
   type LocalSnnInitState,
 } from '@/lib/snn/root-local-snn';
@@ -159,26 +160,37 @@ export default function NodeLearn() {
   // 일회성 gate (handface.phase2a1.substrate-upgrade.notified.v1=1).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const FLAG = 'handface.phase2a2.substrate-upgrade.notified.v1';
+    // v2 (2026-06-01 hotfix): 자동 purge 추가. 직전 v1 영역 toast 만 표시 —
+    // 사용자 production catch (commit b350a9b 후속): 기존 orientation-6x6
+    // namespace 영역 hydrate 영역 학습 데이터 잔존 영역 forceDisjoint fallback
+    // ("기존 slots: 5") 영역 발생 + cluster pool exhaustion. flag 새 v2 영역
+    // 통해 사용자 다음 방문 시 1회 강제 purge.
+    const FLAG = 'handface.phase2a2.substrate-upgrade.notified.v2';
     try {
       if (window.localStorage.getItem(FLAG) === '1') return;
       const hasLegacy5x5 = window.localStorage.getItem('handface.out.exemplars.v1.orientation-5x5');
       const hasLegacyOrig = window.localStorage.getItem('handface.out.exemplars.v1.orientation');
-      const hasAnyLegacy = !!(hasLegacy5x5 || hasLegacyOrig);
+      const hasLegacy6x6 = window.localStorage.getItem('handface.out.exemplars.v1.orientation-6x6');
+      const hasAnyLegacy = !!(hasLegacy5x5 || hasLegacyOrig || hasLegacy6x6);
       const legacyHint = hasAnyLegacy
-        ? ' 기존 학습 데이터 (5×5 또는 4×4) 는 사용되지 않습니다 — 새로 학습해 주세요.'
+        ? ' 기존 학습 데이터 영역 자동 reset — 6×6 substrate 영역 처음부터 학습 시작.'
         : '';
       console.info(
-        '[handface][Phase 2A.2] substrate upgrade: orientation-5x5 (25 input/50 feat) → '
+        '[handface][Phase 2A.2 v2] substrate upgrade: orientation-5x5 (25 input/50 feat) → '
         + 'orientation-6x6 (36 input/72 features). 측정 evidence: 5×5 c3 sub-pool=3 '
         + 'inherent limit 60% → 6×6 N=4/5 100% accuracy.'
         + legacyHint,
       );
       if (hasAnyLegacy) {
+        // 자동 purge — 직전 v1 영역 toast 만 영역 사용자 영역 reset 안 누름
+        // 영역 ghost cluster (이전 학습 잔존) 영역 fallback 영역 catch.
+        // 정직 한계: localStorage + IndexedDB 영역 wipe (사용자 명시 reset 등가).
+        // 사용자 visible: toast (auto) — 명시적 클릭 영역 영역.
+        void purgeAllLearningData();
         showToast({
           kind: 'warning',
-          message: '학습 substrate 가 6×6 (72 features) 로 갱신되었습니다. 기존 학습 데이터는 무효 — 다시 학습해 주세요.',
-          duration: 8000,
+          message: '학습 substrate 가 6×6 (72 features) 로 갱신되었습니다. 기존 학습 데이터 자동 reset 완료 — 새로 학습해 주세요.',
+          duration: 10000,
         });
       }
       window.localStorage.setItem(FLAG, '1');

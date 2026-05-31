@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-lemma-6-1-general-p-bound",
+  "measurement_id": "hand-snn-lemma-6-1-general-p-bound",
+  "branch": "main",
+  "type": "partial_strict_bound_with_open_question",
+  "code_artifact": null,
+  "doc_artifact": "docs/LEMMA_6_1_GENERAL_P_STRICT_BOUND.md",
+  "commit_baselines": {
+    "theorem_7_1": "b1e3b1e",
+    "theorem_6_3_synthesis": "bc7e84a",
+    "N5K4_enumeration": "f446675",
+    "r_space_chain_partial": "90ee122",
+    "uniform_chain": "6f6104d"
+  },
+  "hypothesis": "직전 commit 90ee122 의 Lemma 6.1 의 §3.2 'general p extension' 의 strict quantitative bound 도출. (N=6, K=3) 의 explicit f_1, f_2 closed-form formulas + 특정 p 의 sign analysis.",
+  "result": "PARTIAL_STRICT_BOUND_LEMMA_6_4_PROVEN_UNIVERSAL_OPEN",
+  "main_results": {
+    "lemma_6_4_explicit_formulas": "f_1(p, δ) = -(7+2δ)/(6p_1+δ) + (8+4δ)/(6p_2+δ) - (1+2δ)/(6p_3+δ). f_2(p, δ) = -(37+21δ+3δ²)/(6p_1+δ)² + (26+24δ+6δ²)/(6p_2+δ)² - (1+3δ+3δ²)/(6p_3+δ)².",
+    "specific_p_sign_verification": "p=(0.1, 0.1, 0.8) δ=0.5: f_1 = +0.392, f_2 = -12 (sign reversal ✓). p=(1/3, 1/3, 1/3) uniform δ=0.5: f_1 = 0 (tied by Theorem 4 moment-matching), f_2 = -12. p=(0.5, 0.3, 0.2) δ=0.5: f_1 = +0.886, f_2 = +2.404 (둘 다 positive, sign reversal at {λ=1, λ=2} NOT verified).",
+    "open_question_p_0_5_0_3_0_2": "p=(0.5, 0.3, 0.2) 의 chain 여부 — 다른 λ values 또는 다른 O pairs 에서 reversal 발생 가능성 별도 enumeration mandatory."
+  },
+  "honest_limitations": [
+    "§2.5 의 universal p strict argument 없음 — p=(0.5, 0.3, 0.2) 에서 sign reversal at {λ=1, λ=2} NOT 발생.",
+    "다른 O pair 의 enumeration 안 함 — (O_a, O_b) = ((3,3,0), (4,1,1)) 한정.",
+    "General (N ≥ 7, K ≥ 3) explicit formula 안 함 — §3.2 sketch only.",
+    "f_2 formula 의 산수 hand-computed — machine verify 별도 R&D.",
+    "Lemma 6.1 의 statement 'any p' 의 universal strict argument 별도 R&D mandatory.",
+    "f446675 의 (N=5, K=4) enumeration 과 본 (N=6, K=3) 분석의 strict 연결 별도 R&D.",
+    "Olkin & Marshall 1979 ch. 14 weighted majorization characterization 사용자 직접 verify mandatory (carryover).",
+    "Cressie-Read 1984 + HLP 1934 + Macdonald 1995 published PDF user verify (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Hand SNN R&D context 영향 0 (Theorem 2-4 약화 0).",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — partial strict bound.",
+    "본 R&D 의 mathematical 가치: Lemma 6.1 statement 의 strict bound limitation 식별 + closed-form formula 제공. 새 universal theorem 보다 explicit 분석 가치.",
+    "본 R&D 의 §2.6 open question 정직 명시: p=(0.5, 0.3, 0.2) chain status 별도 enumeration mandatory."
+  ],
+  "hypothesis_verdict": "H_lemma_6_4_partial_strict_bound_proven_universal_p_argument_open",
+  "next_followup_candidates": [
+    "(N=6, K=3) Ω systematic enumeration",
+    "Universal p strict argument (closed-form characterization of sign reversal region)",
+    "General (N ≥ 7, K ≥ 3) explicit formula",
+    "Lean 4 formal verification of Lemma 6.4"
+  ],
+  "references": [
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14."
+  ]
+}

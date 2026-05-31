@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-05-31T13:07:23.938Z",
+  "scenario": "phase-2a-1-extra-rounds-new-cluster-design",
+  "variants": [
+    {
+      "name": "v1_baseline",
+      "schedule": [
+        30,
+        30,
+        30,
+        30
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 120
+    },
+    {
+      "name": "v2_first_30_rest_90",
+      "schedule": [
+        30,
+        90,
+        90,
+        90
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 300
+    },
+    {
+      "name": "v3_first_30_rest_60",
+      "schedule": [
+        30,
+        60,
+        60,
+        60
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 210
+    },
+    {
+      "name": "v4_all_60_90",
+      "schedule": [
+        60,
+        90,
+        90,
+        90
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 330
+    }
+  ],
+  "analysis": {
+    "bestTotal": {
+      "name": "v2_first_30_rest_90",
+      "schedule": [
+        30,
+        90,
+        90,
+        90
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 300
+    },
+    "bestLast": {
+      "name": "v2_first_30_rest_90",
+      "schedule": [
+        30,
+        90,
+        90,
+        90
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 300
+    },
+    "firstReachedGuide": {
+      "name": "v2_first_30_rest_90",
+      "schedule": [
+        30,
+        90,
+        90,
+        90
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 300
+    }
+  }
+}

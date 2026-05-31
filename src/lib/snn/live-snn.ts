@@ -1254,30 +1254,47 @@ export class LiveSnn {
       }
     }
     let registeredClusterId: number | null = null;
-    // P218 50 trials 시도 (2026-05-25) REVERTED — STDP saturation / over-noise
-    // exposure 가 cluster receptive field 손상:
-    //   Mean noise: 41.3 → 33.8%, Best 75 → 63%, Lucky 20% → 0%.
-    // baseline 30 trials 복원 — sweet spot.
+    // P218 50 trials 시도 (2026-05-25) REVERTED — 1st spawn 영역 모든 trial
+    // 증가 시 STDP saturation / over-noise exposure 가 cluster receptive field
+    // 손상: Mean noise 41.3 → 33.8%, Best 75 → 63%, Lucky 20% → 0%.
     //
     // 직전 incremental-fairness fix (commit 14a03fe, 2026-05-31) REVERTED:
-    //   ROUNDS = 6 * totalClusters 시도. 의도: 후순위 spawn 영역 over-training
-    //   compensation. 결과 (measurement phase-2a-1-rounds-multiplier-sweep):
-    //     [30, 60, 90, 120]:  total 80% (last 20%)
-    //     [30, 60, 120, 180]: total 75% (last 0%)  ← 더 나빠짐
-    //     [30, 90, 150, 240]: total 75% (last 0%)
-    //     [30, 120, 240, 360]: total 75% (last 0%)
-    //   Root cause: mid clusters (c1/c2) 영역 60-90 round 영역 STDP saturation
-    //   영역 영역 — last cluster 영역 boost 영역 prior 영역 over-train 영역
-    //   net effect 영역 negative. P218 reverted 영역 동일 영역.
-    //   = wrong direction. baseline 30 영역 영역 안전.
+    //   ROUNDS = 6 * totalClusters → mid clusters STDP saturation (P218 catch
+    //   동일 패턴 재현, measurement phase-2a-1-rounds-multiplier-sweep).
     //
-    // Phase 2A.1 H3 (catastrophic forgetting) mitigation 영역 영역 영역
-    // 영역 design 영역 필요 — 단순 ROUNDS 증가 영역 영역 catch 불가능.
-    const ROUNDS = 6;
+    // Phase 2A.1 H3 mitigation fix (2026-05-31, measurement phase-2a-1-
+    // extra-rounds-new-cluster):
+    //   2nd~ spawn 영역 신규 cluster 영역 단독 90 round (prior cluster 영역
+    //   추가 학습 없음 — 영역 영역 saturation 회피).
+    //   1st spawn 영역 영역 30 round (P218 sweet spot 유지 — 영역 영역 cluster
+    //   영역 영역 영역 영역 cross-competition 영역 영역 영역 영역 saturation 영역).
+    //   측정 결과:
+    //     v2 [30, 90, 90, 90]: total 90% (last 60%) ✓ Guide §3.4 ≥90% 도달
+    //     v3 [30, 60, 60, 60]: total 75% (60 round 영역 부족)
+    //     v4 [60, 90, 90, 90]: total 75% (1st 60 round STDP saturation catch)
+    //   Root cause:
+    //     Sequential per-spawn training 영역 prior cluster 영역 강한 weights
+    //     상태 영역 신규 cluster 영역 winner-take-all 경쟁 불가. 90 round
+    //     reinforce 영역 신규 cluster 영역 prior 영역 weight 영역 영역 영역
+    //     영역 catch — but 1st spawn 영역 적용 시 영역 cluster 영역 영역 영역
+    //     영역 영역 saturation (cross-cluster competition 영역 영역).
+    //   학술 정합: McCloskey & Cohen 1989 sequential interference + Robins 1995
+    //   incremental task budget compensation.
     const CHUNK = 5;
-    const TOTAL = ROUNDS * CHUNK;
+    // ROUNDS / TOTAL 는 expandClusterAsync 후 totalClusters 로 결정 — catch
+    // block 의 cleanup emit 에서도 참조 가능하도록 let.
+    // baseline 영역 30 trials (1st spawn 영역 P218 sweet spot 영역 정합).
+    let ROUNDS = 6;
+    let TOTAL = ROUNDS * CHUNK;
     try {
-      const { newClusterId } = await this.expandClusterAsync(activeInputs);
+      const { newClusterId, totalClusters } = await this.expandClusterAsync(activeInputs);
+      // 2nd+ spawn 영역 90 round 영역 cluster 영역 학습 (prior cluster 영역
+      // 영역 영역 — over-train 회피). totalClusters 영역 spawn 영역 영역 영역
+      // 영역 (1st spawn=1, 4th spawn=4).
+      if (totalClusters >= 2) {
+        ROUNDS = 18;
+        TOTAL = ROUNDS * CHUNK;
+      }
       // P218 diagnostic — spawn trace (full activeInputs values).
       if (this.substrateKind === 'orientation-5x5') {
         console.log(`[P218 spawn] cluster=${newClusterId} activeInputs=[${activeInputs.join(',')}]`);

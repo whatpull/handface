@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-05-31T13:02:37.397Z",
+  "scenario": "phase-2a-1-interleaved-vs-sequential",
+  "variants": {
+    "sequential": {
+      "description": "production: each cluster 30 round isolated",
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 120
+    },
+    "roundRobin": {
+      "description": "30 round, every round: all 4 clusters round-robin",
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75,
+      "totalReinforces": 120
+    },
+    "roundRobinPlusExtra": {
+      "description": "round-robin 30 + extra 60 for last cluster",
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.8
+      ],
+      "totalAccuracy": 0.95,
+      "totalReinforces": 180
+    }
+  }
+}

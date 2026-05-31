@@ -149,8 +149,9 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       activeInputs: [5, 6, 7, 8, 9, 26],
       forceDisjoint: true,
     });
-    // 30 trial = 5 chunk × 6 round.
-    expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(30);
+    // Phase 2A.1 H3 fix (2026-05-31): 2nd+ spawn = 90 trials (ROUNDS=18, CHUNK=5).
+    // mock returns totalClusters=5 → 2nd+ branch → 90 reinforces.
+    expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(90);
     // 첫 reinforce payload 영역 newClusterId=4 (mockExpandCluster 정합) target.
     const firstReinforce = mocks.mockReinforceBackground.mock.calls[0][0] as {
       targetCluster: number;
@@ -396,7 +397,8 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     // 동시에 expandCluster + reinforce loop 영역 trigger — runAutoLearnLoop 영역 dispatch.
     await new Promise((r) => setTimeout(r, 200));
     expect(mocks.mockExpandCluster).toHaveBeenCalledTimes(1);
-    expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(30);
+    // Phase 2A.1 H3 fix: 2nd+ spawn = 90 trials (totalClusters=5 mock).
+    expect(mocks.mockReinforceBackground).toHaveBeenCalledTimes(90);
     live.dispose();
   });
 

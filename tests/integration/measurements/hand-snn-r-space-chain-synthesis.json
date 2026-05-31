@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-r-space-chain-synthesis",
+  "measurement_id": "hand-snn-r-space-chain-synthesis",
+  "branch": "main",
+  "type": "mathematical_synthesis",
+  "code_artifact": null,
+  "doc_artifact": "docs/R_SPACE_CHAIN_SYNTHESIS_THEOREM_6_3.md",
+  "commit_baselines": {
+    "N5K4_enumeration_falsification": "f446675",
+    "r_space_chain_partial": "90ee122",
+    "non_uniform_reproducer": "33f592d",
+    "l_hopital_weighted": "8f0e34d",
+    "non_uniform_framework": "8c80e40",
+    "uniform_chain": "6f6104d",
+    "uniform_full_closed_form": "1c5d717"
+  },
+  "hypothesis": "직전 commits (Theorem 3 + Lemma 6.1 + f446675 Conjecture 6.2 falsification) 의 결합으로 r-space chain regime 의 closed-form characterization 도출 (Theorem 6.3). Conjecture 6.2 의 reformulation 정직 명시 + open regimes 식별.",
+  "result": "CLOSED_FORM_SYNTHESIS_FOR_KNOWN_REGIMES_OPEN_REGIMES_IDENTIFIED",
+  "main_results": {
+    "theorem_6_3_regime_A": "K ≤ 2 → chain (any N, p, δ). Theorem 3 Direction (A) 의 직접 응용 + weighted majorization 의 linear ordering.",
+    "theorem_6_3_regime_B": "K ≥ 3 ∧ N ≤ 5 ∧ p uniform → chain. Theorem 3 Direction (B) 의 직접 응용 (uniform p 에서 weights all equal, weighted majorization = standard majorization).",
+    "theorem_6_3_regime_C": "K ≥ 3 ∧ N ≥ 6 → NOT chain (any p, δ). Lemma 6.1 (commit 90ee122) proven necessary direction.",
+    "theorem_6_3_regime_D": "K = 4 ∧ N = 5 ∧ p ∈ NU_5_4 → NOT chain (verified for NU_5_4 = {p2, p3, p4, p5}). f446675 systematic enumeration 12/15 cells (4 non-uniform p × 3 δ).",
+    "open_regimes": "(N ≤ 5, K = 3, p non-uniform), (N = 3 or 4, K = 4, p non-uniform), (N = 5, K ≥ 5, p non-uniform), (N=5, K=4, p ∉ NU_5_4) — systematic enumeration extension 별도 R&D mandatory.",
+    "hand_snn_implication": "Hand SNN R&D 의 current regime (N=5/3, K=4, p uniform) 은 Regime (B) 에 속해 chain 유지. Future non-uniform prior 도입 시 Regime (D) 이동 가능성 — method (λ) 선택 다시 결정적."
+  },
+  "honest_limitations": [
+    "Regime (D) 의 NU_5_4 한정 — 4 specific non-uniform p configurations 만 verified. Other non-uniform p 별도 enumeration mandatory.",
+    "Open regimes 다수 — (N ≤ 5, K = 3, p non-uniform), (N = 3 또는 4, K = 4, p non-uniform), (N = 5, K ≥ 5, p non-uniform) 모두 unverified.",
+    "Regime (D) 의 universal claim ('K ≥ 3 ∧ N ≤ 5 ∧ p non-uniform → not chain') 의 strict proof 별도 R&D — 현재 specific configurations 한정.",
+    "f446675 의 numerical evidence 한정 — strict mathematical proof (weighted HLP-Karamata explicit application) 별도 R&D.",
+    "Hand SNN R&D 의 Regime (B) 적용 정직성 — current uniform null 한정 결론 유효, future non-uniform prior 시 Regime (D) 이동 가능성.",
+    "Reformulated Conjecture 6.2' (uniform p 한정) 은 Theorem 3 직접 재진술 — 새 mathematical 결과 아님. 본 synthesis 의 contribution 은 mathematical landscape clarification.",
+    "Olkin & Marshall 1979 ch. 14 weighted majorization characterization 사용자 직접 verify mandatory (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨 (carryover).",
+    "HLP 1934 + Cressie-Read 1984 + Olkin-Marshall 1979 + Macdonald 1995 published PDF 사용자 직접 verify mandatory (carryover).",
+    "Peer review 안 됨 — published statistical literature cross-check 사용자 mandatory.",
+    ".env.snn-backup HIGH carryover — 사용자 직접 rotate mandatory.",
+    "Type: documentation-only — synthesis 한정 (numerical artifact 는 f446675).",
+    "본 synthesis 의 mathematical 가치 정직 평가: Conjecture 6.2 reformulation + 정확한 boundary 명시 + open regimes 식별 (strict 새 theorem 보다 landscape clarification 의 가치).",
+    "(N=5, K=5) 등 다른 K case 의 partition lattice chain 의 weights extension 별도 R&D — Theorem 3 Direction (B) 의 K ≥ 5 case 의 weighted form 직접 verify.",
+    "r-space chain 의 weighted majorization 정의의 strict equivalence with T_λ sign-consistency rule 사용자 verify mandatory (Lemma 5.1 + 5.2 framework 의 implicit assumption)."
+  ],
+  "hypothesis_verdict": "H_theorem_6_3_closed_form_synthesis_for_known_regimes_open_regimes_explicit",
+  "next_followup_candidates": [
+    "Regime (D) 의 universal claim strict proof (weighted HLP-Karamata)",
+    "(N ≤ 5, K = 3, p non-uniform) systematic enumeration",
+    "(N = 3 또는 4, K = 4, p non-uniform) systematic enumeration",
+    "Regime (B) 의 K ≥ 5 case 의 weighted form verify",
+    "Lean 4 / Coq formal verification of Theorem 6.3",
+    "Olkin & Marshall 1979 ch. 14 published edition 사용자 직접 verify (mandatory)"
+  ],
+  "references": [
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization and Its Applications. Academic Press. Ch. 14.",
+    "Macdonald, I. G. (1995). Symmetric Functions and Hall Polynomials. Oxford University Press."
+  ]
+}

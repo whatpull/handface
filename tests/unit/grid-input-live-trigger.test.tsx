@@ -96,7 +96,7 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
 
   it('G1: pixel toggle 영역 Live mode → setPattern only (triggerOnce 호출 0)', async () => {
     render(<GridInput />);
-    const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
+    const pixels = screen.getAllByRole('button', { name: /^픽셀 \d+/ });
     expect(pixels).toHaveLength(16);
     fireEvent.click(pixels[0]);
     expect(mockSetPattern).toHaveBeenCalled();
@@ -112,7 +112,7 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
   it('G2: pixel toggle Backend mode → live API 0 호출', async () => {
     mockUseEngineMode.mockReturnValue(['backend', vi.fn()]);
     render(<GridInput />);
-    const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
+    const pixels = screen.getAllByRole('button', { name: /^픽셀 \d+/ });
     fireEvent.click(pixels[0]);
     expect(mockTriggerOnce).not.toHaveBeenCalled();
     expect(mockInferOnce).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
 
   it('G4: pixel click × 3 → triggerOnce 호출 0 (사용자 catch A1 root fix)', async () => {
     render(<GridInput />);
-    const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
+    const pixels = screen.getAllByRole('button', { name: /^픽셀 \d+/ });
     fireEvent.click(pixels[0]);
     fireEvent.click(pixels[1]);
     fireEvent.click(pixels[2]);
@@ -164,7 +164,7 @@ describe('GridInput — PR-K architectural pivot (사용자 catch 2026-05-09 cat
     render(<GridInput />);
     // isGridEmpty() early-return 방지 — 픽셀 1개 이상 on 상태여야 triggerWithVigilance
     // 까지 도달. pixel 0 클릭 → grid[0] = 1 (non-empty).
-    const pixels = screen.getAllByRole('button', { name: /^pixel \d+/ });
+    const pixels = screen.getAllByRole('button', { name: /^픽셀 \d+/ });
     fireEvent.click(pixels[0]);
     const inferBtn = screen.getByRole('button', { name: /추론 — STDP off/ });
     fireEvent.click(inferBtn);

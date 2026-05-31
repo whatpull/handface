@@ -518,8 +518,19 @@ export class SNNWorkerCore {
     this.net = restored;
     this.monitor = new SpikeMonitor();
     this.monitor.attachAll(restored.neurons);
-    // 토폴로지 기반으로 cluster 슬롯 추론.
-    const registry = inferClusterRegistry(restored.neurons.map((n) => n.name));
+    // Fix CPM-1 inputDim=32 stale (2026-05-31): preset hint 영역 caller 정합
+    // forward — 미동봉 시 default 'n13_orientation' (32-dim) 영역 catch
+    // (legacy snapshot backward compat). this.buildPreset 영역 후속 expandCluster
+    // / clusterPoolUsage path 영역 정합 catch.
+    if (payload.preset) {
+      this.buildPreset = payload.preset;
+    }
+    // 토폴로지 기반으로 cluster 슬롯 추론 — preset hint 영역 V1/V2 pool 크기
+    // 분기 (N13/N14/N15/N16 Pools).
+    const registry = inferClusterRegistry(
+      restored.neurons.map((n) => n.name),
+      payload.preset,
+    );
     // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist):
     //   activeInputs hydrate 우선순위 (높음 → 낮음):
     //   1. payload.clusterActiveInputs (caller 영역 명시 — gesture preset 영역

@@ -64,6 +64,14 @@ export interface RestoreSnapshotPayload {
   // 선택 — 알고있는 cluster 별 활성 input. UI 메타데이터, registry slot 에
   // 채움. 미지정 시 빈 배열로 남고 cluster id 만 복원.
   clusterActiveInputs?: number[][];
+  // 사용자 catch 2026-05-31 (CPM-1 inputDim=32 stale 영역 production catch):
+  //   restoreSnapshot 영역 preset hint 미동봉 시 worker.inferClusterRegistry
+  //   영역 default 'n13_orientation' (32-dim) 영역 영역 inputDim mis-report.
+  //   Phase 2A.1 'orientation-5x5' (50-dim) hydrate 시 sub-pool % / Jaccard
+  //   영역 32 영역 분모 영역 잘못 계산 영역 H2 mitigation 측정 영역 invalid.
+  //   본 field 영역 caller (LocalSNN) 영역 opts.preset 영역 그대로 forward —
+  //   backward compat 영역 optional (legacy snapshot 영역 default fallback).
+  preset?: 'n13_orientation' | 'n14_extended' | 'n15_extended_6x6' | 'n16_hand';
 }
 
 export interface RunPayload {

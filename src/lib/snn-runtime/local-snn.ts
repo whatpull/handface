@@ -119,6 +119,10 @@ export class LocalSNN {
       const restored = await client.restoreSnapshot({
         snapshot: persistedTopology,
         clusterActiveInputs: this.opts.clusterActiveInputs,
+        // Fix CPM-1 inputDim=32 stale (2026-05-31): worker.inferClusterRegistry
+        // default 'n13_orientation' 영역 hydrate path 영역 inputDim mis-report
+        // 영역 sub-pool % 영역 잘못 계산 → preset hint 명시 forward.
+        preset: this.opts.preset,
       });
       this.neuronsCount = restored.neurons;
       this.synapsesCount = restored.synapses;

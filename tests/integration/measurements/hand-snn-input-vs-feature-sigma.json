@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-28T15:24:12.281Z",
+  "timestamp": "2026-05-31T10:29:04.760Z",
   "scenario": "hand-snn-input-vs-feature-sigma",
   "gestures": [
     "open_palm",
@@ -57,6 +57,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -98,6 +104,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -139,6 +151,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -180,6 +198,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -221,6 +245,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -262,6 +292,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -303,6 +339,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -344,6 +386,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -385,6 +433,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -426,6 +480,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -467,6 +527,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -508,6 +574,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -549,6 +621,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -590,6 +668,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -631,6 +715,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -672,6 +762,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 0.95,
       "held_out_correct": 19,
       "held_out_total": 20,
@@ -713,6 +809,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -754,6 +856,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -795,6 +903,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -836,6 +950,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -877,6 +997,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 0.95,
       "held_out_correct": 19,
       "held_out_total": 20,
@@ -918,6 +1044,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -959,6 +1091,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1000,6 +1138,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1041,6 +1185,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1082,6 +1232,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1123,6 +1279,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1164,6 +1326,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1205,6 +1373,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1246,6 +1420,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1287,6 +1467,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1328,6 +1514,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1369,6 +1561,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1410,6 +1608,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1451,6 +1655,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1492,6 +1702,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1533,6 +1749,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1574,6 +1796,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1615,6 +1843,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1656,6 +1890,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1697,6 +1937,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1738,6 +1984,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1779,6 +2031,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1820,6 +2078,12 @@
       "baseline_accuracy": 0.75,
       "baseline_correct": 3,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        0,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1861,6 +2125,12 @@
       "baseline_accuracy": 1,
       "baseline_correct": 4,
       "baseline_total": 4,
+      "baseline_correct_per_gesture": [
+        1,
+        1,
+        1,
+        1
+      ],
       "held_out_accuracy": 1,
       "held_out_correct": 20,
       "held_out_total": 20,
@@ -1900,6 +2170,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 1,
       "baseline_accuracy_std": 0,
+      "baseline_correct_per_gesture_sum": [
+        5,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -1940,6 +2216,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -1981,6 +2263,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2022,6 +2310,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2063,6 +2357,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2104,6 +2404,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2143,6 +2449,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.95,
       "baseline_accuracy_std": 0.11180339887498948,
+      "baseline_correct_per_gesture_sum": [
+        4,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -2183,6 +2495,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2224,6 +2542,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2265,6 +2589,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2306,6 +2636,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2347,6 +2683,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2386,6 +2728,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.95,
       "baseline_accuracy_std": 0.11180339887498948,
+      "baseline_correct_per_gesture_sum": [
+        4,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -2426,6 +2774,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2467,6 +2821,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2508,6 +2868,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2549,6 +2915,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2590,6 +2962,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2629,6 +3007,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.75,
       "baseline_accuracy_std": 0,
+      "baseline_correct_per_gesture_sum": [
+        0,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 0.99,
       "held_out_accuracy_std": 0.022360679774997918,
       "aggregated_held_out_confusion": [
@@ -2669,6 +3053,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 0.95,
           "held_out_correct": 19,
           "held_out_total": 20,
@@ -2710,6 +3100,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2751,6 +3147,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2792,6 +3194,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2833,6 +3241,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2872,6 +3286,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.75,
       "baseline_accuracy_std": 0,
+      "baseline_correct_per_gesture_sum": [
+        0,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 0.99,
       "held_out_accuracy_std": 0.022360679774997918,
       "aggregated_held_out_confusion": [
@@ -2912,6 +3332,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 0.95,
           "held_out_correct": 19,
           "held_out_total": 20,
@@ -2953,6 +3379,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -2994,6 +3426,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3035,6 +3473,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3076,6 +3520,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3115,6 +3565,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.75,
       "baseline_accuracy_std": 0,
+      "baseline_correct_per_gesture_sum": [
+        0,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -3155,6 +3611,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3196,6 +3658,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3237,6 +3705,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3278,6 +3752,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3319,6 +3799,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3358,6 +3844,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 1,
       "baseline_accuracy_std": 0,
+      "baseline_correct_per_gesture_sum": [
+        5,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -3398,6 +3890,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3439,6 +3937,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3480,6 +3984,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3521,6 +4031,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3562,6 +4078,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3601,6 +4123,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.95,
       "baseline_accuracy_std": 0.11180339887498948,
+      "baseline_correct_per_gesture_sum": [
+        4,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -3641,6 +4169,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3682,6 +4216,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3723,6 +4263,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3764,6 +4310,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3805,6 +4357,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3844,6 +4402,12 @@
       "n_seed_pairs": 5,
       "baseline_accuracy_mean": 0.95,
       "baseline_accuracy_std": 0.11180339887498948,
+      "baseline_correct_per_gesture_sum": [
+        4,
+        5,
+        5,
+        5
+      ],
       "held_out_accuracy_mean": 1,
       "held_out_accuracy_std": 0,
       "aggregated_held_out_confusion": [
@@ -3884,6 +4448,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3925,6 +4495,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -3966,6 +4542,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -4007,6 +4589,12 @@
           "baseline_accuracy": 0.75,
           "baseline_correct": 3,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            0,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -4048,6 +4636,12 @@
           "baseline_accuracy": 1,
           "baseline_correct": 4,
           "baseline_total": 4,
+          "baseline_correct_per_gesture": [
+            1,
+            1,
+            1,
+            1
+          ],
           "held_out_accuracy": 1,
           "held_out_correct": 20,
           "held_out_total": 20,
@@ -4116,8 +4710,6 @@
   ],
   "dominant_verdict": "H_saturated_both",
   "dominant_verdict_count": 3,
-  "verdict_scope_note": "verdict 영역 held-out accuracy 영역 SATURATED_THRESHOLD=0.95 영역 산출 — baseline accuracy 영역 verdict scope 영역 영역 영역. feature_only baseline=0.75 (5 seed systematic miss — 영역 baseline_systematic_note 참조) 영역 verdict 'H_saturated_both' 영역 미반영. 차후 R&D 영역 baseline + held-out 영역 영역 영역 영역 영역 verdict (joint criterion) 영역 영역 영역 영역 mandatory.",
-  "feature_only_baseline_systematic_note": "feature_only variant 영역 5 seed pair 모두 baseline_accuracy=0.75 (1 of 4 gesture systematic miss — random outlier 영역 영역) — hypothesis: feature-only variant 영역 input-level noise disabled (jitterSigma=0) 영역 clean landmark + feature-level noise (addFeatureNoise σ) 영역 single gesture boundary case 영역 deterministic interaction (encoder + forced-disjoint topology 영역 clean input + feature noise 영역 영역 영역 영역 boundary). 5 seed identical pattern 영역 random outlier 영역 영역 systematic mode — per-seed confusion matrix 영역 baseline miss gesture index 영역 catch 영역 별도 R&D 권장.",
   "verdict_summary_by_sigma": [
     {
       "sigma": 0.1,
@@ -4142,7 +4734,8 @@
     },
     "saturated_threshold": 0.95,
     "gap_epsilon": 0.05,
-    "frequentist_note": "failure to reject H0 ≠ accept H0. 영역 (variant, σ) 영역 N=5 seed × N=5 held-out × 4 gesture = 100 noisy samples → 95% Wilson CI ±5%. statistical power moderate. dominant layer identification 영역 sweep granularity 한정."
+    "frequentist_note": "failure to reject H0 ≠ accept H0. 영역 (variant, σ) 영역 N=5 seed × N=5 held-out × 4 gesture = 100 noisy samples → 95% Wilson CI ±5%. statistical power moderate. dominant layer identification 영역 sweep granularity 한정.",
+    "verdict_scope_note": "verdict classification (classifyVerdict) 영역 held-out accuracy 한정 SATURATED_THRESHOLD=0.95 영역 산출 — baseline accuracy 영역 verdict scope 영역 미포함. 본 sweep 영역 feature_only baseline=0.75 (5 seed × σ ∈ {0.10, 0.30, 0.50} 모두 systematic miss — std=0) 영역 'H_saturated_both' verdict 영역 미반영 — held-out 100% 영역 baseline 75% 영역 정직 gap. 차후 R&D 영역 verdict 영역 (baseline_accuracy ≥ 0.95 AND held_out ≥ 0.95) joint criterion 영역 'H_saturated_both' 영역 영역 영역 mandatory — 본 R&D 영역 verdict 영역 held-out 한정 dominance 영역 한정 해석."
   },
   "academic_alignment": [
     "Goodfellow et al. 2014 — input vs feature noise distinction (dropout vs input perturbation 영역 fully-connected MLP 가정 — Bio-SNN R-STDP 영역 direct mapping 영역 한계).",

@@ -1,0 +1,228 @@
+{
+  "timestamp": "2026-05-31T12:33:02.551Z",
+  "scenario": "phase-2a-1-spawn-order-experiment",
+  "orderA": {
+    "description": "production order (c0=hor, c1=ver, c2=diag-back, c3=diag-fore)",
+    "rawPatterns": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        0,
+        5,
+        10,
+        15,
+        20
+      ],
+      [
+        0,
+        6,
+        12,
+        18,
+        24
+      ],
+      [
+        4,
+        8,
+        12,
+        16,
+        20
+      ]
+    ],
+    "perClusterSize": [
+      6,
+      5,
+      7,
+      3
+    ],
+    "perClusterActive": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4,
+        25
+      ],
+      [
+        5,
+        10,
+        15,
+        20,
+        30
+      ],
+      [
+        6,
+        12,
+        18,
+        24,
+        39,
+        43,
+        49
+      ],
+      [
+        8,
+        16,
+        40
+      ]
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "totalAccuracy": 0.75,
+    "matrix": [
+      [
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ]
+    ]
+  },
+  "orderB": {
+    "description": "swap order (c0=hor, c1=ver, c2=diag-fore, c3=diag-back)",
+    "rawPatterns": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        0,
+        5,
+        10,
+        15,
+        20
+      ],
+      [
+        4,
+        8,
+        12,
+        16,
+        20
+      ],
+      [
+        0,
+        6,
+        12,
+        18,
+        24
+      ]
+    ],
+    "perClusterSize": [
+      6,
+      5,
+      6,
+      4
+    ],
+    "perClusterActive": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4,
+        25
+      ],
+      [
+        5,
+        10,
+        15,
+        20,
+        30
+      ],
+      [
+        8,
+        12,
+        16,
+        40,
+        43,
+        49
+      ],
+      [
+        6,
+        18,
+        24,
+        39
+      ]
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "totalAccuracy": 0.75,
+    "matrix": [
+      [
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0
+      ]
+    ]
+  },
+  "analysis": {
+    "orderASmallestCluster": {
+      "idx": 3,
+      "size": 3
+    },
+    "orderBSmallestCluster": {
+      "idx": 3,
+      "size": 4
+    },
+    "orderAWorstAccuracy": {
+      "idx": 3,
+      "accuracy": 0
+    },
+    "orderBWorstAccuracy": {
+      "idx": 3,
+      "accuracy": 0
+    }
+  }
+}

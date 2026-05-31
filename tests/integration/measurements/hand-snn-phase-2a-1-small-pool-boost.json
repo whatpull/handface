@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-05-31T14:43:52.765Z",
+  "scenario": "phase-2a-1-small-pool-cluster-rounds-boost",
+  "hypothesis": "small sub-pool (3 features) cluster 의 ROUNDS 추가 시 weight saturation 도달",
+  "variants": [
+    {
+      "name": "v0_baseline_90",
+      "lastClusterRounds": 90,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9
+    },
+    {
+      "name": "v1_120",
+      "lastClusterRounds": 120,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75
+    },
+    {
+      "name": "v2_150",
+      "lastClusterRounds": 150,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75
+    },
+    {
+      "name": "v3_180",
+      "lastClusterRounds": 180,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75
+    },
+    {
+      "name": "v4_240",
+      "lastClusterRounds": 240,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "totalAccuracy": 0.75
+    }
+  ],
+  "analysis": {
+    "bestC3": {
+      "name": "v0_baseline_90",
+      "lastClusterRounds": 90,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9
+    },
+    "bestTotal": {
+      "name": "v0_baseline_90",
+      "lastClusterRounds": 90,
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9
+    }
+  }
+}

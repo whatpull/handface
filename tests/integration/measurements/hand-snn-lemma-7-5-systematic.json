@@ -1,0 +1,5144 @@
+{
+  "meta": {
+    "id": "hand-snn-lemma-7-5-systematic",
+    "purpose": "Lemma 7.5 (Hausdorff moment-determination, 899912d) 의 numerical evidence 강화. f446675 의 enumeration (N=5, K=4, 15 cells, 12 NOT_chain) 의 incomparable pairs 에 broader λ grid (10 values) 의 sign-change verify + comparable pairs 의 sign-consistency reverse-verify (Theorem 7.1 (⇐) consistency cross-check).",
+    "parameters": {
+      "N": 5,
+      "K": 4,
+      "omega_size": 56,
+      "pair_count_per_cell": 1540,
+      "lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "lambdas_f446675_subset": [
+        0.5,
+        1,
+        2,
+        0,
+        -1,
+        -1.5
+      ],
+      "deltas": [
+        0.1,
+        0.5,
+        1
+      ],
+      "p_configs": [
+        {
+          "id": "p1_uniform",
+          "label": "uniform",
+          "p": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        {
+          "id": "p2_skewed",
+          "label": "(0.5, 0.3, 0.15, 0.05)",
+          "p": [
+            0.5,
+            0.3,
+            0.15,
+            0.05
+          ]
+        },
+        {
+          "id": "p3_extreme",
+          "label": "(0.7, 0.1, 0.1, 0.1) extreme",
+          "p": [
+            0.7,
+            0.1,
+            0.1,
+            0.1
+          ]
+        },
+        {
+          "id": "p4_mild",
+          "label": "(0.4, 0.3, 0.2, 0.1)",
+          "p": [
+            0.4,
+            0.3,
+            0.2,
+            0.1
+          ]
+        },
+        {
+          "id": "p5_pair",
+          "label": "(0.4, 0.4, 0.1, 0.1)",
+          "p": [
+            0.4,
+            0.4,
+            0.1,
+            0.1
+          ]
+        }
+      ],
+      "tie_tolerance": 1e-9,
+      "spot_check_cap": 20
+    },
+    "methodology": {
+      "enumeration": "Ω(5, 4) = all compositions of N=5 into K=4 non-negative cells (56 outcomes).",
+      "classification": "Per pair (i < j), compute sign(T_λ(o_a) - T_λ(o_b)) on (a) f446675 subset of 6 λ values, (b) full 10-λ broader grid. Classify as comparable / incomparable / all_tied / nan per grid.",
+      "lemma_7_5_check": "For each f446675-incomparable pair, check whether the broader grid still shows sign-change (Lemma 7.5 contrapositive: incomparable ⟹ ∃ λ_1, λ_2 with opposite signs). Verified iff broader grid also classifies as incomparable.",
+      "theorem_7_1_check": "For each f446675-comparable pair, check whether broader grid preserves sign consistency (Theorem 7.1 (⇐): r_a ≻_w r_b ⟹ all-λ T_λ(o_a) ≥ T_λ(o_b)). Violation candidate iff broader grid classifies as incomparable."
+    },
+    "wall_ms": 53.836,
+    "node_version": "v22.20.0",
+    "timestamp": "2026-05-31T01:51:12.127Z",
+    "honest_limitations": [
+      "본 reproducer 는 (N=5, K=4) 한정 — f446675 의 enumeration scope 일치. 다른 (N, K) cell (예: N=6, K=4 또는 N=5, K=5) 의 systematic verify 별도 R&D.",
+      "λ grid 10 values 한정 — {-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 3}. λ → ±∞ asymptotic boundary 별도 R&D. 단 Cressie-Read family 의 representative range 는 본 grid 가 broader 인 점에서 f446675 의 6-λ grid 대비 의의 있음.",
+      "본 script 는 'f446675-incomparable pair' 정의를 ' 6-λ grid 에서 sign-change' 로 한정 — Olkin & Marshall 1979 의 weighted majorization 의 strict 'incomparable' definition 과의 numerical 등가성 별도 verify 필요. Lemma 5.1 + 5.2 가 두 definition 의 등가 시사하지만 strict proof 별도 R&D.",
+      "Lemma 7.5 의 strict proof (Hausdorff-Choquet specialization) 안 됨 — 본 script 는 contrapositive 의 numerical evidence 한정 (negative direction).",
+      "Theorem 7.1 (⇐) 의 strict proof 는 b1e3b1e 에서 closed-form 완료 — 본 script 의 'verified ratio' 는 f446675 의 'comparable' classification 의 broader λ grid robustness 측정. 100% 미달 시 f446675 classification 의 false-positive 의 numerical evidence 일 수 있음 (Theorem 7.1 (⇐) 자체 위반 아님 — 별도 HLP majorization 직접 verify 필요).",
+      "Numerical sign rule (tie tolerance 1e-9) — IEEE 754 double precision 한정. 매우 small T_λ 차이 의 false-tie 가능성 — 단 본 verify 에서 sign-change 가 발견된 pair 는 multiple λ 에서 strict sign 차이 보유 → tie tolerance 영향 최소.",
+      "Lemma 7.5 의 'verified ratio' 100% 이어도 Lemma 7.5 의 strict proof 아님 — broader λ grid 의 incomparable pair 가 weighted majorization 의 strict incomparability 와 1-1 대응함을 numerical evidence 가 시사할 뿐. Hausdorff moment problem 의 finite-grid 한정 evidence 와 continuous moment problem 의 strict moment-determination 사이 gap 존재.",
+      "본 reproducer 는 f446675 의 12 NOT_chain cells 의 spot-check 에 집중 — chain cells (uniform p × 3 δ = 3 cells) 의 reverse verify 도 포함 (chain 이 broader grid 에서도 chain 유지하는지).",
+      "f446675-incomparable 의 첫 SPOT_CHECK_CAP=20 sample 만 detailed t-values 기록 — 전체 incomparable pairs 의 sign-change λ pair 분포 분석은 본 script 의 cap 변경 필요.",
+      "Cressie-Read 1984 + Olkin & Marshall 1979 ch. 14 + Hausdorff 1921 + Rudin 1976 published source 사용자 직접 verify mandatory (carryover).",
+      "Lemma 7.5 의 final truth value 미해결 — 본 numerical evidence 는 supportive 한정. Lean 4 / Coq formal verification 별도 R&D.",
+      "Peer review 안 됨 — published statistical literature cross-check 사용자 mandatory.",
+      ".env.snn-backup HIGH carryover — 사용자 직접 rotate mandatory.",
+      "본 script 는 'standalone Node script + JSON reproducer' 패턴 — vitest worker zombie 회피 가이드 준수.",
+      "본 R&D 의 evidence type: 'numerical spot-check' — strict closed-form proof 아님. 직접 Hausdorff-Choquet specialization (Lemma 7.5 의 multi-cycle proof attempt) 별도 R&D mandatory.",
+      "T_λ formula 의 source-of-truth 는 hand-derived Lemma 5.1 + 5.2 (commits 8c80e40 + 8f0e34d) — 본 script 의 formula 정확성 의존. λ ∉ {0, -1} 의 general formula 의 L'Hopital limit 의 numerical 정확성 (예: λ = -0.001 limit) 별도 R&D — 본 script 는 λ ∈ {0, -1} 의 closed-form 만 사용."
+    ]
+  },
+  "aggregate": {
+    "not_chain_cells": 12,
+    "chain_cells": 3,
+    "lemma_7_5_contrapositive": {
+      "total_incomparable_pairs_on_f446675": 2137,
+      "sign_change_verified_on_full_grid": 2137,
+      "sign_change_lost_on_full_grid": 0,
+      "verified_ratio": 1
+    },
+    "theorem_7_1_consistency": {
+      "total_comparable_pairs_on_f446675": 19676,
+      "consistent_on_full_grid": 19309,
+      "violated_on_full_grid": 367,
+      "verified_ratio": 0.9813478349257979
+    }
+  },
+  "cell_results": [
+    {
+      "p_id": "p1_uniform",
+      "p_label": "uniform",
+      "p": [
+        0.25,
+        0.25,
+        0.25,
+        0.25
+      ],
+      "delta": 0.1,
+      "e_prime": [
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "f446675_verdict": "chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 0,
+        "sign_change_verified_on_full_grid": 0,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1264,
+        "consistent_on_full_grid": 1264,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "unexpected_pairs_count": 0,
+      "unexpected_pairs_sample": []
+    },
+    {
+      "p_id": "p1_uniform",
+      "p_label": "uniform",
+      "p": [
+        0.25,
+        0.25,
+        0.25,
+        0.25
+      ],
+      "delta": 0.5,
+      "e_prime": [
+        1.75,
+        1.75,
+        1.75,
+        1.75
+      ],
+      "f446675_verdict": "chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 0,
+        "sign_change_verified_on_full_grid": 0,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1264,
+        "consistent_on_full_grid": 1264,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "unexpected_pairs_count": 0,
+      "unexpected_pairs_sample": []
+    },
+    {
+      "p_id": "p1_uniform",
+      "p_label": "uniform",
+      "p": [
+        0.25,
+        0.25,
+        0.25,
+        0.25
+      ],
+      "delta": 1,
+      "e_prime": [
+        2.25,
+        2.25,
+        2.25,
+        2.25
+      ],
+      "f446675_verdict": "chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1264,
+        "incomparable": 0,
+        "all_tied": 276,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 0,
+        "sign_change_verified_on_full_grid": 0,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1264,
+        "consistent_on_full_grid": 1264,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "unexpected_pairs_count": 0,
+      "unexpected_pairs_sample": []
+    },
+    {
+      "p_id": "p2_skewed",
+      "p_label": "(0.5, 0.3, 0.15, 0.05)",
+      "p": [
+        0.5,
+        0.3,
+        0.15,
+        0.05
+      ],
+      "delta": 0.1,
+      "e_prime": [
+        2.6,
+        1.6,
+        0.85,
+        0.35
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1221,
+        "incomparable": 319,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1187,
+        "incomparable": 353,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 319,
+        "sign_change_verified_on_full_grid": 319,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1221,
+        "consistent_on_full_grid": 1187,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 34,
+        "verified_ratio": 0.9721539721539721
+      },
+      "unexpected_pairs_count": 34,
+      "unexpected_pairs_sample": [
+        {
+          "i": 8,
+          "j": 10,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 9,
+          "j": 14,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            0,
+            2,
+            3,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 10,
+          "j": 12,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 10,
+          "j": 23,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            1,
+            0,
+            2,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 16,
+          "j": 17,
+          "o_a": [
+            0,
+            3,
+            1,
+            1
+          ],
+          "o_b": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 17,
+          "j": 28,
+          "o_a": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "o_b": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 17,
+          "j": 33,
+          "o_a": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "o_b": [
+            1,
+            3,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 22,
+          "j": 52,
+          "o_a": [
+            1,
+            0,
+            1,
+            3
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 23,
+          "j": 25,
+          "o_a": [
+            1,
+            0,
+            2,
+            2
+          ],
+          "o_b": [
+            1,
+            0,
+            4,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 25,
+          "j": 46,
+          "o_a": [
+            1,
+            0,
+            4,
+            0
+          ],
+          "o_b": [
+            3,
+            0,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "p_label": "(0.5, 0.3, 0.15, 0.05)",
+      "p": [
+        0.5,
+        0.3,
+        0.15,
+        0.05
+      ],
+      "delta": 0.5,
+      "e_prime": [
+        3,
+        2,
+        1.25,
+        0.75
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1304,
+        "incomparable": 236,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1271,
+        "incomparable": 269,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 236,
+        "sign_change_verified_on_full_grid": 236,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1304,
+        "consistent_on_full_grid": 1271,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 33,
+        "verified_ratio": 0.9746932515337423
+      },
+      "unexpected_pairs_count": 33,
+      "unexpected_pairs_sample": [
+        {
+          "i": 9,
+          "j": 12,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 27,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 30,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            2,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 37,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            2,
+            0,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 40,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            2,
+            1,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 46,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            3,
+            0,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 10,
+          "j": 18,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 11,
+          "j": 20,
+          "o_a": [
+            0,
+            2,
+            0,
+            3
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 12,
+          "j": 17,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 14,
+          "j": 27,
+          "o_a": [
+            0,
+            2,
+            3,
+            0
+          ],
+          "o_b": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "p_label": "(0.5, 0.3, 0.15, 0.05)",
+      "p": [
+        0.5,
+        0.3,
+        0.15,
+        0.05
+      ],
+      "delta": 1,
+      "e_prime": [
+        3.5,
+        2.5,
+        1.75,
+        1.25
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1358,
+        "incomparable": 182,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1314,
+        "incomparable": 226,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 182,
+        "sign_change_verified_on_full_grid": 182,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1358,
+        "consistent_on_full_grid": 1314,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 44,
+        "verified_ratio": 0.96759941089838
+      },
+      "unexpected_pairs_count": 44,
+      "unexpected_pairs_sample": [
+        {
+          "i": 4,
+          "j": 7,
+          "o_a": [
+            0,
+            0,
+            4,
+            1
+          ],
+          "o_b": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "j": 11,
+          "o_a": [
+            0,
+            0,
+            4,
+            1
+          ],
+          "o_b": [
+            0,
+            2,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "j": 22,
+          "o_a": [
+            0,
+            0,
+            4,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            1,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "j": 26,
+          "o_a": [
+            0,
+            0,
+            4,
+            1
+          ],
+          "o_b": [
+            1,
+            1,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "j": 36,
+          "o_a": [
+            0,
+            0,
+            4,
+            1
+          ],
+          "o_b": [
+            2,
+            0,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 7,
+          "j": 15,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            3,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 18,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 8,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 23,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            2,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p3_extreme",
+      "p_label": "(0.7, 0.1, 0.1, 0.1) extreme",
+      "p": [
+        0.7,
+        0.1,
+        0.1,
+        0.1
+      ],
+      "delta": 0.1,
+      "e_prime": [
+        3.6,
+        0.6,
+        0.6,
+        0.6
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1335,
+        "incomparable": 115,
+        "all_tied": 90,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1311,
+        "incomparable": 139,
+        "all_tied": 90,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 115,
+        "sign_change_verified_on_full_grid": 115,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1335,
+        "consistent_on_full_grid": 1311,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 24,
+        "verified_ratio": 0.9820224719101124
+      },
+      "unexpected_pairs_count": 24,
+      "unexpected_pairs_sample": [
+        {
+          "i": 27,
+          "j": 55,
+          "o_a": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 28,
+          "j": 55,
+          "o_a": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 31,
+          "j": 55,
+          "o_a": [
+            1,
+            2,
+            1,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 37,
+          "j": 52,
+          "o_a": [
+            2,
+            0,
+            1,
+            2
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 37,
+          "j": 53,
+          "o_a": [
+            2,
+            0,
+            1,
+            2
+          ],
+          "o_b": [
+            4,
+            0,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 37,
+          "j": 54,
+          "o_a": [
+            2,
+            0,
+            1,
+            2
+          ],
+          "o_b": [
+            4,
+            1,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 38,
+          "j": 52,
+          "o_a": [
+            2,
+            0,
+            2,
+            1
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 38,
+          "j": 53,
+          "o_a": [
+            2,
+            0,
+            2,
+            1
+          ],
+          "o_b": [
+            4,
+            0,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 38,
+          "j": 54,
+          "o_a": [
+            2,
+            0,
+            2,
+            1
+          ],
+          "o_b": [
+            4,
+            1,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 40,
+          "j": 52,
+          "o_a": [
+            2,
+            1,
+            0,
+            2
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p3_extreme",
+      "p_label": "(0.7, 0.1, 0.1, 0.1) extreme",
+      "p": [
+        0.7,
+        0.1,
+        0.1,
+        0.1
+      ],
+      "delta": 0.5,
+      "e_prime": [
+        4,
+        1,
+        1,
+        1
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1359,
+        "incomparable": 91,
+        "all_tied": 90,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1359,
+        "incomparable": 91,
+        "all_tied": 90,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 91,
+        "sign_change_verified_on_full_grid": 91,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1359,
+        "consistent_on_full_grid": 1359,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "unexpected_pairs_count": 0,
+      "unexpected_pairs_sample": []
+    },
+    {
+      "p_id": "p3_extreme",
+      "p_label": "(0.7, 0.1, 0.1, 0.1) extreme",
+      "p": [
+        0.7,
+        0.1,
+        0.1,
+        0.1
+      ],
+      "delta": 1,
+      "e_prime": [
+        4.5,
+        1.5,
+        1.5,
+        1.5
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1359,
+        "incomparable": 90,
+        "all_tied": 91,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1359,
+        "incomparable": 90,
+        "all_tied": 91,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 90,
+        "sign_change_verified_on_full_grid": 90,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1359,
+        "consistent_on_full_grid": 1359,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "unexpected_pairs_count": 0,
+      "unexpected_pairs_sample": []
+    },
+    {
+      "p_id": "p4_mild",
+      "p_label": "(0.4, 0.3, 0.2, 0.1)",
+      "p": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ],
+      "delta": 0.1,
+      "e_prime": [
+        2.1,
+        1.6,
+        1.1,
+        0.6
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1253,
+        "incomparable": 287,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1204,
+        "incomparable": 336,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 287,
+        "sign_change_verified_on_full_grid": 287,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1253,
+        "consistent_on_full_grid": 1204,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 49,
+        "verified_ratio": 0.9608938547486033
+      },
+      "unexpected_pairs_count": 49,
+      "unexpected_pairs_sample": [
+        {
+          "i": 7,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 18,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 9,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 27,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 40,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            2,
+            1,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 12,
+          "j": 18,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 12,
+          "j": 21,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 13,
+          "j": 21,
+          "o_a": [
+            0,
+            2,
+            2,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p4_mild",
+      "p_label": "(0.4, 0.3, 0.2, 0.1)",
+      "p": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ],
+      "delta": 0.5,
+      "e_prime": [
+        2.5,
+        2,
+        1.5,
+        1
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1318,
+        "incomparable": 222,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1284,
+        "incomparable": 256,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 222,
+        "sign_change_verified_on_full_grid": 222,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1318,
+        "consistent_on_full_grid": 1284,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 34,
+        "verified_ratio": 0.9742033383915023
+      },
+      "unexpected_pairs_count": 34,
+      "unexpected_pairs_sample": [
+        {
+          "i": 7,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 17,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 8,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 17,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 9,
+          "j": 23,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            2,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 10,
+          "j": 20,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 10,
+          "j": 21,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            1,
+            0,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 12,
+          "j": 29,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            1,
+            1,
+            3,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 12,
+          "j": 36,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            2,
+            0,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 12,
+          "j": 55,
+          "o_a": [
+            0,
+            2,
+            1,
+            2
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p4_mild",
+      "p_label": "(0.4, 0.3, 0.2, 0.1)",
+      "p": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ],
+      "delta": 1,
+      "e_prime": [
+        3,
+        2.5,
+        2,
+        1.5
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1373,
+        "incomparable": 167,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1328,
+        "incomparable": 212,
+        "all_tied": 0,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 167,
+        "sign_change_verified_on_full_grid": 167,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1373,
+        "consistent_on_full_grid": 1328,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 45,
+        "verified_ratio": 0.9672250546249089
+      },
+      "unexpected_pairs_count": 45,
+      "unexpected_pairs_sample": [
+        {
+          "i": 2,
+          "j": 20,
+          "o_a": [
+            0,
+            0,
+            2,
+            3
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            1.5
+          ]
+        },
+        {
+          "i": 3,
+          "j": 6,
+          "o_a": [
+            0,
+            0,
+            3,
+            2
+          ],
+          "o_b": [
+            0,
+            1,
+            0,
+            4
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 25,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            1,
+            0,
+            4,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 36,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            2,
+            0,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 39,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            2,
+            0,
+            3,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            2,
+            2
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 25,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            1,
+            0,
+            4,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 9,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 10,
+          "j": 11,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            0,
+            2,
+            0,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            1.5
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 10,
+          "j": 15,
+          "o_a": [
+            0,
+            1,
+            4,
+            0
+          ],
+          "o_b": [
+            0,
+            3,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p5_pair",
+      "p_label": "(0.4, 0.4, 0.1, 0.1)",
+      "p": [
+        0.4,
+        0.4,
+        0.1,
+        0.1
+      ],
+      "delta": 0.1,
+      "e_prime": [
+        2.1,
+        2.1,
+        0.6,
+        0.6
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1288,
+        "incomparable": 192,
+        "all_tied": 60,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1200,
+        "incomparable": 280,
+        "all_tied": 60,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 192,
+        "sign_change_verified_on_full_grid": 192,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1288,
+        "consistent_on_full_grid": 1200,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 88,
+        "verified_ratio": 0.9316770186335404
+      },
+      "unexpected_pairs_count": 88,
+      "unexpected_pairs_sample": [
+        {
+          "i": 6,
+          "j": 20,
+          "o_a": [
+            0,
+            1,
+            0,
+            4
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 6,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            0,
+            4
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 15,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            3,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 17,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            3,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 18,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 19,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            4,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 46,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            3,
+            0,
+            0,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 48,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            3,
+            0,
+            2,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 52,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 53,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            4,
+            0,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p5_pair",
+      "p_label": "(0.4, 0.4, 0.1, 0.1)",
+      "p": [
+        0.4,
+        0.4,
+        0.1,
+        0.1
+      ],
+      "delta": 0.5,
+      "e_prime": [
+        2.5,
+        2.5,
+        1,
+        1
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1344,
+        "incomparable": 136,
+        "all_tied": 60,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1336,
+        "incomparable": 144,
+        "all_tied": 60,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 136,
+        "sign_change_verified_on_full_grid": 136,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1344,
+        "consistent_on_full_grid": 1336,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 8,
+        "verified_ratio": 0.9940476190476191
+      },
+      "unexpected_pairs_count": 8,
+      "unexpected_pairs_sample": [
+        {
+          "i": 7,
+          "j": 20,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 7,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 9,
+          "j": 20,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 9,
+          "j": 55,
+          "o_a": [
+            0,
+            1,
+            3,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 20,
+          "j": 22,
+          "o_a": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "o_b": [
+            1,
+            0,
+            1,
+            3
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 20,
+          "j": 24,
+          "o_a": [
+            0,
+            5,
+            0,
+            0
+          ],
+          "o_b": [
+            1,
+            0,
+            3,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2
+          ],
+          "neg_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ]
+        },
+        {
+          "i": 22,
+          "j": 55,
+          "o_a": [
+            1,
+            0,
+            1,
+            3
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        },
+        {
+          "i": 24,
+          "j": 55,
+          "o_a": [
+            1,
+            0,
+            3,
+            1
+          ],
+          "o_b": [
+            5,
+            0,
+            0,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2,
+            3
+          ],
+          "neg_lambdas_full": [
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "p_id": "p5_pair",
+      "p_label": "(0.4, 0.4, 0.1, 0.1)",
+      "p": [
+        0.4,
+        0.4,
+        0.1,
+        0.1
+      ],
+      "delta": 1,
+      "e_prime": [
+        3,
+        3,
+        1.5,
+        1.5
+      ],
+      "f446675_verdict": "NOT_chain",
+      "pair_total": 1540,
+      "f446675_classification": {
+        "comparable": 1372,
+        "incomparable": 100,
+        "all_tied": 68,
+        "nan": 0
+      },
+      "full_grid_classification": {
+        "comparable": 1364,
+        "incomparable": 108,
+        "all_tied": 68,
+        "nan": 0
+      },
+      "lemma_7_5_contrapositive": {
+        "incomparable_pairs_on_f446675": 100,
+        "sign_change_verified_on_full_grid": 100,
+        "sign_change_lost_on_full_grid": 0,
+        "verified_ratio": 1
+      },
+      "theorem_7_1_consistency": {
+        "comparable_pairs_on_f446675": 1372,
+        "consistent_on_full_grid": 1364,
+        "tied_on_full_grid": 0,
+        "violated_on_full_grid": 8,
+        "verified_ratio": 0.9941690962099126
+      },
+      "unexpected_pairs_count": 8,
+      "unexpected_pairs_sample": [
+        {
+          "i": 18,
+          "j": 27,
+          "o_a": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "o_b": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 18,
+          "j": 28,
+          "o_a": [
+            0,
+            4,
+            0,
+            1
+          ],
+          "o_b": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 19,
+          "j": 27,
+          "o_a": [
+            0,
+            4,
+            1,
+            0
+          ],
+          "o_b": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 19,
+          "j": 28,
+          "o_a": [
+            0,
+            4,
+            1,
+            0
+          ],
+          "o_b": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ],
+          "neg_lambdas_full": [
+            3
+          ]
+        },
+        {
+          "i": 27,
+          "j": 52,
+          "o_a": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 27,
+          "j": 53,
+          "o_a": [
+            1,
+            1,
+            1,
+            2
+          ],
+          "o_b": [
+            4,
+            0,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 28,
+          "j": 52,
+          "o_a": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "o_b": [
+            4,
+            0,
+            0,
+            1
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        },
+        {
+          "i": 28,
+          "j": 53,
+          "o_a": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "o_b": [
+            4,
+            0,
+            1,
+            0
+          ],
+          "f6_class": "comparable",
+          "full_class": "incomparable",
+          "note": "f446675-comparable but full-grid incomparable — UNEXPECTED. If r_a ≻_w r_b holds (HLP majorization), this is a Theorem 7.1 (⇐) violation candidate. If neither r_a ≻_w r_b nor r_b ≻_w r_a, then the f446675 classification was a false-positive comparable (incidental sign consistency on the narrow 6-λ grid).",
+          "pos_lambdas_full": [
+            3
+          ],
+          "neg_lambdas_full": [
+            -2,
+            -1.5,
+            -1,
+            -0.5,
+            0,
+            0.5,
+            1,
+            1.5,
+            2
+          ]
+        }
+      ]
+    }
+  ],
+  "incomparable_spot_checks": [
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 1,
+      "j": 5,
+      "o_a": [
+        0,
+        0,
+        1,
+        4
+      ],
+      "o_b": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -1,
+        -0.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "neg_lambdas_full": [
+        -2,
+        -1.5
+      ],
+      "t_values_a_full": [
+        88.48669623059868,
+        40.2850759242598,
+        23.653510054319177,
+        18.60183370623153,
+        19.539721593725673,
+        26.476481858644583,
+        44.06219699418228,
+        85.65598324068395,
+        186.35438708337705,
+        1097.946713725472
+      ],
+      "t_values_b_full": [
+        89.16666666666667,
+        40.69133819978923,
+        23.645328889138067,
+        17.767591183490584,
+        16.819256940374835,
+        19.174564133574695,
+        25.23866758241758,
+        37.1050533295782,
+        59.40290060643339,
+        182.70039374419255
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 2,
+      "j": 5,
+      "o_a": [
+        0,
+        0,
+        2,
+        3
+      ],
+      "o_b": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "neg_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "t_values_a_full": [
+        88.18356374807988,
+        39.77555241989381,
+        22.7499532775,
+        16.899406354015998,
+        16.11616956283841,
+        19.123490369219397,
+        27.25547430510666,
+        45.05189949374572,
+        83.5367894560909,
+        363.37547544271484
+      ],
+      "t_values_b_full": [
+        89.16666666666667,
+        40.69133819978923,
+        23.645328889138067,
+        17.767591183490584,
+        16.819256940374835,
+        19.174564133574695,
+        25.23866758241758,
+        37.1050533295782,
+        59.40290060643339,
+        182.70039374419255
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 2,
+      "j": 6,
+      "o_a": [
+        0,
+        0,
+        2,
+        3
+      ],
+      "o_b": [
+        0,
+        1,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5
+      ],
+      "neg_lambdas_full": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.18356374807988,
+        39.77555241989381,
+        22.7499532775,
+        16.899406354015998,
+        16.11616956283841,
+        19.123490369219397,
+        27.25547430510666,
+        45.05189949374572,
+        83.5367894560909,
+        363.37547544271484
+      ],
+      "t_values_b_full": [
+        71.78215077605323,
+        32.98010378709751,
+        20.056667145121626,
+        16.591885461481617,
+        18.274676476238653,
+        25.596533390880026,
+        43.40043228829993,
+        85.12804999155372,
+        185.91395401676806,
+        1097.608970787412
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 2,
+      "j": 21,
+      "o_a": [
+        0,
+        0,
+        2,
+        3
+      ],
+      "o_b": [
+        1,
+        0,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5
+      ],
+      "neg_lambdas_full": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.18356374807988,
+        39.77555241989381,
+        22.7499532775,
+        16.899406354015998,
+        16.11616956283841,
+        19.123490369219397,
+        27.25547430510666,
+        45.05189949374572,
+        83.5367894560909,
+        363.37547544271484
+      ],
+      "t_values_b_full": [
+        33.600332594235034,
+        20.20716633709023,
+        15.260876599524881,
+        14.555072781262915,
+        17.30366084467525,
+        25.086678906307327,
+        43.11197074983839,
+        84.9554981483129,
+        185.80635878747813,
+        1097.563283042049
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 6,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        0,
+        1,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1
+      ],
+      "neg_lambdas_full": [
+        -0.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        71.78215077605323,
+        32.98010378709751,
+        20.056667145121626,
+        16.591885461481617,
+        18.274676476238653,
+        25.596533390880026,
+        43.40043228829993,
+        85.12804999155372,
+        185.91395401676806,
+        1097.608970787412
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 7,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        0,
+        1,
+        1,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        65.22360703812318,
+        28.405116842833,
+        16.175954584917807,
+        12.438886555263142,
+        12.614869407225845,
+        16.023815664055405,
+        24.240768422753717,
+        41.89987877953568,
+        80.05137369051997,
+        358.5543889942405
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 11,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        0,
+        2,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        70.68356374807988,
+        31.599476137443972,
+        18.183169620914867,
+        13.791094744929099,
+        13.58607932786437,
+        16.761756810041103,
+        24.829003716871366,
+        42.38802276558005,
+        80.47031562391098,
+        358.8888465770141
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 21,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        1,
+        0,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5
+      ],
+      "neg_lambdas_full": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        33.600332594235034,
+        20.20716633709023,
+        15.260876599524881,
+        14.555072781262915,
+        17.30366084467525,
+        25.086678906307327,
+        43.11197074983839,
+        84.9554981483129,
+        185.80635878747813,
+        1097.563283042049
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 22,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        1,
+        0,
+        1,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        27.04178885630499,
+        15.63217939282572,
+        11.380164039321064,
+        10.402073875044438,
+        11.643853775662445,
+        15.513961179482703,
+        23.952306884292177,
+        41.72732693629486,
+        79.94377846123004,
+        358.5087012488775
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 26,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        1,
+        1,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "neg_lambdas_full": [
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        10.337243401759531,
+        8.327207255663417,
+        7.7833211301235075,
+        8.392125630294526,
+        10.378808658175423,
+        14.634012711718144,
+        23.290542178409826,
+        41.19939368716463,
+        79.50334539462104,
+        358.17095831081775
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 3,
+      "j": 36,
+      "o_a": [
+        0,
+        0,
+        3,
+        2
+      ],
+      "o_b": [
+        2,
+        0,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.09139784946235,
+        39.587806225010496,
+        22.360488510738275,
+        16.07606664473453,
+        14.341563172836608,
+        15.223186878075538,
+        18.515978506787334,
+        25.097088588211864,
+        37.14458551569123,
+        99.76333360130201
+      ],
+      "t_values_b_full": [
+        30.683563748079877,
+        17.30338999483645,
+        12.094124745468022,
+        10.641238266785338,
+        11.644048064737568,
+        15.39333525966108,
+        23.771311409179056,
+        41.51735049712833,
+        79.72119395231334,
+        358.2819235771374
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 6,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        0,
+        1,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1
+      ],
+      "neg_lambdas_full": [
+        -0.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        71.78215077605323,
+        32.98010378709751,
+        20.056667145121626,
+        16.591885461481617,
+        18.274676476238653,
+        25.596533390880026,
+        43.40043228829993,
+        85.12804999155372,
+        185.91395401676806,
+        1097.608970787412
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 7,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        0,
+        1,
+        1,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        65.22360703812318,
+        28.405116842833,
+        16.175954584917807,
+        12.438886555263142,
+        12.614869407225845,
+        16.023815664055405,
+        24.240768422753717,
+        41.89987877953568,
+        80.05137369051997,
+        358.5543889942405
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 11,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        0,
+        2,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        70.68356374807988,
+        31.599476137443972,
+        18.183169620914867,
+        13.791094744929099,
+        13.58607932786437,
+        16.761756810041103,
+        24.829003716871366,
+        42.38802276558005,
+        80.47031562391098,
+        358.8888465770141
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 21,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        1,
+        0,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5
+      ],
+      "neg_lambdas_full": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        33.600332594235034,
+        20.20716633709023,
+        15.260876599524881,
+        14.555072781262915,
+        17.30366084467525,
+        25.086678906307327,
+        43.11197074983839,
+        84.9554981483129,
+        185.80635878747813,
+        1097.563283042049
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 22,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        1,
+        0,
+        1,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        27.04178885630499,
+        15.63217939282572,
+        11.380164039321064,
+        10.402073875044438,
+        11.643853775662445,
+        15.513961179482703,
+        23.952306884292177,
+        41.72732693629486,
+        79.94377846123004,
+        358.5087012488775
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 26,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        1,
+        1,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "neg_lambdas_full": [
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        10.337243401759531,
+        8.327207255663417,
+        7.7833211301235075,
+        8.392125630294526,
+        10.378808658175423,
+        14.634012711718144,
+        23.290542178409826,
+        41.19939368716463,
+        79.50334539462104,
+        358.17095831081775
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 4,
+      "j": 36,
+      "o_a": [
+        0,
+        0,
+        4,
+        1
+      ],
+      "o_b": [
+        2,
+        0,
+        0,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0
+      ],
+      "neg_lambdas_full": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        88.08758314855876,
+        39.57840021592397,
+        22.33783326041324,
+        16.02239116865385,
+        14.215902423720255,
+        14.931580036237442,
+        17.8437095992243,
+        23.554836618045318,
+        33.61941073989855,
+        81.47935367220721
+      ],
+      "t_values_b_full": [
+        30.683563748079877,
+        17.30338999483645,
+        12.094124745468022,
+        10.641238266785338,
+        11.644048064737568,
+        15.39333525966108,
+        23.771311409179056,
+        41.51735049712833,
+        79.72119395231334,
+        358.2819235771374
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 5,
+      "j": 6,
+      "o_a": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "o_b": [
+        0,
+        1,
+        0,
+        4
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5
+      ],
+      "neg_lambdas_full": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        89.16666666666667,
+        40.69133819978923,
+        23.645328889138067,
+        17.767591183490584,
+        16.819256940374835,
+        19.174564133574695,
+        25.23866758241758,
+        37.1050533295782,
+        59.40290060643339,
+        182.70039374419255
+      ],
+      "t_values_b_full": [
+        71.78215077605323,
+        32.98010378709751,
+        20.056667145121626,
+        16.591885461481617,
+        18.274676476238653,
+        25.596533390880026,
+        43.40043228829993,
+        85.12804999155372,
+        185.91395401676806,
+        1097.608970787412
+      ]
+    },
+    {
+      "p_id": "p2_skewed",
+      "delta": 0.1,
+      "i": 5,
+      "j": 7,
+      "o_a": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "o_b": [
+        0,
+        1,
+        1,
+        3
+      ],
+      "lemma_7_5_contrapositive_verdict": "VERIFIED",
+      "pos_lambdas_full": [
+        -2,
+        -1.5,
+        -1,
+        -0.5,
+        0,
+        0.5,
+        1
+      ],
+      "neg_lambdas_full": [
+        1.5,
+        2,
+        3
+      ],
+      "t_values_a_full": [
+        89.16666666666667,
+        40.69133819978923,
+        23.645328889138067,
+        17.767591183490584,
+        16.819256940374835,
+        19.174564133574695,
+        25.23866758241758,
+        37.1050533295782,
+        59.40290060643339,
+        182.70039374419255
+      ],
+      "t_values_b_full": [
+        65.22360703812318,
+        28.405116842833,
+        16.175954584917807,
+        12.438886555263142,
+        12.614869407225845,
+        16.023815664055405,
+        24.240768422753717,
+        41.89987877953568,
+        80.05137369051997,
+        358.5543889942405
+      ]
+    }
+  ]
+}

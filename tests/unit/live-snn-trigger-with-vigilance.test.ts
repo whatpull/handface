@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => {
       totalClusters: 5,
       neuronsAdded: 96,
       synapsesAdded: 1200,
-      activeInputs: [4, 5, 6, 7],
+      activeInputs: [5, 6, 7, 8, 9],
     };
   });
   const mockClient = {
@@ -140,11 +140,13 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     // = 31 RPC catch (sequential).
     await new Promise((r) => setTimeout(r, 200));
     expect(mocks.mockExpandCluster).toHaveBeenCalledTimes(1);
-    // 32-dim 확장 후 active indices: raw [4,5,6,7] + row1 sum feature [17].
+    // Phase 2A.1 (2026-05-31): substrate 'orientation-5x5' (n14_extended, 50-dim).
+    // 5×5 row 1 horizontal pattern (indices 5-9 active) + orientation row-sum
+    // feature 26 → active indices: raw [5,6,7,8,9] + row1 sum feature [26].
     // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
     //   expandClusterAsync 영역 default forceDisjoint=true 영역 worker payload 동봉.
     expect(mocks.mockExpandCluster).toHaveBeenCalledWith({
-      activeInputs: [4, 5, 6, 7, 17],
+      activeInputs: [5, 6, 7, 8, 9, 26],
       forceDisjoint: true,
     });
     // 30 trial = 5 chunk × 6 round.
@@ -275,7 +277,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       totalClusters: 1,
       neuronsAdded: 96,
       synapsesAdded: 1200,
-      activeInputs: [4, 5, 6, 7],
+      activeInputs: [5, 6, 7, 8, 9],
     }));
     const localReinforceBackground = vi.fn(async () => null);
     const localClient = {
@@ -313,11 +315,13 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // handleTriggerComplete 영역 vigilance miss path 영역 dispatch → expandCluster
       // 호출. pre-fix 영역 fail (expandCluster 호출 0).
       expect(localExpandCluster).toHaveBeenCalledTimes(1);
-      // 32-dim 확장 후 active indices: raw [4,5,6,7] + row1 sum feature [17].
+      // Phase 2A.1 (2026-05-31): substrate 'orientation-5x5' (n14_extended, 50-dim).
+    // 5×5 row 1 horizontal pattern (indices 5-9 active) + orientation row-sum
+    // feature 26 → active indices: raw [5,6,7,8,9] + row1 sum feature [26].
       // 사용자 catch 2026-05-25 (production incremental forced-disjoint):
       //   expandClusterAsync 영역 default forceDisjoint=true 영역 worker payload 동봉.
       expect(localExpandCluster).toHaveBeenCalledWith({
-        activeInputs: [4, 5, 6, 7, 17],
+        activeInputs: [5, 6, 7, 8, 9, 26],
         forceDisjoint: true,
       });
 

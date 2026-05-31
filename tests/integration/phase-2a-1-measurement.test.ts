@@ -136,14 +136,20 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
     await lab.init();
 
     // R-STDP train (production 영역 vigilance + auto-learn 30 reinforce 등가).
-    for (const inputs of PHASE_2A_1_FULL_ACTIVE_5X5) {
-      await client.inject(
-        inputs.map((i) => ({
-          neuron: `in_feat_${i}`, weight: 30,
-          time: 0, durationMs: 80, stepMs: 0.1,
-        })),
-      );
-      await client.run({ durationMs: 100, dtMs: 0.1, stdpEnabled: true });
+    // 직전 1 round 영역 production 30 round 미일치 — c3 noisy 100% miss 영역
+    // training count 영역 부족 가능성 catch (2026-05-31 measurement v2).
+    // production: 각 cluster 영역 30 reinforce → 4 cluster × 30 = 120 round.
+    const REINFORCE_ROUNDS = 30;
+    for (let round = 0; round < REINFORCE_ROUNDS; round += 1) {
+      for (const inputs of PHASE_2A_1_FULL_ACTIVE_5X5) {
+        await client.inject(
+          inputs.map((i) => ({
+            neuron: `in_feat_${i}`, weight: 30,
+            time: 0, durationMs: 80, stepMs: 0.1,
+          })),
+        );
+        await client.run({ durationMs: 100, dtMs: 0.1, stdpEnabled: true });
+      }
     }
     await lab.save();
 

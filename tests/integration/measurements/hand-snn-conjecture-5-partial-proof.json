@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-conjecture-5-partial-proof",
+  "measurement_id": "hand-snn-conjecture-5-partial-proof",
+  "branch": "main",
+  "type": "partial_closed_form_proof",
+  "code_artifact": null,
+  "doc_artifact": "docs/CONJECTURE_5_PARTIAL_PROOF.md",
+  "commit_baselines": {
+    "theorem_6_3_synthesis": "bc7e84a",
+    "N5K4_enumeration": "f446675",
+    "r_space_chain_partial": "90ee122",
+    "non_uniform_reproducer": "33f592d",
+    "l_hopital_weighted": "8f0e34d",
+    "non_uniform_framework": "8c80e40",
+    "uniform_chain": "6f6104d",
+    "uniform_full_closed_form": "1c5d717"
+  },
+  "hypothesis": "직전 commit 8c80e40 §5 의 Conjecture 5 (Theorem 2 의 non-uniform null analog) 의 (⇐) direction (sufficient direction) 의 closed-form proof. (⇒) direction 은 Conjecture 7.2 로 명시 + OPEN multi-cycle R&D.",
+  "result": "PARTIAL_CLOSED_FORM_FORWARD_DIRECTION_PROVEN",
+  "main_results": {
+    "theorem_7_1_forward_direction_proven": "r(o_a) ≻_{E'} r(o_b) ⟹ T_λ(o_a) ≥ T_λ(o_b) for all λ ∈ ℝ (including L'Hopital limits λ ∈ {0, -1}). Proof via weighted HLP-Karamata + Theorem 5 framework (Lemma 5.1 + 5.2) + Theorem 2-Lemma 2 sign tracking (commit 1c5d717).",
+    "case_analysis_5_sub_cases": "λ > 0 (A_λ > 0, φ_λ convex), -1 < λ < 0 (A_λ < 0, φ_λ concave, sign flip), λ < -1 (A_λ > 0, φ_λ convex), λ = 0 (G²: ψ_0(x) = x ln x convex), λ = -1 (Modified LR: ψ_{-1}(x) = -ln x convex). 모든 case 정확 weighted HLP-Karamata 적용.",
+    "consistency_with_theorem_2": "p uniform 경우 weighted majorization = standard majorization → Theorem 7.1 reduces to Theorem 2 (⇐) direction (commit 1c5d717).",
+    "conjecture_7_2_backward_direction_OPEN": "T_λ(o_a) ≥ T_λ(o_b) for all λ ∈ ℝ ⟹ r(o_a) ≻_{E'} r(o_b) — open problem. Cressie-Read family φ_λ = x^{λ+1} 이 convex φ space 의 subset 한정이라 HLP-Karamata bidirectional 의 directly 적용 안 됨.",
+    "connection_to_theorem_6_3": "Theorem 6.3 Regime (D) 의 not-chain 결과는 r-space 에 majorization-incomparable pairs 존재 → Theorem 7.1 (⇐) direction 에 의해 incomparable pair 의 T_λ ordering reverse 가능 → f446675 의 numerical observation 의 mathematical 정합."
+  },
+  "honest_limitations": [
+    "Conjecture 7.2 ((⇒) direction) 의 closed-form proof 안 됨 — multi-cycle R&D mandatory.",
+    "Olkin & Marshall 1979 ch. 14 weighted HLP-Karamata theorem 의 published edition 사용자 직접 verify mandatory.",
+    "Weighted majorization ≻_{E'} 정의의 Olkin & Marshall 1979 ch. 14 정확 equivalence 사용자 verify.",
+    "(⇐) direction proof 의 strict measure-theoretic justification (dominated convergence 등) 별도 R&D.",
+    "Cressie-Read 1984 §3 의 L'Hopital limit forms 정확 transcription 사용자 직접 verify (carryover).",
+    "HLP 1934 + Olkin & Marshall 1979 + Macdonald 1995 published PDF 사용자 직접 verify (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨 — Mathlib weighted HLP-Karamata library 활용 future R&D.",
+    "Conjecture 7.2 의 strict negative result 가능성 — (⇒) direction 이 actually false 가능 (미해결).",
+    "Theorem 6.3 Regime (D) 와 본 R&D 의 (⇒) direction partial evidence 연결 strict 분석 별도 R&D.",
+    "Hand SNN R&D context 영향 없음 확인 (Theorem 2-4 약화 0).",
+    "Peer review 안 됨 — published statistical literature cross-check 사용자 mandatory.",
+    ".env.snn-backup HIGH carryover (사용자 직접 mandatory).",
+    "Type: documentation-only — partial proof artifact 한정.",
+    "본 R&D 의 mathematical 가치 정직 평가: Theorem 5 framework 의 (⇐) direction 완성 + (⇒) direction 정확한 open problem 명시.",
+    "본 (⇐) direction proof 의 algebraic step strict computation 정확성 사용자 또는 future R&D hand-verify 권고."
+  ],
+  "hypothesis_verdict": "H_theorem_7_1_forward_direction_proven_conjecture_7_2_backward_open",
+  "next_followup_candidates": [
+    "Conjecture 7.2 의 (⇒) direction closed-form proof attempt",
+    "또는 Conjecture 7.2 의 strict negative result (counter-example identification)",
+    "Theorem 7.1 algebraic step formal verification (Lean 4)",
+    "Olkin & Marshall 1979 ch. 14 published edition 사용자 직접 verify (mandatory)",
+    "Theorem 6.3 Regime (D) 와 Theorem 7.1 결합 의 strict 의미"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization and Its Applications. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press. §2.18-§2.22.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Read, T. R. C. & Cressie, N. A. C. (1988). Goodness-of-Fit Statistics for Discrete Multivariate Data. Springer."
+  ]
+}

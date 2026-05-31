@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-lemma-7-5-strict-proof",
+  "measurement_id": "hand-snn-lemma-7-5-strict-proof",
+  "branch": "main",
+  "type": "partial_strict_proof_via_hausdorff",
+  "code_artifact": null,
+  "doc_artifact": "docs/LEMMA_7_5_STRICT_PROOF_ATTEMPT.md",
+  "commit_baselines": {
+    "lemma_7_6_universal_falsification": "4ee1b03",
+    "lemma_7_5_systematic": "51c9431",
+    "lemma_7_3_falsification": "899912d"
+  },
+  "hypothesis": "Lemma 7.5 (Hausdorff moment-determination) 의 strict closed-form proof attempt via classical Hausdorff moment theorem + Bernstein-Tchakaloff extension.",
+  "result": "EQUALITY_CASE_STRICT_INEQUALITY_CASE_PARTIAL_STOCHASTIC_FALSE_CONVEX_OPEN",
+  "main_results": {
+    "theorem_8_equality_case_strict": "For weighted point measures μ_a, μ_b with same E', Σ E'_i × r_a_i^p = Σ E'_i × r_b_i^p for all p ∈ ℕ_0 ⟺ multiset {(r_a_i, E'_i)} = {(r_b_i, E'_i)}. Direct application of classical Hausdorff moment theorem.",
+    "theorem_8_prime_stochastic_FALSIFIED": "Natural conjecture 'power moments ≥ → stochastic order ≥_st' FALSIFIED via counter-example π_a = 0.6×δ_3 + 0.4×δ_1, π_b = δ_2 (where π_a power moments ≥ π_b but P(X ≥ 1.5) under π_a (0.6) < under π_b (1)).",
+    "convex_order_natural_interpretation": "Lemma 7.5 의 correct characterization 은 ≥_cx (convex stochastic order), not ≥_st. §4.4 의 numerical evidence consistent (3 convex φ tests).",
+    "lemma_7_5_refined_final": "T_λ inequalities for all λ ⟹ Cressie-Read moment inequalities ⟹ Convex stochastic order ⟹ Weighted HLP majorization. Step 3 (open) 별도 multi-cycle R&D.",
+    "reduction_chain_completed": "Conjecture 7.2 의 truth 가 Bernstein-Tchakaloff Cressie-Read specialization 의 truth 에 reduces."
+  },
+  "honest_limitations": [
+    "Theorem 8' (strict inequality case) closed-form proof 안 됨 — multi-cycle R&D mandatory.",
+    "§4.3 counter-example 의 strict 정확성 — specific construction power moment numerical check 별도 R&D.",
+    "§4.4 convex order claim 의 strict argument 는 specific φ examples 한정.",
+    "Bernstein-Tchakaloff theorem Cressie-Read family extension 정확 statement 사용자 직접 verify.",
+    "§5.1 reduction chain 3 steps 각 정확성 별도 R&D.",
+    "L'Hopital limits Hausdorff moment problem extension 정확성 별도 verify.",
+    "Hand SNN R&D context 영향 0 (carryover).",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 + Shaked & Shanthikumar 2007 + Shohat-Tamarkin 1943 PDF user verify mandatory (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — partial strict proof + framework.",
+    "본 R&D mathematical 가치: equality case strict + stochastic order natural conjecture falsification + convex order refined + reduction chain. Conjecture 7.2 final truth 별도 R&D.",
+    "§4.3 stochastic order falsification 의 mathematical 의미: power moment inequalities 와 stochastic order strict 비등치 입증 — 본 R&D series 의 새 negative result.",
+    "§4 mathematical rigor 자기 평가: counter-example construction strict, convex order claim sketch (specific φ tests). Strict universal proof 별도 mandatory."
+  ],
+  "hypothesis_verdict": "H_theorem_8_equality_strict_stochastic_order_FALSIFIED_convex_order_OPEN_reduction_completed",
+  "next_followup_candidates": [
+    "Theorem 8' (strict inequality case) closed-form proof",
+    "Bernstein-Tchakaloff Cressie-Read specialization",
+    "§4.3 counter-example systematic numerical verification",
+    "Lean 4 formal verification of Theorem 8 equality case"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Rudin, W. (1976). Principles of Mathematical Analysis. McGraw-Hill.",
+    "Shaked, M. & Shanthikumar, J. G. (2007). Stochastic Orders. Springer.",
+    "Shohat, J. A. & Tamarkin, J. D. (1943). The Problem of Moments. American Mathematical Society."
+  ]
+}

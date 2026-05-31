@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-conjecture-7-2-stone-weierstrass",
+  "measurement_id": "hand-snn-conjecture-7-2-stone-weierstrass",
+  "branch": "main",
+  "type": "partial_proof_framework_attempt",
+  "code_artifact": null,
+  "doc_artifact": "docs/CONJECTURE_7_2_STONE_WEIERSTRASS_ATTEMPT.md",
+  "commit_baselines": {
+    "final_summary": "9119161",
+    "theorem_7_1": "b1e3b1e",
+    "N5K4_enumeration": "f446675",
+    "theorem_6_3_synthesis": "bc7e84a",
+    "l_hopital_weighted": "8f0e34d",
+    "non_uniform_framework": "8c80e40"
+  },
+  "hypothesis": "직전 commit b1e3b1e §4 의 Conjecture 7.2 (Theorem 7.1 의 (⇒) direction) 의 Stone-Weierstrass theorem 활용 strict proof attempt. Cressie-Read family 의 convex subspace density 가 (⇒) direction proof 의 핵심.",
+  "result": "PARTIAL_FRAMEWORK_LEMMA_7_3_PROPOSED_LEMMA_7_4_CONDITIONAL",
+  "main_results": {
+    "lemma_7_3_proposed": "On compact [m, M] ⊂ ℝ_{>0}, convex Cressie-Read family Φ_CR^conv = {ψ_λ : λ ∈ (-∞, -1] ∪ [0, +∞)} ∪ {ψ_0, ψ_{-1}} is dense (sup-norm) in C^conv([m, M]). Proof outline sketch + Stone-Weierstrass algebra + convex restriction.",
+    "lemma_7_4_conditional": "If Lemma 7.3 holds, then Conjecture 7.2 (⇒) direction is true (via weighted HLP-Karamata bidirectional form).",
+    "numerical_evidence_consistency": "f446675 의 incomparable pairs spot-check 모두 T_λ ordering inconsistent — Conjecture 7.2 evidence-consistent. Systematic verify 별도 R&D.",
+    "refined_conjecture_7_2_prime": "Conjecture 7.2' (refined) = Conjecture 7.2 의 statement + sub-questions 7.A (Lemma 7.3 truth) + 7.B (counter-example existence if 7.A false)."
+  },
+  "honest_limitations": [
+    "Lemma 7.3 의 strict proof 안 됨 — Stone-Weierstrass convex subspace restriction multi-cycle R&D mandatory.",
+    "Lemma 7.4 의 conditional 성격 (Lemma 7.3 valid 일 때만).",
+    "§5.1 numerical evidence 는 f446675 spot-check 한정 — systematic counter-example search 별도 R&D.",
+    "Stone-Weierstrass 의 convex restriction 의 textbook 결과 (Rudin 1976) 사용자 직접 verify mandatory.",
+    "Weighted HLP-Karamata bidirectional form (Olkin & Marshall 1979 ch. 14) 사용자 직접 verify mandatory.",
+    "본 R&D 의 mathematical 가치: proof strategy 도입 + density-reduction 명시. Strict 새 theorem 아님.",
+    "f446675 incomparable pairs spot-check 의 scope 한정 (systematic 별도 R&D).",
+    "L'Hopital limits (ψ_0, ψ_{-1}) 의 density argument limit interchange 별도 R&D.",
+    "Sign tracking (A_λ sign flip for λ ∈ (-1, 0)) 의 density argument 와의 strict interplay 별도 R&D.",
+    "Hand SNN R&D context 영향 0 (Theorem 6.3 Regime B 영향 없음).",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 PDF 사용자 직접 verify mandatory (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — partial framework + refined open problem."
+  ],
+  "hypothesis_verdict": "H_lemma_7_3_proposed_lemma_7_4_conditional_conjecture_7_2_open_density_reduction",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "lemma_7_4_conditional": "Conditional argument 자체 (Lemma 7.3 valid 가정 하)는 rigorous via Theorem 5 framework + weighted HLP-Karamata + sign tracking.",
+      "numerical_consistency": "f446675 spot-check 결과 consistent with Conjecture 7.2."
+    },
+    "what_is_NOT_proven": {
+      "lemma_7_3_strict": "Stone-Weierstrass convex subspace density — multi-cycle R&D",
+      "conjecture_7_2_strict": "Multi-cycle R&D dependent on Lemma 7.3",
+      "systematic_negative_result": "Counter-example existence systematic search 안 함"
+    }
+  },
+  "next_followup_candidates": [
+    "Lemma 7.3 의 strict closed-form proof (real analysis specialization)",
+    "또는 Lemma 7.3 의 strict negative result + Conjecture 7.2 counter-example",
+    "f446675 의 incomparable pairs systematic spot-check",
+    "Lean 4 formal verification of Lemma 7.4 conditional argument",
+    "Rudin 1976 Stone-Weierstrass theorem 의 convex restriction extension verify"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Rudin, W. (1976). Principles of Mathematical Analysis. McGraw-Hill. (Stone-Weierstrass theorem)"
+  ]
+}

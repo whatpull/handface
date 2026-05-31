@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-05-31T13:39:22.685Z",
+  "scenario": "phase-2a-1-scaling-N-with-fix",
+  "results": [
+    {
+      "N": 4,
+      "perClusterSize": [
+        6,
+        5,
+        7,
+        3
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 300,
+      "fallbackTriggered": 0
+    },
+    {
+      "N": 5,
+      "perClusterSize": [
+        6,
+        5,
+        7,
+        3,
+        4
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.4,
+        1
+      ],
+      "totalAccuracy": 0.88,
+      "totalReinforces": 390,
+      "fallbackTriggered": 0
+    },
+    {
+      "N": 6,
+      "perClusterSize": [
+        6,
+        5,
+        7,
+        3,
+        4,
+        4
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.4,
+        1,
+        1
+      ],
+      "totalAccuracy": 0.9,
+      "totalReinforces": 480,
+      "fallbackTriggered": 0
+    },
+    {
+      "N": 8,
+      "perClusterSize": [
+        6,
+        5,
+        7,
+        3,
+        4,
+        4,
+        4,
+        3
+      ],
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.2,
+        1,
+        1,
+        0.4,
+        0
+      ],
+      "totalAccuracy": 0.7,
+      "totalReinforces": 660,
+      "fallbackTriggered": 0
+    }
+  ],
+  "analysis": {
+    "guideThreshold": 0.9,
+    "reachedGuide": [
+      4,
+      6
+    ],
+    "belowGuide": [
+      5,
+      8
+    ]
+  }
+}

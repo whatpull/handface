@@ -27,6 +27,23 @@
 | Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 |
 | 학습 안정화 N>5 (4×4) | ⚠️ catastrophic forgetting 영향 (5×5 영역 N=4 영역 commit 8da3cbe 영역 완화) |
 | 5×5 substrate 영역 N>=7 영역 | ⚠️ 다중 under-allocated cluster 영역 fix 영역 부족 (Phase 2A.2 6×6 substrate 72-dim 후보) |
+| 5×5 substrate N=5 c3 약화 | ⚠️ c4 추가 시 c3 60% → 40% (-20%p, small sub-pool 3 features 영역 취약). 6×6 substrate 측정 시 100% 정합 (다음 cycle 후보) |
+
+### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31)
+
+6×6 substrate (n15_extended_6x6, 72-dim) 측정 결과 — 5×5 의 small sub-pool 한계 완전 해결:
+
+| 시나리오 | 5×5 (50-dim) | 6×6 (72-dim) |
+|---------|--------------|--------------|
+| N=4 | 90% (c3 60%) | **100%** |
+| N=5 | 88% (c3 40%, c4 추가 시 c3 약화) | **100%** |
+| c3 sub-pool size | 3 features | 5 features |
+| Jaccard max | 0.231 | 0 (완전 disjoint) |
+
+**production 적용 결정 보류 사안** — 다음 사용자 catch 시 결정:
+- 보상: N=4/5 accuracy 90/88% → **100%**
+- 위험: UI 5×5 → 6×6 grid 변경, 학습 데이터 reset 필요, 6×6 known issue (N=8 Bottom row 실패 가능성)
+- 측정 파일: `tests/integration/measurements/hand-snn-phase-2a-2-6x6-comparison.json`
 | H2 (sub-pool exhaustion) — 5×5 N=4 | ↓ Guide expected 50-70% 영역 측정 42% (under-utilization, no harm) |
 | H3 catastrophic forgetting — 5×5 N=4 | ✅ commit 8da3cbe 영역 75% → 90% (2nd+ spawn 90 trials) |
 | H4 sparse code overlap — 5×5 N=4 | ✅ Jaccard 0.55-0.83 → 0.23 (Phase 2A.1 substrate upgrade 효과) |

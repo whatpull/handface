@@ -1,0 +1,180 @@
+{
+  "timestamp": "2026-05-31T22:39:25.651Z",
+  "scenario": "phase-2a-2-6x6-substrate-N6-with-bottom-row",
+  "substrate": "n15_extended_6x6 (72-dim)",
+  "productionFix": "1st spawn 30 trials, 2nd+ spawn 90 trials (commit 8da3cbe)",
+  "productionDeploy": "commit 4174898 (2026-06-01)",
+  "patterns": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30
+    ],
+    [
+      0,
+      7,
+      14,
+      21,
+      28,
+      35
+    ],
+    [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30
+    ],
+    [
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ],
+    [
+      5,
+      11,
+      17,
+      23,
+      29,
+      35
+    ]
+  ],
+  "result": {
+    "perClusterSize": [
+      7,
+      6,
+      6,
+      5,
+      5,
+      5
+    ],
+    "perClusterActive": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        36
+      ],
+      [
+        6,
+        12,
+        18,
+        24,
+        30,
+        42
+      ],
+      [
+        7,
+        14,
+        21,
+        28,
+        35,
+        52
+      ],
+      [
+        10,
+        15,
+        20,
+        25,
+        53
+      ],
+      [
+        31,
+        32,
+        33,
+        34,
+        41
+      ],
+      [
+        11,
+        17,
+        23,
+        29,
+        47
+      ]
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "totalAccuracy": 1,
+    "matrix": [
+      [
+        5,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        5
+      ]
+    ],
+    "jaccardMax": 0
+  },
+  "bottomRowVerify": {
+    "c4_pattern": "row 5 (Bottom row known issue candidate)",
+    "c4_accuracy": 1,
+    "verdict": "✓ Bottom row 100% accuracy — known issue (P213 mock N=8) 영역 N=6 production 시나리오 영역 영향 없음"
+  }
+}

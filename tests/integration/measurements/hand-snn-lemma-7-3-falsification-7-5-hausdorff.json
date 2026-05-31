@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-lemma-7-3-falsification-7-5-hausdorff",
+  "measurement_id": "hand-snn-lemma-7-3-falsification-7-5-hausdorff",
+  "branch": "main",
+  "type": "negative_result_plus_refined_framework",
+  "code_artifact": null,
+  "doc_artifact": "docs/LEMMA_7_3_FALSIFICATION_LEMMA_7_5_HAUSDORFF.md",
+  "commit_baselines": {
+    "stone_weierstrass_attempt": "bbcb8b3",
+    "final_summary": "9119161",
+    "theorem_7_1": "b1e3b1e",
+    "N5K4_enumeration": "f446675"
+  },
+  "hypothesis": "직전 commit bbcb8b3 의 Lemma 7.3 (sup-norm density on C^conv) 의 strict 검증. 결과: Lemma 7.3 FALSE (hinge counter-example). 단 Conjecture 7.2 의 truth 는 별도 path (Lemma 7.5 Hausdorff moment-determination) 가능성.",
+  "result": "NEGATIVE_RESULT_LEMMA_7_3_FALSIFIED_PLUS_LEMMA_7_5_REFINED",
+  "main_results": {
+    "lemma_7_3_FALSIFIED": "Hinge function h_c(x) = max(0, x-c) cannot be approximated in sup-norm by positive linear combinations of convex Cressie-Read family on [m, M] with m > 1. Strict counter-example: ψ_λ(x) > 0 for x > 0, λ in convex range → positive combinations remain strictly positive on [m, c] → cannot approximate h_c = 0 there.",
+    "lemma_7_5_proposed_OPEN": "Cressie-Read inequality test (all λ ∈ ℝ with L'Hopital limits) determines weighted convex order on R(N, K, p, δ). Hausdorff moment-determination + Bernstein/Tchakaloff theorem approach.",
+    "toy_example_consistency": "r_a = (3, 1), r_b = (2, 2) with uniform weights: Cressie-Read inequalities ψ_λ (λ=0.5, 1, 2, 0, -1) 모두 μ_a ≥ μ_b consistently → consistent with Lemma 7.5.",
+    "proof_strategy_reformulation": "Sup-norm density (Stone-Weierstrass) → moment-determination (Hausdorff-Choquet). Conjecture 7.2 의 truth 변경 없음, single proof strategy 변경."
+  },
+  "honest_limitations": [
+    "Lemma 7.3 falsification 의 strict 정확성 — counter-example construction m > 1 condition 한정 (m < 1 case subtle analysis 별도).",
+    "Lemma 7.5 strict proof 안 됨 — Hausdorff-Choquet theorem weighted convex order extension 별도 multi-cycle R&D.",
+    "§3.5 toy example 한정 — single (r_a, r_b) pair systematic verification 별도.",
+    "Hausdorff moment problem standard textbook (Rudin 1976 + Shohat-Tamarkin 1943) 사용자 직접 verify mandatory.",
+    "Convex stochastic order characterization (Shaked & Shanthikumar 2007) 사용자 verify mandatory.",
+    "본 R&D 의 mathematical 가치: Lemma 7.3 negative result + Lemma 7.5 refined framework. Conjecture 7.2 final truth 미해결.",
+    "f446675 incomparable pairs spot-check 의 Lemma 7.5 framework 결합 별도 R&D.",
+    "L'Hopital limits 의 Hausdorff moment-determination 정확성 별도 R&D.",
+    "Hand SNN R&D context 영향 0 (carryover).",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 + Shaked & Shanthikumar 2007 published PDF 사용자 verify mandatory (carryover + 신규).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — negative result + refined framework.",
+    "본 R&D contribution: mathematical R&D 의 정직한 negative result + new proof strategy. Conjecture 7.2 final truth value 미해결 (multi-cycle R&D mandatory)."
+  ],
+  "hypothesis_verdict": "H_lemma_7_3_falsified_lemma_7_5_hausdorff_moment_determination_refined_conjecture_7_2_open",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "lemma_7_3_falsification_m_gt_1": "Counter-example h_c (m > 1 case): strict argument via positive ψ_λ + non-negative combinations + minimum value bound.",
+      "toy_numerical_consistency": "r_a = (3,1), r_b = (2,2) numerical verification (5 Cressie-Read functions tested)."
+    },
+    "what_is_NOT_proven": {
+      "lemma_7_3_m_lt_1_case": "Subtle analysis for m < 1 (ψ_0, ψ_{-1} may take negative values)",
+      "lemma_7_5_strict": "Hausdorff-Choquet specialization multi-cycle R&D",
+      "conjecture_7_2_final": "Final truth depends on Lemma 7.5 truth"
+    }
+  },
+  "next_followup_candidates": [
+    "Lemma 7.5 strict proof attempt (Hausdorff-Choquet specialization)",
+    "f446675 incomparable pairs systematic spot-check (Lemma 7.5 numerical verification)",
+    "Convex stochastic order Cressie-Read characterization published literature verify",
+    "Lean 4 formal verification of Lemma 7.3 falsification + Lemma 7.5 framework"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Rudin, W. (1976). Principles of Mathematical Analysis. McGraw-Hill.",
+    "Shaked, M. & Shanthikumar, J. G. (2007). Stochastic Orders. Springer.",
+    "Shohat, J. A. & Tamarkin, J. D. (1943). The Problem of Moments. American Mathematical Society."
+  ]
+}

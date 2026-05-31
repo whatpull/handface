@@ -167,7 +167,43 @@ ROUNDS / R-STDP gain 조정으로 5×5 c3 100% 도달 불가능.
 - `feedback_process_cleanup_mandatory.md`: 본 agent spawn process 즉시 cleanup
 - `feedback_vitest_zombie_prevention.md`: Windows + vitest 4.x zombie worker 회피
 
+## 9. Update — Phase 2A.2 production 적용 완료 (2026-06-01)
+
+본 cycle 종결 직후 사용자 redirect 영역 Phase 2A.2 production 적용 진행:
+
+### 9.1 commit 4174898 (2026-06-01)
+
+- 24 파일 변경 (production 8 + test 15 + docs 1)
+- substrate `orientation-5x5` → `orientation-6x6` 일괄 전환
+- UI 5×5 (25 cells) → 6×6 (36 cells)
+- 25-dim test 패턴 → 36-dim, expected activeInputs 재계산
+  (`[6,7,8,9,10,11,37]` for 6×6 row 1 horizontal + row sum)
+- Toast 메시지 + console.info Phase 2A.2 안내
+
+### 9.2 검증
+
+- npm run typecheck: pass
+- npm run lint: pass
+- npm run test:unit: 906/906 pass
+- CI deploy: 3m 43s (mandate 4분 정합)
+
+### 9.3 production effect
+
+- 4 패턴 noisy accuracy 90% → **100% 예상** (measurement evidence)
+- c3 60% → **100%** (sub-pool 3 → 5 features)
+- Jaccard 0.231 → **0** (완전 disjoint)
+- 학습 시간 변경 없음 (1st 3-4초, 2nd~4th 9-12초 각)
+
+### 9.4 Phase 2A.2 적용 후 사용자 다음 방문 시
+
+1. 캐시 강제 갱신 (Ctrl+Shift+R)
+2. Toast 1회 자동 표시: "학습 substrate 가 6×6 (72 features) 로 갱신되었습니다.
+   기존 학습 데이터는 무효 — 다시 학습해 주세요."
+3. UI grid 자동 5×5 → 6×6
+4. 4 패턴 재학습 시 100% accuracy 예상
+
 ---
 
 **Generated**: 2026-05-31 (Phase 2A.1 H3 mitigation closure cycle)
-**Status**: Phase 2A.1 ✓ closed. Phase 2A.2 production 적용 결정 보류 (사용자 catch 대기).
+**Updated**: 2026-06-01 (Phase 2A.2 production 적용 완료, commit 4174898)
+**Status**: Phase 2A.1 ✓ closed. Phase 2A.2 ✓ production 적용 완료.

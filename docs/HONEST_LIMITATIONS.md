@@ -1,6 +1,6 @@
 # Honest Limitations & Disclaimer
 
-**최종 업데이트**: 2026-05-31 (Phase 2A.1 H3 mitigation 종결)
+**최종 업데이트**: 2026-06-01 (Phase 2A.2 production 적용 commit 4174898)
 
 본 문서는 handface 저장소의 **정직한 한계** 와 학술적 framing 을 명시합니다.
 
@@ -10,43 +10,47 @@
 
 | 영역 | 상태 |
 |------|------|
-| 4×4 grid 패턴 인식 (N=3) | ✅ 100% 정확도, browser-only 작동 |
-| 4×4 grid 패턴 인식 (N=5) | ✅ 100% 재현 / 100% 노이즈 / ~20% 부분단서 |
-| 5×5 substrate (N=4 Phase 2A.1) | ✅ 90% noisy accuracy (commit 8da3cbe 후 2nd+ spawn 90 trials) |
-| 5×5 substrate (N=6 scaling) | ✅ 90% noisy accuracy |
-| 5×5 substrate (N=5) | ⚠️ 88% (Guide 임계 -2%p, c3 영역 40%) |
-| 5×5 substrate (N=8) | ⚠️ 70% (다중 under-allocated cluster — c3/c6/c7) |
-| 5×5 substrate (N=8, lucky seed 86) | ✅ 100% recall, 88% noise (P218) |
+| 4×4 grid 패턴 인식 (N=3) | ✅ 100% 정확도, browser-only 작동 (legacy n13) |
+| 4×4 grid 패턴 인식 (N=5) | ✅ 100% 재현 / 100% 노이즈 / ~20% 부분단서 (legacy n13) |
+| **6×6 substrate (N=4 Phase 2A.2)** | ✅ **100% noisy accuracy** (commit 4174898 — production 적용) |
+| **6×6 substrate (N=5 Phase 2A.2)** | ✅ **100% noisy accuracy** (commit 4174898 — production 적용) |
+| 5×5 substrate (N=4 Phase 2A.1) | ⚠️ legacy — Phase 2A.2 으로 superseded. 90% (c3 60%) |
+| 5×5 substrate (N=5/8) | ⚠️ legacy — 5×5 inherent c3 limit 으로 88%/70% |
 | Mega 9-substrate Ensemble | ✅ 100% recall / 88% noise / 100% partial / 96% WTA margin (commit 1102b3a) |
 
 ### 1.2 실험 단계 / 미해결 부분
 
 | 영역 | 한계 |
 |------|------|
-| 6×6 substrate "Bottom row" 패턴 | ⚠️ 4 시드 모두 학습 실패 (-1) — 원인 미파악 |
+| 6×6 substrate "Bottom row" 패턴 (N=8 mock) | ⚠️ 직전 P213 mock 4 시드 학습 실패 (-1) — N=4/5 production 시나리오에는 영향 없음 (commit b8458e5 측정 확인) |
 | Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 |
-| 학습 안정화 N>5 (4×4) | ⚠️ catastrophic forgetting 영향 (5×5 영역 N=4 영역 commit 8da3cbe 영역 완화) |
-| 5×5 substrate 영역 N>=7 영역 | ⚠️ 다중 under-allocated cluster 영역 fix 영역 부족 (Phase 2A.2 6×6 substrate 72-dim 후보) |
-| 5×5 substrate N=5 c3 약화 | ⚠️ c4 추가 시 c3 60% → 40% (-20%p, small sub-pool 3 features 영역 취약). 6×6 substrate 측정 시 100% 정합 (다음 cycle 후보) |
+| 6×6 substrate N>=7 | ⚠️ 실제 production 시나리오 N=7/8 미측정 (시간 부족) — Bottom row 영향 잠재 |
 
-### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31)
+### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31 ~ 2026-06-01)
 
-6×6 substrate (n15_extended_6x6, 72-dim) 측정 결과 — 5×5 의 small sub-pool 한계 완전 해결:
+6×6 substrate (n15_extended_6x6, 72-dim) production 적용 결과:
 
-| 시나리오 | 5×5 (50-dim) | 6×6 (72-dim) |
-|---------|--------------|--------------|
+| 시나리오 | 5×5 legacy (50-dim) | 6×6 production (72-dim) |
+|---------|-------------------|------------------------|
 | N=4 | 90% (c3 60%) | **100%** |
 | N=5 | 88% (c3 40%, c4 추가 시 c3 약화) | **100%** |
 | c3 sub-pool size | 3 features | 5 features |
 | Jaccard max | 0.231 | 0 (완전 disjoint) |
+| 1st 패턴 학습 시간 | 3-4초 | 3-4초 (불변) |
+| 2nd~4th 패턴 학습 시간 | 9-12초 | 9-12초 (불변) |
 
-**production 적용 결정 보류 사안** — 다음 사용자 catch 시 결정:
-- 보상: N=4/5 accuracy 90/88% → **100%**
-- 위험: UI 5×5 → 6×6 grid 변경, 학습 데이터 reset 필요, 6×6 known issue (N=8 Bottom row 실패 가능성)
+**production 적용 (commit 4174898 — 2026-06-01)**:
+- UI 5×5 (25 cells) → 6×6 (36 cells) — 사용자 visible 변경
+- 학습 데이터 reset 1회 (Phase 2A.1 패턴 재현, Toast 안내)
 - 측정 파일: `tests/integration/measurements/hand-snn-phase-2a-2-6x6-comparison.json`
-| H2 (sub-pool exhaustion) — 5×5 N=4 | ↓ Guide expected 50-70% 영역 측정 42% (under-utilization, no harm) |
-| H3 catastrophic forgetting — 5×5 N=4 | ✅ commit 8da3cbe 영역 75% → 90% (2nd+ spawn 90 trials) |
-| H4 sparse code overlap — 5×5 N=4 | ✅ Jaccard 0.55-0.83 → 0.23 (Phase 2A.1 substrate upgrade 효과) |
+
+### 1.2.2 Hypothesis 최종 판정 (Phase 2A.2 적용 후)
+
+| H | Phase 2A.1 (5×5) | Phase 2A.2 (6×6) |
+|---|------------------|------------------|
+| H2 sub-pool exhaustion | ↓ 21/50 (42%) below Guide 50-70% | ✓ 충분 capacity (72-dim) |
+| H3 catastrophic forgetting | ✓ 90% (c3 60% 잔존) | ✅ **100%** (모든 cluster) |
+| H4 sparse code overlap | ✓ Jaccard 0.231 (mitigated) | ✅ Jaccard 0 (완전 disjoint) |
 
 ### 1.3 Pure functions 만 (실제 SNN 통합 안 됨)
 

@@ -8,6 +8,7 @@ import type {
   BuildResult,
   ClusterFiringRatesPayload,
   ClusterFiringRatesResult,
+  ClusterPoolUsageResult,
   ClusterTrainRStdpPayload,
   ClusterTrainRStdpResult,
   ExpandClusterPayload,
@@ -214,6 +215,13 @@ export class SNNWorkerClient {
 
   clusterFiringRates(payload: ClusterFiringRatesPayload): Promise<ClusterFiringRatesResult> {
     return this.send<ClusterFiringRatesResult>({ type: 'clusterFiringRates', payload });
+  }
+
+  // CPM-1 diagnostic (2026-05-31) — cluster pool usage snapshot RPC.
+  // 사용자 production observation H2 (sub-pool exhaustion) confirmation 영역
+  // minimal viable metric. side-effect 0 — registry inspection only.
+  clusterPoolUsage(): Promise<ClusterPoolUsageResult> {
+    return this.send<ClusterPoolUsageResult>({ type: 'clusterPoolUsage' });
   }
 
   clusterTrainRStdp(payload: ClusterTrainRStdpPayload): Promise<ClusterTrainRStdpResult> {

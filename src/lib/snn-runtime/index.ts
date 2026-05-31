@@ -84,6 +84,7 @@ export {
   type ExpandClusterResult,
   type ClusterFiringRatesPayload,
   type ClusterFiringRatesResult,
+  type ClusterPoolUsageResult,
   type ClusterTrainRStdpPayload,
   type ClusterTrainRStdpResult,
   type RestoreSnapshotPayload,

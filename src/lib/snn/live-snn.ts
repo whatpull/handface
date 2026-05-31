@@ -58,6 +58,9 @@ function dispatchFeature(pattern: number[]): number[] {
 import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 import { saveBackup } from '@/lib/cloud-backup';
+// Phase 1 diagnostic (2026-05-31) — CPM-1 spawn-time pool usage logging +
+// fallback cluster tracking. side-effect 0 (console output only).
+import { clearFallbackMarks, logCpm1ForKind, markClusterAsFallback } from './diagnostic';
 
 // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): trialCount 영역 substrate
 // 별 localStorage persist — page reload 영역 학습 상황 정합 보존 mandatory.
@@ -406,6 +409,9 @@ export class LiveSnn {
     // 영역 catch 회피 (worker fresh build 후 영역 stale token 영역 reinforce
     // 영역 새 cluster 영역 weight pollution 영역 root cause 회피).
     this._vigilancePending.clear();
+    // CPM-1 diagnostic (2026-05-31): 학습 reset 영역 fallback marks 영역 clear —
+    // 새 cluster id 영역 stale 'fallback' badge 영역 회피.
+    clearFallbackMarks();
     // _pushBoundForKind 영역 보존 — push handler substrate 영역 active 정합
     // (다음 trigger 영역 ensurePushHandler 영역 정합 path 영역 reuse).
   }
@@ -985,7 +991,16 @@ export class LiveSnn {
           candidateActiveInputs: activeInputs,
         },
       });
+      // CPM-1 diagnostic (2026-05-31): fallback cluster id 영역 mark — 다음
+      // logCpm1ForKind 호출 영역 'fallback' badge 영역 표시. H2 (sub-pool
+      // exhaustion) confirmation 영역 핵심 telemetry.
+      markClusterAsFallback(r.newClusterId);
     }
+    // CPM-1 diagnostic (2026-05-31): spawn 직후 영역 pool usage snapshot log —
+    // 사용자 영역 dev tools console 영역 spawn 시점 영역 sub-pool size /
+    // overlap matrix 확인 path. fire-and-forget — 본 path 영역 await 0 (production
+    // accuracy 영향 0).
+    logCpm1ForKind(this.substrateKind, `spawn cluster=${r.newClusterId}`);
     return {
       newClusterId: r.newClusterId,
       totalClusters: r.totalClusters,
@@ -1417,6 +1432,11 @@ export class LiveSnn {
               .catch(() => {});
           }
         } catch { /* backup 실패 — 학습 흐름 무영향 */ }
+        // CPM-1 diagnostic (2026-05-31): auto-learn loop 완료 직후 영역 pool
+        // usage 영역 snapshot — 학습 완료 시점 영역 sub-pool 영역 정합 catch.
+        // 사용자 production observation "같은 패턴 재학습 시 인식률 저하" 영역
+        // 측정 핵심 — 매 학습 epoch 영역 overlap matrix 영역 evolution catch.
+        logCpm1ForKind(this.substrateKind, `auto-learn-complete cluster=${registeredClusterId}`);
       }
     }
   }

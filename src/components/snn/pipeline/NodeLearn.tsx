@@ -39,6 +39,10 @@ import {
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import { isUntrustworthy } from '@/lib/snn/untrustworthy';
+// Phase 1 diagnostic (2026-05-31) — CFM-1 per-pattern self-verify breakdown
+// console.log. UI panel 영역 Phase 2 defer (production observation 영역 빠른
+// root cause 진단 path).
+import { logCfm1FromConfusionMatrix } from '@/lib/snn/diagnostic';
 import NodeShell from './NodeShell';
 import { usePipelineEvents } from './PipelineEventContext';
 import {
@@ -635,12 +639,19 @@ export default function NodeLearn() {
             }
           }
         }
-        emitBackendEvent<ConfusionMatrixReadyDetail>('confusion-matrix-ready', {
+        const detail: ConfusionMatrixReadyDetail = {
           matrix,
           labels,
           samplesPerCluster: SAMPLES_PER_CLUSTER,
           measuredAt: Date.now(),
-        });
+        };
+        emitBackendEvent<ConfusionMatrixReadyDetail>('confusion-matrix-ready', detail);
+        // CFM-1 diagnostic (2026-05-31): self-verify 결과 영역 console group 영역
+        // per-pattern breakdown 표시. 사용자 production observation "같은 패턴
+        // 재학습 시 인식률 저하" 영역 root cause 영역 빠른 catch path —
+        // aggregate accuracy 영역 hide 영역 per-pattern degradation 영역
+        // 표면화. UI panel 영역 Phase 2 영역 defer.
+        logCfm1FromConfusionMatrix(detail);
       } finally {
         verifyInFlightRef.current = false;
       }

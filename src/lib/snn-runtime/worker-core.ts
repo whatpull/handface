@@ -67,6 +67,7 @@ import type {
   BuildResult,
   ClusterFiringRatesPayload,
   ClusterFiringRatesResult,
+  ClusterPoolUsageResult,
   ClusterTrainRStdpPayload,
   ClusterTrainRStdpResult,
   ExpandClusterPayload,
@@ -366,6 +367,9 @@ export class SNNWorkerCore {
           return { id: req.id, ok: true, result: this.handleExpandCluster(req.payload) };
         case 'clusterFiringRates':
           return { id: req.id, ok: true, result: this.handleClusterFiringRates(req.payload) };
+        case 'clusterPoolUsage':
+          // CPM-1 diagnostic (2026-05-31) — side-effect 0 registry inspection.
+          return { id: req.id, ok: true, result: this.handleClusterPoolUsage() };
         case 'clusterTrainRStdp':
           return { id: req.id, ok: true, result: this.handleClusterTrainRStdp(req.payload) };
         case 'getNetworkTime': {
@@ -919,6 +923,55 @@ export class SNNWorkerCore {
       // 영역 emit — main thread 영역 NeuronFiringDetail 영역 propagate 영역 NodeInfer
       // / NodeLearn 영역 winner card "EXACT MATCH (deterministic)" badge 표시 정합.
       forcedExact,
+    };
+  }
+
+  // CPM-1 diagnostic (2026-05-31) — Cluster Pool Metric Phase 1.
+  // 사용자 production observation (handface.whatpull.com 2026-05-30):
+  //   "cluster 1 spawn — disjoint sub-pool 고갈 fallback (claimed 18 features)"
+  // H2 (sub-pool exhaustion) 영역 confirmation 영역 minimal viable metric —
+  //   - inputDim (e.g., 32 for n13, 50 for n14, 75 for n16)
+  //   - per-cluster claimed sub-pool size (length of activeInputs)
+  //   - K×K Jaccard overlap matrix (disjointness 측정)
+  // side-effect 0 — registry read-only. monitor / net.t 영역 touch 0.
+  private handleClusterPoolUsage(): ClusterPoolUsageResult {
+    const registry = this.requireRegistry();
+    const slots = registry.slots;
+    const K = slots.length;
+    const inputDim = registry.inputDim;
+    const claimedUnion = new Set<number>();
+    const perCluster: ClusterPoolUsageResult['perCluster'] = [];
+    for (const slot of slots) {
+      for (const ai of slot.activeInputs) claimedUnion.add(ai);
+      perCluster.push({
+        clusterId: slot.id,
+        subPoolSize: slot.activeInputs.length,
+        activeInputs: slot.activeInputs.slice(),
+      });
+    }
+    // K×K Jaccard overlap matrix.
+    const overlapMatrix: number[][] = Array.from({ length: K }, () =>
+      Array.from({ length: K }, () => 0),
+    );
+    for (let i = 0; i < K; i += 1) {
+      const setI = new Set(slots[i].activeInputs);
+      for (let j = 0; j < K; j += 1) {
+        if (i === j) {
+          overlapMatrix[i][j] = 1.0;
+          continue;
+        }
+        const setJ = new Set(slots[j].activeInputs);
+        let inter = 0;
+        for (const v of setI) if (setJ.has(v)) inter += 1;
+        const union = setI.size + setJ.size - inter;
+        overlapMatrix[i][j] = union > 0 ? inter / union : 0;
+      }
+    }
+    return {
+      inputDim,
+      totalClaimedFeatures: claimedUnion.size,
+      perCluster,
+      overlapMatrix,
     };
   }
 

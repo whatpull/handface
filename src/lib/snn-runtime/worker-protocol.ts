@@ -35,6 +35,11 @@ export type WorkerRequest =
   | { id: number; type: 'resetHomeostatic' }
   | { id: number; type: 'resetClusterWeights' }
   | { id: number; type: 'reset' }
+  // CPM-1 (Cluster Pool Metric Phase 1, 2026-05-31): cluster pool usage
+  // diagnostic — H2 (sub-pool exhaustion) confirmation 영역 minimal viable
+  // metric. side-effect 0 — registry inspection only (V1/V2 dim, per-cluster
+  // claimed activeInputs, K×K Jaccard overlap).
+  | { id: number; type: 'clusterPoolUsage' }
   // PR-B (Web Worker background offload, 2026-05-10): fire-and-forget RPC.
   // 사용자 catch 2026-05-09 [2]: 학습/추론 영역 background 영역 latency hide.
   // 본 RPC 영역 sync ack `null` + 결과 영역 push event (postMessage type='push')
@@ -271,6 +276,26 @@ export interface RestoreSnapshotResult {
 export interface RunResult {
   t: number;
   durationMs: number;
+}
+
+// CPM-1 diagnostic (2026-05-31) — registry pool usage snapshot.
+// 사용자 production observation (handface.whatpull.com 2026-05-30 screenshot):
+//   "cluster 1 spawn — disjoint sub-pool 고갈 fallback (claimed 18 features)"
+// H2 (sub-pool exhaustion) confirmation 영역 측정값:
+//   - inputDim (n13: 32, n14: 50, n15: 72, n16: 75)
+//   - per-cluster claimed sub-pool size + fallbackUsed flag (spawn 시점 기록)
+//   - K×K Jaccard overlap matrix (cluster active inputs disjointness 측정)
+export interface ClusterPoolUsageResult {
+  inputDim: number;
+  totalClaimedFeatures: number; // union of all cluster activeInputs
+  perCluster: Array<{
+    clusterId: number;
+    subPoolSize: number; // activeInputs.length
+    activeInputs: number[];
+  }>;
+  // K×K Jaccard matrix — matrix[i][j] = |A_i ∩ A_j| / |A_i ∪ A_j|.
+  // diagonal = 1.0 (정의), off-diagonal > 0 → sub-pool overlap (disjoint 깨짐).
+  overlapMatrix: number[][];
 }
 
 export interface SnapshotResult {

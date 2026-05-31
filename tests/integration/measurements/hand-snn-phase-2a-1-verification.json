@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-phase-2a-1-verification",
+  "measurement_id": "hand-snn-phase-2a-1-verification",
+  "branch": "main",
+  "type": "verification_guide_with_comparison_framework",
+  "code_artifact": null,
+  "doc_artifact": "docs/PHASE_2A_1_VERIFICATION_GUIDE.md",
+  "commit_baselines": {
+    "phase_2a_1_substrate_upgrade": "4e739b5",
+    "diagnostic_deep_analysis": "2afca91",
+    "phase_1_diagnostic": "7dd386a",
+    "diagnostic_framework": "8fed0e3"
+  },
+  "hypothesis": "직전 commit 4e739b5 의 substrate upgrade (orientation → orientation-5x5) 의 production effect 측정 framework. 사용자 production 데이터 수집 + before/after comparison + decision tree (Phase 2 추가 fix 필요 판단).",
+  "result": "VERIFICATION_GUIDE_DOCUMENT_PRODUCTION_DATA_COLLECTION_PENDING",
+  "main_results": {
+    "step_by_step_procedure": "5 steps: production deploy 확인 → 학습 reset → 2-4 패턴 학습 → console log 수집 → before/after 비교.",
+    "expected_metrics_5_categories": {
+      "sub_pool_capacity": "Before c0 claimed 18/32 (56%). After c0 claimed 25-35/50 (50-70%) expected.",
+      "cluster_jaccard_overlap": "Before 0.556-0.833. After < 0.3-0.5 expected (큰 폭 감소).",
+      "fallback_frequency": "Before c1+ mandatory fallback. After 선택적 (sufficient unclaimed features 의존).",
+      "recognition_accuracy": "Before 87% noisy. After >= 90% expected.",
+      "max_clusters_side_benefit": "Before 8. After 12 (n14_extended 자동 설정)."
+    },
+    "comparison_analysis_framework": {
+      "h2_mitigation_indicator": "fallback message 빈도 50% 이하 감소 → H2 confirmed mitigated",
+      "h4_mitigation_indicator": "Jaccard max 50% pairs < 0.3 → H4 confirmed mitigated",
+      "h3_mitigation_indicator": "CFM-1 per-pattern accuracy drop < 5% → H3 confirmed mitigated",
+      "h1_mitigation_indicator": "vigilance miss 빈도 50% 이하 감소"
+    },
+    "decision_tree": "H2 mitigated → H4 mitigated → H3 mitigated → 모든 root cause 완화 → 추가 fix 불필요. 아니면 Phase 2B (sparse code top-K) / 2A.2 (substrate UI dropdown) / 2D (EWC) 권장.",
+    "data_collection_template": "사용자 console log 캡처 권장 format provided in §6."
+  },
+  "honest_limitations": [
+    "사용자 직접 production 데이터 수집 mandatory — 본 R&D scope 외.",
+    "§3 expected metrics 는 mathematical 추정 — 실제 값 사용자 패턴 활용 방식 의존.",
+    "§4 success indicator threshold (50% 감소, 0.3 이하, 5% drop) 는 baseline 추정 — calibration mandatory.",
+    "§4.3 H3 측정 time series 요구 — 사용자 여러 학습 epoch 추적 mandatory.",
+    "§5 decision tree single visit 한정 — 장기 production 동작 별도 monitoring.",
+    "Mathematical R&D series 영향 0 (carryover).",
+    ".env.snn-backup HIGH carryover.",
+    "Cosmetic '영역' 단어 cleanup follow-up cycle pending (4e739b5 agent 16 instances + historical ~1421 instances).",
+    "Phase 2A.2 substrate 선택 UI dropdown 별도 cycle.",
+    "Type: documentation-only — verification guide. Production data collection + analysis user + R&D team coordination.",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 + Shaked & Shanthikumar 2007 + Shohat-Tamarkin 1943 user verify mandatory (carryover).",
+    "Success indicator 모두 mitigation 결과 시 substrate upgrade 만으로 완전 해결. Negative result 시 Phase 2B/2A.2/2D 권장.",
+    "§3 expected metrics 의 정확한 계산 별도 R&D — directional 추정.",
+    "Peer review 안 됨.",
+    "Type: documentation-only — verification guide R&D 한정."
+  ],
+  "hypothesis_verdict": "H_verification_guide_complete_user_data_collection_pending",
+  "next_followup_candidates": [
+    "사용자 production 데이터 수집 + §3-5 비교 분석",
+    "§5 decision tree 결과 따라 다음 Phase 진행 (2B / 2A.2 / 2D / 없음)",
+    "Cosmetic '영역' 단어 cleanup cycle",
+    "Phase 2A.2 substrate UI dropdown 별도 cycle"
+  ],
+  "references": [
+    "Production hotfix: commit 4e739b5",
+    "Deep analysis: commit 2afca91",
+    "Phase 1 diagnostic implementation: commit 7dd386a",
+    "Diagnostic framework: commit 8fed0e3",
+    "Carpenter & Grossberg 1987 — ART vigilance",
+    "Olshausen & Field 1996 — Sparse coding"
+  ]
+}

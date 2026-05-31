@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-05-31T14:04:34.534Z",
+  "scenario": "phase-2a-2-6x6-substrate-comparison",
+  "substrate": "n15_extended_6x6 (72-dim)",
+  "productionFix": "1st spawn 30 trials, 2nd+ spawn 90 trials (commit 8da3cbe)",
+  "N4": {
+    "N": 4,
+    "perClusterSize": [
+      7,
+      6,
+      6,
+      5
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "totalAccuracy": 1,
+    "jaccardMax": 0
+  },
+  "N5": {
+    "N": 5,
+    "perClusterSize": [
+      7,
+      6,
+      6,
+      5,
+      5
+    ],
+    "perClusterAccuracy": [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "totalAccuracy": 1,
+    "jaccardMax": 0
+  },
+  "comparison5x5": {
+    "N4_5x5": {
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.6
+      ],
+      "totalAccuracy": 0.9,
+      "c3_size": 3
+    },
+    "N5_5x5": {
+      "perClusterAccuracy": [
+        1,
+        1,
+        1,
+        0.4,
+        1
+      ],
+      "totalAccuracy": 0.88,
+      "c3_size": 3
+    }
+  }
+}

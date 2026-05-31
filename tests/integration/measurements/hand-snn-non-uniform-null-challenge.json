@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-non-uniform-null-challenge",
+  "measurement_id": "hand-snn-non-uniform-null-challenge",
+  "branch": "main",
+  "type": "partial_framework_with_open_problem",
+  "code_artifact": null,
+  "doc_artifact": "docs/NON_UNIFORM_NULL_CHALLENGE.md",
+  "commit_baselines": {
+    "ux_medium_2_fix": "1d6d4e7",
+    "reproducer_artifact": "00775a6",
+    "delta_robustness": "94dbf07",
+    "chain_characterization": "6f6104d",
+    "full_closed_form_proof": "1c5d717",
+    "partial_proof": "a6aa72a",
+    "lambda_continuous_sweep_empirical": "0f3acf0"
+  },
+  "hypothesis": "직전 Theorem 2-4 의 모든 mathematical foundation 은 uniform null (p_i = 1/K) 가정. 본 R&D 는 non-uniform null (p_i ≠ 1/K) 환경에서 sufficient statistic reduction 의 실패를 명시 + weighted HLP-Karamata (Olkin & Marshall 1979 ch. 14) framework 도입 + full closed-form proof 는 multi-cycle R&D 로 open.",
+  "result": "PARTIAL_FRAMEWORK_OPEN_PROBLEM",
+  "main_results": {
+    "lemma_5_1_weighted_form": "T_λ(o; δ, p) = (2/(λ(λ+1))) × Σ_i E'_i × (r_i^{λ+1} - r_i) where r_i = O'_i / E'_i, E'_i = N×p_i + δ. Uniform null 의 simple ψ_λ(v) = Σ v_i^{λ+1} 환원 실패 — weight w = E' 가 본질적으로 남음.",
+    "weighted_HLP_Karamata_framework": "Olkin & Marshall 1979 ch. 14 의 weighted majorization (≻_w) + weighted HLP-Karamata theorem 도입. φ(x) = x^{λ+1} - x 의 convex/concave region 식별 (λ ∈ (-∞, -1] ∪ [0, +∞) convex, λ ∈ [-1, 0] concave).",
+    "conjecture_5_open": "Conjecture 5 (proposed, NOT proven): T_λ ordering preservation across all λ ⟺ r-vector 의 weighted majorization (weights w = E'). Theorem 2 의 non-uniform null analog.",
+    "conjecture_6_open": "Conjecture 6 (proposed): r-space 가 weighted majorization 으로 totally ordered chain 일 조건 (Theorem 3 의 analog). N_critical(p) 의 closed-form 은 multi-cycle R&D mandatory.",
+    "hand_snn_implication": "현재 Hand SNN R&D 는 uniform null 한정 (architectural mean = 1/4) 이라 Theorem 2-4 의 closed-form 결과 그대로 유효. Non-uniform null 도입은 별도 motivation (예: 클러스터 사용 빈도 데이터) + framework 정리 mandatory."
+  },
+  "honest_limitations": [
+    "Conjecture 5 의 closed-form proof 안 됨 — §3 + §4 framework 는 partial evidence 만. Full proof 는 multi-cycle R&D mandatory.",
+    "Olkin & Marshall 1979 ch. 14 weighted majorization + weighted HLP-Karamata theorem 의 published edition transcription 은 사용자 직접 verify mandatory.",
+    "Direction (⇒) 의 explicit construction (incomparable r-vector pair 에 대한 λ_1, λ_2 explicit identification) 은 본 R&D scope 외.",
+    "L'Hopital limits (λ ∈ {0, -1}) 의 weighted form 동등 작동 여부 별도 verify mandatory.",
+    "Conjecture 6 (chain characterization analog) 의 N_critical(p) closed-form 은 multi-cycle R&D.",
+    "r-space (likelihood ratio space) 의 partial order structure 분석 안 함 (Macdonald 1995 dominance order analog 별도).",
+    "Hand SNN R&D 의 non-uniform prior 실제 motivation (예: architectural learning data 분석) 안 함 — mathematical extension scope 한정.",
+    "Formal verification (Lean 4 / Coq) 안 됨 — Mathlib weighted majorization library 활용 formalization 별도 R&D.",
+    "Cressie & Read 1984 §2.5 non-uniform null treatment 의 published PDF 사용자 직접 verify mandatory.",
+    "본 R&D 가 Hand SNN R&D 의 uniform null 한정 결론 (Theorem 2-4) 을 약화시키지 않음 — 별도 mathematical extension scope.",
+    ".env.snn-backup HIGH carryover (security) — 사용자 직접 rotate + OS secret store 이전 mandatory.",
+    "HLP 1934 + Cressie-Read 1984 + Macdonald 1995 published PDF 사용자 직접 verify mandatory (carryover).",
+    "Peer review 안 됨 — published statistical literature cross-check 사용자 mandatory.",
+    "본 partial framework 의 future R&D 의향 mandatory — Hand SNN R&D 의 실제 non-uniform prior 사용 motivation 식별 후 follow-up R&D 가치 평가.",
+    "Type: documentation-only — code/test artifact 없음. Reproducer script (00775a6) 는 uniform null 한정 — non-uniform null reproducer 별도 R&D."
+  ],
+  "hypothesis_verdict": "H_non_uniform_null_partial_framework_with_open_conjectures_5_and_6",
+  "scope_clarification": {
+    "rigorous_scope": {
+      "lemma_5_1": "Weighted form derivation T_λ = (2/(λ(λ+1))) × Σ E'_i × (r_i^{λ+1} - r_i) is rigorous.",
+      "framework_intro": "Weighted HLP-Karamata (Olkin & Marshall 1979 ch. 14) framework introduction is documented (단 statement transcription 은 사용자 verify mandatory)."
+    },
+    "what_is_NOT_proven": {
+      "conjecture_5_closed_form": "Non-uniform null analog of Theorem 2 — Full proof multi-cycle R&D",
+      "conjecture_6_chain_characterization": "r-space chain condition closed-form — multi-cycle R&D",
+      "direction_implication": "(⇒) direction explicit construction algorithm — future R&D",
+      "L_Hopital_weighted_limit": "λ ∈ {0, -1} weighted form 동등 작동 별도 verify"
+    }
+  },
+  "hand_snn_relevance": {
+    "current_R_and_D_status": "Hand SNN R&D 는 architectural mean prior = uniform null 1/4. Theorem 2-4 그대로 적용 가능.",
+    "non_uniform_motivation_examples": [
+      "클러스터 별 자연 사용 빈도 데이터 (사용자 실제 손동작 분포)",
+      "Architectural learning data 의 cluster activation rate",
+      "Asymmetric Bayesian prior (도메인 전문가 지식 기반)"
+    ],
+    "future_R_and_D_decision_point": "Hand SNN R&D 의 non-uniform null 도입 motivation 이 명확히 식별되면 본 framework 의 follow-up R&D 진행 권장."
+  },
+  "next_followup_candidates": [
+    "Conjecture 5 의 (⇐) direction strict proof attempt (weighted HLP-Karamata 정확 적용)",
+    "Conjecture 6 의 chain characterization (r-space majorization structure 분석)",
+    "L'Hopital limits 의 weighted form 동등 작동 verify",
+    "Hand SNN R&D 의 non-uniform prior 실제 motivation 식별 + practical case study",
+    "Lean 4 mathlib weighted majorization library 활용 formalization (multi-week)",
+    "Olkin & Marshall 1979 ch. 14 published edition 사용자 직접 verify (mandatory)"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization and Its Applications. Academic Press. Ch. 14 weighted majorization.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Read, T. R. C. & Cressie, N. A. C. (1988). Goodness-of-Fit Statistics for Discrete Multivariate Data. Springer.",
+    "Macdonald, I. G. (1995). Symmetric Functions and Hall Polynomials. Oxford University Press."
+  ]
+}

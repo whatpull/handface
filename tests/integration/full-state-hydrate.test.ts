@@ -87,7 +87,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     const core1 = new SNNWorkerCore();
     const client1 = new SNNWorkerClient(new InProcessTransport(core1));
     const lab1 = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: client1,
       sink: sink1,
       seed: 57,
@@ -113,11 +113,12 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     const weightsSession1 = await lab1.currentWeights();
 
     // L3: exemplars — incrementCount (winner cluster 영역 commit semantic).
-    incrementCount('out_0_0', 'orientation', [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
-    incrementCount('out_1_0', 'orientation', [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]);
+    // P218 (substrate upgrade): 5×5 raw-dim (25) → row 1 (indices 5..9) active 등가.
+    incrementCount('out_0_0', 'orientation-5x5', [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    incrementCount('out_1_0', 'orientation-5x5', [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0]);
 
-    // L4: trialCount — substrate orientation 영역 store.
-    localStorage.setItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation`, '13');
+    // L4: trialCount — substrate orientation-5x5 영역 store.
+    localStorage.setItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation-5x5`, '13');
 
     // ── Session 2 — Page reload 시뮬레이션 (fresh stack, 동일 storage) ─
     // IndexedDB 영역 동일 factory 영역 reuse (jsdom localStorage 영역 동일
@@ -126,7 +127,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     const core2 = new SNNWorkerCore();
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
     const lab2 = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: client2,
       sink: sink2,
       seed: 57,
@@ -144,7 +145,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
 
     // L3 hydrate verify: exemplars 영역 보존 + cluster id 영역 보존 (region
     // totals 영역 derive source 영역 정합).
-    const exemplarsAfterReload = loadExemplars('orientation');
+    const exemplarsAfterReload = loadExemplars('orientation-5x5');
     expect(exemplarsAfterReload['out_0_0']?.count).toBe(1);
     expect(exemplarsAfterReload['out_1_0']?.count).toBe(1);
     // cluster id 영역 정확 보존 — NodeLearn 영역 clusterCount derive 영역
@@ -155,9 +156,9 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
       .map(Number);
     expect(Math.max(...clusterIds)).toBe(1); // out_0 + out_1 → max=1 → clusterCount=2.
 
-    // L4 hydrate verify: trialCount 영역 보존 (substrate orientation key).
+    // L4 hydrate verify: trialCount 영역 보존 (substrate orientation-5x5 key).
     const trialCountAfterReload = localStorage.getItem(
-      `${TRIAL_COUNT_KEY_PREFIX}.orientation`,
+      `${TRIAL_COUNT_KEY_PREFIX}.orientation-5x5`,
     );
     expect(trialCountAfterReload).toBe('13');
 
@@ -165,15 +166,15 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     await sink2.close();
   });
 
-  it('substrate isolation — orientation/gesture 영역 별도 store 영역 cross-leak 0', async () => {
+  it('substrate isolation — orientation-5x5/gesture 영역 별도 store 영역 cross-leak 0', async () => {
     const factory = new IDBFactory();
-    // ── Session 1 — orientation + gesture 영역 별도 학습 ─────────────
-    // orientation: lab + exemplars + trialCount.
+    // ── Session 1 — orientation-5x5 + gesture 영역 별도 학습 ─────────
+    // orientation-5x5: lab + exemplars + trialCount.
     const sinkO = new IndexedDBSink({ factory, prefix: 'f1b' });
     const coreO = new SNNWorkerCore();
     const clientO = new SNNWorkerClient(new InProcessTransport(coreO));
     const labO = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: clientO,
       sink: sinkO,
       seed: 57,
@@ -191,8 +192,8 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     );
     await clientO.run({ durationMs: 50, dtMs: 0.1, stdpEnabled: true });
     await labO.save();
-    incrementCount('out_0_0', 'orientation', [1, 1, 1, 1]);
-    localStorage.setItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation`, '5');
+    incrementCount('out_0_0', 'orientation-5x5', [1, 1, 1, 1, 1]);
+    localStorage.setItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation-5x5`, '5');
 
     // gesture: 별도 lab + exemplars + trialCount (다른 netId).
     const sinkG = new IndexedDBSink({ factory, prefix: 'f1b' });
@@ -221,12 +222,12 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     incrementCount('out_3_0', 'gesture', [1, 0, 1, 0, 1, 0, 1, 0]);
     localStorage.setItem(`${TRIAL_COUNT_KEY_PREFIX}.gesture`, '17');
 
-    // ── Session 2 — Page reload — orientation hydrate verify ────────
+    // ── Session 2 — Page reload — orientation-5x5 hydrate verify ────
     const sinkO2 = new IndexedDBSink({ factory, prefix: 'f1b' });
     const coreO2 = new SNNWorkerCore();
     const clientO2 = new SNNWorkerClient(new InProcessTransport(coreO2));
     const labO2 = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: clientO2,
       sink: sinkO2,
       seed: 57,
@@ -250,17 +251,17 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     expect(statusG2.rev).toBe(FIX_REV_BASELINE + 1); // hydrated.
 
     // exemplars — substrate isolation 정합 (cross-leak 0).
-    const oExemplars = loadExemplars('orientation');
+    const oExemplars = loadExemplars('orientation-5x5');
     const gExemplars = loadExemplars('gesture');
     expect(oExemplars['out_0_0']?.count).toBe(1);
     expect(oExemplars['out_2_0']).toBeUndefined(); // gesture 영역 leak 0.
     expect(oExemplars['out_3_0']).toBeUndefined();
     expect(gExemplars['out_2_0']?.count).toBe(1);
     expect(gExemplars['out_3_0']?.count).toBe(1);
-    expect(gExemplars['out_0_0']).toBeUndefined(); // orientation 영역 leak 0.
+    expect(gExemplars['out_0_0']).toBeUndefined(); // orientation-5x5 영역 leak 0.
 
     // trialCount — substrate isolation 정합.
-    expect(localStorage.getItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation`)).toBe('5');
+    expect(localStorage.getItem(`${TRIAL_COUNT_KEY_PREFIX}.orientation-5x5`)).toBe('5');
     expect(localStorage.getItem(`${TRIAL_COUNT_KEY_PREFIX}.gesture`)).toBe('17');
 
     await sinkO.close();
@@ -276,7 +277,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     // 영역 saveDebounced(force) 영역 length-drift catch 영역 fresh topology 보존).
     //
     // 본 test 영역 시뮬레이션:
-    //   1. fresh build (orientation 4 cluster, no exemplars).
+    //   1. fresh build (orientation-5x5 4 cluster, no exemplars).
     //   2. expandCluster — 신규 cluster 5 (mid-train state — incrementCount 미실행).
     //   3. lab.save — length-drift catch 영역 fresh topology 영역 baseline weights 보존.
     //   4. fresh stack 영역 reload — registry 영역 5 cluster 보존 (worker 정합).
@@ -292,7 +293,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     const core1 = new SNNWorkerCore();
     const client1 = new SNNWorkerClient(new InProcessTransport(core1));
     const lab1 = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: client1,
       sink: sink1,
       seed: 57,
@@ -314,7 +315,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     const core2 = new SNNWorkerCore();
     const client2 = new SNNWorkerClient(new InProcessTransport(core2));
     const lab2 = new LocalSNN({
-      netId: 'root-pipeline-orientation',
+      netId: 'root-pipeline-orientation-5x5',
       client: client2,
       sink: sink2,
       seed: 57,
@@ -331,7 +332,7 @@ describe('F1b — full state hydrate (weights + topology + exemplars + trialCoun
     // 영역 catch path — 단 worker 영역 정합 보존 → 다음 winner 변경 시점 영역
     // 자동 commit 영역 회복 (cluster-evict-hydrate-fix 영역 finally 영역
     // incrementCount 영역 정상 path 영역).
-    const exemplars = loadExemplars('orientation');
+    const exemplars = loadExemplars('orientation-5x5');
     expect(Object.keys(exemplars)).toHaveLength(0);
 
     await sink1.close();

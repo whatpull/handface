@@ -102,7 +102,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     },
     lab: { save: mocks.mockSave },
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation' as const,
+    kind: 'orientation-5x5' as const,
   })),
 }));
 
@@ -310,7 +310,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
       layer: 'OUT',
     });
     const snn = new LiveSnn();
-    snn.setPattern(new Array(16).fill(0)); // silent.
+    snn.setPattern(new Array(25).fill(0)); // silent.
     await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');
@@ -338,7 +338,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1);
     // 사용자 catch 2026-05-09 (Fix 1): substrate-aware signature.
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_0_0', 'orientation-5x5', expect.any(Array));
 
     // trigger 2: winner 동일 (0) — 매 trigger +1 (call count 2).
     await snn.triggerOnce({ force: true });
@@ -356,7 +356,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
     });
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(3);
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-5x5', expect.any(Array));
     snn.dispose();
   });
 
@@ -377,7 +377,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
       windowMs: 30,
       layer: 'OUT',
     });
-    snn.setPattern(new Array(16).fill(0));
+    snn.setPattern(new Array(25).fill(0));
     await snn.triggerOnce({ force: true });
     expect(mocks.mockIncrementCount).toHaveBeenCalledTimes(1); // 미증가.
 
@@ -446,7 +446,7 @@ describe('LiveSnn emitTick — broken state regression catch (PR #183)', () => {
       layer: 'OUT',
     });
     const snn = new LiveSnn();
-    snn.setPattern(new Array(16).fill(0));
+    snn.setPattern(new Array(25).fill(0));
     await snn.triggerOnce();
 
     const firing = mocks.emittedEvents.find((e) => e.name === 'neuron-firing');

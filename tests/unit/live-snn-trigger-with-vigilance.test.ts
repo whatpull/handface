@@ -56,7 +56,7 @@ vi.mock('@/lib/snn/root-local-snn', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lab: { save: mocks.mockSave } as any,
     status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-    kind: 'orientation' as const,
+    kind: 'orientation-5x5' as const,
   })),
 }));
 
@@ -83,7 +83,7 @@ beforeEach(() => {
 describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
   it('V1: triggerWithVigilance → triggerBackground RPC (stdpGain=0) 1회', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
+    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     expect(trialToken).toBeGreaterThan(0);
     // fire-and-forget — microtask wait 영역 worker dispatch 완료 catch.
@@ -102,7 +102,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V2: vigilance miss (margin < threshold) → expandCluster + 30 reinforce', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // vigilance follow-up 영역 handleTriggerComplete 영역 dispatch — 직접
@@ -161,7 +161,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
 
   it('V3: vigilance pass (margin >= threshold) → expand/reinforce 0 호출', async () => {
     const live = new LiveSnn();
-    const pattern = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+    const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const { trialToken } = live.triggerWithVigilance(pattern, 0.15);
     await new Promise((r) => setTimeout(r, 10));
     // Fix #22 (사용자 catch 2026-05-10): inputMatch 0.9 >= 0.15 → vigilance pass.
@@ -296,12 +296,12 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       lab: { save: mocks.mockSave } as any,
       status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-      kind: 'orientation' as const,
+      kind: 'orientation-5x5' as const,
     });
 
     try {
       const live = new LiveSnn();
-      const pattern = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
+      const pattern = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // horizontal.
       live.triggerWithVigilance(pattern, 0.15);
 
       // microtask drain — push handler fire + RPC await resolve + runAutoLearnLoop
@@ -331,7 +331,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         lab: { save: mocks.mockSave } as any,
         status: { netId: 'test', rev: 0, neurons: 0, synapses: 0, lastSavedAt: null },
-        kind: 'orientation' as const,
+        kind: 'orientation-5x5' as const,
       }));
     }
   });
@@ -436,7 +436,7 @@ describe('LiveSnn — triggerWithVigilance (PR-K 2026-05-09 catch 1)', () => {
     };
     expect(lastNeuronFiring.winner_cluster).toBe(1);
     // incrementCount 영역 winner cluster (out_1_0) 영역 호출.
-    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation', expect.any(Array));
+    expect(mocks.mockIncrementCount).toHaveBeenCalledWith('out_1_0', 'orientation-5x5', expect.any(Array));
     // expandCluster + reinforce 영역 0 — vigilance pass.
     await new Promise((r) => setTimeout(r, 50));
     expect(mocks.mockExpandCluster).not.toHaveBeenCalled();

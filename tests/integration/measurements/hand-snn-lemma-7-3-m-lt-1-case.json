@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-05-31T00:00:00.000Z",
+  "scenario": "hand-snn-lemma-7-3-m-lt-1-case",
+  "measurement_id": "hand-snn-lemma-7-3-m-lt-1-case",
+  "branch": "main",
+  "type": "complete_falsification",
+  "code_artifact": null,
+  "doc_artifact": "docs/LEMMA_7_3_M_LT_1_CASE.md",
+  "commit_baselines": {
+    "lemma_7_5_systematic": "51c9431",
+    "lemma_7_3_m_gt_1_falsification": "899912d",
+    "stone_weierstrass_attempt": "bbcb8b3"
+  },
+  "hypothesis": "직전 commit 899912d 의 Lemma 7.3 falsification 의 m < 1 case subtle analysis. ψ_0, ψ_{-1} 의 sign-changing pattern 활용한 partial cancellation 가능성 검토.",
+  "result": "LEMMA_7_3_UNIVERSALLY_FALSIFIED_LEMMA_7_6",
+  "main_results": {
+    "lemma_7_6_universal_falsification": "For any [m, M] ⊂ ℝ_{>0} (m > 1, m = 1, m < 1 all cases): convex Cressie-Read family Φ_CR^conv is NOT dense (sup-norm) in C^conv([m, M]). Hinge function h_c counter-example works universally.",
+    "m_lt_1_partial_cancellation_analysis": "g(x) = a × ψ_{-1}(x) + b × ψ_0(x) = ln(x) × (bx - a) has sign-changing on (m, 1). Partial cancellation possible at single point x = a/b only. Sub-interval cancellation impossible due to strictly positive Cressie-Read terms.",
+    "obstruction_strict_argument": "L^1 integration argument + strict positivity of Cressie-Read family on (c, M) (where h_c > 0) implies positive contributions also on (m, c) (where h_c = 0) — contradiction with sup-norm approximation.",
+    "proof_path_completion": "Sup-norm density (Stone-Weierstrass) approach 완전 폐기. Lemma 7.5 (Hausdorff moment-determination) 만이 Conjecture 7.2 의 strict proof path."
+  },
+  "honest_limitations": [
+    "Lemma 7.6 §3 argument 의 strict rigor: m < 1 case sub-interval cancellation 분석은 sketch-level. Strict L^1 norm argument 별도 R&D.",
+    "m = 1 boundary case 의 strict analysis 별도 R&D — ψ_0(1) = 0, ψ_{-1}(1) = 0 boundary.",
+    "§3.3 L^1 integration argument 는 sup-norm 한정. L^2 또는 다른 norm density 별도 R&D.",
+    "Lemma 7.6 hinge counter-example universal 적용 시 m < 1 mixed-sign cancellation detailed strict argument 별도 R&D.",
+    "Lemma 7.5 strict proof OPEN (carryover from 899912d).",
+    "51c9431 100% contrapositive verified 는 numerical evidence — strict proof 와 별개.",
+    "Hand SNN R&D context 영향 0 (carryover).",
+    "Olkin & Marshall 1979 + Cressie-Read 1984 + HLP 1934 + Rudin 1976 + Shaked & Shanthikumar 2007 PDF user verify mandatory (carryover).",
+    "Formal verification (Lean 4 / Coq) 안 됨.",
+    "Peer review 안 됨.",
+    ".env.snn-backup HIGH carryover.",
+    "Type: documentation-only — Lemma 7.6 partial strict argument + Lemma 7.3 universal falsification statement.",
+    "본 R&D 의 mathematical 가치: Lemma 7.3 universal falsification + sup-norm density approach 완전 폐기. Conjecture 7.2 proof path 명확화.",
+    "Refined Conjecture 7.2''' final status: strong numerical evidence + Lemma 7.5 path, 단 strict proof multi-cycle R&D.",
+    "§3 의 mathematical rigor: sketch argument with key observation, strict formal proof 별도 mandatory."
+  ],
+  "hypothesis_verdict": "H_lemma_7_3_universally_falsified_lemma_7_6_lemma_7_5_only_path",
+  "next_followup_candidates": [
+    "Lemma 7.5 strict closed-form proof (Hausdorff-Choquet specialization)",
+    "Lemma 7.6 §3 strict rigor argument (mathematical specialist work)",
+    "L^1, L^2 norm density 별도 분석",
+    "Lean 4 formal verification of Lemma 7.6"
+  ],
+  "references": [
+    "Olkin, I. & Marshall, A. W. (1979). Inequalities: Theory of Majorization. Academic Press. Ch. 14.",
+    "Hardy, G. H., Littlewood, J. E., & Polya, G. (1934). Inequalities. Cambridge University Press.",
+    "Cressie, N. & Read, T. R. C. (1984). Multinomial Goodness-of-Fit Tests. JRSS-B, 46(3), 440-464.",
+    "Rudin, W. (1976). Principles of Mathematical Analysis. McGraw-Hill.",
+    "Shaked, M. & Shanthikumar, J. G. (2007). Stochastic Orders. Springer."
+  ]
+}

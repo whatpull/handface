@@ -72,13 +72,6 @@ const PHASE_2A_1_RAW_PATTERNS_5X5: number[][] = [
 
 // Production 영역 cluster slot.activeInputs 영역 raw 5 + derived 영역 포함
 // — compute50DimFeature 영역 산출 영역 50-dim full feature 영역 active idx.
-// 본 값 영역 clusterActiveInputs 영역 전달 → worker.clusterPoolUsage 영역
-// production 영역 정합 sub-pool size 영역 (production log catch:
-//   c0: [0,1,2,3,4,25] 6 features
-//   c1: [0,5,10,15,20,30] 6 features
-//   c2: [0,6,12,18,24,39,43,49] 8 features
-//   c3: [4,8,12,16,20,40,43,49] 8 features
-//   sum unique = 21 / 50 (42%)).
 function rawToFullActive(raw: number[]): number[] {
   const raw25 = new Array<number>(25).fill(0);
   for (const i of raw) raw25[i] = 1;
@@ -88,6 +81,40 @@ function rawToFullActive(raw: number[]): number[] {
   return active;
 }
 const PHASE_2A_1_FULL_ACTIVE_5X5: number[][] = PHASE_2A_1_RAW_PATTERNS_5X5.map(rawToFullActive);
+
+// Production 영역 forceDisjoint=true (LiveSnn.expandClusterAsync 영역 default
+// 2026-05-25) 영역 sequential spawn — claimed (prior slot 영역 union) 영역
+// payload 영역 제거 영역 disjoint sub-pool 영역.
+//
+// 학술 정합 (Carpenter & Grossberg 1987 ART vigilance + Olshausen & Field 1996
+// sparse coding): cluster active inputs 영역 disjoint canonical.
+//
+// 측정 catch 2026-05-31 — 직전 본 측정 영역 unfiltered full active 영역
+// clusterActiveInputs 영역 전달 영역 c2/c3 영역 shared features (12, 43, 49)
+// 영역 동시 학습 영역 mutual interference 영역 직접 측정 (production 영역
+// shared features 영역 forceDisjoint 영역 자동 제거 영역 측정 불가능 영역
+// scenario 영역 측정 — 본 결과 영역 production reality 영역 정합 0).
+//
+// production reality (forceDisjoint 적용 후):
+//   c0 (1st spawn): [0,1,2,3,4,25] (6, 전혀 claimed 0)
+//   c1 (2nd):       [5,10,15,20,30] (5, 0 removed)
+//   c2 (3rd):       [6,12,18,24,39,43,49] (7, 0 removed)
+//   c3 (4th):       [8,16,40] (3, 4/12/20/43/49 removed!) ← under-representation
+//   cumulative: 21 / 50 (42%) ✓ production CPM-1 일치
+function applyForceDisjoint(patterns: number[][]): number[][] {
+  const claimed = new Set<number>();
+  const result: number[][] = [];
+  for (const pattern of patterns) {
+    const filtered = pattern.filter((i) => !claimed.has(i));
+    // Fallback: 전부 claimed 인 edge case 영역 원본 사용 (production worker 영역
+    // 'forceDisjoint fallback' warn 영역 동일).
+    const final = filtered.length > 0 ? filtered : pattern.slice();
+    for (const i of final) claimed.add(i);
+    result.push(final);
+  }
+  return result;
+}
+const PHASE_2A_1_DISJOINT_5X5: number[][] = applyForceDisjoint(PHASE_2A_1_FULL_ACTIVE_5X5);
 
 function saveMeasurement(name: string, data: unknown): void {
   const path = resolve(__dirname, 'measurements', `${name}.json`);
@@ -130,7 +157,7 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
       client,
       sink,
       seed: 42,
-      clusterActiveInputs: PHASE_2A_1_FULL_ACTIVE_5X5,
+      clusterActiveInputs: PHASE_2A_1_DISJOINT_5X5,
       preset: 'n14_extended',
     });
     await lab.init();
@@ -141,7 +168,7 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
     // production: 각 cluster 영역 30 reinforce → 4 cluster × 30 = 120 round.
     const REINFORCE_ROUNDS = 30;
     for (let round = 0; round < REINFORCE_ROUNDS; round += 1) {
-      for (const inputs of PHASE_2A_1_FULL_ACTIVE_5X5) {
+      for (const inputs of PHASE_2A_1_DISJOINT_5X5) {
         await client.inject(
           inputs.map((i) => ({
             neuron: `in_feat_${i}`, weight: 30,
@@ -186,10 +213,10 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
     const SAMPLES_PER_CLUSTER = 5;
     const FEATURE_NOISE_SIGMA = 0.05;
     const baseSeed = 3000;
-    const N = PHASE_2A_1_FULL_ACTIVE_5X5.length;
+    const N = PHASE_2A_1_DISJOINT_5X5.length;
     const matrix: number[][] = Array.from({ length: N }, () => Array.from({ length: N }, () => 0));
 
-    const reg = buildClusterRegistryFromN13(PHASE_2A_1_FULL_ACTIVE_5X5, 'n14_extended');
+    const reg = buildClusterRegistryFromN13(PHASE_2A_1_DISJOINT_5X5, 'n14_extended');
     for (let ci = 0; ci < N; ci += 1) {
       // raw 25-dim pattern → 50-dim feature (production lastFeature 등가).
       // raw cell indices 영역 0..24 — derived features 영역 compute50DimFeature
@@ -269,6 +296,7 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
       seed: 42,
       rawPatterns: PHASE_2A_1_RAW_PATTERNS_5X5,
       fullActivePatterns: PHASE_2A_1_FULL_ACTIVE_5X5,
+      disjointPatterns: PHASE_2A_1_DISJOINT_5X5,
       cpm1,
       cfm1,
       verificationGuide: { expected, measured },
@@ -306,7 +334,7 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
     console.log('');
     console.log('==== Phase 2A.1 Verification Measurement ====');
     console.log(`substrate: n14_extended (orientation-5x5, 50-dim feature)`);
-    console.log(`patterns: ${PHASE_2A_1_FULL_ACTIVE_5X5.length} cluster`);
+    console.log(`patterns: ${PHASE_2A_1_DISJOINT_5X5.length} cluster`);
     console.log('');
     console.log('-- CPM-1 (cluster pool usage) --');
     console.log(`  inputDim=${cpm1.inputDim} totalClaimed=${cpm1.totalClaimedFeatures}/${cpm1.inputDim} (${(cpm1.totalClaimedPct * 100).toFixed(0)}%)`);
@@ -340,7 +368,7 @@ describe('Phase 2A.1 measurement (사용자 catch 2026-05-31 — Verification Gu
 
     // 최소 검증 — measurement 영역 valid (실제 값 영역 outcome 영역 분석 영역 별도).
     expect(cpm1.inputDim).toBe(50);
-    expect(cpm1.perCluster).toHaveLength(PHASE_2A_1_FULL_ACTIVE_5X5.length);
-    expect(cfm1.matrix).toHaveLength(PHASE_2A_1_FULL_ACTIVE_5X5.length);
+    expect(cpm1.perCluster).toHaveLength(PHASE_2A_1_DISJOINT_5X5.length);
+    expect(cfm1.matrix).toHaveLength(PHASE_2A_1_DISJOINT_5X5.length);
   }, 120_000);
 });

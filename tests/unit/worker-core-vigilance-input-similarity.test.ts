@@ -329,10 +329,11 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // P215a (2026-05-19) — Hamming aux vigilance gate: superset (|I|=4 ≠ |T|=2,
-    //   Hamming=2) 영역 fallback skip → inputMatch=0 → spawn 강제. 직전 Jaccard
-    //   0.5 fallback 영역 영역 영역 → P214a 유사 패턴 absorption root cause 정정.
-    expect(cfr.inputMatch).toBe(0);
+    // 사용자 catch 2026-06-01 (subset 인식 추가): T ⊆ I (template_only=[]) 영역
+    // ART resonance 영역 vigilance pass. 직전 P215a (2026-05-19) Hamming aux gate
+    // 영역 superset → spawn 정책 영역 사용자 mental model "비슷한 패턴" 영역 conflict.
+    // 변경: subset case 영역 inputMatch=1.0 (T ⊆ I → cluster reinforce).
+    expect(cfr.inputMatch).toBe(1.0);
   });
 
   it('R8 [identical, 8/8]: cluster T=[0..7] + input [0..7] → inputMatch=1.0 (vigilance pass)', () => {
@@ -612,11 +613,11 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // P215a (2026-05-19) — Hamming aux vigilance gate: 1-cell extension
-    //   (|I|=5 ≠ |T|=4, Hamming=1) 영역 fallback skip → inputMatch=0 → spawn
-    //   강제. 사용자 mental model "조금이라도 다르면 다른 패턴" 정합 (P214a
-    //   1-bit diff 영역 별도 cluster spawn → [0,1,2,3,4]).
-    expect(cfr.inputMatch).toBe(0);
+    // 사용자 catch 2026-06-01 (subset 인식 추가): T=[1,5,9,13] ⊆ I=[1,5,9,13,14]
+    // (template_only=[]) → ART resonance → vigilance pass. cluster reinforce.
+    // 직전 strict 정책 영역 1-cell extension 영역 spawn 강제 영역 fallback exhaustion
+    // 영역 root cause → subset case 영역 reinforce 영역 사용자 mental model 정합.
+    expect(cfr.inputMatch).toBe(1.0);
   });
 
   // R15: exact identical case full assertion — pass + reinforce path 정합.
@@ -700,10 +701,10 @@ describe('worker-core — exact equality vigilance (사용자 catch 2026-05-12)'
     });
     expect(cfrRes.ok).toBe(true);
     const cfr = (cfrRes as { ok: true; result: CfrResult }).result;
-    // Hamming = |I| + |T| - 2|I ∩ T| = 5 + 4 - 2*4 = 1. Hamming >= 1 → fallback
-    //   skip → inputMatch=0 → vigilance miss → spawn (사용자 P214a 기대 정합).
-    // 직전 (P214a 영역 root cause) Jaccard = 4/5 = 0.8 → fallback pass → 흡수.
-    expect(cfr.inputMatch).toBe(0);
+    // 사용자 catch 2026-06-01 (subset 인식 추가): T=[0,1,4,5] ⊆ I=[0,1,4,5,8]
+    // (template_only=[]) → ART resonance → vigilance pass. cluster reinforce.
+    // 직전 strict 영역 1-bit add 영역 spawn → fallback exhaustion catch (P218 후속).
+    expect(cfr.inputMatch).toBe(1.0);
   });
 
   it('R16b [P215a exact match preserved]: cluster T=[0,1,4,5] + input [0,1,4,5] → inputMatch=1.0 (exact, vigilance pass)', () => {

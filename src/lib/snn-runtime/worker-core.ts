@@ -111,22 +111,34 @@ function applyWeightsLocal(net: NeuralNetwork, weights: number[]): void {
 const DEFAULT_CLUSTER_ACTIVE_INPUTS: number[][] = [];
 
 // 사용자 catch 2026-05-12 (exact-equality-vigilance):
-//   "4x4 그리드의 경우 완벽하게 해당 그리드에서 나올 수 있는 패턴이 학습되어야
-//    합니다. (비슷한 모양이나 형태가 아닌 완벽하게 일치하는 패턴 인식) - 조금이라도
-//    다르면 다른 패턴으로 인식 (단, 완벽히 동일한 패턴의 경우 동일하게 인식)"
-// fundamentally deterministic categorical recognition — binary equality:
-//   - I == T (정확 일치, set equality) → inputMatch = 1.0 → vigilance pass + reinforce
-//   - I != T (조금이라도 다름: subset/superset/disjoint/noise 1+ cell) → 0.0 → spawn
-// 학술 정합: Carpenter-Grossberg ART ρ=1.0 (strict end of vigilance spectrum) +
-// binary set comparison (categorical 16-bit binary grid 영역 frontend deterministic).
-// 폐기: PR #233 noise tolerance (Fuzzy ART ρ=0.5) + PR #235 Tversky size_penalty —
-// 사용자 명시 "조금이라도 다르면 다른 패턴" + "완벽 일치" 정합.
+//   "조금이라도 다르면 다른 패턴으로 인식 (단, 완벽히 동일한 패턴의 경우 동일하게 인식)"
+// 사용자 catch 2026-06-01 (subset 인식 추가):
+//   forceDisjoint vigilance fix 이후에도 사용자가 cluster cells 를 모두 포함하면서
+//   추가 cells 를 그릴 때 (template ⊆ pattern, 즉 template_only=[]) inputMatch=0
+//   → 신규 spawn 시도 → forceDisjoint fallback → dialog 반복.
+//   VIG-DIAG 데이터 분석 결과 cluster 4 의 template[7] 이 pattern[13] 에 모두 포함됨
+//   (intersection=7=templateSize). 사용자 mental model "비슷한 패턴" 정합 위해
+//   subset relationship 도 vigilance pass 로 처리. 단 superset (template 일부 누락)
+//   은 여전히 strict miss → spawn (사용자 명시 "조금이라도 다르면" 정합).
+//
+// 동작 정합 표:
+//   - I == T (exact match): intersection=I=T → 1.0 ✓ (직전 동작)
+//   - T ⊆ I (subset, template_only=[]): intersection=T → 1.0 ✓ (신규 추가)
+//   - T ⊄ I (template 일부 누락): intersection<T → 0 (strict 유지)
+//   - I ∩ T = ∅ (disjoint): intersection=0 → 0 (strict 유지)
+//
+// 학술 정합: Carpenter-Grossberg 1987 ART resonance — template ⊆ input 은
+//   resonance 명확 case. ART vigilance ρ=1.0 strict 영역 subset case 영역
+//   완전 인식 영역 정합.
 // handleClusterFiringRates + handleClusterTrainRStdp 두 path 영역 동일 적용.
 function computeExactInputMatch(
   intersection: number,
   inputSize: number,
   templateSize: number,
 ): number {
+  // subset relationship: template ⊆ input (template 의 모든 features 가 input 에 포함).
+  // 사용자가 cluster cells 를 모두 포함 + 추가 cells 그림 → ART resonance.
+  if (templateSize > 0 && intersection === templateSize) return 1.0;
   // exact set equality: |I| == |T| && |I ∩ T| == |I| (== |T|).
   if (inputSize !== templateSize) return 0;
   if (intersection !== inputSize) return 0;

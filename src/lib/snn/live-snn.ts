@@ -60,6 +60,8 @@ function dispatchFeature(pattern: number[]): number[] {
 }
 import { incrementCount, loadExemplars } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
+import { showDialog } from '@/components/ui/Dialog';
+import { purgeAllLearningData } from './root-local-snn';
 import { saveBackup } from '@/lib/cloud-backup';
 // Phase 1 diagnostic (2026-05-31) — CPM-1 spawn-time pool usage logging +
 // fallback cluster tracking. side-effect 0 (console output only).
@@ -985,13 +987,32 @@ export class LiveSnn {
     //   영역 cluster spawn 영역 disjoint 깨짐 영역 즉시 인지 catch (registry
     //   capacity 영역 점검 affordance).
     if (r.fallbackUsed) {
-      showToast({
-        kind: 'warning',
+      // 사용자 production catch (2026-06-01): toast 영역 dismiss 영역 영역 영역
+      // 인지 영역 → "같은 패턴인데 신규 cluster spawn" 영역 mental model
+      // 영역. 영역 dialog 영역 영역 사용자 영역 명시적 catch + reset confirm.
+      // fallback spawn 영역 cluster weights 영역 prior cluster 영역 overlap →
+      // 사용자 영역 영역 cluster 영역 영역 영역 영역 영역 영역.
+      showDialog({
+        kind: 'confirm',
+        title: '⚠ cluster pool 고갈 — 학습 reset 권장',
         message:
-          `cluster ${r.newClusterId} spawn — disjoint sub-pool 고갈 fallback ` +
-          `(claimed ${r.claimedSize ?? '?'} features). 학습 영역 cluster 영역 ` +
-          `weight overlap 영역 가능 영역 — 패턴 영역 더 명확 영역 영역 권장.`,
-        duration: 6000,
+          `이번 패턴의 활성 features 가 모두 이전 cluster 들에 이미 ` +
+          `claim 되어 disjoint 가 깨졌습니다 (claimed ${r.claimedSize ?? '?'}/72).\n\n` +
+          `이대로 학습을 계속하면 새 cluster 가 이전 cluster 의 weight 와 ` +
+          `겹쳐서 같은 패턴인데 신규 cluster 로 spawn 되거나, 비슷한 패턴을 ` +
+          `구분하지 못할 수 있습니다.\n\n` +
+          `해결: 학습 데이터를 reset 한 후 더 명확하게 구분되는 패턴 4-5개로 ` +
+          `다시 학습하시는 것을 권장합니다.`,
+        confirmLabel: '학습 데이터 reset 후 처음부터',
+        cancelLabel: '이대로 계속 (overlap 감수)',
+        onConfirm: () => {
+          void purgeAllLearningData();
+          showToast({
+            kind: 'success',
+            message: '학습 데이터 reset 완료 — 처음부터 다시 학습해 주세요.',
+            duration: 5000,
+          });
+        },
       });
       emitBackendEvent('snn-error', {
         source: 'rpc',

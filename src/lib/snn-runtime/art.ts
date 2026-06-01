@@ -35,7 +35,18 @@ export interface ClusterSlot {
   v2L23E: string[];
   v2L5E: string[];
   out: string[];
-  activeInputs: number[]; // 본 cluster 가 받는 active input feature index.
+  activeInputs: number[]; // sub-pool (forceDisjoint 후 cluster 가 받는 active input feature index).
+  // 사용자 catch 2026-06-01 (forceDisjoint vigilance fix):
+  //   forceDisjoint 시 activeInputs 가 filtered (claimed 제거) → 같은 패턴 재
+  //   학습 시도 시 inputMatch(I=raw 7개, T=filtered 5개) = 0 (size mismatch) →
+  //   vigilance miss → 신규 cluster spawn 의도와 다른 행동.
+  //   rawActiveInputs 는 cluster spawn 시점 영역 사용자 의도한 raw activeInputs
+  //   (forceDisjoint 전) 영역 보존 → vigilance check 영역 raw 사용 → 동일
+  //   패턴 영역 inputMatch=1.0 정합.
+  //   activeInputs 영역 sub-pool 영역 (영역 cluster 영역 영역 receptive field 영역
+  //   사용자 명시 disjoint 보장 정합).
+  //   backward compat — 미동봉 영역 activeInputs 영역 fallback (legacy snapshot).
+  rawActiveInputs?: number[];
 }
 
 // cluster 슬롯 레지스트리. n13 빌드 결과로 초기화 후 expand 시 업데이트.
@@ -315,9 +326,14 @@ export function evaluateVigilance(
 // 새 cluster slot 을 net + registry 에 추가. n13 빌더와 같은 위상으로 wiring.
 
 export interface ExpandOptions {
-  activeInputs: number[]; // 본 cluster 가 학습할 입력 패턴.
+  activeInputs: number[]; // 본 cluster 가 학습할 입력 패턴 (forceDisjoint 후 sub-pool).
   seed?: number; // 결정론 PRNG seed. 미지정 시 Date.now().
   // wiring weight 는 n13 빌더 default 와 동일 — 향후 override 노출 가능.
+  // 사용자 catch 2026-06-01 (forceDisjoint vigilance fix):
+  //   rawActiveInputs 는 forceDisjoint 전 candidate (사용자 의도 영역 영역).
+  //   slot.rawActiveInputs 영역 store → vigilance check 영역 raw 사용 → 동일
+  //   패턴 영역 inputMatch=1.0 정합. 미동봉 영역 activeInputs 영역 fallback.
+  rawActiveInputs?: number[];
 }
 
 export interface ExpandResult {
@@ -537,6 +553,9 @@ export function expandCluster(
     v2L5E,
     out,
     activeInputs: opts.activeInputs.slice(),
+    // 사용자 catch 2026-06-01: forceDisjoint vigilance fix — raw (영역 영역 영역
+    // candidate, 사용자 의도) 영역 보존. vigilance check 영역 사용.
+    rawActiveInputs: opts.rawActiveInputs?.slice(),
   };
   registry.slots.push(newSlot);
 

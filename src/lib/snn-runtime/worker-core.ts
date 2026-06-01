@@ -697,6 +697,10 @@ export class SNNWorkerCore {
     // worker single-threaded — concurrent spawn race 0 (postMessage queue 영역
     // 순차 dispatch 영역 정합, claimed Set 산출 ↔ expandCluster 영역 race 0).
     let activeInputs = payload.activeInputs;
+    // 사용자 catch 2026-06-01: rawActiveInputs (forceDisjoint 영역 영역 candidate,
+    // 사용자 의도 영역 영역 영역) 영역 별도 보존 — slot.rawActiveInputs 영역
+    // store → vigilance check 영역 raw 사용 → 동일 패턴 영역 inputMatch=1.0.
+    const rawActiveInputs = payload.activeInputs.slice();
     let fallbackUsed: boolean | undefined;
     let claimedSize: number | undefined;
     if (payload.forceDisjoint) {
@@ -723,6 +727,7 @@ export class SNNWorkerCore {
     const before = net.neurons.length;
     const result = expandCluster(net, registry, {
       activeInputs,
+      rawActiveInputs,
       seed: payload.seed,
     });
     // 새 뉴런들에도 monitor listener 부착 (없으면 firing rate 0 으로 보임).
@@ -838,12 +843,14 @@ export class SNNWorkerCore {
         // exact match 0 + fire-rate winner 존재 → Jaccard 영역 catch.
         // Jaccard(I, T_winner) = |I ∩ T| / |I ∪ T|. union 영역 inputSize +
         //   templateSize - intersection.
+        // 사용자 catch 2026-06-01 (forceDisjoint vigilance fix): raw 사용.
         const winnerSlot = registry.slots[winner];
-        const templateSize = winnerSlot.activeInputs.length;
+        const templateInputs = winnerSlot.rawActiveInputs ?? winnerSlot.activeInputs;
+        const templateSize = templateInputs.length;
         const inputSize = activeIdx.size;
         if (templateSize > 0) {
           let intersection = 0;
-          for (const ai of winnerSlot.activeInputs) {
+          for (const ai of templateInputs) {
             if (activeIdx.has(ai)) intersection += 1;
           }
           const union = inputSize + templateSize - intersection;
@@ -888,11 +895,16 @@ export class SNNWorkerCore {
     let inputMatch = 1.0;
     if (activeIdx && winner >= 0 && total > 0) {
       const winnerSlot = registry.slots[winner];
+      // 사용자 catch 2026-06-01 (forceDisjoint vigilance fix):
+      //   rawActiveInputs (forceDisjoint 전 candidate) 영역 우선 사용 — 같은
+      //   패턴 영역 inputMatch=1.0 도달 catch. legacy snapshot 또는 미동봉
+      //   영역 activeInputs (filtered sub-pool) 영역 fallback (backward compat).
+      const templateInputs = winnerSlot.rawActiveInputs ?? winnerSlot.activeInputs;
       const inputSize = activeIdx.size;
-      const templateSize = winnerSlot.activeInputs.length;
+      const templateSize = templateInputs.length;
       if (inputSize > 0) {
         let intersection = 0;
-        for (const ai of winnerSlot.activeInputs) {
+        for (const ai of templateInputs) {
           if (activeIdx.has(ai)) intersection += 1;
         }
         // 사용자 catch 2026-05-12 (exact-equality-vigilance):
@@ -1470,12 +1482,14 @@ export class SNNWorkerCore {
       if (measureWinner >= 0 && reinforceActiveIdx.size > 0) {
         const winnerSlot = reinforceRegistry.slots[measureWinner];
         if (winnerSlot) {
+          // 사용자 catch 2026-06-01 (forceDisjoint vigilance fix): raw 사용.
+          const reinforceTemplate = winnerSlot.rawActiveInputs ?? winnerSlot.activeInputs;
           let intersection = 0;
-          for (const ai of winnerSlot.activeInputs) {
+          for (const ai of reinforceTemplate) {
             if (reinforceActiveIdx.has(ai)) intersection += 1;
           }
           const inputSize = reinforceActiveIdx.size;
-          const templateSize = winnerSlot.activeInputs.length;
+          const templateSize = reinforceTemplate.length;
           // 사용자 catch 2026-05-12 (exact-equality-vigilance): handleClusterFiringRates
           // 영역 동일 helper 영역 catch — reinforce path 영역 protocol 정합 catch
           // 영역 동일 산출 (vigilance 영역 직접 적용 0 단 emit 영역 일관성 보장).

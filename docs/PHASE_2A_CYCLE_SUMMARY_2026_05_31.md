@@ -204,6 +204,47 @@ ROUNDS / R-STDP gain 조정으로 5×5 c3 100% 도달 불가능.
 
 ---
 
+## 10. Update — subset 인식 vigilance fix (2026-06-03)
+
+Phase 2A.2 적용 후 사용자 production catch (cluster 학습 + 같은 패턴 재시도
+시점 dialog 반복) → 3단계 fix chain 완료:
+
+### 10.1 Fix chain
+
+| commit | 기여 |
+|--------|------|
+| `4174898` | Phase 2A.2 substrate 6×6 production 적용 |
+| `4deb9bc` | rawActiveInputs 별도 store (forceDisjoint 전 candidate 보존 — vigilance check 영역 raw 사용) |
+| **`b90c103`** | computeExactInputMatch 영역 subset 인식 추가 (T ⊆ I → 1.0) |
+
+### 10.2 사용자 production 검증
+
+self-verify **20/20 (100%)** — 모든 cluster 정확히 인식 + forceDisjoint
+fallback 발생 안 함. VIG-DIAG 진단 로그 영역 모든 cluster 영역
+`inputMatch=1.000` 확인.
+
+### 10.3 computeExactInputMatch 동작 정합 표
+
+| case | 직전 strict | 변경 후 (subset 인식) |
+|------|-----------|--------------------|
+| I == T (exact match) | 1.0 ✓ | 1.0 ✓ |
+| T ⊆ I (subset, template_only=[]) | 0 → spawn | **1.0 → reinforce** |
+| T ⊃ I (superset, template 일부 누락) | 0 → spawn | 0 → spawn (strict 유지) |
+| 일부 overlap | 0 → spawn | 0 → spawn (strict 유지) |
+| disjoint | 0 → spawn | 0 → spawn (strict 유지) |
+
+### 10.4 학술 정합
+
+Carpenter & Grossberg 1987 ART resonance — template ⊆ input 영역 명확
+resonance case. vigilance ρ=1.0 strict 영역 영역 subset 인식 정합.
+
+사용자 직전 catch (2026-05-12 "조금이라도 다르면 다른 패턴") 영역 세분화:
+- 사용자가 cells 영역 빠뜨림 / 다른 cells → 다른 패턴 (strict 유지)
+- 사용자가 cluster cells 영역 모두 포함 + 추가 cells → 같은 패턴 의도 (subset 인식 추가)
+
+---
+
 **Generated**: 2026-05-31 (Phase 2A.1 H3 mitigation closure cycle)
-**Updated**: 2026-06-01 (Phase 2A.2 production 적용 완료, commit 4174898)
-**Status**: Phase 2A.1 ✓ closed. Phase 2A.2 ✓ production 적용 완료.
+**Updated**: 2026-06-01 (Phase 2A.2 production 적용, commit 4174898)
+**Updated**: 2026-06-03 (subset 인식 vigilance fix 완료, commit b90c103)
+**Status**: Phase 2A.1 ✓ closed. Phase 2A.2 ✓ production 적용 완료. subset 인식 ✓ 사용자 self-verify 100%.

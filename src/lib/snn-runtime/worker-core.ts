@@ -924,27 +924,27 @@ export class SNNWorkerCore {
         // binary equality — I == T (set 영역 정확 일치) → 1.0, 아니면 0.0.
         // 사용자 명시 "조금이라도 다르면 다른 패턴" + "완벽 일치" 정합.
         inputMatch = computeExactInputMatch(intersection, inputSize, templateSize);
-        // VIG-DIAG (2026-06-01) — 진단 로그. raw vs filtered, intersection,
-        // inputMatch 출력 → 사용자 production catch 시점 vigilance 동작 추적.
-        // pattern_only_in_pattern: pattern 에 있는데 template 에 없는 features
-        //   (사용자 추가 cells). template_only: template 에 있는데 pattern 에
-        //   없는 features (사용자 영역 빠뜨린 cells).
-        const patternOnly: number[] = [];
-        const templateOnly: number[] = [];
-        const templateSet = new Set(templateInputs);
-        for (const ai of activeIdx) {
-          if (!templateSet.has(ai)) patternOnly.push(ai);
+        // VIG-DIAG (2026-06-01, 06-03 cleanup) — vigilance miss 시점만 출력.
+        // 정상 case (exact match / subset 인식) 영역 silent — production 영역
+        // 영역 출력 noise 회피. miss 시점 영역 사용자 catch 영역 정보 영역.
+        if (inputMatch === 0) {
+          const patternOnly: number[] = [];
+          const templateOnly: number[] = [];
+          const templateSet = new Set(templateInputs);
+          for (const ai of activeIdx) {
+            if (!templateSet.has(ai)) patternOnly.push(ai);
+          }
+          for (const ai of templateInputs) {
+            if (!activeIdx.has(ai)) templateOnly.push(ai);
+          }
+          console.log(
+            `[VIG-DIAG] winner=cluster${winner} template=${usingRaw ? 'raw' : 'filtered'} ` +
+            `template[${templateSize}]=[${templateInputs.join(',')}] ` +
+            `pattern[${inputSize}]=[${[...activeIdx].sort((a, b) => a - b).join(',')}] ` +
+            `intersection=${intersection} inputMatch=0.000 → MISS → spawn 시도 ` +
+            `(pattern_only=[${patternOnly.join(',')}], template_only=[${templateOnly.join(',')}])`,
+          );
         }
-        for (const ai of templateInputs) {
-          if (!activeIdx.has(ai)) templateOnly.push(ai);
-        }
-        console.log(
-          `[VIG-DIAG] winner=cluster${winner} template=${usingRaw ? 'raw' : 'filtered'} ` +
-          `template[${templateSize}]=[${templateInputs.join(',')}] ` +
-          `pattern[${inputSize}]=[${[...activeIdx].sort((a, b) => a - b).join(',')}] ` +
-          `intersection=${intersection} inputMatch=${inputMatch.toFixed(3)} ` +
-          `(pattern_only=[${patternOnly.join(',')}], template_only=[${templateOnly.join(',')}])`,
-        );
         // 사용자 catch 2026-05-12 (snapshot-activeinputs-persist Part B):
         //   exact match miss + Jaccard fallback pass (>= 0.5) → inputMatch 영역
         //   Jaccard value 영역 catch (vigilance gate pass + 강화 path 영역 trigger).

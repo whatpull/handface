@@ -1,6 +1,6 @@
 # Honest Limitations & Disclaimer
 
-**최종 업데이트**: 2026-06-01 (Phase 2A.2 production 적용 commit 4174898)
+**최종 업데이트**: 2026-06-03 (Phase 2A.2 + subset 인식 fix 완료, commit b90c103)
 
 본 문서는 handface 저장소의 **정직한 한계** 와 학술적 framing 을 명시합니다.
 
@@ -45,13 +45,29 @@
 - 학습 데이터 reset 1회 (Phase 2A.1 패턴 재현, Toast 안내)
 - 측정 파일: `tests/integration/measurements/hand-snn-phase-2a-2-6x6-comparison.json`
 
-### 1.2.2 Hypothesis 최종 판정 (Phase 2A.2 적용 후)
+### 1.2.2 Hypothesis 최종 판정 (Phase 2A.2 + subset 인식 적용 후)
 
-| H | Phase 2A.1 (5×5) | Phase 2A.2 (6×6) |
-|---|------------------|------------------|
-| H2 sub-pool exhaustion | ↓ 21/50 (42%) below Guide 50-70% | ✓ 충분 capacity (72-dim) |
-| H3 catastrophic forgetting | ✓ 90% (c3 60% 잔존) | ✅ **100%** (모든 cluster) |
-| H4 sparse code overlap | ✓ Jaccard 0.231 (mitigated) | ✅ Jaccard 0 (완전 disjoint) |
+| H | Phase 2A.1 (5×5) | Phase 2A.2 (6×6) | + subset 인식 (b90c103) |
+|---|------------------|------------------|------------------------|
+| H2 sub-pool exhaustion | ↓ 21/50 (42%) below Guide 50-70% | ✓ 충분 capacity (72-dim) | ✓ |
+| H3 catastrophic forgetting | ✓ 90% (c3 60% 잔존) | ✅ 100% measurement | ✅ **100% production self-verify** |
+| H4 sparse code overlap | ✓ Jaccard 0.231 (mitigated) | ✅ Jaccard 0 (완전 disjoint) | ✅ |
+| H5 vigilance 사용자 mental model | strict 1.0 — 1 cell 차이 영역 spawn | strict 동일 한계 | ✅ **subset (T ⊆ I) 인식 추가 — 사용자 mental "비슷한 패턴" 정합** |
+
+### 1.2.3 사용자 production 검증 (2026-06-03)
+
+사용자 production self-verify 20/20 (100%) 도달 — 모든 cluster 정확히 인식 + forceDisjoint fallback 발생 안 함.
+
+Commit chain:
+- `4174898`: Phase 2A.2 substrate 6×6 production 적용
+- `4deb9bc`: rawActiveInputs 별도 store (forceDisjoint 전 candidate 보존)
+- **`b90c103`**: subset 인식 (T ⊆ I → ART resonance → vigilance pass)
+
+학습 진행 시 정상 동작:
+- 1st 패턴: 30 trials (3-4초)
+- 2nd~4th 패턴: 90 trials (9-12초 각)
+- 같은 패턴 + 추가 cells 재시도 → cluster reinforce (subset 인식)
+- 같은 패턴 + 일부 cells 누락 → vigilance miss → spawn → dialog (strict 정합)
 
 ### 1.3 Pure functions 만 (실제 SNN 통합 안 됨)
 

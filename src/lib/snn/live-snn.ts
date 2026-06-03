@@ -995,12 +995,15 @@ export class LiveSnn {
     // novel (vig<0) 또는 familiar (vig>1) 로 misuse 회피.
     vigilance = Math.max(0, Math.min(1, vigilance));
     // Phase 3.9 v7+v11 (2026-06-03): hand SNN vigilance via cosine sim 우선.
-    // 직전 v6 pre-sparsify 는 v7 cosine override 가 vigilance 결정하면서 dead
-    // path 가 됨. 단 worker dispatchComputeFeature 가 자동 top-K=5 sparsify
-    // 하므로 R-STDP path 는 영향 없음. 제거 시 cluster training feature 가
-    // FULL 95-dim 유지되어 cosine basis 일관 (v11 normalization 적용).
     this.setPattern(pattern);
     const trialTokenForCosine = this._trialTokenSeq + 1; // about-to-increment
+    // Phase 3.9 v24 (2026-06-03 사용자 catch): LiveSnn _handClusterFeatures 와
+    // worker SNN cluster pool 의 desync 감지. localStorage 복원 후 worker fresh
+    // 시 cosine MATCH 발생 하지만 reinforceBackground 실패. desync 감지 시
+    // _handClusterFeatures wipe + fresh start.
+    if (this.substrateKind === 'orientation-hand' && this._handClusterFeatures.size > 0) {
+      void this._checkAndResolveHandDesync();
+    }
     this._maybeRecordHandCosineWinner(trialTokenForCosine, pattern);
     const trialToken = ++this._trialTokenSeq;
     // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
@@ -1478,6 +1481,34 @@ export class LiveSnn {
    * threshold 0.97 — 사실상 같은 자세 (synthetic 1.000, 실제 webcam jitter
    * 도 0.98+ 예상).
    */
+  // Phase 3.9 v24 (2026-06-03): desync 감지 — LiveSnn 가 cluster features 갖고
+  // 있는데 worker 가 0 clusters → reinforceBackground 실패. 이전 세션 잔존
+  // localStorage 와 fresh worker 의 race. desync 감지 시 wipe + fresh start.
+  private _desyncCheckInFlight = false;
+  private async _checkAndResolveHandDesync(): Promise<void> {
+    if (this._desyncCheckInFlight) return;
+    this._desyncCheckInFlight = true;
+    try {
+      const root = await getRootLocalSnnFor(this.substrateKind);
+      const usage = await root.client.clusterPoolUsage();
+      // localStorage features 만 있고 worker 는 fresh → desync.
+      if (this._handClusterFeatures.size > 0 && usage.perCluster.length === 0) {
+        console.warn(
+          `[hand-desync] LiveSnn cluster features (${this._handClusterFeatures.size}) vs worker clusters (0) — wipe + fresh start`,
+        );
+        this._handClusterFeatures.clear();
+        clearHandClusterFeats();
+        this._handFeatRunningMean = null;
+        this._handFeatSampleCount = 0;
+        clearHandMean();
+      }
+    } catch (e) {
+      console.warn('[hand-desync] check failed:', e);
+    } finally {
+      this._desyncCheckInFlight = false;
+    }
+  }
+
   private _maybeRecordHandCosineWinner(token: number, pattern: number[]): void {
     if (this.substrateKind !== 'orientation-hand') return;
     if (pattern.length !== 95) return;

@@ -2837,6 +2837,22 @@
 .snn-camera-sync-failed { color: #fca5a5; background: rgba(252, 165, 165, 0.12); }
 /* v31 — capacity reached (19 자세 한계). amber 영역 사용자 catch + 행동 유도. */
 .snn-camera-sync-capacity { color: #fbbf24; background: rgba(251, 191, 36, 0.10); font-weight: 600; }
+/* v37 — capacity 시 inline action 버튼 (자세 list 영역으로 scroll). */
+.snn-camera-sync-action {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #fbbf24;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  padding: 0;
+}
+.snn-camera-sync-action:hover {
+  color: #fcd34d;
+}
 
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {

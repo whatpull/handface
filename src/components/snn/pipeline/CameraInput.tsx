@@ -65,6 +65,8 @@ const FINGER_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 export default function CameraInput() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Phase 3.9 v37 (2026-06-03): capacity pill 클릭 → 자세 list 영역으로 scroll.
+  const clustersRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastFrameTsRef = useRef<number>(0);
@@ -502,12 +504,23 @@ export default function CameraInput() {
           return (
             <small className={`snn-camera-sync-msg snn-camera-sync-${pillClass}`}>
               {msg}
+              {isCapacity && (
+                <button
+                  type="button"
+                  className="snn-camera-sync-action"
+                  onClick={() => clustersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+                  title="학습된 자세 목록으로 이동"
+                >
+                  자세 관리 ↓
+                </button>
+              )}
             </small>
           );
         })()}
       </div>
 
       <div
+        ref={clustersRef}
         className={`snn-camera-clusters${isDragOver ? ' snn-camera-clusters-dragover' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}

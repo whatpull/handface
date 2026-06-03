@@ -1229,24 +1229,51 @@ export class LiveSnn {
       if (vigilanceMismatch) {
         // P218 (2026-05-20): n13 (32-dim) / n14 (50-dim) dispatch — in_feat_0..N 정합.
         const feat32 = dispatchFeature(pattern);
-        // Phase 3.9 fix (2026-06-03, 사용자 catch handface.whatpull.com):
-        // Hand SNN (n16_hand 95-dim) 의 threshold > 0.5 path 가 42/95=44% active
-        // inputs 산출 → encoder.ts:237-256 자체 진단 "98% overlap" trap 직격.
-        // 결과 사용자 시점: cluster spawn 1회만 + auto-learn-complete 후 4 gestures
-        // 가 동일 cluster 로 매칭 → "패턴학습안됨".
-        // 정정: hand substrate 면 sparse top-K=5 path 로 dispatch.
         const isHandSubstrate = this.substrateKind === 'orientation-hand';
-        const activeInputs: number[] = isHandSubstrate
-          ? selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT)
-          : (() => {
-              const out: number[] = [];
-              for (let i = 0; i < feat32.length; i += 1) if (feat32[i] > 0.5) out.push(i);
-              return out;
-            })();
-        // activeInputs 영역 0 영역 silent pattern (사용자 영역 빈 grid 영역
-        // 추론 button click) — auto-learn skip + emit dummy reinforce push
-        // 영역 caller 영역 token reset 정합 (NodeInfer status 영역 사용자
-        // 영역 catch 0 — '추론 완료' fallback).
+        if (isHandSubstrate) {
+          // Phase 3.9 v2 fix (2026-06-03, 사용자 catch 재시도):
+          // 직전 commit 6d05ea1 은 selectTopKActive(K=5) 만 적용 → encoder.ts:237-256
+          // "Plain top-K 결함" 직격 (palm-size / wrist-tip distance 같은 magnitude-dominant
+          // features 가 모든 자세에서 동일 top-K 차지 → cluster 0,1 가 동일 [84,85,86,87,88]).
+          // 본 v2 정정: existing claims 를 query 한 뒤 UNCLAIMED features 중 top-K=5 선택
+          // → 자동 disjoint 보장 (worker forceDisjoint fallback 불필요).
+          void (async () => {
+            try {
+              const usage = await root.client.clusterPoolUsage();
+              const claimed = new Set<number>();
+              for (const c of usage.perCluster) for (const i of c.activeInputs) claimed.add(i);
+              const pairs: Array<{ idx: number; val: number }> = [];
+              for (let i = 0; i < feat32.length; i += 1) pairs.push({ idx: i, val: feat32[i] });
+              pairs.sort((a, b) => b.val - a.val);
+              const activeInputs: number[] = [];
+              for (const p of pairs) {
+                if (activeInputs.length >= HAND_SPARSE_TOP_K_DEFAULT) break;
+                if (!claimed.has(p.idx)) activeInputs.push(p.idx);
+              }
+              if (activeInputs.length === 0) {
+                // 모든 features 가 이미 claimed — 95-dim 전부 소진된 극단 case.
+                // Plain top-K fallback (기존 cluster 와 overlap 감수).
+                const fallback = selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT);
+                if (fallback.length > 0) void this.runAutoLearnLoop(payload.trialToken, fallback);
+                return;
+              }
+              activeInputs.sort((a, b) => a - b);
+              void this.runAutoLearnLoop(payload.trialToken, activeInputs);
+            } catch (e) {
+              console.warn('[LiveSnn] hand-disjoint top-K query failed:', e);
+              const fallback = selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT);
+              if (fallback.length > 0) void this.runAutoLearnLoop(payload.trialToken, fallback);
+            }
+          })();
+          return;
+        }
+        // Non-hand (grid orientation) substrate — threshold > 0.5 path 유지.
+        const activeInputs: number[] = [];
+        for (let i = 0; i < feat32.length; i += 1) if (feat32[i] > 0.5) activeInputs.push(i);
+        // activeInputs 길이 0 은 silent pattern (사용자가 빈 grid 로 추론
+        // button click) — auto-learn skip + emit dummy reinforce push 로
+        // caller 의 token reset 정합 (NodeInfer status 의 사용자 catch 가 0 →
+        // '추론 완료' fallback).
         if (activeInputs.length === 0) return;
         // fire-and-forget 30 trial chunked reinforce — 5 trial chunk × 6 round.
         void this.runAutoLearnLoop(payload.trialToken, activeInputs);

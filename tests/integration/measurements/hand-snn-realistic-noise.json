@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-27T12:19:34.415Z",
+  "timestamp": "2026-06-03T10:52:34.016Z",
   "scenario": "hand-snn-realistic-noise",
   "gestures": [
     "open_palm",
@@ -135,15 +135,15 @@
     }
   ],
   "mean_disjoint_jaccard": 0,
-  "train_accuracy": 0.9875,
-  "train_correct": 79,
+  "train_accuracy": 1,
+  "train_correct": 80,
   "train_total": 80,
   "train_confusion_matrix": [
     [
-      19,
+      20,
       0,
       0,
-      1
+      0
     ],
     [
       0,

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-27T23:05:23.815Z",
+  "timestamp": "2026-06-03T10:50:51.781Z",
   "scenario": "hand-snn-held-out-self-verify",
   "gestures": [
     "open_palm",
@@ -97,6 +97,7 @@
       5
     ]
   ],
+  "held_out_wall_time_ms": 19662,
   "academic_alignment": [
     "Bishop 1995 — feature-level noise injection regularization (ch.9.3).",
     "Goodfellow et al. 2014 — noise injection as data augmentation.",

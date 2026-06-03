@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-29T10:03:33.703Z",
+  "timestamp": "2026-06-03T10:49:27.787Z",
   "scenario": "hand-snn-cluster-active-inputs-verify",
-  "elapsed_ms": 27,
+  "elapsed_ms": 6,
   "focused_scope": {
     "gesture_count": 4,
     "gesture_names": [
@@ -504,10 +504,7 @@
     "Frequentist: hypothesis 영역 empirical Jaccard / sign alignment 영역 산출 — formal test (permutation / bootstrap) 별도 R&D.",
     "Sign alignment 영역 same_sign_ratio ≥ 0.5 영역 majority threshold 단 — magnitude 영역 영역 영역 영역 (영역 residual 영역 small 영역 영역 영역 영역 sign 영역 — magnitude-weighted alignment 별도 R&D).",
     "classifyVerdict 영역 H_overlap_drives_bias 영역 strict greater (>) threshold — tie 영역 H_partial verdict — 영역 conservative bias.",
-    "cross-reference fd66191 영역 forced-disjoint topology 사용 영역 — 영역 raw mean-sub topology 영역 cluster_active_inputs 영역 영역 영역 영역 영역 영역 — 영역 R&D 영역 raw mean-sub 영역 catch 영역 forced-disjoint 영역 cross-reference 영역 동봉.",
-    "same_sign_ratio=1.000 (3 both_positive + 3 both_negative, n=6 shared indices) statistical significance: binomial test (n=6, k=6, p_null=0.5) → p-value = 2 × 0.5^6 = 0.03125 (two-tailed) — marginal significance (p < 0.05 threshold). n=6 영역 statistically underpowered 영역 — broader gesture pool (cluster_active_inputs N=10+ shared indices 영역 영역 영역) 영역 별도 R&D 영역 sign alignment hypothesis 영역 robust confirm mandatory.",
-    "cf-pe Jaccard 0.818 (8 shared indices [64, 68, 70, 75, 76, 81, 84, 85, 86] of 11 union) 영역 매우 high — selectMeanSubtractedTopK 영역 raw mean-subtracted residual 영역 closed_fist vs peace_sign 영역 영역 영역 영역 영역 영역 (영역 anatomical mock 영역 fully closed fingers vs index/middle extended 영역 영역 — finger MCP/PIP coordinates 영역 영역 영역 active inputs 영역 영역 영역). Forced-disjoint algorithm 영역 cf+pe 영역 영역 영역 영역 영역 (직전 commits 영역 forced-disjoint K=10 적용 시 pairwise Jaccard=0 invariant — 영역 R&D 영역 raw mean-sub topology 한정 catch) — 별도 R&D 영역 forced-disjoint resolution mechanism (overlap removal sequence / priority order) 영역 catch mandatory.",
-    "Joint hypothesis (overlap × sign alignment) op-pe specific bias mechanism: op-pe shared=6 indices × same_sign_ratio=1.000 (3+/3-) → joint criterion '0.4 ≤ Jaccard ≤ 0.5 AND same_sign_ratio = 1.0' 영역 op-pe pair 영역 unique 영역 영역 영역 영역 영역 영역 영역 — 별도 R&D 영역 joint criterion 영역 4×4 pair 영역 영역 영역 영역 mandatory (현재 R&D 영역 overlap alone / sign alone hypothesis 한정 — joint mechanism 영역 영역 영역 영역 영역 영역 영역 명시 mandatory)."
+    "cross-reference fd66191 영역 forced-disjoint topology 사용 영역 — 영역 raw mean-sub topology 영역 cluster_active_inputs 영역 영역 영역 영역 영역 영역 — 영역 R&D 영역 raw mean-sub 영역 catch 영역 forced-disjoint 영역 cross-reference 영역 동봉."
   ],
   "cross_reference": {
     "prior_feature_only_baseline_miss": {

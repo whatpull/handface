@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T07:12:13.322Z",
+  "timestamp": "2026-06-03T10:49:29.150Z",
   "scenario": "hand-snn-continuity-correction-zero-cell",
-  "elapsed_ms": 7,
+  "elapsed_ms": 45,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 λ=-1 zero-cell singularity 영역 3 correction methods 영역 영역 영역 finite p 영역 산출. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 6cfecf7 영역 정직 한계 \"λ=-1 raw +∞ handling — continuity correction (Read & Cressie 1988 §2.3) 또는 Cressie-Read 1984 limit form via L'Hopital 별도 R&D\" 영역 followup. method-invariance vs method-specific 영역 empirical verify.",
     "input_data": {
@@ -343,7 +343,10 @@
       "H_partial_method_specific": "method 영역 영역 영역 영역 영역 영역 영역 동일 — mixed signal. 영역 영역 영역 영역 영역 discrete uniform null 영역 영역 영역 영역 영역 — broader R&D 영역 별도."
     },
     "threshold_rationale": "method-invariance criterion — 3 correction methods 영역 exact p 영역 모두 동일 (numerical EPS=1e-9) → discrete uniform null 영역 영역 영역 statistic ranking identical induce.",
-    "comparison_to_raw_handling": "6cfecf7 raw λ=-1 +∞ rule (observed = +∞, +∞ ≥ +∞ holds → outcome 영역 +∞ statistic 영역 reject side classify) → exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. corrected methods 영역 영역 outcome 영역 finite statistic 산출 → standard reject side rule (stat ≥ observed). raw +∞ vs corrected finite 영역 p 영역 영역 영역 비교 영역 continuity correction 영역 영역 영역 (raw 영역 conservative bound) 영역 영역 영역 영역."
+    "comparison_to_raw_handling": "6cfecf7 raw λ=-1 +∞ rule (observed = +∞, +∞ ≥ +∞ holds → outcome 영역 +∞ statistic 영역 reject side classify) → exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. corrected methods 영역 영역 outcome 영역 finite statistic 산출 → standard reject side rule (stat ≥ observed). **raw conservative bound framing 영역 partial only (Yates/Williams 한정)**: Phase A raw=0.7656 vs Yates=0.1797 / Williams=0.0625 → corrected < raw (corrected liberal, raw conservative — fail to reject easier). 단 **L'Hopital p=0.8789 영역 raw 영역 큰** (more conservative than raw) → \"raw=conservative bound\" 영역 L'Hopital 영역 영역 영역. L'Hopital framing 영역 별도 — observed statistic 영역 음수 (Phase A=-2.35 / B=-3.36 / C=-1.90) 영역 reject side rule 영역 거의 모든 outcome 영역 reject side classify → p inflate artifact.",
+    "lhopital_negative_statistic_caveat": "**HIGH catch correction (QA audit)**: L'Hopital limit form (lim_{λ→-1} T(λ) = 2 Σ E log(E/O)) + zero-skip convention (O=0 term 영역 skip) 영역 generalized T(λ) baseline 영역 영역 영역 inconsistent. observed statistic 영역 음수 (Phase A=-2.350 / Phase B=-3.364 / Phase C=-1.903) 영역 영역 영역: E=1.25 < O=4 (Phase A cluster 2) → log(1.25/4) < 0 → 음수 contribution dominate. \"reject side rule stat ≥ observed\" 영역 음수 observed 영역 거의 모든 outcome 영역 reject side classify (stat>=음수 영역 영역 영역 영역) → p inflate (0.88-0.99). Williams 1976 §3 formal form (symmetric E log E inclusion 또는 modified convention) 별도 R&D mandatory. 본 R&D 영역 raw L'Hopital convention 영역 limitations 영역 명시 — 영역 result 영역 interpretation framing 정정.",
+    "yates_generalized_caveat": "**MEDIUM catch correction (QA audit)**: Yates 1934 영역 chi-squared (df=1, λ=1) 2×2 contingency table 한정 — λ=-1 Modified LR (logarithmic statistic) 영역 generalized form 영역 published reference 영역 영역 영역. sign(O-E) × max(|O-E|-0.5, 0) extension 영역 본 R&D 영역 **novel ad-hoc** — Mantel & Greenhouse 1968 controversy 영역 chi-squared 한정 영역 — Modified LR 영역 generalized form 영역 별도 published controversy 영역 영역 영역. broader correction (예: Williams 1976 modified χ² / Pirie & Hamdan 1972) 별도 R&D mandatory.",
+    "phase_c_partial_degeneracy_note": "**LOW catch correction (QA audit)**: Phase C unique p across methods = 2/3 (Yates=0.9375 + L'Hopital=0.9375 동일 일치 — numerical coincidence, NOT fundamental method invariance). method-specific verdict (H_continuity_method_specific) 영역 정합 단 일부 method pair 영역 partial degeneracy ∃ — Phase C 영역 small N=3 + discrete sample space 영역 영역 영역 영역 영역."
   },
   "academic_alignment": [
     "Yates 1934 — continuity correction for chi-squared 2×2 contingency table.",

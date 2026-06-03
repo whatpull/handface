@@ -37,6 +37,7 @@ import {
   type AutoLearnProgressDetail,
   type GridInferDetail,
   type InputModeDetail,
+  type HandCosineSimDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
@@ -48,6 +49,11 @@ export interface PipelineEventState {
    * 가 subscribe 하여 자손에게 broadcast (Phase 3.3, 2026-06-03).
    */
   inputMode: 'grid' | 'camera';
+  /**
+   * Phase 3.9 v20 (2026-06-03): hand cosine sim 최신 값 — UI 가 실시간 표시.
+   * null 면 hand SNN trigger 전 또는 비-camera substrate.
+   */
+  handCosineSim: HandCosineSimDetail | null;
   /** Last neuron-firing payload (raw) — null 영역 미수신. */
   lastDetail: NeuronFiringDetail | null;
   /** 영역 frame 영역 timestamp (Date.now). null 영역 미수신. */
@@ -128,6 +134,7 @@ const EMPTY_WINNER: WinnerResult = {
 
 const PipelineEventContext = createContext<PipelineEventState>({
   inputMode: 'grid',
+  handCosineSim: null,
   lastDetail: null,
   lastFiringTimestamp: null,
   winner: EMPTY_WINNER,
@@ -148,6 +155,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
   // 현재 substrate 를 알 수 없어 stale orientation 표시 → "학습 #N · no winner"
   // 같은 부정확한 hand SNN context UI catch.
   const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
+  const [handCosineSim, setHandCosineSim] = useState<HandCosineSimDetail | null>(null);
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
   // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
@@ -221,12 +229,17 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     const offInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
       setInputMode(d.mode === 'camera' ? 'camera' : 'grid');
     });
+    // Phase 3.9 v20 (2026-06-03): hand cosine sim listener.
+    const offHandCosine = onBackendEvent<HandCosineSimDetail>('hand-cosine-sim', (d) => {
+      setHandCosineSim(d);
+    });
     return () => {
       off();
       offCleared();
       offAutoLearn();
       offGridInfer();
       offInputMode();
+      offHandCosine();
       mountedRef.current = false;
     };
   }, []);
@@ -285,7 +298,8 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     autoLearnProgress,
     learningClusters,
     isAutoLearning: learningClusters.size > 0,
-  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters, inputMode]);
+    handCosineSim,
+  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters, inputMode, handCosineSim]);
 
   return (
     <PipelineEventContext.Provider value={value}>

@@ -2811,6 +2811,18 @@
   font-weight: 500;
 }
 
+/* Phase 3.9 v20 (2026-06-03) — cosine sim 실시간 표시. */
+.snn-camera-sim-msg {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  text-align: center;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+.snn-camera-sim-strict { color: #86efac; background: rgba(134, 239, 172, 0.08); }
+.snn-camera-sim-weak { color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
+.snn-camera-sim-spawn { color: #f472b6; background: rgba(244, 114, 182, 0.08); }
+
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {
   font-size: 12px;

@@ -59,7 +59,7 @@ function dispatchFeature(pattern: number[]): number[] {
   if (pattern.length === RAW_DIM_N15) return compute72DimFeature(pattern);
   return pattern;
 }
-import { incrementCount, loadExemplars } from './out-exemplars';
+import { incrementCount, loadExemplars, setExemplarLabel } from './out-exemplars';
 import { showToast } from '@/components/ui/Toast';
 import { showDialog } from '@/components/ui/Dialog';
 import { purgeAllLearningData } from './root-local-snn';
@@ -327,7 +327,9 @@ export class LiveSnn {
   private _handClusterFeatures: Map<number, number[]> = new Map();
   // pre-computed winner from cosine sim (during triggerWithVigilance, consumed
   // in handleTriggerComplete to override vigilance decision).
-  private _handCosineWinner: Map<number, { clusterId: number; sim: number }> = new Map();
+  // strict: true 면 EMA update + R-STDP reinforce 적용, false (weak match) 면
+  // classify only — borderline 자세에서 cluster 변동 방지.
+  private _handCosineWinner: Map<number, { clusterId: number; sim: number; strict: boolean }> = new Map();
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation-5x5) / CAMERA input (gesture) 가 별도 회로 정합.
   // Phase 2A.1 (2026-05-31): default 'orientation' → 'orientation-5x5'.
@@ -1305,7 +1307,10 @@ export class LiveSnn {
     // Phase 3.9 v8 (2026-06-03): cosine match 시 cluster training feature 를
     // EMA update — 같은 자세 반복 시 cluster centroid 가 사용자 실제 자세
     // 분포로 수렴 → jitter robustness 향상.
-    if (cosineWinner !== undefined && this.patternRef.length === 95) {
+    // Phase 3.9 v18 (2026-06-03): strict match 만 EMA + R-STDP 적용.
+    // weak match (cos 0.78-0.93) 는 classify only — borderline 자세에서
+    // cluster centroid drift 방지.
+    if (cosineWinner !== undefined && cosineWinner.strict && this.patternRef.length === 95) {
       const existing = this._handClusterFeatures.get(cosineWinner.clusterId);
       if (existing) {
         const ALPHA = 0.1; // 새 sample weight (10% EMA).
@@ -1462,12 +1467,14 @@ export class LiveSnn {
     if (this.substrateKind !== 'orientation-hand') return;
     if (pattern.length !== 95) return;
     if (this._handClusterFeatures.size === 0) return;
-    // Phase 3.9 v17 (2026-06-03): production catch (token=137 c1=0.923 SPAWN).
-    // 직전 0.93 threshold 가 borderline cases 에서 의도하지 않은 spawn.
-    // 0.93 → 0.85 완화: same pose 자연 jitter (cos 0.95+) MATCH, 약간 다른
-    // 자세 (cos 0.85-0.95) 도 가장 가까운 cluster 로 MATCH (false positive 위험
-    // 있지만 cluster pool 안전 보존). 진짜 다른 자세 (cos < 0.85) 만 SPAWN.
-    const HAND_COSINE_THRESHOLD = 0.85;
+    // Phase 3.9 v18 (2026-06-03): dual threshold cosine matching.
+    //   strict (0.93+): clear match → EMA update + R-STDP reinforce
+    //   weak (0.78-0.93): borderline pose → classify but skip EMA / reinforce
+    //                     (사용자 자세 미세 변동, 새 spawn 회피)
+    //   below 0.78: 진짜 다른 자세 → SPAWN
+    const HAND_COSINE_STRICT_THRESHOLD = 0.93;
+    const HAND_COSINE_WEAK_THRESHOLD = 0.78;
+    const HAND_COSINE_THRESHOLD = HAND_COSINE_WEAK_THRESHOLD; // spawn-or-match boundary
     const normInput = this._normalizePatternV11(pattern);
     let bestId = -1;
     let bestSim = -Infinity;
@@ -1485,12 +1492,23 @@ export class LiveSnn {
       .map((s) => `c${s.id}=${s.sim.toFixed(3)}`)
       .join(' ');
     const matched = bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD;
+    const strict = bestId >= 0 && bestSim >= HAND_COSINE_STRICT_THRESHOLD;
+    const matchType = strict ? 'MATCH' : matched ? 'WEAK_MATCH' : 'SPAWN';
     console.log(
-      `[hand-cosine] token=${token} best=c${bestId} sim=${bestSim.toFixed(3)} threshold=${HAND_COSINE_THRESHOLD} ${matched ? 'MATCH' : 'SPAWN'} | top5: ${simStr}`,
+      `[hand-cosine] token=${token} best=c${bestId} sim=${bestSim.toFixed(3)} strict=${HAND_COSINE_STRICT_THRESHOLD} weak=${HAND_COSINE_WEAK_THRESHOLD} ${matchType} | top5: ${simStr}`,
     );
     if (matched) {
-      this._handCosineWinner.set(token, { clusterId: bestId, sim: bestSim });
+      this._handCosineWinner.set(token, { clusterId: bestId, sim: bestSim, strict });
     }
+    // Phase 3.9 v20 (2026-06-03): emit hand-cosine-sim event — UI 가 실시간 sim 표시.
+    emitBackendEvent('hand-cosine-sim', {
+      token,
+      clusterId: bestId,
+      sim: bestSim,
+      strict,
+      weak: matched && !strict,
+      spawn: !matched,
+    });
   }
 
   private _cosineSimilarity(a: number[], b: number[]): number {
@@ -1662,6 +1680,21 @@ export class LiveSnn {
       if (this.substrateKind === 'orientation-hand' && this.patternRef.length === 95) {
         this._handClusterFeatures.set(newClusterId, this.patternRef.slice());
         saveHandClusterFeats(this._handClusterFeatures);
+        // Phase 3.9 v19 (2026-06-03): auto-label on spawn — 사용자가 cluster 를
+        // "이름 없음" 으로 보지 않고 "자세 N" 자동 부여. 사용자가 나중에 명시적
+        // 으로 rename 가능.
+        try {
+          const exemplars = loadExemplars('orientation-hand');
+          const outKey = `out_${newClusterId}_0`;
+          const existing = exemplars[outKey];
+          if (!existing || !existing.label) {
+            const autoLabel = `자세 ${newClusterId + 1}`;
+            setExemplarLabel(outKey, 'orientation-hand', autoLabel);
+            console.log(`[hand-auto-label] cluster ${newClusterId} → "${autoLabel}"`);
+          }
+        } catch (e) {
+          console.warn('[hand-auto-label] failed:', e);
+        }
       }
       // 2nd+ spawn 영역 90 round 영역 cluster 영역 학습 (prior cluster 영역
       // 영역 영역 — over-train 회피). totalClusters 영역 spawn 영역 영역 영역

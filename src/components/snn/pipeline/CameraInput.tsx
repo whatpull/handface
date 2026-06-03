@@ -85,7 +85,7 @@ export default function CameraInput() {
   // winnerCluster + exemplars 의 label 을 결합해 "→ 인식: cluster N (label)" 표시.
   // Phase 3.9 v14 (2026-06-03): isAutoLearning 도 같이 destructure — auto-mode
   // 가 학습 진행 중 trigger skip.
-  const { winnerCluster, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
+  const { winnerCluster, consecutiveWinnerCount, isAutoLearning, handCosineSim } = usePipelineEvents();
   // cluster 인덱스 → 그 cluster 의 첫 번째 exemplar label 추출
   // (exemplars 는 outKey=out_N_M 단위 — 동일 cluster 의 모든 neuron 은 공통 label 가정).
   const labelByCluster = useMemo(() => {
@@ -359,6 +359,11 @@ export default function CameraInput() {
             {consecutiveWinnerCount > 1 && (
               <span className="snn-camera-winner-stable"> · {consecutiveWinnerCount}회 연속</span>
             )}
+          </small>
+        )}
+        {handCosineSim && (
+          <small className={`snn-camera-sim-msg snn-camera-sim-${handCosineSim.strict ? 'strict' : handCosineSim.weak ? 'weak' : 'spawn'}`}>
+            cosine sim: {handCosineSim.sim.toFixed(3)} · {handCosineSim.strict ? 'MATCH' : handCosineSim.weak ? '~MATCH' : 'NEW'}
           </small>
         )}
       </div>

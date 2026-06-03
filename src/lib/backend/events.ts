@@ -9,7 +9,7 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done' | 'confusion-matrix-ready';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'hand-cosine-sim' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done' | 'confusion-matrix-ready';
 
 // UX HIGH (2026-05-25): TRAINED phase self-verification batch — each cluster
 // 영역 cached lastFeature 영역 inferOnceForValidation 영역 winner 산출 → N×N
@@ -90,6 +90,16 @@ export interface TrainingPhaseDetail {
   phase: 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
   clusterFrames: { 0: number; 1: number; 2: number; 3: number };
   target: number;
+}
+
+// Phase 3.9 v20 (2026-06-03): hand cosine sim event — UI 가 실시간 sim 표시.
+export interface HandCosineSimDetail {
+  token: number;
+  clusterId: number;     // -1 if no clusters yet
+  sim: number;           // cosine similarity
+  strict: boolean;       // strict MATCH (cos >= 0.93)
+  weak: boolean;         // weak MATCH (0.78 <= cos < 0.93)
+  spawn: boolean;        // SPAWN (cos < 0.78)
 }
 
 export interface HandFeatureDetail {

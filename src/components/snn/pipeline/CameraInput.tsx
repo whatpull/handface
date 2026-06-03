@@ -73,6 +73,10 @@ export default function CameraInput() {
 
   const [status, setStatus] = useState<CameraStatus>({ kind: 'idle' });
   const [handDetected, setHandDetected] = useState<boolean>(false);
+  // Phase 3.9 v39 (2026-06-04): MediaPipe handedness 표시.
+  // 좌우 손 모두 동일 cluster 영역 학습 가능 — 사용자 mental model 영역
+  // "어느 손 인식 중" catch 가능. 직전 silent path.
+  const [handedness, setHandedness] = useState<'Left' | 'Right' | null>(null);
   // Phase 3.4: 학습 trigger 가 마지막 landmarks 를 ref 로 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
   // Phase 3.9 v16 (2026-06-03): stability detection — 흔들리는 손에서 spawn 회피.
@@ -154,6 +158,9 @@ export default function CameraInput() {
           setHandDetected(true);
           const hand: HandLandmark[] = result.landmarks[0];
           latestLandmarksRef.current = hand;
+          // v39: handedness 가 변경된 경우만 state update (불필요 re-render 회피).
+          const detectedHandedness = result.handedness?.[0] ?? null;
+          setHandedness((prev) => prev === detectedHandedness ? prev : detectedHandedness);
           drawLandmarks(ctx, hand, c.width, c.height);
 
           // Phase 3.9 v16: stability check — 직전 5 frame 의 wrist 위치 variance.
@@ -180,6 +187,7 @@ export default function CameraInput() {
           }
         } else {
           setHandDetected(false);
+          setHandedness(null);
           latestLandmarksRef.current = null;
           recentWristRef.current = [];
           setIsStable(false);
@@ -505,6 +513,11 @@ export default function CameraInput() {
                 : status.kind === 'ready'
                   ? '⚠ Hand 미감지 — 화면 안에 손을 보여주세요'
                   : '카메라 준비 중...'}
+          </small>
+        )}
+        {handDetected && handedness && (
+          <small className={`snn-camera-handedness snn-camera-handedness-${handedness.toLowerCase()}`}>
+            {handedness === 'Left' ? '왼손' : '오른손'} 인식 중
           </small>
         )}
         {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}

@@ -1451,20 +1451,32 @@ export class LiveSnn {
     if (this.substrateKind !== 'orientation-hand') return;
     if (pattern.length !== 95) return;
     if (this._handClusterFeatures.size === 0) return;
-    const HAND_COSINE_THRESHOLD = 0.97;
-    // Phase 3.9 v11 (2026-06-03): normalize input + stored features 모두 v11
-    // basis 로 변환 후 cosine sim — translation invariance + cross-pose
-    // discrimination 3.4x 향상. cluster features 는 v9 basis 저장 (R-STDP
-    // path 와 호환), cosine 비교 시점에만 normalize.
+    // Phase 3.9 v12 (2026-06-03): production catch — 사용자 logs 에서 cluster
+    // 1+ spawn 시 activeInputs=[0,3,6,24,36] (raw coords) 등 → 같은 자세 시도
+    // 시에도 cosine sim < 0.97 → spawn 매번 발생. threshold 0.97 → 0.93 으로
+    // 완화 + sim 값 console.log 로 production debug 가능.
+    const HAND_COSINE_THRESHOLD = 0.93;
     const normInput = this._normalizePatternV11(pattern);
     let bestId = -1;
     let bestSim = -Infinity;
+    const allSims: Array<{ id: number; sim: number }> = [];
     for (const [id, feat] of this._handClusterFeatures.entries()) {
       const normStored = this._normalizePatternV11(feat);
       const sim = this._cosineSimilarity(normInput, normStored);
+      allSims.push({ id, sim });
       if (sim > bestSim) { bestSim = sim; bestId = id; }
     }
-    if (bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD) {
+    // Production debug — production catch / threshold 튜닝 시 sim 값 가시화.
+    const simStr = allSims
+      .sort((a, b) => b.sim - a.sim)
+      .slice(0, 5)
+      .map((s) => `c${s.id}=${s.sim.toFixed(3)}`)
+      .join(' ');
+    const matched = bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD;
+    console.log(
+      `[hand-cosine] token=${token} best=c${bestId} sim=${bestSim.toFixed(3)} threshold=${HAND_COSINE_THRESHOLD} ${matched ? 'MATCH' : 'SPAWN'} | top5: ${simStr}`,
+    );
+    if (matched) {
       this._handCosineWinner.set(token, { clusterId: bestId, sim: bestSim });
     }
   }

@@ -2986,6 +2986,26 @@
   color: rgba(255, 255, 255, 0.40);
   font-style: italic;
 }
+/* v55 — first-time onboarding hint card. */
+.snn-camera-clusters-onboarding {
+  padding: 8px;
+  background: rgba(147, 197, 253, 0.04);
+  border-radius: 4px;
+}
+.snn-camera-clusters-hints {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+.snn-camera-clusters-hints li {
+  margin-bottom: 2px;
+}
+.snn-camera-clusters-hints strong {
+  color: #93c5fd;
+  font-weight: 600;
+}
 .snn-camera-clusters-list {
   display: flex;
   flex-direction: column;

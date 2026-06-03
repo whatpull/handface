@@ -719,7 +719,15 @@ export default function CameraInput() {
           </div>
         </div>
         {Object.keys(exemplars).length === 0 ? (
-          <small className="snn-camera-clusters-empty">아직 학습된 제스처가 없습니다. 손 자세를 보여주고 &lsquo;이 자세 학습&rsquo; 버튼을 누르세요.</small>
+          <div className="snn-camera-clusters-onboarding">
+            <small className="snn-camera-clusters-empty">아직 학습된 제스처가 없습니다.</small>
+            <ul className="snn-camera-clusters-hints">
+              <li>{autoMode ? '자동 학습 모드 — 손을 화면에 안정적으로 보여주세요' : '손 자세를 보여주고 ‘이 자세 학습’ 버튼을 누르세요'}</li>
+              <li>처음 자세는 <strong>5-10회 반복</strong>하면 인식 안정화</li>
+              <li><strong>최대 19 자세</strong>까지 학습 가능 (좌우 자세는 같은 cluster)</li>
+              <li>자세 자동 분류: 손바닥 / 주먹 / 엄지척 / 브이 / OK</li>
+            </ul>
+          </div>
         ) : (
           <ul className="snn-camera-clusters-list">
             {Object.entries(exemplars)

@@ -2646,17 +2646,19 @@
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: #18181f;
+  background: #0a0a0f;  /* Phase 3.9 v15: 검은 배경 — skeleton 만 보이게 */
   border: 2px solid #2a2a38;
   border-radius: 6px;
   overflow: hidden;
 }
 .snn-camera-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* mirror — 사용자 webcam 영역 직관 정합. */
-  transform: scaleX(-1);
+  /* Phase 3.9 v15 (2026-06-03): video element 숨김 — MediaPipe detection 만 사용,
+     사용자는 손 스켈레톤 만 봄 (얼굴 / 배경 / 사용자 표정 등 노출 없음). */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .snn-camera-overlay {
   position: absolute;
@@ -2665,7 +2667,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  transform: scaleX(-1); /* video 영역 영역 mirror */
+  transform: scaleX(-1); /* mirror — 사용자 webcam 직관 정합 */
 }
 .snn-camera-overlay-msg {
   position: absolute;

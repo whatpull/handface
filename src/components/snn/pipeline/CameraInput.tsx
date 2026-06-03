@@ -388,24 +388,85 @@ function drawLandmarks(
   w: number,
   h: number,
 ): void {
-  // Connection line — 흰색 반투명.
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.lineWidth = 2;
-  for (const [a, b] of FINGER_CONNECTIONS) {
-    const la = hand[a];
-    const lb = hand[b];
-    if (!la || !lb) continue;
+  // Phase 3.9 v15 (2026-06-03): video element 숨김 + skeleton 강조 시각화.
+  // 검은 배경 위에 손가락 별 색상 + glow 효과 + 큰 keypoint dot.
+  const FINGER_COLORS: Record<string, string> = {
+    thumb: '#fbbf24',   // amber
+    index: '#a78bfa',   // purple
+    middle: '#60a5fa',  // blue
+    ring: '#34d399',    // green
+    pinky: '#f472b6',   // pink
+  };
+  // Connection 의 finger 별 grouping.
+  // FINGER_CONNECTIONS 의 순서 — thumb [0..3], index [4..7], middle [8..11], ring [12..15], pinky [16..20].
+  const FINGER_GROUPS: Array<{ name: string; range: [number, number] }> = [
+    { name: 'thumb',  range: [0, 4] },
+    { name: 'index',  range: [4, 8] },
+    { name: 'middle', range: [8, 12] },
+    { name: 'ring',   range: [12, 16] },
+    { name: 'pinky',  range: [16, 21] },
+  ];
+
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Skeleton lines — finger 별 색상 + glow.
+  for (const { name, range } of FINGER_GROUPS) {
+    const color = FINGER_COLORS[name];
+    // Outer glow.
+    ctx.strokeStyle = color + '40'; // 25% alpha
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(la.x * w, la.y * h);
-    ctx.lineTo(lb.x * w, lb.y * h);
+    for (let k = range[0]; k < range[1]; k += 1) {
+      const conn = FINGER_CONNECTIONS[k];
+      if (!conn) continue;
+      const la = hand[conn[0]];
+      const lb = hand[conn[1]];
+      if (!la || !lb) continue;
+      ctx.moveTo(la.x * w, la.y * h);
+      ctx.lineTo(lb.x * w, lb.y * h);
+    }
+    ctx.stroke();
+    // Inner sharp line.
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let k = range[0]; k < range[1]; k += 1) {
+      const conn = FINGER_CONNECTIONS[k];
+      if (!conn) continue;
+      const la = hand[conn[0]];
+      const lb = hand[conn[1]];
+      if (!la || !lb) continue;
+      ctx.moveTo(la.x * w, la.y * h);
+      ctx.lineTo(lb.x * w, lb.y * h);
+    }
     ctx.stroke();
   }
 
-  // Keypoint — 보라색 점.
-  ctx.fillStyle = '#a78bfa';
+  // Keypoints — 흰색 큰 dot + glow.
   for (const lm of hand) {
+    const cx = lm.x * w, cy = lm.y * h;
+    // Glow.
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.beginPath();
-    ctx.arc(lm.x * w, lm.y * h, 4, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
     ctx.fill();
+    // Sharp dot.
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Wrist 강조 (landmark 0).
+  if (hand[0]) {
+    const cx = hand[0].x * w, cy = hand[0].y * h;
+    ctx.fillStyle = '#fcd34d';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 }

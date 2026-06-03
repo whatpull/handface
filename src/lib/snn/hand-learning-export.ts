@@ -147,13 +147,21 @@ export function importHandLearningFromJSON(jsonText: string): ImportResult {
 
   if (Array.isArray(obj.clusterFeatures)) {
     // Validate each entry: [number, number[]] with length 95.
-    const valid = obj.clusterFeatures.filter((e): e is [number, number[]] =>
+    let valid = obj.clusterFeatures.filter((e): e is [number, number[]] =>
       Array.isArray(e) && e.length === 2 &&
       typeof e[0] === 'number' && Array.isArray(e[1]) && e[1].length === 95 &&
       e[1].every((v) => typeof v === 'number' && Number.isFinite(v)),
     );
     if (valid.length !== obj.clusterFeatures.length) {
       warnings.push(`clusterFeatures: ${obj.clusterFeatures.length - valid.length} entries 손상 — skip`);
+    }
+    // Phase 3.9 v49 (2026-06-04): 19 cluster 초과 catch — 한계 (v30/v31) 정합.
+    // import 한 데이터 영역 19 초과 영역 영역 fallback skip 영역 silent 영역 사용자
+    // catch 안 됨. 영역 sort by clusterId 영역 첫 19 영역 사용 + 영역 영역 warning.
+    const MAX_CAP = 19;
+    if (valid.length > MAX_CAP) {
+      warnings.push(`clusterFeatures: ${valid.length} cluster 영역 한계 ${MAX_CAP} 초과 — 첫 ${MAX_CAP} 영역 사용 (cluster id sort)`);
+      valid = valid.sort((a, b) => a[0] - b[0]).slice(0, MAX_CAP);
     }
     if (valid.length > 0) {
       writeJSON(FEATURES_KEY, valid);

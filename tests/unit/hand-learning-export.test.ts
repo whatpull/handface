@@ -146,6 +146,22 @@ describe('v32 hand-learning-export — import', () => {
     expect(result.warnings.some((w) => w.includes('schemaVersion'))).toBe(true);
   });
 
+  it('★ v49: 19 cluster 초과 → 첫 19 영역 사용 + warning', () => {
+    const features: Array<[number, number[]]> = [];
+    for (let i = 0; i < 25; i += 1) {
+      features.push([i, new Array(95).fill(i / 25)]);
+    }
+    const json = JSON.stringify({
+      schemaVersion: 1,
+      substrate: 'orientation-hand',
+      clusterFeatures: features,
+    });
+    const result = importHandLearningFromJSON(json);
+    expect(result.ok).toBe(true);
+    expect(result.imported.features).toBe(19);
+    expect(result.warnings.some((w) => w.includes('19 초과'))).toBe(true);
+  });
+
   it('clusterFeatures 비어있음 → ok=false (의미 없음)', () => {
     const empty = JSON.stringify({
       schemaVersion: 1,

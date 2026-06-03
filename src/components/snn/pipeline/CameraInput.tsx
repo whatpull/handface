@@ -79,6 +79,13 @@ export default function CameraInput() {
   // 좌우 손 모두 동일 cluster 영역 학습 가능 — 사용자 mental model 영역
   // "어느 손 인식 중" catch 가능. 직전 silent path.
   const [handedness, setHandedness] = useState<'Left' | 'Right' | null>(null);
+  // Phase 3.9 v41 (2026-06-04): relative time tick — cluster row "마지막: N전"
+  // 표시 영역 매 10초 영역 re-render. lastAt 영역 Date.now() 차이 영역 직접 계산.
+  const [, setRelativeTimeTick] = useState<number>(0);
+  useEffect(() => {
+    const id = setInterval(() => setRelativeTimeTick((t) => t + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
   // Phase 3.4: 학습 trigger 가 마지막 landmarks 를 ref 로 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
   // Phase 3.9 v16 (2026-06-03): stability detection — 흔들리는 손에서 spawn 회피.
@@ -655,7 +662,14 @@ export default function CameraInput() {
                     <span className="snn-camera-cluster-label">
                       {ex.label ?? <em>이름 없음</em>}
                     </span>
-                    <span className="snn-camera-cluster-count">{ex.count}회</span>
+                    <span className="snn-camera-cluster-count">
+                      {ex.count}회
+                      {ex.lastAt > 0 && (
+                        <span className="snn-camera-cluster-last">
+                          {' · '}{formatRelativeTime(Date.now() - ex.lastAt)}
+                        </span>
+                      )}
+                    </span>
                     <button
                       type="button"
                       className="snn-camera-cluster-edit-btn"
@@ -679,6 +693,25 @@ export default function CameraInput() {
       </div>
     </div>
   );
+}
+
+// Phase 3.9 v41 (2026-06-04): cluster lastAt 영역 사용자 친화 한국어 relative.
+// "5초 전" / "3분 전" / "2시간 전" / "어제" / "3일 전" 영역 mental model 정합.
+function formatRelativeTime(elapsedMs: number): string {
+  if (elapsedMs < 0) return '방금';
+  const sec = Math.floor(elapsedMs / 1000);
+  if (sec < 10) return '방금';
+  if (sec < 60) return `${sec}초 전`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return '어제';
+  if (day < 30) return `${day}일 전`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}개월 전`;
+  return `${Math.floor(month / 12)}년 전`;
 }
 
 // outKey 형식: out_{clusterId}_{neuronIndex}. clusterId 만 추출.

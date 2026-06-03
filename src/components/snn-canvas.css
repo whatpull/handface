@@ -2900,6 +2900,12 @@
   background: rgba(56, 189, 248, 0.12);
   color: #7dd3fc;
 }
+/* v41 — cluster row 영역 "마지막: N전" relative time. */
+.snn-camera-cluster-last {
+  color: rgba(255, 255, 255, 0.40);
+  font-size: 10px;
+  font-weight: 400;
+}
 
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {

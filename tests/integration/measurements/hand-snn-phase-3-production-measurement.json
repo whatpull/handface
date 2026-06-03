@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-03T02:34:47.460Z",
+  "timestamp": "2026-06-03T02:48:20.134Z",
   "scenario": "phase-3-hand-snn-production-measurement",
   "substrate": "n16_hand (95-dim)",
   "gestures": [
@@ -8,6 +8,7 @@
     "thumbs_up",
     "peace_sign"
   ],
+  "dataSource": "synthetic anatomical mock",
   "mockDesign": "anatomically realistic appendFinger (curl + cumulative bend rotation)",
   "encoding": "sparse forced-disjoint top-K=5",
   "trainingApi": "clusterTrainRStdp (production R-STDP)",

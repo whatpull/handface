@@ -145,21 +145,47 @@
 - 4 자세 학습 후 인식률 측정 (self-verify)
 - 사용자 mental model 영역 catch — "이 자세 영역 영역 학습되었나?"
 
-### Phase 3.6: 측정 + 최적화
+### Phase 3.6: 측정 + 최적화 (⚠️ 부분 완료, 2026-06-03)
 
 **목표**: production accuracy 측정 + ART/EWC 통합
 
+**완료 작업**:
+- ✅ 4 자세 anatomical mock + production clusterTrainRStdp + 정직 inference 측정 — **30% accuracy** (open_palm 60%, closed_fist 0%, thumbs_up 0%, peace_sign 60%; σ=0.05)
+- ✅ HONEST_LIMITATIONS.md 정정 — 직전 1-shot 25% → 30% (marginal 개선만)
+- ✅ Phase 2A fix chain 자동 적용 확인:
+  - subset 인식 ✓ (commit b90c103)
+  - 1st 30 / 2nd+ 90 trials ✓ (commit 8da3cbe)
+  - rawActiveInputs ✓ (commit 4deb9bc)
+  - auto-purge ✓ (commit 6e3b574)
+- ✅ 직전 hand-snn-cluster-rstdp.json 100% 영역 oracle inference (applySparseTopK(fv, topKIndices[g]) → ground truth leak) 인정 명시
+
+**핵심 발견 (encoder.ts:237-256 자체 진단 인용)**:
+> "4 gesture pairwise Jaccard distinctiveness 0.0185 (=98% overlap). R-STDP/ART/EWC 어떤 mechanism도 이 overlap 위에서는 분리 불가능."
+
+→ sparse forced-disjoint top-K=5 가 *claimed indices* 영역 Jaccard 0 보장하지만, claimed indices 영역 input value 영역 4 mock gestures 동등 → 정직한 inference 영역 WTA random-like.
+
+**검증 미충족**:
+- ❌ Hand SNN production self-verify ≥ 90% — synthetic mock 영역 도달 불가 (본질 한계)
+- ❌ 사용자 production 영역 4 자세 영역 정확 인식 — 실제 webcam 측정 미진행 (Phase 3.7 영역)
+
+**측정 데이터**: tests/integration/measurements/hand-snn-phase-3-production-measurement.json
+
+### Phase 3.7: 실제 webcam fixture 측정 (deferred — 사용자 협업 필요)
+
+**목표**: synthetic mock 한계 영역 극복 — 실제 인체 hand variation 영역 production accuracy 측정
+
 **작업**:
-- 4 자세 영역 production noise 영역 self-verify accuracy 측정
-- HONEST_LIMITATIONS.md 영역 1-shot 25% 영역 갱신
-- ART/EWC 통합 (Phase 2A 영역 동일 path):
-  - subset 인식 ✓ (commit b90c103 영역 영역 적용)
-  - 2nd+ spawn 90 trials ✓ (commit 8da3cbe 영역 영역 적용)
-  - rawActiveInputs ✓ (commit 4deb9bc 영역 영역 적용)
+- 사용자 webcam 영역 4 자세 × N=10 frames 영역 record → JSON fixture 영역 save
+- Phase 3.6 measurement test 영역 fixture path env var 영역 추가 — synthetic mock 영역 real landmarks 영역 전환
+- 동일 path (clusterTrainRStdp + 정직 inference) 영역 real data accuracy 측정
 
 **검증**:
-- Hand SNN production self-verify ≥ 90%
-- 사용자 production 영역 4 자세 영역 정확 인식
+- 실제 hand variation 영역 production accuracy ≥ 90% (synthetic 한계 영역 비교)
+- 또는: 실제 data 영역 비슷한 indistinguishability 영역 — 95-dim encoder 자체 영역 한계 영역 확인
+
+**위험**:
+- 사용자 협업 필수 (autonomous 진행 불가)
+- real landmark variation 영역 mock 영역 영역 영역 다른 distribution → 새 fix chain 필요 가능
 
 ## 2. 우선순위 / 추정 시간
 

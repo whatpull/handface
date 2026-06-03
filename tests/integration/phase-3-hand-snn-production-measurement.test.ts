@@ -29,7 +29,7 @@
 // 본 file 'measurement' pattern → nightly cron 분류.
 
 import { describe, expect, it } from 'vitest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
   LocalSNN, LocalStorageSink,
@@ -135,11 +135,38 @@ const GESTURES = [
   { name: 'peace_sign', make: makePeaceSign },
 ];
 
+// Phase 3.7 fixture loader — 사용자 webcam 영역 record 영역 JSON fixture 영역 load.
+// 형식: { gestures: [{name, frames: [HandLandmark[]]}] }, 각 frame 영역 21 landmarks.
+// HANDFACE_HAND_FIXTURE env var 영역 path 지정. 미존재 시 synthetic mock 영역.
+function loadFixtureOrSynthetic(): { name: string; landmarks: HandLandmark[] }[] {
+  const fixturePath = process.env.HANDFACE_HAND_FIXTURE;
+  if (fixturePath && existsSync(fixturePath)) {
+    const raw = JSON.parse(readFileSync(fixturePath, 'utf-8')) as {
+      gestures: { name: string; frames: HandLandmark[][] }[];
+    };
+    // 각 gesture 영역 frames 영역 평균 landmark 영역 영역 (representative pose).
+    return raw.gestures.map((g) => {
+      const avg: HandLandmark[] = Array.from({ length: 21 }, () => ({ x: 0, y: 0, z: 0 }));
+      for (const frame of g.frames) {
+        for (let i = 0; i < 21; i += 1) {
+          avg[i].x += frame[i].x; avg[i].y += frame[i].y; avg[i].z += frame[i].z;
+        }
+      }
+      const n = g.frames.length || 1;
+      for (let i = 0; i < 21; i += 1) { avg[i].x /= n; avg[i].y /= n; avg[i].z /= n; }
+      return { name: g.name, landmarks: avg };
+    });
+  }
+  return GESTURES.map((g) => ({ name: g.name, landmarks: g.make() }));
+}
+
 describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
   it('★ anatomical mock + production clusterTrainRStdp + honest inference', async () => {
-    // 4 gestures → 95-dim feature vectors.
-    const features = GESTURES.map((g) => encodeHandToFeatureVector(g.make()));
+    // Synthetic mock OR real fixture (HANDFACE_HAND_FIXTURE env var).
+    const loaded = loadFixtureOrSynthetic();
+    const features = loaded.map((g) => encodeHandToFeatureVector(g.landmarks));
     expect(features[0]).toHaveLength(HAND_FEAT_DIM);
+    const dataSource = process.env.HANDFACE_HAND_FIXTURE ?? 'synthetic anatomical mock';
 
     // Sparse forced-disjoint top-K=5 (encoder.ts documented solution).
     const topKIndices = selectForcedDisjointTopK(features, HAND_SPARSE_TOP_K_DEFAULT);
@@ -159,7 +186,7 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
     // Production R-STDP API (clusterTrainRStdp) — sparse pattern with only
     // claimed indices nonzero (during training, ground truth target known).
     let totalReinforces = 0;
-    for (let ci = 0; ci < GESTURES.length; ci += 1) {
+    for (let ci = 0; ci < loaded.length; ci += 1) {
       const rounds = ci === 0 ? 30 : 90;
       const sparsePattern = new Array(HAND_FEAT_DIM).fill(0);
       for (const idx of topKIndices[ci]) sparsePattern[idx] = features[ci][idx];
@@ -182,7 +209,7 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
     // features above threshold; clusterFiringRates with pattern arg normalizes
     // by overlap with each cluster's claimed inputs (QA HIGH PRIMARY FINDING-1).
     const SAMPLES = 5; const SIGMA = 0.05; const baseSeed = 3000;
-    const N = GESTURES.length;
+    const N = loaded.length;
     const matrix: number[][] = Array.from({ length: N }, () => Array.from({ length: N }, () => 0));
 
     for (let ci = 0; ci < N; ci += 1) {
@@ -247,7 +274,8 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
       timestamp: new Date().toISOString(),
       scenario: 'phase-3-hand-snn-production-measurement',
       substrate: 'n16_hand (95-dim)',
-      gestures: GESTURES.map((g) => g.name),
+      gestures: loaded.map((g) => g.name),
+      dataSource,
       mockDesign: 'anatomically realistic appendFinger (curl + cumulative bend rotation)',
       encoding: `sparse forced-disjoint top-K=${HAND_SPARSE_TOP_K_DEFAULT}`,
       trainingApi: 'clusterTrainRStdp (production R-STDP)',
@@ -283,7 +311,7 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
     console.log(`  total: ${(result.totalAccuracy * 100).toFixed(0)}%`);
     console.log(`  Jaccard max off-diag: ${result.jaccardMax.toFixed(3)}`);
     console.log(`  confusion matrix:`);
-    for (let i = 0; i < N; i += 1) console.log(`    ${GESTURES[i].name.padEnd(14)} → [${matrix[i].join(', ')}]`);
+    for (let i = 0; i < N; i += 1) console.log(`    ${loaded[i].name.padEnd(14)} → [${matrix[i].join(', ')}]`);
     console.log(`  total reinforces: ${result.totalReinforces}`);
     console.log('');
 

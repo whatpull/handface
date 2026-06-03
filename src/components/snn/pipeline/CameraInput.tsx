@@ -149,9 +149,14 @@ export default function CameraInput() {
     try {
       // Phase 3.4: hand landmarks (21 × {x,y,z}) → encodeHandToFeatureVector
       // → 95-dim feature vector → triggerWithVigilance (n16_hand substrate 정합).
+      // Phase 3.9 v4 fix (2026-06-03, 사용자 catch "동일 제스처도 클러스터 계속 생성"):
+      // 직전 vigilance=1.0 (엄격 정확 일치) → 자연 webcam jitter 로 top-K=5 가
+      // 매 frame 약간씩 변동 → Jaccard < 1.0 → 매번 spawn. vigilance=0.3 으로
+      // 완화: 5/5 일치(1.0) 와 4/5 일치(Jaccard 0.67) 와 3/5 일치(0.43) 까지 같은
+      // gesture 로 인식, 2/5 이하(0.25) 만 신규 spawn. 자연 jitter tolerance 확보.
       const featureVec = encodeHandToFeatureVector(landmarks);
       const live = getLiveSnn();
-      const { trialToken } = live.triggerWithVigilance(featureVec, 1.0);
+      const { trialToken } = live.triggerWithVigilance(featureVec, 0.3);
       setTriggerStatus(`✓ 학습 trigger 완료 (token ${trialToken})`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

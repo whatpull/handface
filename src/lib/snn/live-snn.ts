@@ -293,10 +293,12 @@ export class LiveSnn {
     this.substrateKind = 'orientation-6x6';
     this.trialCount = loadTrialCount(this.substrateKind);
     // input-mode event listener — NodeInput tab change 시 emit.
-    //   mode='camera' → substrate='gesture'
-    //   mode='grid'   → substrate='orientation-6x6'  (Phase 2A.2)
+    //   mode='camera' → substrate='orientation-hand'  (Phase 3.3, n16_hand 75-dim)
+    //   mode='grid'   → substrate='orientation-6x6'   (Phase 2A.2, n15_extended 72-dim)
+    // 직전 Phase 3.3 영역 영역: mode='camera' → 'gesture' (16-dim legacy) — Hand
+    // SNN backend (n16-hand) 영역 정합 'orientation-hand' 영역 wire 변경.
     this._unsubscribeInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
-      const next: SubstrateKind = d.mode === 'camera' ? 'gesture' : 'orientation-6x6';
+      const next: SubstrateKind = d.mode === 'camera' ? 'orientation-hand' : 'orientation-6x6';
       void this.setSubstrate(next);
     });
   }

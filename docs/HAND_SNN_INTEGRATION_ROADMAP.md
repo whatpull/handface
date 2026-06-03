@@ -157,35 +157,35 @@
   - 1st 30 / 2nd+ 90 trials ✓ (commit 8da3cbe)
   - rawActiveInputs ✓ (commit 4deb9bc)
   - auto-purge ✓ (commit 6e3b574)
-- ✅ 직전 hand-snn-cluster-rstdp.json 100% 영역 oracle inference (applySparseTopK(fv, topKIndices[g]) → ground truth leak) 인정 명시
+- ✅ 직전 hand-snn-cluster-rstdp.json 100% 는 oracle inference (applySparseTopK(fv, topKIndices[g]) → ground truth leak) 임을 인정 명시
 
 **핵심 발견 (encoder.ts:237-256 자체 진단 인용)**:
 > "4 gesture pairwise Jaccard distinctiveness 0.0185 (=98% overlap). R-STDP/ART/EWC 어떤 mechanism도 이 overlap 위에서는 분리 불가능."
 
-→ sparse forced-disjoint top-K=5 가 *claimed indices* 영역 Jaccard 0 보장하지만, claimed indices 영역 input value 영역 4 mock gestures 동등 → 정직한 inference 영역 WTA random-like.
+→ sparse forced-disjoint top-K=5 가 *claimed indices* 의 Jaccard 0 을 보장하지만, claimed indices 에서의 input value 가 4 mock gestures 에 걸쳐 동등 → 정직한 inference 에서는 WTA random-like.
 
 **검증 미충족**:
-- ❌ Hand SNN production self-verify ≥ 90% — synthetic mock 영역 도달 불가 (본질 한계)
-- ❌ 사용자 production 영역 4 자세 영역 정확 인식 — 실제 webcam 측정 미진행 (Phase 3.7 영역)
+- ❌ Hand SNN production self-verify ≥ 90% — synthetic mock 으로는 도달 불가 (본질 한계)
+- ❌ 사용자 production 에서 4 자세 정확 인식 — 실제 webcam 측정 미진행 (Phase 3.7 대상)
 
 **측정 데이터**: tests/integration/measurements/hand-snn-phase-3-production-measurement.json
 
 ### Phase 3.7: 실제 webcam fixture 측정 (deferred — 사용자 협업 필요)
 
-**목표**: synthetic mock 한계 영역 극복 — 실제 인체 hand variation 영역 production accuracy 측정
+**목표**: synthetic mock 한계 극복 — 실제 인체 hand variation 으로 production accuracy 측정
 
 **작업**:
-- 사용자 webcam 영역 4 자세 × N=10 frames 영역 record → JSON fixture 영역 save
-- Phase 3.6 measurement test 영역 fixture path env var 영역 추가 — synthetic mock 영역 real landmarks 영역 전환
-- 동일 path (clusterTrainRStdp + 정직 inference) 영역 real data accuracy 측정
+- 사용자 webcam 으로 4 자세 × N=10 frames record → JSON fixture 로 save
+- Phase 3.6 measurement test 에 fixture path env var 추가 — synthetic mock 을 real landmarks 로 전환
+- 동일 path (clusterTrainRStdp + 정직 inference) 로 real data accuracy 측정
 
 **검증**:
-- 실제 hand variation 영역 production accuracy ≥ 90% (synthetic 한계 영역 비교)
-- 또는: 실제 data 영역 비슷한 indistinguishability 영역 — 95-dim encoder 자체 영역 한계 영역 확인
+- 실제 hand variation 에서 production accuracy ≥ 90% (synthetic 한계 와 비교)
+- 또는: 실제 data 에서도 비슷한 indistinguishability — 95-dim encoder 자체의 한계 확인
 
 **위험**:
 - 사용자 협업 필수 (autonomous 진행 불가)
-- real landmark variation 영역 mock 영역 영역 영역 다른 distribution → 새 fix chain 필요 가능
+- real landmark variation 이 mock 과 전혀 다른 distribution → 새 fix chain 필요 가능
 
 ## 2. 우선순위 / 추정 시간
 

@@ -667,7 +667,14 @@ export default function CameraInput() {
         ) : (
           <ul className="snn-camera-clusters-list">
             {Object.entries(exemplars)
-              .sort(([a], [b]) => a.localeCompare(b))
+              .sort(([aKey, aEx], [bKey, bEx]) => {
+                // v48 (2026-06-04): 최근 자세 위 — lastAt desc 정합.
+                // lastAt 영역 영역 영역 (학습 직후 0 사실 가능) outKey natural sort fallback.
+                const aLast = aEx.lastAt || 0;
+                const bLast = bEx.lastAt || 0;
+                if (aLast !== bLast) return bLast - aLast;
+                return aKey.localeCompare(bKey);
+              })
               .map(([outKey, ex]) => {
                 const clusterId = parseClusterId(outKey);
                 return (

@@ -26,7 +26,8 @@
 | 영역 | 한계 |
 |------|------|
 | 6×6 substrate "Bottom row" 패턴 (N=8 mock) | ⚠️ 직전 P213 mock 4 시드 학습 실패 (-1) — N=4~8 production 시나리오 영역 영향 없음 측정 확인 (Bottom row c4 = 100% at N=6/7/8). production reality 영역 issue 영역 |
-| Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 — 단 backend builders (n16-hand 75-dim) 완성. UI 통합 영역 없음 (NodeInput GRID 전용). 단계별 roadmap: [HAND_SNN_INTEGRATION_ROADMAP.md](HAND_SNN_INTEGRATION_ROADMAP.md) |
+| Hand SNN (MediaPipe Hand) UI 통합 | ✅ Phase 3.1~3.5 완료 (2026-06-03) — MediaPipe HandLandmarker, NodeInput GRID/CAMERA tab, input-mode event, 학습 trigger, cluster label 편집. |
+| Hand SNN (MediaPipe Hand) mock landmarks 정확도 | ⚠️ Phase 3.6 측정 — mock landmarks 4 gestures (open_palm/closed_fist/thumbs_up/peace_sign) + sparse forced-disjoint top-K=5 + Phase 2A fix chain → **20% accuracy** (직전 1-shot 25% 와 동등 — 본질 무개선). 원인: hand-spike-encoder.ts lines 237-256 자체 진단 — "4 gesture pairwise Jaccard distinctiveness 0.0185 (=98% overlap). R-STDP/ART/EWC 어떤 mechanism도 이 overlap 위에서는 분리 불가능". 결론: mock landmarks 본질적 indistinct, **실제 webcam 영역 인체 hand variation 측정 필요** (synthetic mock 한계). 데이터: tests/integration/measurements/hand-snn-phase-3-production-measurement.json |
 
 ### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31 ~ 2026-06-01)
 

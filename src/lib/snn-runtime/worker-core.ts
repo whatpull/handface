@@ -14,7 +14,7 @@ import { buildN13OrientationPreset, compute32DimFeature, N_INPUT } from './build
 import { buildN14ExtendedPreset, compute50DimFeature, N_INPUT_N14, RAW_DIM_N14 } from './builders/n14-extended';
 import { buildN15Extended6x6Preset, compute72DimFeature, N_INPUT_N15, RAW_DIM_N15 } from './builders/n15-extended-6x6';
 import { buildN16HandPreset, RAW_DIM_N16 } from './builders/n16-hand';
-import { applySparseTopK, encodeHandToFeatureVector, HAND_SPARSE_TOP_K_DEFAULT, selectTopKActive, type HandLandmark } from './hand-spike-encoder';
+import { applySparseTopK, encodeHandToFeatureVector, HAND_FEAT_DIM, HAND_SPARSE_TOP_K_DEFAULT, selectTopKActive, type HandLandmark } from './hand-spike-encoder';
 
 // Hand SNN sparse top-K — input bottleneck 해결 (2026-05-26).
 // 95-dim continuous feature 의 threshold-0.2 active inputs 는 4 gesture 간
@@ -45,7 +45,17 @@ function dispatchComputeFeature(pattern: number[]): number[] {
     const topK = selectTopKActive(full, HAND_SPARSE_TOP_K_DEFAULT);
     return applySparseTopK(full, topK);
   }
-  return pattern; // already expanded (32, 50, 72, or 95)
+  // Phase 3.9 v3 fix (2026-06-03, 사용자 catch handface.whatpull.com):
+  // CameraInput 이 encodeHandToFeatureVector 로 pre-encode 한 95-dim 을 직접
+  // 전달 → 이 branch 가 'return pattern' 로 fall-through → activeIdx 가 threshold
+  // 0.2 로 ~60 features 산출 → cluster template (sparse 5) 와 Jaccard 5/60=0.08
+  // → vigilance MISS 마다 새 cluster spawn ("같은 패턴이 클러스터 지속 증가").
+  // 정정: 95-dim hand pattern 도 top-K=5 sparsify.
+  if (pattern.length === HAND_FEAT_DIM) {
+    const topK = selectTopKActive(pattern, HAND_SPARSE_TOP_K_DEFAULT);
+    return applySparseTopK(pattern, topK);
+  }
+  return pattern; // already expanded (32, 50, 72)
 }
 
 // P218 (2026-05-25) — substrate-aware feature activation threshold.

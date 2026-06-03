@@ -16,6 +16,7 @@
 | **6×6 substrate (N=5 Phase 2A.2)** | ✅ **100% noisy accuracy** (commit 4174898 — production 적용) |
 | **6×6 substrate (N=6 Phase 2A.2)** | ✅ **100% noisy accuracy** — Bottom row 포함 (commit b350a9b 측정) |
 | **6×6 substrate (N=7 Phase 2A.2)** | ✅ **100% noisy accuracy** — 모든 7 cluster + Bottom row (commit 후속 측정 2026-06-03) |
+| **6×6 substrate (N=8 Phase 2A.2)** | ✅ **100% noisy accuracy** — 모든 8 cluster (commit 후속 측정 2026-06-03, claimed 41/72 capacity 여유) |
 | 5×5 substrate (N=4 Phase 2A.1) | ⚠️ legacy — Phase 2A.2 으로 superseded. 90% (c3 60%) |
 | 5×5 substrate (N=5/8) | ⚠️ legacy — 5×5 inherent c3 limit 으로 88%/70% |
 | Mega 9-substrate Ensemble | ✅ 100% recall / 88% noise / 100% partial / 96% WTA margin (commit 1102b3a) |
@@ -24,9 +25,8 @@
 
 | 영역 | 한계 |
 |------|------|
-| 6×6 substrate "Bottom row" 패턴 (N=8 mock) | ⚠️ 직전 P213 mock 4 시드 학습 실패 (-1) — N=4/5/6/7 production 시나리오에는 영향 없음 측정 확인 (Bottom row c4 = 100% at N=6, N=7) |
+| 6×6 substrate "Bottom row" 패턴 (N=8 mock) | ⚠️ 직전 P213 mock 4 시드 학습 실패 (-1) — N=4~8 production 시나리오 영역 영향 없음 측정 확인 (Bottom row c4 = 100% at N=6/7/8). production reality 영역 issue 영역 |
 | Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 |
-| 6×6 substrate N=8 | ⚠️ production 시나리오 N=8 미측정 (시간 부족) — 다음 cycle 후보 |
 
 ### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31 ~ 2026-06-01)
 

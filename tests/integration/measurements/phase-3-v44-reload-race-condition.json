@@ -1,0 +1,32 @@
+{
+  "scenario": "phase-3-v44-reload-race-condition",
+  "timestamp": "2026-06-04T00:00:00Z",
+  "version": "v42 setSubstrate idempotent + v43 self-heal sync",
+  "scenarios": [
+    {
+      "scenario": "R1 cold start",
+      "expandCalls": 0,
+      "finalClusters": 0,
+      "verdict": "✓ 정상"
+    },
+    {
+      "scenario": "R2 warm reload",
+      "expandCalls": 3,
+      "finalClusters": 3,
+      "verdict": "✓ 정상"
+    },
+    {
+      "scenario": "R3 singleton stuck (15:18)",
+      "expandCalls": 4,
+      "finalClusters": 1,
+      "verdict": "✓ 정상"
+    },
+    {
+      "scenario": "R4 race triple setSubstrate",
+      "expandCalls": 6,
+      "finalClusters": 2,
+      "verdict": "✓ 정상"
+    }
+  ],
+  "verdict": "✓ 모든 race condition 정합"
+}

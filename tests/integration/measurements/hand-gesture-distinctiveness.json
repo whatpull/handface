@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-03T10:54:39.527Z",
+  "timestamp": "2026-06-03T11:28:13.276Z",
   "scenario": "hand-gesture-distinctiveness",
   "gestures": [
     "open_palm",
@@ -8,10 +8,10 @@
     "peace_sign"
   ],
   "activeInputSizes": [
-    70,
-    69,
-    67,
-    70
+    40,
+    55,
+    53,
+    48
   ],
-  "avgPairwiseDistinctiveness": 0.06523958566212086
+  "avgPairwiseDistinctiveness": 0.3072658557213801
 }

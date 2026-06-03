@@ -258,6 +258,11 @@ export default function NodeLearn() {
     }
   }, []);
 
+  // Phase 3.9 v11 (2026-06-03): encoder normalization 도입 시도 → R-STDP
+  // downstream encodeFeatureToSpikes 의 threshold 0.3 가정과 충돌하여 회귀.
+  // encodeHandForCosineSim 함수만 helper 로 유지 (LiveSnn 추후 도입 가능).
+  // 현재 production: v9 (encodeHandToFeatureVector + cosine sim) 유지.
+
   // circuit-changed event — backend network 이 새로 만들어진 시점.
   //
   // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역

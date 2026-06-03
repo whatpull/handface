@@ -58,6 +58,51 @@ export function flattenLandmarks(landmarks: ReadonlyArray<HandLandmark>): number
   return out;
 }
 
+// Phase 3.9 v11 (2026-06-03): wrist-relative + palm-size normalized 변형.
+// captured fixture test (phase-3-v11-encoder-normalization-iter):
+//   cross-pose discrimination (1-cos sum): v9 0.287 → v11 0.969 (3.4x 향상)
+//   translation invariance: PERFECT
+// 단 R-STDP encodeFeatureToSpikes path 가 0.3 threshold 가정 → 도입 시 회귀.
+// 본 함수는 LiveSnn cosine sim path 전용 — encoder 의 spike-encoding 영향 없음.
+export function flattenLandmarksNormalized(landmarks: ReadonlyArray<HandLandmark>): number[] {
+  if (landmarks.length !== N_HAND_LANDMARKS) {
+    throw new Error(`flattenLandmarksNormalized: expected ${N_HAND_LANDMARKS} landmarks`);
+  }
+  const wrist = landmarks[0];
+  const middleMcp = landmarks[FINGER_MCPS.middle];
+  const palmSize = Math.sqrt(
+    (wrist.x - middleMcp.x) ** 2 +
+    (wrist.y - middleMcp.y) ** 2 +
+    (wrist.z - middleMcp.z) ** 2,
+  ) || 0.1;
+  const out = new Array<number>(HAND_RAW_DIM);
+  for (let i = 0; i < N_HAND_LANDMARKS; i += 1) {
+    out[i * 3 + 0] = (landmarks[i].x - wrist.x) / palmSize;
+    out[i * 3 + 1] = (landmarks[i].y - wrist.y) / palmSize;
+    out[i * 3 + 2] = (landmarks[i].z - wrist.z) / palmSize;
+  }
+  return out;
+}
+
+// Phase 3.9 v11: LiveSnn cosine sim 전용 — wrist-relative raw + derived features.
+export function encodeHandForCosineSim(landmarks: ReadonlyArray<HandLandmark>): number[] {
+  const flatNorm = flattenLandmarksNormalized(landmarks);
+  const derived = computeHandFeatures(landmarks);
+  const discriminative = computeDiscriminativeFeatures(landmarks);
+  return [
+    ...flatNorm,
+    ...derived.fingerExtensions,
+    ...derived.fingerBendAngles,
+    derived.handOrientationAngle,
+    Math.min(1, derived.palmSize * 5),
+    ...discriminative.pinchDistances,
+    ...discriminative.fingerSpreadAngles,
+    ...discriminative.wristToTipDistances,
+    ...discriminative.fingerExtensionDeltas,
+    discriminative.openness,
+  ];
+}
+
 // ── 2. Derived hand features (geometric) ──
 
 export interface HandDerivedFeatures {

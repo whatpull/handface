@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-03T10:54:39.531Z",
+  "timestamp": "2026-06-03T11:28:13.286Z",
   "scenario": "hand-sparse-topk-distinctiveness-sweep",
   "gestures": [
     "open_palm",
@@ -21,7 +21,7 @@
     },
     {
       "K": 8,
-      "avgDistinctiveness": 0.8301587301587302,
+      "avgDistinctiveness": 0.8043956043956045,
       "perGestureActive": [
         8,
         8,
@@ -31,7 +31,7 @@
     },
     {
       "K": 10,
-      "avgDistinctiveness": 0.7242452536570183,
+      "avgDistinctiveness": 0.711990351696234,
       "perGestureActive": [
         10,
         10,
@@ -41,7 +41,7 @@
     },
     {
       "K": 15,
-      "avgDistinctiveness": 0.5452836637047164,
+      "avgDistinctiveness": 0.5866915311995403,
       "perGestureActive": [
         15,
         15,
@@ -51,7 +51,7 @@
     },
     {
       "K": 20,
-      "avgDistinctiveness": 0.45840455840455846,
+      "avgDistinctiveness": 0.3966761633428301,
       "perGestureActive": [
         20,
         20,
@@ -61,7 +61,7 @@
     },
     {
       "K": 25,
-      "avgDistinctiveness": 0.49246126285974484,
+      "avgDistinctiveness": 0.39162095088819227,
       "perGestureActive": [
         25,
         25,
@@ -71,7 +71,7 @@
     },
     {
       "K": 30,
-      "avgDistinctiveness": 0.5171866958049461,
+      "avgDistinctiveness": 0.452991452991453,
       "perGestureActive": [
         30,
         30,
@@ -83,7 +83,7 @@
   "meanSubResults": [
     {
       "K": 5,
-      "avgDistinctiveness": 0.7387566137566136,
+      "avgDistinctiveness": 0.7301587301587301,
       "perGestureActive": [
         5,
         5,
@@ -93,7 +93,7 @@
     },
     {
       "K": 8,
-      "avgDistinctiveness": 0.6679542679542679,
+      "avgDistinctiveness": 0.6972582972582974,
       "perGestureActive": [
         8,
         8,
@@ -103,7 +103,7 @@
     },
     {
       "K": 10,
-      "avgDistinctiveness": 0.5238095238095238,
+      "avgDistinctiveness": 0.7277167277167278,
       "perGestureActive": [
         10,
         10,
@@ -113,7 +113,7 @@
     },
     {
       "K": 15,
-      "avgDistinctiveness": 0.40053565285763426,
+      "avgDistinctiveness": 0.49643289810203256,
       "perGestureActive": [
         15,
         15,
@@ -123,7 +123,7 @@
     },
     {
       "K": 20,
-      "avgDistinctiveness": 0.3143407317320361,
+      "avgDistinctiveness": 0.4255540820258461,
       "perGestureActive": [
         20,
         20,
@@ -133,7 +133,7 @@
     },
     {
       "K": 25,
-      "avgDistinctiveness": 0.251145697845735,
+      "avgDistinctiveness": 0.43248149699762606,
       "perGestureActive": [
         25,
         25,
@@ -143,7 +143,7 @@
     },
     {
       "K": 30,
-      "avgDistinctiveness": 0.2042793412575196,
+      "avgDistinctiveness": 0.4978737093180177,
       "perGestureActive": [
         30,
         30,

@@ -1291,6 +1291,21 @@ export class LiveSnn {
     // features 와 cosine sim 계산해서 winner 결정 시 그것을 우선.
     const cosineWinner = this._handCosineWinner.get(payload.trialToken);
     this._handCosineWinner.delete(payload.trialToken);
+    // Phase 3.9 v8 (2026-06-03): cosine match 시 cluster training feature 를
+    // EMA update — 같은 자세 반복 시 cluster centroid 가 사용자 실제 자세
+    // 분포로 수렴 → jitter robustness 향상.
+    if (cosineWinner !== undefined && this.patternRef.length === 95) {
+      const existing = this._handClusterFeatures.get(cosineWinner.clusterId);
+      if (existing) {
+        const ALPHA = 0.1; // 새 sample weight (10% EMA).
+        const updated = existing.slice();
+        for (let i = 0; i < 95; i += 1) {
+          updated[i] = existing[i] * (1 - ALPHA) + this.patternRef[i] * ALPHA;
+        }
+        this._handClusterFeatures.set(cosineWinner.clusterId, updated);
+        saveHandClusterFeats(this._handClusterFeatures);
+      }
+    }
     const vigilanceMismatch = cosineWinner !== undefined
       ? false  // cosine sim 으로 familiar 자세로 결정됨 → spawn skip
       : (pending !== undefined && (winner < 0 || inputMatch < pending.vigilance));

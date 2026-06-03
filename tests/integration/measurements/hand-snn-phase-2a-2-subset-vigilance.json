@@ -1,0 +1,254 @@
+{
+  "timestamp": "2026-06-03T00:18:27.243Z",
+  "scenario": "phase-2a-2-subset-vigilance-effect",
+  "substrate": "n15_extended_6x6 (72-dim)",
+  "productionFix": [
+    "commit 4174898: Phase 2A.2 substrate 6×6",
+    "commit 4deb9bc: rawActiveInputs 별도 store",
+    "commit b90c103: subset 인식 추가 (T ⊆ I → 1.0)"
+  ],
+  "basePatterns": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30
+    ],
+    [
+      0,
+      7,
+      14,
+      21,
+      28,
+      35
+    ],
+    [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30
+    ]
+  ],
+  "clusterRaws": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      36
+    ],
+    [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30,
+      42
+    ],
+    [
+      0,
+      7,
+      14,
+      21,
+      28,
+      35,
+      52
+    ],
+    [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30,
+      53
+    ]
+  ],
+  "results": [
+    {
+      "name": "exact-c0",
+      "description": "c0 (row 0) 와 정확히 같은 cells 그림 → vigilance pass (exact)",
+      "rawCells": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "expectedRelationship": "exact",
+      "patternFeatures": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        36
+      ],
+      "inputMatches": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "winnerCluster": 0,
+      "winnerInputMatch": 1,
+      "classification": "pass-exact"
+    },
+    {
+      "name": "subset-c0-plus-1",
+      "description": "c0 cells + 1개 추가 cell → vigilance pass (subset, commit b90c103 신규)",
+      "rawCells": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "expectedRelationship": "subset",
+      "patternFeatures": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        36,
+        62
+      ],
+      "inputMatches": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "winnerCluster": 0,
+      "winnerInputMatch": 1,
+      "classification": "pass-subset"
+    },
+    {
+      "name": "subset-c3-plus-2",
+      "description": "c3 (diag-fore) cells + 2개 추가 cells → vigilance pass (subset)",
+      "rawCells": [
+        5,
+        10,
+        15,
+        20,
+        25,
+        30,
+        11,
+        16
+      ],
+      "expectedRelationship": "subset",
+      "patternFeatures": [
+        5,
+        10,
+        11,
+        15,
+        16,
+        20,
+        25,
+        30,
+        49,
+        53,
+        69
+      ],
+      "inputMatches": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "winnerCluster": 3,
+      "winnerInputMatch": 1,
+      "classification": "pass-subset"
+    },
+    {
+      "name": "partial-c0-missing-1",
+      "description": "c0 cells 영역 1개 누락 → vigilance miss → spawn",
+      "rawCells": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expectedRelationship": "superset",
+      "patternFeatures": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        36
+      ],
+      "inputMatches": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "winnerCluster": -1,
+      "winnerInputMatch": 0,
+      "classification": "miss-spawn"
+    },
+    {
+      "name": "disjoint-bottom-row",
+      "description": "bottom row (c0~c3 와 무관) → vigilance miss → spawn",
+      "rawCells": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      "expectedRelationship": "disjoint",
+      "patternFeatures": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        41
+      ],
+      "inputMatches": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "winnerCluster": -1,
+      "winnerInputMatch": 0,
+      "classification": "miss-spawn"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passExact": 1,
+    "passSubset": 2,
+    "missSpawn": 2,
+    "subsetRecoveredCount": 2
+  },
+  "subsetVerdict": "✓ subset 인식 모두 vigilance pass — commit b90c103 production effect 정합"
+}

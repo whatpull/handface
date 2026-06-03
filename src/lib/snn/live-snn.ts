@@ -987,24 +987,26 @@ export class LiveSnn {
     //   영역 cluster spawn 영역 disjoint 깨짐 영역 즉시 인지 catch (registry
     //   capacity 영역 점검 affordance).
     if (r.fallbackUsed) {
-      // 사용자 production catch (2026-06-01): toast 영역 dismiss 영역 영역 영역
-      // 인지 영역 → "같은 패턴인데 신규 cluster spawn" 영역 mental model
-      // 영역. 영역 dialog 영역 영역 사용자 영역 명시적 catch + reset confirm.
-      // fallback spawn 영역 cluster weights 영역 prior cluster 영역 overlap →
-      // 사용자 영역 영역 cluster 영역 영역 영역 영역 영역 영역.
+      // 사용자 production catch (2026-06-01 → 06-03 subset 인식 추가 b90c103):
+      //   subset 인식 적용 후 fallback 발생 = 사용자가 이전 cluster cells 영역
+      //   일부 빠뜨림 또는 완전 다른 cells 영역 그림 → 신규 패턴 의도 신호.
+      //   dialog message 영역 subset 정책 반영 영역 사용자 mental model 영역
+      //   "왜 같은 패턴인데 dialog 가?" 영역 영역 명확 catch.
       showDialog({
         kind: 'confirm',
-        title: '⚠ cluster pool 고갈 — 학습 reset 권장',
+        title: '신규 패턴 인식 — cluster pool 고갈',
         message:
-          `이번 패턴의 활성 features 가 모두 이전 cluster 들에 이미 ` +
-          `claim 되어 disjoint 가 깨졌습니다 (claimed ${r.claimedSize ?? '?'}/72).\n\n` +
-          `이대로 학습을 계속하면 새 cluster 가 이전 cluster 의 weight 와 ` +
-          `겹쳐서 같은 패턴인데 신규 cluster 로 spawn 되거나, 비슷한 패턴을 ` +
-          `구분하지 못할 수 있습니다.\n\n` +
-          `해결: 학습 데이터를 reset 한 후 더 명확하게 구분되는 패턴 4-5개로 ` +
-          `다시 학습하시는 것을 권장합니다.`,
-        confirmLabel: '학습 데이터 reset 후 처음부터',
-        cancelLabel: '이대로 계속 (overlap 감수)',
+          `이전 학습된 cluster 들과 비교했을 때 이 패턴은:\n` +
+          `  • cluster cells 영역 일부 빠뜨림\n` +
+          `  • 또는 완전 다른 cells 영역 그림\n\n` +
+          `(참고: 이전 cluster cells 영역 모두 포함 + 추가 cells 영역 그렸다면 ` +
+          `같은 패턴 영역 인식되어 이 dialog 영역 표시되지 않습니다.)\n\n` +
+          `현재 cluster pool 영역 이미 가득 차 있습니다 (${r.claimedSize ?? '?'}/72 features). ` +
+          `이대로 spawn 시 새 cluster 가 이전 cluster weights 영역 overlap 영역 ` +
+          `구분 정확도 영역 저하 가능.\n\n` +
+          `선택:`,
+        confirmLabel: '학습 reset 후 처음부터',
+        cancelLabel: '이대로 계속 (overlap 감수 spawn)',
         onConfirm: () => {
           void purgeAllLearningData();
           showToast({

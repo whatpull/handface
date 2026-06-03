@@ -35,6 +35,8 @@ import {
   subscribeExemplars,
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
+import { classifyGesture } from '@/lib/hand-tracking/gesture-classifier';
+import { onBackendEvent, type ClusterSpawnedDetail } from '@/lib/backend/events';
 import { showDialog } from '@/components/ui/Dialog';
 import { showToast } from '@/components/ui/Toast';
 import { downloadHandLearning, triggerImportDialog } from '@/lib/snn/hand-learning-export';
@@ -301,6 +303,25 @@ export default function CameraInput() {
       setExemplars(next);
     });
     return unsubscribe;
+  }, []);
+
+  // Phase 3.9 v40 (2026-06-04): cluster-spawned 시점 영역 rule-based gesture
+  // classify → 의미 있는 라벨 자동 적용 (직전 "자세 N" numbering overwrite).
+  // classify null 영역 fallback "자세 N" 그대로 유지.
+  useEffect(() => {
+    return onBackendEvent<ClusterSpawnedDetail>('cluster-spawned', (d) => {
+      const lm = latestLandmarksRef.current;
+      if (!lm || lm.length !== 21) return;
+      const result = classifyGesture(lm);
+      if (!result) return; // well-known 자세 매칭 안 됨 — manual 입력
+      const outKey = `out_${d.clusterIdx}_0`;
+      setExemplarLabel(outKey, HAND_SUBSTRATE, result.label);
+      console.log(`[hand-gesture-classify] cluster ${d.clusterIdx} → "${result.label}" (kind=${result.kind}, conf=${result.confidence.toFixed(2)})`);
+      showToast({
+        kind: 'success',
+        message: `자세 자동 인식: "${result.label}" — 이름 편집 버튼으로 변경 가능`,
+      });
+    });
   }, []);
 
   const handlePurge = useCallback((): void => {

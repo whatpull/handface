@@ -35,6 +35,7 @@ import {
   type NeuronFiringDetail,
   type InputModeDetail,
   type AutoLearnProgressDetail,
+  type HandSyncStatusDetail,
 } from '@/lib/backend/events';
 
 import type {
@@ -1522,9 +1523,24 @@ export class LiveSnn {
       return;
     }
     this._handSyncInFlight = (async () => {
+      // Phase 3.9 v29: emit syncing → UI status pill 가 "sync 중" 표시.
+      const restoredFeatures = this._handClusterFeatures.size;
+      const restoredActiveInputs = this._handClusterActiveInputs.size;
+      emitBackendEvent<HandSyncStatusDetail>('hand-sync-status', {
+        phase: 'syncing',
+        restoredFeatures,
+        restoredActiveInputs,
+        syncedToWorker: 0,
+        fallbackCount: 0,
+        workerInitial: 0,
+      });
+      let syncedCount = 0;
+      let fallbackCount = 0;
+      let workerInitial = 0;
       try {
         const root = await getRootLocalSnnFor('orientation-hand');
         const usage = await root.client.clusterPoolUsage();
+        workerInitial = usage.perCluster.length;
         if (this._handClusterFeatures.size > 0 && usage.perCluster.length === 0) {
           // Desync — worker fresh, LiveSnn 학습 데이터 있음.
           // Worker 에 stored activeInputs (v26+) 또는 feature top-K fallback (v27)
@@ -1534,8 +1550,6 @@ export class LiveSnn {
           const FALLBACK_K = 5;
           const claimed = new Set<number>();
           const sortedIds = [...this._handClusterFeatures.keys()].sort((a, b) => a - b);
-          let syncedCount = 0;
-          let fallbackCount = 0;
           for (const clusterId of sortedIds) {
             let activeInputs = this._handClusterActiveInputs.get(clusterId);
             if (!activeInputs || activeInputs.length === 0) {
@@ -1579,9 +1593,27 @@ export class LiveSnn {
           console.warn(`[hand-sync] LiveSnn 0 clusters vs worker ${usage.perCluster.length} clusters — 미정 상태, fresh 진행`);
         }
         this._handSyncedWithWorker = true;
+        emitBackendEvent<HandSyncStatusDetail>('hand-sync-status', {
+          phase: 'done',
+          restoredFeatures,
+          restoredActiveInputs,
+          syncedToWorker: syncedCount,
+          fallbackCount,
+          workerInitial,
+        });
       } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
         console.warn('[hand-sync] sync failed:', e);
         this._handSyncedWithWorker = true; // 실패해도 cosine path 진행 가능하도록
+        emitBackendEvent<HandSyncStatusDetail>('hand-sync-status', {
+          phase: 'failed',
+          restoredFeatures,
+          restoredActiveInputs,
+          syncedToWorker: syncedCount,
+          fallbackCount,
+          workerInitial,
+          error: errMsg,
+        });
       } finally {
         this._handSyncInFlight = null;
       }

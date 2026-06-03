@@ -9,7 +9,7 @@
 //   - grid-training: GridInput 가 R-STDP 학습 시작/끝/에러 시 emit.
 //   - grid-infer: GridInput 가 추론 호출 시작/끝/에러 시 emit.
 //     PipelineCanvas 가 단계별 노드/connector 활성화에 사용.
-export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'hand-cosine-sim' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done' | 'confusion-matrix-ready';
+export type BackendEventType = 'neuron-firing' | 'circuit-changed' | 'training-changed' | 'training-cleared' | 'hand-feature' | 'hand-cosine-sim' | 'hand-sync-status' | 'training-phase' | 'training-complete' | 'input-mode' | 'grid-training' | 'grid-infer' | 'snn-error' | 'auto-learn-progress' | 'cluster-spawned' | 'auto-backup-done' | 'confusion-matrix-ready';
 
 // UX HIGH (2026-05-25): TRAINED phase self-verification batch — each cluster
 // 영역 cached lastFeature 영역 inferOnceForValidation 영역 winner 산출 → N×N
@@ -90,6 +90,20 @@ export interface TrainingPhaseDetail {
   phase: 'untrained' | 'learning' | 'partial' | 'trained' | 'inference';
   clusterFrames: { 0: number; 1: number; 2: number; 3: number };
   target: number;
+}
+
+// Phase 3.9 v29 (2026-06-03): hand sync status event — substrate switch 시
+// LiveSnn 가 worker 와 sync 진행 상황을 UI 에 broadcast. CameraInput 의
+// status pill 가 "sync 중" / "정상 N cluster" / "sync 실패" 표시.
+// 직전 silent path (사용자 visibility 0) 정정 — production debugging 정합.
+export interface HandSyncStatusDetail {
+  phase: 'syncing' | 'done' | 'failed';
+  restoredFeatures: number;     // LiveSnn 에서 restore 된 cluster features
+  restoredActiveInputs: number; // LiveSnn 에서 restore 된 activeInputs (v26+)
+  syncedToWorker: number;       // worker 에 expandCluster 호출 성공한 개수
+  fallbackCount: number;        // v27 fallback 으로 재구성한 개수 (legacy data)
+  workerInitial: number;        // sync 시작 시 worker 에 있던 cluster 수
+  error?: string;
 }
 
 // Phase 3.9 v20 (2026-06-03): hand cosine sim event — UI 가 실시간 sim 표시.

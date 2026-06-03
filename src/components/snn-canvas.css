@@ -2823,6 +2823,19 @@
 .snn-camera-sim-weak { color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
 .snn-camera-sim-spawn { color: #f472b6; background: rgba(244, 114, 182, 0.08); }
 
+/* Phase 3.9 v29 (2026-06-03) — sync status pill (substrate switch → worker sync). */
+.snn-camera-sync-msg {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.snn-camera-sync-syncing { color: #93c5fd; background: rgba(147, 197, 253, 0.08); }
+.snn-camera-sync-done { color: #86efac; background: rgba(134, 239, 172, 0.08); }
+.snn-camera-sync-failed { color: #fca5a5; background: rgba(252, 165, 165, 0.12); }
+
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {
   font-size: 12px;

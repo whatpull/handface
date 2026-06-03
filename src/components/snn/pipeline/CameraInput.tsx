@@ -85,7 +85,7 @@ export default function CameraInput() {
   // winnerCluster + exemplars 의 label 을 결합해 "→ 인식: cluster N (label)" 표시.
   // Phase 3.9 v14 (2026-06-03): isAutoLearning 도 같이 destructure — auto-mode
   // 가 학습 진행 중 trigger skip.
-  const { winnerCluster, consecutiveWinnerCount, isAutoLearning, handCosineSim } = usePipelineEvents();
+  const { winnerCluster, consecutiveWinnerCount, isAutoLearning, handCosineSim, handSyncStatus } = usePipelineEvents();
   // cluster 인덱스 → 그 cluster 의 첫 번째 exemplar label 추출
   // (exemplars 는 outKey=out_N_M 단위 — 동일 cluster 의 모든 neuron 은 공통 label 가정).
   const labelByCluster = useMemo(() => {
@@ -364,6 +364,19 @@ export default function CameraInput() {
         {handCosineSim && (
           <small className={`snn-camera-sim-msg snn-camera-sim-${handCosineSim.strict ? 'strict' : handCosineSim.weak ? 'weak' : 'spawn'}`}>
             cosine sim: {handCosineSim.sim.toFixed(3)} · {handCosineSim.strict ? 'MATCH' : handCosineSim.weak ? '~MATCH' : 'NEW'}
+          </small>
+        )}
+        {handSyncStatus && (
+          <small className={`snn-camera-sync-msg snn-camera-sync-${handSyncStatus.phase}`}>
+            {handSyncStatus.phase === 'syncing'
+              ? `학습 데이터 sync 중 (${handSyncStatus.restoredFeatures} cluster)`
+              : handSyncStatus.phase === 'done'
+                ? handSyncStatus.syncedToWorker > 0
+                  ? `정상 (${handSyncStatus.syncedToWorker} cluster sync${handSyncStatus.fallbackCount > 0 ? `, ${handSyncStatus.fallbackCount} 복원` : ''})`
+                  : handSyncStatus.restoredFeatures === 0
+                    ? '학습 데이터 없음 — 새 자세 학습 가능'
+                    : '정상'
+                : `sync 실패: ${handSyncStatus.error ?? '알 수 없음'}`}
           </small>
         )}
       </div>

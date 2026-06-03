@@ -38,6 +38,7 @@ import {
   type GridInferDetail,
   type InputModeDetail,
   type HandCosineSimDetail,
+  type HandSyncStatusDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
@@ -54,6 +55,12 @@ export interface PipelineEventState {
    * null 면 hand SNN trigger 전 또는 비-camera substrate.
    */
   handCosineSim: HandCosineSimDetail | null;
+  /**
+   * Phase 3.9 v29 (2026-06-03): hand sync status — substrate switch 시 worker
+   * 와 sync 진행 상황. UI status pill 가 "sync 중" / "정상 N cluster" / "실패"
+   * 표시. null 면 아직 hand substrate 진입 전.
+   */
+  handSyncStatus: HandSyncStatusDetail | null;
   /** Last neuron-firing payload (raw) — null 영역 미수신. */
   lastDetail: NeuronFiringDetail | null;
   /** 영역 frame 영역 timestamp (Date.now). null 영역 미수신. */
@@ -135,6 +142,7 @@ const EMPTY_WINNER: WinnerResult = {
 const PipelineEventContext = createContext<PipelineEventState>({
   inputMode: 'grid',
   handCosineSim: null,
+  handSyncStatus: null,
   lastDetail: null,
   lastFiringTimestamp: null,
   winner: EMPTY_WINNER,
@@ -156,6 +164,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
   // 같은 부정확한 hand SNN context UI catch.
   const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
   const [handCosineSim, setHandCosineSim] = useState<HandCosineSimDetail | null>(null);
+  const [handSyncStatus, setHandSyncStatus] = useState<HandSyncStatusDetail | null>(null);
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
   // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
@@ -233,6 +242,10 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     const offHandCosine = onBackendEvent<HandCosineSimDetail>('hand-cosine-sim', (d) => {
       setHandCosineSim(d);
     });
+    // Phase 3.9 v29 (2026-06-03): hand sync status listener — CameraInput pill.
+    const offHandSync = onBackendEvent<HandSyncStatusDetail>('hand-sync-status', (d) => {
+      setHandSyncStatus(d);
+    });
     return () => {
       off();
       offCleared();
@@ -240,6 +253,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
       offGridInfer();
       offInputMode();
       offHandCosine();
+      offHandSync();
       mountedRef.current = false;
     };
   }, []);
@@ -299,7 +313,8 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     learningClusters,
     isAutoLearning: learningClusters.size > 0,
     handCosineSim,
-  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters, inputMode, handCosineSim]);
+    handSyncStatus,
+  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters, inputMode, handCosineSim, handSyncStatus]);
 
   return (
     <PipelineEventContext.Provider value={value}>

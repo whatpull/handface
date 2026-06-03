@@ -13,8 +13,11 @@
 const FEATURES_KEY = 'handface.live-snn.hand-cluster-feats.v1';
 const ACTIVE_KEY = 'handface.live-snn.hand-cluster-active.v1';
 const EXEMPLARS_KEY = 'handface.out.exemplars.v1.orientation-hand';
+// Phase 3.9 v53 (2026-06-04): user preferences (auto-mode + stability).
+const INTERVAL_KEY = 'handface.camera.auto-interval-ms.v1';
+const STABILITY_KEY = 'handface.camera.stability-mode.v1';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;  // v53: preferences 영역 추가 영역 bump
 
 export interface HandLearningExport {
   schemaVersion: number;
@@ -24,6 +27,11 @@ export interface HandLearningExport {
   clusterFeatures: Array<[number, number[]]>;       // [[clusterId, 95-dim feat], ...]
   clusterActiveInputs: Array<[number, number[]]>;   // [[clusterId, [idx, ...]], ...]
   exemplars: Record<string, unknown>;                // outKey → { label, count, ... }
+  // v53: user preferences (auto-mode interval, stability mode).
+  preferences?: {
+    intervalMode?: string | null;   // 'fast' | 'normal' | 'slow' | null
+    stabilityMode?: string | null;  // 'sensitive' | 'normal' | 'strict' | null
+  };
 }
 
 export interface ImportResult {
@@ -61,15 +69,23 @@ export function buildHandLearningExport(): HandLearningExport {
   const features = readJSON(FEATURES_KEY);
   const actives = readJSON(ACTIVE_KEY);
   const exemplars = readJSON(EXEMPLARS_KEY);
+  // v53: user preferences — localStorage 영역 raw read (영역 string 사실).
+  let intervalMode: string | null = null;
+  let stabilityMode: string | null = null;
+  if (typeof window !== 'undefined') {
+    try { intervalMode = window.localStorage.getItem(INTERVAL_KEY); } catch { /* noop */ }
+    try { stabilityMode = window.localStorage.getItem(STABILITY_KEY); } catch { /* noop */ }
+  }
 
   return {
     schemaVersion: SCHEMA_VERSION,
-    exportedAt: '2026-06-03T00:00:00.000Z', // SSR 정합 — caller 가 final timestamp 정합
-    version: 'phase-3.9-v32',
+    exportedAt: '2026-06-04T00:00:00.000Z', // SSR 정합 — caller 가 final timestamp 정합
+    version: 'phase-3.9-v53',
     substrate: 'orientation-hand',
     clusterFeatures: Array.isArray(features) ? (features as Array<[number, number[]]>) : [],
     clusterActiveInputs: Array.isArray(actives) ? (actives as Array<[number, number[]]>) : [],
     exemplars: (exemplars && typeof exemplars === 'object') ? (exemplars as Record<string, unknown>) : {},
+    preferences: { intervalMode, stabilityMode },
   };
 }
 
@@ -191,6 +207,18 @@ export function importHandLearningFromJSON(jsonText: string): ImportResult {
   if (obj.exemplars && typeof obj.exemplars === 'object') {
     writeJSON(EXEMPLARS_KEY, obj.exemplars);
     exemplarsCount = Object.keys(obj.exemplars).length;
+  }
+
+  // v53: user preferences 영역 import — 정합 value 영역만 적용.
+  if (obj.preferences && typeof obj.preferences === 'object') {
+    const im = obj.preferences.intervalMode;
+    if (im === 'fast' || im === 'normal' || im === 'slow') {
+      try { if (typeof window !== 'undefined') window.localStorage.setItem(INTERVAL_KEY, im); } catch { /* noop */ }
+    }
+    const sm = obj.preferences.stabilityMode;
+    if (sm === 'sensitive' || sm === 'normal' || sm === 'strict') {
+      try { if (typeof window !== 'undefined') window.localStorage.setItem(STABILITY_KEY, sm); } catch { /* noop */ }
+    }
   }
 
   if (featuresCount === 0 && exemplarsCount === 0) {

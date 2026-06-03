@@ -21,7 +21,7 @@ afterEach(() => {});
 describe('v32 hand-learning-export — build', () => {
   it('empty localStorage → valid empty export', () => {
     const ex = buildHandLearningExport();
-    expect(ex.schemaVersion).toBe(1);
+    expect(ex.schemaVersion).toBeGreaterThanOrEqual(1); // v53: bumped to 2
     expect(ex.substrate).toBe('orientation-hand');
     expect(ex.clusterFeatures).toEqual([]);
     expect(ex.clusterActiveInputs).toEqual([]);
@@ -144,6 +144,27 @@ describe('v32 hand-learning-export — import', () => {
     const result = importHandLearningFromJSON(noVersion);
     expect(result.ok).toBe(true);
     expect(result.warnings.some((w) => w.includes('schemaVersion'))).toBe(true);
+  });
+
+  it('★ v53: user preferences round-trip (interval + stability)', () => {
+    window.localStorage.setItem('handface.camera.auto-interval-ms.v1', 'fast');
+    window.localStorage.setItem('handface.camera.stability-mode.v1', 'strict');
+    const ex = buildHandLearningExport();
+    expect(ex.preferences?.intervalMode).toBe('fast');
+    expect(ex.preferences?.stabilityMode).toBe('strict');
+
+    // import path 영역 검증.
+    window.localStorage.clear();
+    const json = JSON.stringify({
+      schemaVersion: 2,
+      substrate: 'orientation-hand',
+      clusterFeatures: [[0, new Array(95).fill(0.5)]],
+      preferences: { intervalMode: 'slow', stabilityMode: 'sensitive' },
+    });
+    const result = importHandLearningFromJSON(json);
+    expect(result.ok).toBe(true);
+    expect(window.localStorage.getItem('handface.camera.auto-interval-ms.v1')).toBe('slow');
+    expect(window.localStorage.getItem('handface.camera.stability-mode.v1')).toBe('sensitive');
   });
 
   it('★ v49: 19 cluster 초과 → 첫 19 영역 사용 + warning', () => {

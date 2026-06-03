@@ -981,11 +981,11 @@ export class LiveSnn {
     // caller (UI slider) 의 out-of-range 시 winner.margin 비교가 항상
     // novel (vig<0) 또는 familiar (vig>1) 로 misuse 회피.
     vigilance = Math.max(0, Math.min(1, vigilance));
-    // Phase 3.9 v6/v7 (2026-06-03): hand SNN multi-layer fix.
-    //   v6: pre-sparsify pattern with mean-subtraction (worker basis match).
-    //   v7: cosine similarity vs stored cluster training features → vigilance
-    //       decision override (50% → 100% accuracy on captured fixture test).
-    pattern = this._preSparsifyHandPattern(pattern);
+    // Phase 3.9 v7+v11 (2026-06-03): hand SNN vigilance via cosine sim 우선.
+    // 직전 v6 pre-sparsify 는 v7 cosine override 가 vigilance 결정하면서 dead
+    // path 가 됨. 단 worker dispatchComputeFeature 가 자동 top-K=5 sparsify
+    // 하므로 R-STDP path 는 영향 없음. 제거 시 cluster training feature 가
+    // FULL 95-dim 유지되어 cosine basis 일관 (v11 normalization 적용).
     this.setPattern(pattern);
     const trialTokenForCosine = this._trialTokenSeq + 1; // about-to-increment
     this._maybeRecordHandCosineWinner(trialTokenForCosine, pattern);

@@ -2094,7 +2094,17 @@ export class LiveSnn {
       // Phase 3.9 (2026-06-03): 'worker disposed' 는 사용자 reset 후 자연
       // race — error toast 안 보이게 silent. learningClusters cleanup 만 진행.
       const isDisposed = /worker\s+disposed/i.test(msg);
-      if (!isDisposed) {
+      // Phase 3.9 v51 (2026-06-04): runAutoLearnLoop 영역 reinforce 실패 영역
+      // self-heal 정합 — v43 (reinforceAsync catch) path 영역 cover 안 함.
+      // runAutoLearnLoop 영역 'targetCluster 영역 범위 밖' 영역 hand substrate
+      // 영역 동일 self-heal trigger.
+      const isHandRangeError = this.substrateKind === 'orientation-hand' && msg.includes('범위 밖');
+      if (isHandRangeError) {
+        console.warn('[hand-self-heal] runAutoLearnLoop 실패 영역 sync re-trigger');
+        this._handSyncedWithWorker = false;
+        void this._syncHandWithWorker();
+      }
+      if (!isDisposed && !isHandRangeError) {
         showToast({ kind: 'error', message: `학습 실패 — ${msg}` });
       }
       // PR #192 polish parity (SEC-3): error event 영역 telemetry 영역 emit —

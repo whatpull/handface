@@ -352,6 +352,20 @@ export class LiveSnn {
   // strict: true 면 EMA update + R-STDP reinforce 적용, false (weak match) 면
   // classify only — borderline 자세에서 cluster 변동 방지.
   private _handCosineWinner: Map<number, { clusterId: number; sim: number; strict: boolean }> = new Map();
+  // Phase 3.9 v34 (2026-06-03): production log throttle.
+  // 직전 cosine + snn-diag 영역 매 trigger 출력 — 32 trigger × 2 line = 64 line
+  // 사용자 console 가독성 catch. 변화 시점 (winner / phase 변경) + 매 10회
+  // heartbeat 만 출력 → ~10 line / 32 trigger 영역 축소.
+  private _handLogState: {
+    lastClusterId: number;
+    lastPhase: string;
+    streak: number;
+  } | null = null;
+  private _handDiagLogState: {
+    lastClusterId: number;
+    lastPhase: string;
+    streak: number;
+  } | null = null;
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation-5x5) / CAMERA input (gesture) 가 별도 회로 정합.
   // Phase 2A.1 (2026-05-31): default 'orientation' → 'orientation-5x5'.
@@ -547,6 +561,9 @@ export class LiveSnn {
     this._handClusterActiveInputs.clear();
     clearHandClusterActive();
     this._handSyncedWithWorker = false;
+    // Phase 3.9 v34: log throttle state reset — fresh streak counter.
+    this._handLogState = null;
+    this._handDiagLogState = null;
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
@@ -1387,9 +1404,20 @@ export class LiveSnn {
         .slice(0, 5)
         .join(' ');
       const agree = workerWinner === cosineWinner.clusterId;
-      console.log(
-        `[hand-snn-diag] token=${payload.trialToken} cosine=c${cosineWinner.clusterId}(${cosineWinner.sim.toFixed(3)}) worker=c${workerWinner} agree=${agree} rates=[${ratesStr}]`,
-      );
+      // v34: 본 diag log 는 cosine log 와 같은 throttle 키 (cluster + phase)
+      // 정합 — 동일 cluster + 동일 agree 상태 streak 영역 헤트비트.
+      const diagPhase = agree ? 'AGREE' : 'DISAGREE';
+      const prev = this._handDiagLogState;
+      const changed = !prev || prev.lastClusterId !== cosineWinner.clusterId || prev.lastPhase !== diagPhase;
+      const newStreak = changed ? 1 : (prev?.streak ?? 0) + 1;
+      const isHeartbeat = !changed && newStreak % 10 === 0;
+      if (changed || isHeartbeat) {
+        const suffix = !changed && isHeartbeat ? ` (×${newStreak} 연속)` : '';
+        console.log(
+          `[hand-snn-diag] token=${payload.trialToken} cosine=c${cosineWinner.clusterId}(${cosineWinner.sim.toFixed(3)}) worker=c${workerWinner} agree=${agree}${suffix} rates=[${ratesStr}]`,
+        );
+      }
+      this._handDiagLogState = { lastClusterId: cosineWinner.clusterId, lastPhase: diagPhase, streak: newStreak };
     }
     // Phase 3.9 v8 (2026-06-03): cosine match 시 cluster training feature 를
     // EMA update — 같은 자세 반복 시 cluster centroid 가 사용자 실제 자세
@@ -1688,9 +1716,18 @@ export class LiveSnn {
     const matched = bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD;
     const strict = bestId >= 0 && bestSim >= HAND_COSINE_STRICT_THRESHOLD;
     const matchType = strict ? 'MATCH' : matched ? 'WEAK_MATCH' : 'SPAWN';
-    console.log(
-      `[hand-cosine] token=${token} best=c${bestId} sim=${bestSim.toFixed(3)} strict=${HAND_COSINE_STRICT_THRESHOLD} weak=${HAND_COSINE_WEAK_THRESHOLD} ${matchType} | top5: ${simStr}`,
-    );
+    // Phase 3.9 v34: log throttle — winner / phase 변경 시점 + 매 10회 heartbeat.
+    const prev = this._handLogState;
+    const changed = !prev || prev.lastClusterId !== bestId || prev.lastPhase !== matchType;
+    const newStreak = changed ? 1 : (prev?.streak ?? 0) + 1;
+    const isHeartbeat = !changed && newStreak % 10 === 0;
+    if (changed || isHeartbeat) {
+      const suffix = !changed && isHeartbeat ? ` (×${newStreak} 연속)` : '';
+      console.log(
+        `[hand-cosine] token=${token} best=c${bestId} sim=${bestSim.toFixed(3)} strict=${HAND_COSINE_STRICT_THRESHOLD} weak=${HAND_COSINE_WEAK_THRESHOLD} ${matchType}${suffix} | top5: ${simStr}`,
+      );
+    }
+    this._handLogState = { lastClusterId: bestId, lastPhase: matchType, streak: newStreak };
     if (matched) {
       this._handCosineWinner.set(token, { clusterId: bestId, sim: bestSim, strict });
     }

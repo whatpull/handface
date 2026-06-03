@@ -2603,3 +2603,123 @@
   font-weight: 600;
 }
 
+
+/* Phase 3.2 (2026-06-03) — NodeInput tab UI + CameraInput visualization. */
+.snn-input-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+.snn-input-tab {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 150ms ease, color 150ms ease;
+}
+.snn-input-tab:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+.snn-input-tab.is-active {
+  background: rgba(124, 58, 237, 0.20);
+  color: #c4b5fd;
+}
+.snn-input-content {
+  position: relative;
+}
+
+/* CameraInput — webcam preview + landmark overlay. */
+.snn-camera-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.snn-camera-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #18181f;
+  border: 2px solid #2a2a38;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.snn-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* mirror — 사용자 webcam 영역 직관 정합. */
+  transform: scaleX(-1);
+}
+.snn-camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: scaleX(-1); /* video 영역 영역 mirror */
+}
+.snn-camera-overlay-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(24, 24, 31, 0.92);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.snn-camera-overlay-msg small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 4px;
+}
+.snn-camera-error {
+  color: #fb923c;
+}
+.snn-camera-start-btn {
+  appearance: none;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.snn-camera-start-btn:hover {
+  background: #6d28d9;
+}
+.snn-camera-status {
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+.snn-camera-detected {
+  color: #34d399;
+}
+.snn-camera-undetected {
+  color: rgba(255, 255, 255, 0.55);
+}
+.snn-camera-trigger-placeholder {
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.40);
+  font-size: 11px;
+}

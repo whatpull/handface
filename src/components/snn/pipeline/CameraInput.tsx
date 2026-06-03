@@ -86,6 +86,21 @@ export default function CameraInput() {
   // Phase 3.9 v14 (2026-06-03): isAutoLearning 도 같이 destructure — auto-mode
   // 가 학습 진행 중 trigger skip.
   const { winnerCluster, consecutiveWinnerCount, isAutoLearning, handCosineSim, handSyncStatus } = usePipelineEvents();
+  // Phase 3.9 v30 (2026-06-03): sync pill auto-hide — 'done' 상태 5초 후
+  // 자동 fade-out (사용자가 영구 표시 원치 않음). 'syncing' / 'failed' 는
+  // 유지 (사용자가 catch 해야 하는 상태).
+  const [showSyncPill, setShowSyncPill] = useState<boolean>(true);
+  useEffect(() => {
+    if (!handSyncStatus) return;
+    if (handSyncStatus.phase === 'syncing' || handSyncStatus.phase === 'failed') {
+      setShowSyncPill(true);
+      return;
+    }
+    // 'done' — 5초 후 자동 hide.
+    setShowSyncPill(true);
+    const timer = setTimeout(() => setShowSyncPill(false), 5000);
+    return () => clearTimeout(timer);
+  }, [handSyncStatus]);
   // cluster 인덱스 → 그 cluster 의 첫 번째 exemplar label 추출
   // (exemplars 는 outKey=out_N_M 단위 — 동일 cluster 의 모든 neuron 은 공통 label 가정).
   const labelByCluster = useMemo(() => {
@@ -366,7 +381,7 @@ export default function CameraInput() {
             cosine sim: {handCosineSim.sim.toFixed(3)} · {handCosineSim.strict ? 'MATCH' : handCosineSim.weak ? '~MATCH' : 'NEW'}
           </small>
         )}
-        {handSyncStatus && (
+        {handSyncStatus && showSyncPill && (
           <small className={`snn-camera-sync-msg snn-camera-sync-${handSyncStatus.phase}`}>
             {handSyncStatus.phase === 'syncing'
               ? `학습 데이터 sync 중 (${handSyncStatus.restoredFeatures} cluster)`

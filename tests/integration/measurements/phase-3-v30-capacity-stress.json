@@ -1,0 +1,50 @@
+{
+  "scenario": "phase-3-v30-capacity-stress",
+  "timestamp": "2026-06-03T00:00:00Z",
+  "version": "v27 fallback activeInputs + v29 sync status UI",
+  "feature_dim": 95,
+  "active_inputs_per_cluster": 5,
+  "theoretical_max_clusters": 19,
+  "scenarios": [
+    {
+      "scenario": "4 자세 (기본)",
+      "requested": 4,
+      "synced": 4,
+      "skipped": 0,
+      "capacity_remaining": 15
+    },
+    {
+      "scenario": "8 자세 (일반)",
+      "requested": 8,
+      "synced": 8,
+      "skipped": 0,
+      "capacity_remaining": 11
+    },
+    {
+      "scenario": "12 자세 (확장)",
+      "requested": 12,
+      "synced": 12,
+      "skipped": 0,
+      "capacity_remaining": 7
+    },
+    {
+      "scenario": "19 자세 (최대)",
+      "requested": 19,
+      "synced": 19,
+      "skipped": 0,
+      "capacity_remaining": 0
+    },
+    {
+      "scenario": "20 자세 (초과)",
+      "requested": 20,
+      "synced": 19,
+      "skipped": 1,
+      "capacity_remaining": 0
+    }
+  ],
+  "summary": {
+    "typical_user_safe_zone": "1-8 자세 (안전, 추가 여유)",
+    "max_safe_capacity": "19 자세 (disjoint 한계)",
+    "over_capacity_behavior": "20+ 자세 학습 시 fallback skip (안전 동작, 학습 데이터 손실 없음)"
+  }
+}

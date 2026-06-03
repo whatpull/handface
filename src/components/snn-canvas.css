@@ -2715,6 +2715,7 @@
 .snn-camera-undetected {
   color: rgba(255, 255, 255, 0.55);
 }
+/* Phase 3.2 영역 placeholder 영역 (Phase 3.4 영역 학습 trigger 영역 변경). */
 .snn-camera-trigger-placeholder {
   text-align: center;
   padding: 8px;
@@ -2722,4 +2723,37 @@
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.40);
   font-size: 11px;
+}
+
+/* Phase 3.4 (2026-06-03) — CameraInput 학습 trigger button. */
+.snn-camera-trigger {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+.snn-camera-trigger-btn {
+  appearance: none;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, opacity 150ms ease;
+  min-width: 180px;
+}
+.snn-camera-trigger-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);
+}
+.snn-camera-trigger-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.snn-camera-trigger-msg {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
 }

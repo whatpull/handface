@@ -25,6 +25,8 @@ import {
   stopWebcamStream,
   type HandLandmark,
 } from '@/lib/hand-tracking/landmarker';
+import { encodeHandToFeatureVector } from '@/lib/snn-runtime/hand-spike-encoder';
+import { getLiveSnn } from '@/lib/snn/live-snn';
 
 type CameraStatus =
   | { kind: 'idle' }
@@ -55,6 +57,9 @@ export default function CameraInput() {
 
   const [status, setStatus] = useState<CameraStatus>({ kind: 'idle' });
   const [handDetected, setHandDetected] = useState<boolean>(false);
+  // Phase 3.4: 학습 trigger 영역 마지막 landmarks 영역 ref 영역 보존 (button click 시 사용).
+  const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
+  const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
 
   // 영역 frame loop — RAF 영역 영역 frame 영역 landmark detection + canvas 시각화.
   const startDetectionLoop = useCallback(async () => {
@@ -89,9 +94,11 @@ export default function CameraInput() {
         if (result && result.landmarks.length > 0) {
           setHandDetected(true);
           const hand: HandLandmark[] = result.landmarks[0];
+          latestLandmarksRef.current = hand;
           drawLandmarks(ctx, hand, c.width, c.height);
         } else {
           setHandDetected(false);
+          latestLandmarksRef.current = null;
         }
       }
 
@@ -99,6 +106,25 @@ export default function CameraInput() {
     };
 
     rafRef.current = requestAnimationFrame(loop);
+  }, []);
+
+  const triggerLearn = useCallback((): void => {
+    const landmarks = latestLandmarksRef.current;
+    if (!landmarks || landmarks.length !== 21) {
+      setTriggerStatus('⚠ landmarks 미감지');
+      return;
+    }
+    try {
+      // Phase 3.4: hand landmarks (21 × {x,y,z}) → encodeHandToFeatureVector
+      // → 95-dim feature vector → triggerWithVigilance (n16_hand substrate 정합).
+      const featureVec = encodeHandToFeatureVector(landmarks);
+      const live = getLiveSnn();
+      const { trialToken } = live.triggerWithVigilance(featureVec, 1.0);
+      setTriggerStatus(`✓ 학습 trigger 완료 (token ${trialToken})`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setTriggerStatus(`✗ 학습 trigger 실패: ${msg}`);
+    }
   }, []);
 
   const initialize = useCallback(async () => {
@@ -167,8 +193,16 @@ export default function CameraInput() {
         )}
       </div>
 
-      <div className="snn-camera-trigger-placeholder">
-        <small>학습 trigger (Phase 3.4 영역 활성화 — 현재 시각화만)</small>
+      <div className="snn-camera-trigger">
+        <button
+          type="button"
+          className="snn-camera-trigger-btn"
+          disabled={status.kind !== 'ready' || !handDetected}
+          onClick={triggerLearn}
+        >
+          이 자세 학습 / 인식
+        </button>
+        {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}
       </div>
     </div>
   );

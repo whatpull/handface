@@ -1452,10 +1452,16 @@ export class LiveSnn {
     if (pattern.length !== 95) return;
     if (this._handClusterFeatures.size === 0) return;
     const HAND_COSINE_THRESHOLD = 0.97;
+    // Phase 3.9 v11 (2026-06-03): normalize input + stored features 모두 v11
+    // basis 로 변환 후 cosine sim — translation invariance + cross-pose
+    // discrimination 3.4x 향상. cluster features 는 v9 basis 저장 (R-STDP
+    // path 와 호환), cosine 비교 시점에만 normalize.
+    const normInput = this._normalizePatternV11(pattern);
     let bestId = -1;
     let bestSim = -Infinity;
     for (const [id, feat] of this._handClusterFeatures.entries()) {
-      const sim = this._cosineSimilarity(pattern, feat);
+      const normStored = this._normalizePatternV11(feat);
+      const sim = this._cosineSimilarity(normInput, normStored);
       if (sim > bestSim) { bestSim = sim; bestId = id; }
     }
     if (bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD) {
@@ -1473,6 +1479,32 @@ export class LiveSnn {
     }
     const denom = Math.sqrt(na) * Math.sqrt(nb);
     return denom > 0 ? dot / denom : 0;
+  }
+
+  /**
+   * Phase 3.9 v11 (2026-06-03): pattern 의 raw coords [0..62] 를 wrist-relative
+   * + palm-size normalized 로 변환. cross-pose discrimination 3.4x 향상 +
+   * translation invariance (captured fixture 측정). pattern 자체 안에 wrist
+   * (indices 0,1,2) 와 middleMcp (indices 27,28,29) 가 있으므로 LiveSnn 가
+   * encoder 변경 없이 cosine sim path 만 normalize 가능.
+   */
+  private _normalizePatternV11(pattern: number[]): number[] {
+    if (pattern.length !== 95) return pattern;
+    const wristX = pattern[0], wristY = pattern[1], wristZ = pattern[2];
+    const mcpX = pattern[27], mcpY = pattern[28], mcpZ = pattern[29];
+    const palmSize = Math.sqrt(
+      (wristX - mcpX) ** 2 + (wristY - mcpY) ** 2 + (wristZ - mcpZ) ** 2,
+    ) || 0.1;
+    const out = new Array<number>(95);
+    // Normalize coords [0..62]: wrist-relative + palm-size scaled.
+    for (let i = 0; i < 21; i += 1) {
+      out[i * 3 + 0] = (pattern[i * 3 + 0] - wristX) / palmSize;
+      out[i * 3 + 1] = (pattern[i * 3 + 1] - wristY) / palmSize;
+      out[i * 3 + 2] = (pattern[i * 3 + 2] - wristZ) / palmSize;
+    }
+    // Copy derived features [63..94] unchanged (이미 normalized).
+    for (let i = 63; i < 95; i += 1) out[i] = pattern[i];
+    return out;
   }
 
   /**

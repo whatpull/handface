@@ -27,6 +27,15 @@ import {
 } from '@/lib/hand-tracking/landmarker';
 import { encodeHandToFeatureVector } from '@/lib/snn-runtime/hand-spike-encoder';
 import { getLiveSnn } from '@/lib/snn/live-snn';
+import {
+  loadExemplars,
+  setExemplarLabel,
+  subscribeExemplars,
+  type OutExemplars,
+} from '@/lib/snn/out-exemplars';
+import { showDialog } from '@/components/ui/Dialog';
+
+const HAND_SUBSTRATE = 'orientation-hand' as const;
 
 type CameraStatus =
   | { kind: 'idle' }
@@ -60,6 +69,10 @@ export default function CameraInput() {
   // Phase 3.4: 학습 trigger 영역 마지막 landmarks 영역 ref 영역 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
+  // Phase 3.5: 학습된 hand cluster exemplars + label.
+  const [exemplars, setExemplars] = useState<OutExemplars>(() =>
+    typeof window === 'undefined' ? {} : loadExemplars(HAND_SUBSTRATE),
+  );
 
   // 영역 frame loop — RAF 영역 영역 frame 영역 landmark detection + canvas 시각화.
   const startDetectionLoop = useCallback(async () => {
@@ -156,6 +169,31 @@ export default function CameraInput() {
     };
   }, []);
 
+  // Phase 3.5: exemplars 영역 subscribe — 학습 / label 변경 시 자동 갱신.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const unsubscribe = subscribeExemplars(HAND_SUBSTRATE, (next) => {
+      setExemplars(next);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleEditLabel = useCallback((outKey: string, currentLabel: string | null): void => {
+    showDialog({
+      kind: 'input',
+      title: '제스처 이름 지정',
+      message: '이 자세에 부여할 이름을 입력하세요 (예: 엄지척 / 주먹 / 손바닥)',
+      defaultValue: currentLabel ?? '',
+      placeholder: '제스처 이름',
+      confirmLabel: '저장',
+      cancelLabel: '취소',
+      onSubmit: (value) => {
+        const trimmed = value.trim();
+        setExemplarLabel(outKey, HAND_SUBSTRATE, trimmed.length > 0 ? trimmed : null);
+      },
+    });
+  }, []);
+
   return (
     <div className="snn-camera-input">
       <div className="snn-camera-preview">
@@ -204,8 +242,45 @@ export default function CameraInput() {
         </button>
         {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}
       </div>
+
+      <div className="snn-camera-clusters">
+        <div className="snn-camera-clusters-title">학습된 제스처</div>
+        {Object.keys(exemplars).length === 0 ? (
+          <small className="snn-camera-clusters-empty">아직 학습된 제스처가 없습니다. 손 자세를 보여주고 &lsquo;이 자세 학습&rsquo; 버튼을 누르세요.</small>
+        ) : (
+          <ul className="snn-camera-clusters-list">
+            {Object.entries(exemplars)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([outKey, ex]) => {
+                const clusterId = parseClusterId(outKey);
+                return (
+                  <li key={outKey} className="snn-camera-cluster-row">
+                    <span className="snn-camera-cluster-id">cluster {clusterId}</span>
+                    <span className="snn-camera-cluster-label">
+                      {ex.label ?? <em>이름 없음</em>}
+                    </span>
+                    <span className="snn-camera-cluster-count">{ex.count}회</span>
+                    <button
+                      type="button"
+                      className="snn-camera-cluster-edit-btn"
+                      onClick={() => handleEditLabel(outKey, ex.label)}
+                    >
+                      이름 영역
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </div>
     </div>
   );
+}
+
+// outKey 형식: out_{clusterId}_{neuronIndex}. clusterId 영역 추출.
+function parseClusterId(outKey: string): string {
+  const match = /^out_(\d+)_/.exec(outKey);
+  return match ? match[1] : '?';
 }
 
 function drawLandmarks(

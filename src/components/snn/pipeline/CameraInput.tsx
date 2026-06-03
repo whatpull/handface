@@ -86,6 +86,34 @@ export default function CameraInput() {
     const id = setInterval(() => setRelativeTimeTick((t) => t + 1), 10000);
     return () => clearInterval(id);
   }, []);
+  // Phase 3.9 v52 (2026-06-04): stability threshold 사용자 조정.
+  // 빠른 손 (민감) / 보통 / 안정 (느린 손) — wrist variance threshold 조정.
+  const STABILITY_KEY = 'handface.camera.stability-mode.v1';
+  type StabilityMode = 'sensitive' | 'normal' | 'strict';
+  const STABILITY_THRESHOLD_MAP: Record<StabilityMode, number> = {
+    sensitive: 0.0010,  // 더 큰 변동 허용
+    normal: 0.0004,     // 기본 (v16)
+    strict: 0.00015,    // 더 엄격
+  };
+  const [stabilityMode, setStabilityMode] = useState<StabilityMode>(() => {
+    if (typeof window === 'undefined') return 'normal';
+    try {
+      const raw = window.localStorage.getItem(STABILITY_KEY);
+      if (raw === 'sensitive' || raw === 'normal' || raw === 'strict') return raw;
+    } catch { /* noop */ }
+    return 'normal';
+  });
+  const handleStabilityModeChange = useCallback((mode: StabilityMode): void => {
+    setStabilityMode(mode);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem(STABILITY_KEY, mode); } catch { /* noop */ }
+    }
+  }, []);
+  const stabilityThresholdRef = useRef(STABILITY_THRESHOLD_MAP[stabilityMode]);
+  useEffect(() => {
+    stabilityThresholdRef.current = STABILITY_THRESHOLD_MAP[stabilityMode];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stabilityMode]);
   // Phase 3.4: 학습 trigger 가 마지막 landmarks 를 ref 로 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
   // Phase 3.9 v16 (2026-06-03): stability detection — 흔들리는 손에서 spawn 회피.
@@ -189,8 +217,8 @@ export default function CameraInput() {
               variance += (p.x - meanX) ** 2 + (p.y - meanY) ** 2;
             }
             variance /= buf.length;
-            // Threshold: 0.0004 (정규화 좌표 기준 약 2% 이내 변동 = stable).
-            setIsStable(variance < 0.0004);
+            // v52: stability threshold 영역 사용자 조정 (sensitive/normal/strict).
+            setIsStable(variance < stabilityThresholdRef.current);
           } else {
             setIsStable(false);
           }
@@ -508,19 +536,34 @@ export default function CameraInput() {
           <span>자동 인식 / 학습 ({(INTERVAL_MS_MAP[intervalMode] / 1000).toFixed(1)}초 마다)</span>
         </label>
         {autoMode && (
-          <div className="snn-camera-interval-toggle" aria-label="자동 trigger 간격">
-            {(['fast', 'normal', 'slow'] as IntervalMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={`snn-camera-interval-btn${intervalMode === mode ? ' snn-camera-interval-btn-active' : ''}`}
-                onClick={() => handleIntervalModeChange(mode)}
-                title={mode === 'fast' ? '빠른 학습 (1초) — 자세 자주 변경 시' : mode === 'normal' ? '보통 (2.5초) — 기본' : '느린 학습 (5초) — 한 자세 안정화'}
-              >
-                {mode === 'fast' ? '빠름 1s' : mode === 'normal' ? '보통 2.5s' : '느림 5s'}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="snn-camera-interval-toggle" aria-label="자동 trigger 간격">
+              {(['fast', 'normal', 'slow'] as IntervalMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`snn-camera-interval-btn${intervalMode === mode ? ' snn-camera-interval-btn-active' : ''}`}
+                  onClick={() => handleIntervalModeChange(mode)}
+                  title={mode === 'fast' ? '빠른 학습 (1초) — 자세 자주 변경 시' : mode === 'normal' ? '보통 (2.5초) — 기본' : '느린 학습 (5초) — 한 자세 안정화'}
+                >
+                  {mode === 'fast' ? '빠름 1s' : mode === 'normal' ? '보통 2.5s' : '느림 5s'}
+                </button>
+              ))}
+            </div>
+            <div className="snn-camera-interval-toggle" aria-label="안정성 임계값">
+              {(['sensitive', 'normal', 'strict'] as StabilityMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`snn-camera-interval-btn${stabilityMode === mode ? ' snn-camera-interval-btn-active' : ''}`}
+                  onClick={() => handleStabilityModeChange(mode)}
+                  title={mode === 'sensitive' ? '민감 — 손 영역 약간 흔들려도 trigger (빠른 손)' : mode === 'normal' ? '보통 — 기본 임계' : '안정 — 손 영역 매우 안정해야 trigger (정확도 ↑)'}
+                >
+                  {mode === 'sensitive' ? '민감' : mode === 'normal' ? '보통' : '안정'}
+                </button>
+              ))}
+            </div>
+          </>
         )}
         {!autoMode && (
           <button

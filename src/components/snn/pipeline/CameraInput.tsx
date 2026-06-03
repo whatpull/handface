@@ -27,6 +27,7 @@ import {
 } from '@/lib/hand-tracking/landmarker';
 import { encodeHandToFeatureVector } from '@/lib/snn-runtime/hand-spike-encoder';
 import { getLiveSnn } from '@/lib/snn/live-snn';
+import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import {
   loadExemplars,
   setExemplarLabel,
@@ -196,6 +197,19 @@ export default function CameraInput() {
     return unsubscribe;
   }, []);
 
+  const handlePurge = useCallback((): void => {
+    showDialog({
+      kind: 'confirm',
+      title: '학습된 제스처 전체 초기화',
+      message: '모든 hand cluster 학습 데이터가 삭제됩니다 (IndexedDB + localStorage). 이 작업은 되돌릴 수 없습니다.',
+      confirmLabel: '전체 초기화',
+      cancelLabel: '취소',
+      onConfirm: () => {
+        void purgeAllLearningData();
+      },
+    });
+  }, []);
+
   const handleEditLabel = useCallback((outKey: string, currentLabel: string | null): void => {
     showDialog({
       kind: 'input',
@@ -271,7 +285,19 @@ export default function CameraInput() {
       </div>
 
       <div className="snn-camera-clusters">
-        <div className="snn-camera-clusters-title">학습된 제스처</div>
+        <div className="snn-camera-clusters-header">
+          <span className="snn-camera-clusters-title">학습된 제스처</span>
+          {Object.keys(exemplars).length > 0 && (
+            <button
+              type="button"
+              className="snn-camera-clusters-purge-btn"
+              onClick={handlePurge}
+              title="모든 hand cluster 학습 데이터 삭제"
+            >
+              전체 초기화
+            </button>
+          )}
+        </div>
         {Object.keys(exemplars).length === 0 ? (
           <small className="snn-camera-clusters-empty">아직 학습된 제스처가 없습니다. 손 자세를 보여주고 &lsquo;이 자세 학습&rsquo; 버튼을 누르세요.</small>
         ) : (

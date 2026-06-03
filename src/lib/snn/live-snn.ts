@@ -1305,6 +1305,11 @@ export class LiveSnn {
         this._handClusterFeatures.set(cosineWinner.clusterId, updated);
         saveHandClusterFeats(this._handClusterFeatures);
       }
+      // Phase 3.9 v9 (2026-06-03): cosine match 시 SNN cluster 도 R-STDP 강화 —
+      // cluster 의 neuron weights 가 매 매칭마다 reinforce → SNN 의 firing rate
+      // 가 cluster 0/1/2/3 winner detection 과 일치하게 유지. cosine sim 매칭
+      // (LiveSnn-side) 와 SNN winner (worker-side) 가 long-term 동기화.
+      void this.reinforceAsync(cosineWinner.clusterId, 0.3);
     }
     const vigilanceMismatch = cosineWinner !== undefined
       ? false  // cosine sim 으로 familiar 자세로 결정됨 → spawn skip

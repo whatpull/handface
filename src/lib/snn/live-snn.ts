@@ -1462,11 +1462,12 @@ export class LiveSnn {
     if (this.substrateKind !== 'orientation-hand') return;
     if (pattern.length !== 95) return;
     if (this._handClusterFeatures.size === 0) return;
-    // Phase 3.9 v12 (2026-06-03): production catch — 사용자 logs 에서 cluster
-    // 1+ spawn 시 activeInputs=[0,3,6,24,36] (raw coords) 등 → 같은 자세 시도
-    // 시에도 cosine sim < 0.97 → spawn 매번 발생. threshold 0.97 → 0.93 으로
-    // 완화 + sim 값 console.log 로 production debug 가능.
-    const HAND_COSINE_THRESHOLD = 0.93;
+    // Phase 3.9 v17 (2026-06-03): production catch (token=137 c1=0.923 SPAWN).
+    // 직전 0.93 threshold 가 borderline cases 에서 의도하지 않은 spawn.
+    // 0.93 → 0.85 완화: same pose 자연 jitter (cos 0.95+) MATCH, 약간 다른
+    // 자세 (cos 0.85-0.95) 도 가장 가까운 cluster 로 MATCH (false positive 위험
+    // 있지만 cluster pool 안전 보존). 진짜 다른 자세 (cos < 0.85) 만 SPAWN.
+    const HAND_COSINE_THRESHOLD = 0.85;
     const normInput = this._normalizePatternV11(pattern);
     let bestId = -1;
     let bestSim = -Infinity;

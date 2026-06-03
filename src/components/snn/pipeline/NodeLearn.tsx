@@ -200,12 +200,12 @@ export default function NodeLearn() {
   }, []);
 
   // Phase 3.9 (2026-06-03 hotfix): Hand SNN sparse top-K=5 migration.
-  // 직전 Hand SNN active inputs path 가 threshold > 0.5 영역 95-dim 영역 42/95
+  // 직전 Hand SNN active inputs path 가 threshold > 0.5 로 95-dim 에서 42/95
   // active inputs 산출 → encoder.ts:237-256 "98% overlap" trap 직격 → 4 gestures
-  // 동일 cluster 매칭. commit 6d05ea1 에서 sparse top-K=5 path 정정 했지만,
-  // 직전 user 영역 stored cluster 영역 (42-feature dense) 영역 IndexedDB 잔존 →
-  // 새 sparse top-K=5 candidate 이 기존 dense claim 영역 항상 overlap → forceDisjoint
-  // fail → cluster pool exhaustion. 본 migration 영역 일회성 IndexedDB wipe.
+  // 가 동일 cluster 로 매칭. commit 6d05ea1 에서 sparse top-K=5 path 정정 했지만,
+  // 직전 user 의 stored cluster (42-feature dense) 가 IndexedDB 에 잔존 →
+  // 새 sparse top-K=5 candidate 이 기존 dense claim 과 항상 overlap → forceDisjoint
+  // fail → cluster pool exhaustion. 본 migration 은 일회성 IndexedDB wipe.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const HAND_FLAG = 'handface.phase3.9.hand-sparse-topk.notified.v1';

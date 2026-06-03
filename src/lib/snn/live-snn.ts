@@ -996,8 +996,8 @@ export class LiveSnn {
       //   dialog message 영역 subset 정책 반영 영역 사용자 mental model 영역
       //   "왜 같은 패턴인데 dialog 가?" 영역 영역 명확 catch.
       // Phase 3.9 (2026-06-03): substrate-aware dialog 정정.
-      //   - hand 영역 95-dim, "cells 영역 그렸다면" 문구 영역 grid 전용 부적합.
-      //   - feature count 영역 substrate 별 (orientation-6x6=72 / hand=95).
+      //   - hand 는 95-dim, "cells 그렸다면" 문구는 grid 전용 부적합.
+      //   - feature count 도 substrate 별 (orientation-6x6=72 / hand=95).
       const isHand = this.substrateKind === 'orientation-hand';
       const totalFeat = isHand ? 95 : 72;
       const message = isHand
@@ -1230,11 +1230,11 @@ export class LiveSnn {
         // P218 (2026-05-20): n13 (32-dim) / n14 (50-dim) dispatch — in_feat_0..N 정합.
         const feat32 = dispatchFeature(pattern);
         // Phase 3.9 fix (2026-06-03, 사용자 catch handface.whatpull.com):
-        // Hand SNN (n16_hand 95-dim) 영역 threshold > 0.5 path 가 42/95=44% active
+        // Hand SNN (n16_hand 95-dim) 의 threshold > 0.5 path 가 42/95=44% active
         // inputs 산출 → encoder.ts:237-256 자체 진단 "98% overlap" trap 직격.
-        // 결과 사용자 시점: cluster 영역 spawn 1회만 + auto-learn-complete 후
-        // 4 gestures 영역 동일 cluster 로 매칭 → "패턴학습안됨".
-        // 정정: hand substrate 영역 sparse top-K=5 path 영역 dispatch.
+        // 결과 사용자 시점: cluster spawn 1회만 + auto-learn-complete 후 4 gestures
+        // 가 동일 cluster 로 매칭 → "패턴학습안됨".
+        // 정정: hand substrate 면 sparse top-K=5 path 로 dispatch.
         const isHandSubstrate = this.substrateKind === 'orientation-hand';
         const activeInputs: number[] = isHandSubstrate
           ? selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT)
@@ -1448,7 +1448,7 @@ export class LiveSnn {
       // 로직 신경쓰지말고" — silent fail 폐기 권한).
       const msg = e instanceof Error ? e.message : String(e);
       console.warn('[LiveSnn] runAutoLearnLoop failed:', e);
-      // Phase 3.9 (2026-06-03): 'worker disposed' 영역 사용자 reset 후 자연
+      // Phase 3.9 (2026-06-03): 'worker disposed' 는 사용자 reset 후 자연
       // race — error toast 안 보이게 silent. learningClusters cleanup 만 진행.
       const isDisposed = /worker\s+disposed/i.test(msg);
       if (!isDisposed) {
@@ -1570,8 +1570,8 @@ export class LiveSnn {
     // P218 (2026-05-20): raw → expanded dispatch (n13: 16→32, n14: 25→50).
     const feat = dispatchFeature(this.patternRef);
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
-    // Phase 3.9 fix (2026-06-03): Hand SNN 영역 sparse top-K=5 injection.
-    // 직전 threshold > 0.5 path 가 hand 95-dim 영역 ~42 active inputs 발생 →
+    // Phase 3.9 fix (2026-06-03): Hand SNN 의 sparse top-K=5 injection.
+    // 직전 threshold > 0.5 path 가 hand 95-dim 에서 ~42 active inputs 발생 →
     // 4 gestures 98% overlap (encoder.ts:237-256 진단) → cluster 분리 실패.
     const isHand = this.substrateKind === 'orientation-hand';
     const activeIdx: number[] = isHand
@@ -1585,7 +1585,7 @@ export class LiveSnn {
       const v = feat[i];
       out.push({
         neuron: `in_feat_${i}`,
-        weight: this.opts.intensity * Math.max(0.5, v), // hand: max(0.5, v) — top-K 영역 매우 작은 v 시 강도 보장
+        weight: this.opts.intensity * Math.max(0.5, v), // hand: max(0.5, v) — top-K 가 매우 작은 v 일 때도 강도 보장
         // PR fix/live-mode-time-and-restore — Fix 1: time 영역 net.t 정합.
         time: currentT,
         durationMs: this.opts.stimulusDurationMs,

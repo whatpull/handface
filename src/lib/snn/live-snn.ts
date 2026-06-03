@@ -1433,7 +1433,12 @@ export class LiveSnn {
       // 로직 신경쓰지말고" — silent fail 폐기 권한).
       const msg = e instanceof Error ? e.message : String(e);
       console.warn('[LiveSnn] runAutoLearnLoop failed:', e);
-      showToast({ kind: 'error', message: `학습 실패 — ${msg}` });
+      // Phase 3.9 (2026-06-03): 'worker disposed' 영역 사용자 reset 후 자연
+      // race — error toast 안 보이게 silent. learningClusters cleanup 만 진행.
+      const isDisposed = /worker\s+disposed/i.test(msg);
+      if (!isDisposed) {
+        showToast({ kind: 'error', message: `학습 실패 — ${msg}` });
+      }
       // PR #192 polish parity (SEC-3): error event 영역 telemetry 영역 emit —
       // dev panel 영역 hook 가능 (현재 listener 0 silent fan-out).
       emitBackendEvent('snn-error', {

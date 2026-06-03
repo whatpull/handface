@@ -199,6 +199,37 @@ export default function NodeLearn() {
     }
   }, []);
 
+  // Phase 3.9 (2026-06-03 hotfix): Hand SNN sparse top-K=5 migration.
+  // 직전 Hand SNN active inputs path 가 threshold > 0.5 영역 95-dim 영역 42/95
+  // active inputs 산출 → encoder.ts:237-256 "98% overlap" trap 직격 → 4 gestures
+  // 동일 cluster 매칭. commit 6d05ea1 에서 sparse top-K=5 path 정정 했지만,
+  // 직전 user 영역 stored cluster 영역 (42-feature dense) 영역 IndexedDB 잔존 →
+  // 새 sparse top-K=5 candidate 이 기존 dense claim 영역 항상 overlap → forceDisjoint
+  // fail → cluster pool exhaustion. 본 migration 영역 일회성 IndexedDB wipe.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const HAND_FLAG = 'handface.phase3.9.hand-sparse-topk.notified.v1';
+    try {
+      if (window.localStorage.getItem(HAND_FLAG) === '1') return;
+      const hasHandLegacy = window.localStorage.getItem('handface.out.exemplars.v1.orientation-hand');
+      if (hasHandLegacy) {
+        console.info(
+          '[handface][Phase 3.9] Hand SNN active inputs upgrade: threshold>0.5 (42/95 dense) → '
+          + 'sparse top-K=5. 기존 Hand SNN 학습 데이터 자동 reset — sparse forced-disjoint 정합.',
+        );
+        void purgeAllLearningData();
+        showToast({
+          kind: 'warning',
+          message: 'Hand SNN 의 학습 path 가 sparse top-K=5 로 갱신되었습니다 (98% overlap 정정). 기존 hand 학습 데이터 자동 reset — 새로 학습해 주세요.',
+          duration: 10000,
+        });
+      }
+      window.localStorage.setItem(HAND_FLAG, '1');
+    } catch {
+      // silent skip.
+    }
+  }, []);
+
   // circuit-changed event — backend network 이 새로 만들어진 시점.
   //
   // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역

@@ -2782,6 +2782,33 @@
   color: rgba(167, 139, 250, 0.7) !important;
 }
 
+/* Phase 3.9 v13 (2026-06-03) — auto-trigger toggle. */
+.snn-camera-auto-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 6px 4px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.snn-camera-auto-toggle input[type="checkbox"] {
+  accent-color: #a78bfa;
+  width: 14px;
+  height: 14px;
+}
+.snn-camera-auto-status {
+  font-size: 11px;
+  color: #a78bfa;
+  text-align: center;
+  padding: 4px 6px;
+  background: rgba(167, 139, 250, 0.08);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {
   font-size: 12px;

@@ -148,21 +148,36 @@ export default function CameraInput() {
     }
     try {
       // Phase 3.4: hand landmarks (21 × {x,y,z}) → encodeHandToFeatureVector
-      // → 95-dim feature vector → triggerWithVigilance (n16_hand substrate 정합).
-      // Phase 3.9 v4 fix (2026-06-03, 사용자 catch "동일 제스처도 클러스터 계속 생성"):
-      // 직전 vigilance=1.0 (엄격 정확 일치) → 자연 webcam jitter 로 top-K=5 가
-      // 매 frame 약간씩 변동 → Jaccard < 1.0 → 매번 spawn. vigilance=0.3 으로
-      // 완화: 5/5 일치(1.0) 와 4/5 일치(Jaccard 0.67) 와 3/5 일치(0.43) 까지 같은
-      // gesture 로 인식, 2/5 이하(0.25) 만 신규 spawn. 자연 jitter tolerance 확보.
+      // → 95-dim feature vector → triggerWithVigilance.
+      // Phase 3.9 v12 (2026-06-03): v7 cosine override 가 vigilance 결정 →
+      // 여기 vigilance 는 worker fallback path 만 사용.
       const featureVec = encodeHandToFeatureVector(landmarks);
       const live = getLiveSnn();
       const { trialToken } = live.triggerWithVigilance(featureVec, 0.3);
-      setTriggerStatus(`✓ 학습 trigger 완료 (token ${trialToken})`);
+      setTriggerStatus(`✓ trigger (token ${trialToken})`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setTriggerStatus(`✗ 학습 trigger 실패: ${msg}`);
+      setTriggerStatus(`✗ trigger 실패: ${msg}`);
     }
   }, []);
+
+  // Phase 3.9 v13 (2026-06-03): 자동 trigger 모드.
+  // 사용자 요청 "이제 학습/인식 버튼 없이 그냥 새로운 자세면 인식하면 안되나요?"
+  // → 매 1초마다 자동 trigger. v7 cosine override:
+  //   - 같은 자세 (cos > threshold) → MATCH, no spawn, winner 인식
+  //   - 새 자세 (cos < threshold) → SPAWN, 자동 학습
+  const [autoMode, setAutoMode] = useState<boolean>(true);
+  useEffect(() => {
+    if (!autoMode) return;
+    if (status.kind !== 'ready') return;
+    const AUTO_INTERVAL_MS = 1000;
+    const interval = setInterval(() => {
+      if (latestLandmarksRef.current && latestLandmarksRef.current.length === 21) {
+        triggerLearn();
+      }
+    }, AUTO_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [autoMode, status, triggerLearn]);
 
   const initialize = useCallback(async () => {
     const video = videoRef.current;
@@ -269,14 +284,33 @@ export default function CameraInput() {
       </div>
 
       <div className="snn-camera-trigger">
-        <button
-          type="button"
-          className="snn-camera-trigger-btn"
-          disabled={status.kind !== 'ready' || !handDetected}
-          onClick={triggerLearn}
-        >
-          이 자세 학습 / 인식
-        </button>
+        <label className="snn-camera-auto-toggle">
+          <input
+            type="checkbox"
+            checked={autoMode}
+            onChange={(e) => setAutoMode(e.target.checked)}
+          />
+          <span>자동 인식 / 학습 (1초 마다)</span>
+        </label>
+        {!autoMode && (
+          <button
+            type="button"
+            className="snn-camera-trigger-btn"
+            disabled={status.kind !== 'ready' || !handDetected}
+            onClick={triggerLearn}
+          >
+            이 자세 학습 / 인식
+          </button>
+        )}
+        {autoMode && (
+          <small className="snn-camera-auto-status">
+            {status.kind === 'ready' && handDetected
+              ? '◉ 자동 감지 중 — 손 자세 보이면 자동 학습 / 인식'
+              : status.kind === 'ready'
+                ? '⚠ Hand 미감지 — 화면 안에 손을 보여주세요'
+                : '카메라 준비 중...'}
+          </small>
+        )}
         {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}
         {winnerCluster !== null && (
           <small className="snn-camera-winner-msg">

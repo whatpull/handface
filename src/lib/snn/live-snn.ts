@@ -47,6 +47,7 @@ import { getRootLocalSnnFor, type SubstrateKind, type RootLocalSnn } from './roo
 import { compute32DimFeature } from '@/lib/snn-runtime/builders/n13-orientation';
 import { compute50DimFeature, RAW_DIM_N14 } from '@/lib/snn-runtime/builders/n14-extended';
 import { compute72DimFeature, RAW_DIM_N15 } from '@/lib/snn-runtime/builders/n15-extended-6x6';
+import { selectTopKActive, HAND_SPARSE_TOP_K_DEFAULT } from '@/lib/snn-runtime/hand-spike-encoder';
 import { SeededRandom } from '@/lib/snn-runtime/prng';
 
 // P218 (2026-05-20) — raw pattern length 별 dispatch.
@@ -1213,10 +1214,20 @@ export class LiveSnn {
       if (vigilanceMismatch) {
         // P218 (2026-05-20): n13 (32-dim) / n14 (50-dim) dispatch — in_feat_0..N 정합.
         const feat32 = dispatchFeature(pattern);
-        const activeInputs: number[] = [];
-        for (let i = 0; i < feat32.length; i += 1) {
-          if (feat32[i] > 0.5) activeInputs.push(i);
-        }
+        // Phase 3.9 fix (2026-06-03, 사용자 catch handface.whatpull.com):
+        // Hand SNN (n16_hand 95-dim) 영역 threshold > 0.5 path 가 42/95=44% active
+        // inputs 산출 → encoder.ts:237-256 자체 진단 "98% overlap" trap 직격.
+        // 결과 사용자 시점: cluster 영역 spawn 1회만 + auto-learn-complete 후
+        // 4 gestures 영역 동일 cluster 로 매칭 → "패턴학습안됨".
+        // 정정: hand substrate 영역 sparse top-K=5 path 영역 dispatch.
+        const isHandSubstrate = this.substrateKind === 'orientation-hand';
+        const activeInputs: number[] = isHandSubstrate
+          ? selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT)
+          : (() => {
+              const out: number[] = [];
+              for (let i = 0; i < feat32.length; i += 1) if (feat32[i] > 0.5) out.push(i);
+              return out;
+            })();
         // activeInputs 영역 0 영역 silent pattern (사용자 영역 빈 grid 영역
         // 추론 button click) — auto-learn skip + emit dummy reinforce push
         // 영역 caller 영역 token reset 정합 (NodeInfer status 영역 사용자
@@ -1539,12 +1550,22 @@ export class LiveSnn {
     // P218 (2026-05-20): raw → expanded dispatch (n13: 16→32, n14: 25→50).
     const feat = dispatchFeature(this.patternRef);
     const out: Array<{ neuron: string; weight: number; time: number; durationMs: number; stepMs: number }> = [];
-    for (let i = 0; i < feat.length; i += 1) {
+    // Phase 3.9 fix (2026-06-03): Hand SNN 영역 sparse top-K=5 injection.
+    // 직전 threshold > 0.5 path 가 hand 95-dim 영역 ~42 active inputs 발생 →
+    // 4 gestures 98% overlap (encoder.ts:237-256 진단) → cluster 분리 실패.
+    const isHand = this.substrateKind === 'orientation-hand';
+    const activeIdx: number[] = isHand
+      ? selectTopKActive(feat, HAND_SPARSE_TOP_K_DEFAULT)
+      : (() => {
+          const r: number[] = [];
+          for (let i = 0; i < feat.length; i += 1) if (feat[i] > 0.5) r.push(i);
+          return r;
+        })();
+    for (const i of activeIdx) {
       const v = feat[i];
-      if (v <= 0.5) continue;
       out.push({
         neuron: `in_feat_${i}`,
-        weight: this.opts.intensity * v,
+        weight: this.opts.intensity * Math.max(0.5, v), // hand: max(0.5, v) — top-K 영역 매우 작은 v 시 강도 보장
         // PR fix/live-mode-time-and-restore — Fix 1: time 영역 net.t 정합.
         time: currentT,
         durationMs: this.opts.stimulusDurationMs,

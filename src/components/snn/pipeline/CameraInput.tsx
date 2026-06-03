@@ -565,7 +565,8 @@ export default function CameraInput() {
         )}
         {handSyncStatus && showSyncPill && (() => {
           const isCapacity = handSyncStatus.phase === 'failed' && (handSyncStatus.error?.includes('capacity') ?? false);
-          const pillClass = isCapacity ? 'capacity' : handSyncStatus.phase;
+          const isSelfHeal = handSyncStatus.phase === 'failed' && handSyncStatus.error === 'self-heal';
+          const pillClass = isCapacity ? 'capacity' : isSelfHeal ? 'selfheal' : handSyncStatus.phase;
           const msg = handSyncStatus.phase === 'syncing'
             ? `학습 데이터 sync 중 (${handSyncStatus.restoredFeatures} cluster)`
             : handSyncStatus.phase === 'done'
@@ -576,7 +577,9 @@ export default function CameraInput() {
                   : '정상'
               : isCapacity
                 ? `최대 ${handSyncStatus.restoredFeatures} 자세 도달 — 기존 자세 삭제 후 추가 가능`
-                : `sync 실패: ${handSyncStatus.error ?? '알 수 없음'}`;
+                : isSelfHeal
+                  ? '학습 데이터 자동 복구 중 — 잠시 후 정상 동작'
+                  : `sync 실패: ${handSyncStatus.error ?? '알 수 없음'}`;
           return (
             <small className={`snn-camera-sync-msg snn-camera-sync-${pillClass}`}>
               {msg}

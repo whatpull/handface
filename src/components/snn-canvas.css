@@ -2837,6 +2837,8 @@
 .snn-camera-sync-failed { color: #fca5a5; background: rgba(252, 165, 165, 0.12); }
 /* v31 — capacity reached (19 자세 한계). amber 영역 사용자 catch + 행동 유도. */
 .snn-camera-sync-capacity { color: #fbbf24; background: rgba(251, 191, 36, 0.10); font-weight: 600; }
+/* v45 — self-heal (reinforce 실패 영역 자동 sync re-trigger). blue 영역 progress 영역 catch. */
+.snn-camera-sync-selfheal { color: #93c5fd; background: rgba(147, 197, 253, 0.12); font-weight: 600; }
 /* v37 — capacity 시 inline action 버튼 (자세 list 영역으로 scroll). */
 .snn-camera-sync-action {
   appearance: none;

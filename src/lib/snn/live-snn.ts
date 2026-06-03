@@ -1319,6 +1319,19 @@ export class LiveSnn {
         if (this.substrateKind === 'orientation-hand' && msg.includes('범위 밖')) {
           console.warn('[hand-self-heal] reinforce 실패 영역 sync re-trigger — 다음 trigger 영역 정상');
           this._handSyncedWithWorker = false;
+          // Phase 3.9 v45 (2026-06-04): self-heal 영역 사용자 catch — hand-sync-status
+          // event 'failed' emit with error 'self-heal' → CameraInput pill 영역 표시.
+          // 영역 후 sync re-trigger 영역 emit 'syncing' → 'done' → 사용자 영역 자동
+          // recovery 진행 영역 시각 catch.
+          emitBackendEvent<HandSyncStatusDetail>('hand-sync-status', {
+            phase: 'failed',
+            restoredFeatures: this._handClusterFeatures.size,
+            restoredActiveInputs: this._handClusterActiveInputs.size,
+            syncedToWorker: 0,
+            fallbackCount: 0,
+            workerInitial: 0,
+            error: 'self-heal',
+          });
           void this._syncHandWithWorker();
         }
       }

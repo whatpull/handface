@@ -223,19 +223,39 @@ export default function CameraInput() {
   //   1. interval 1초 → 2.5초 (학습 진행 여유)
   //   2. isAutoLearning 체크 — 학습 진행 중이면 trigger skip
   const [autoMode, setAutoMode] = useState<boolean>(true);
+  // Phase 3.9 v38 (2026-06-04): auto interval 사용자 조정 — 빠름 1s / 보통 2.5s
+  // / 느림 5s. localStorage persist (다음 session 도 유지). 직전 2.5s 고정.
+  const AUTO_INTERVAL_KEY = 'handface.camera.auto-interval-ms.v1';
+  type IntervalMode = 'fast' | 'normal' | 'slow';
+  const INTERVAL_MS_MAP: Record<IntervalMode, number> = { fast: 1000, normal: 2500, slow: 5000 };
+  const [intervalMode, setIntervalMode] = useState<IntervalMode>(() => {
+    if (typeof window === 'undefined') return 'normal';
+    try {
+      const raw = window.localStorage.getItem(AUTO_INTERVAL_KEY);
+      if (raw === 'fast' || raw === 'normal' || raw === 'slow') return raw;
+    } catch { /* noop */ }
+    return 'normal';
+  });
+  const handleIntervalModeChange = useCallback((mode: IntervalMode): void => {
+    setIntervalMode(mode);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem(AUTO_INTERVAL_KEY, mode); } catch { /* noop */ }
+    }
+  }, []);
   useEffect(() => {
     if (!autoMode) return;
     if (status.kind !== 'ready') return;
-    const AUTO_INTERVAL_MS = 2500;
+    const intervalMs = INTERVAL_MS_MAP[intervalMode];
     const interval = setInterval(() => {
       if (isAutoLearning) return; // 학습 진행 중 — 다음 cycle 까지 대기
       if (!isStable) return; // Phase 3.9 v16: 흔들리는 손에서 trigger skip
       if (latestLandmarksRef.current && latestLandmarksRef.current.length === 21) {
         triggerLearn();
       }
-    }, AUTO_INTERVAL_MS);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [autoMode, status, triggerLearn, isAutoLearning, isStable]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMode, status, triggerLearn, isAutoLearning, isStable, intervalMode]);
 
   const initialize = useCallback(async () => {
     const video = videoRef.current;
@@ -449,8 +469,23 @@ export default function CameraInput() {
             checked={autoMode}
             onChange={(e) => setAutoMode(e.target.checked)}
           />
-          <span>자동 인식 / 학습 (1초 마다)</span>
+          <span>자동 인식 / 학습 ({(INTERVAL_MS_MAP[intervalMode] / 1000).toFixed(1)}초 마다)</span>
         </label>
+        {autoMode && (
+          <div className="snn-camera-interval-toggle" aria-label="자동 trigger 간격">
+            {(['fast', 'normal', 'slow'] as IntervalMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`snn-camera-interval-btn${intervalMode === mode ? ' snn-camera-interval-btn-active' : ''}`}
+                onClick={() => handleIntervalModeChange(mode)}
+                title={mode === 'fast' ? '빠른 학습 (1초) — 자세 자주 변경 시' : mode === 'normal' ? '보통 (2.5초) — 기본' : '느린 학습 (5초) — 한 자세 안정화'}
+              >
+                {mode === 'fast' ? '빠름 1s' : mode === 'normal' ? '보통 2.5s' : '느림 5s'}
+              </button>
+            ))}
+          </div>
+        )}
         {!autoMode && (
           <button
             type="button"

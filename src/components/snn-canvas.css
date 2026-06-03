@@ -2853,6 +2853,35 @@
 .snn-camera-sync-action:hover {
   color: #fcd34d;
 }
+/* v38 — auto-mode interval segmented toggle (빠름/보통/느림). */
+.snn-camera-interval-toggle {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 4px;
+  margin-left: 24px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+.snn-camera-interval-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.snn-camera-interval-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+.snn-camera-interval-btn-active {
+  background: rgba(147, 197, 253, 0.18);
+  color: #93c5fd;
+  font-weight: 600;
+}
 
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {

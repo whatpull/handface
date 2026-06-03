@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-03T02:27:56.009Z",
+  "timestamp": "2026-06-03T02:34:47.460Z",
   "scenario": "phase-3-hand-snn-production-measurement",
   "substrate": "n16_hand (95-dim)",
   "gestures": [
@@ -8,7 +8,10 @@
     "thumbs_up",
     "peace_sign"
   ],
+  "mockDesign": "anatomically realistic appendFinger (curl + cumulative bend rotation)",
   "encoding": "sparse forced-disjoint top-K=5",
+  "trainingApi": "clusterTrainRStdp (production R-STDP)",
+  "inferenceMode": "honest — inject all features > 0.3, clusterFiringRates pattern-normalized",
   "productionFix": [
     "commit 8da3cbe: 1st 30 trials, 2nd+ 90 trials",
     "commit 4deb9bc: rawActiveInputs 보존",
@@ -23,76 +26,77 @@
       5
     ],
     "perClusterAccuracy": [
-      0,
-      0.2,
       0.6,
-      0
+      0,
+      0,
+      0.6
     ],
-    "totalAccuracy": 0.2,
+    "totalAccuracy": 0.3,
     "jaccardMax": 0,
     "totalReinforces": 300,
     "claimedTotal": 20,
     "claimedPct": 0.21052631578947367,
     "confusionMatrix": [
       [
-        0,
-        1,
-        0,
-        4
-      ],
-      [
-        2,
-        1,
-        0,
-        2
-      ],
-      [
-        1,
-        1,
         3,
+        1,
+        1,
         0
       ],
       [
         0,
-        5,
         0,
-        0
+        0,
+        5
+      ],
+      [
+        0,
+        0,
+        0,
+        5
+      ],
+      [
+        0,
+        2,
+        0,
+        3
       ]
     ],
     "topKActiveIndices": [
       [
-        66,
         67,
-        87,
-        88,
-        94
-      ],
-      [
-        65,
-        75,
-        76,
-        78,
-        84
-      ],
-      [
-        64,
         77,
-        85,
-        90,
-        92
+        78,
+        86,
+        88
       ],
       [
-        25,
+        36,
+        65,
+        70,
+        75,
+        80
+      ],
+      [
         63,
+        64,
         68,
-        86,
+        84,
+        90
+      ],
+      [
+        76,
+        81,
+        82,
+        85,
         91
       ]
     ]
   },
   "comparison": {
     "directHand1Shot": "25% (직전 HONEST_LIMITATIONS.md, ART/EWC 미통합)",
-    "phase3WithFixChain": "20%"
+    "phase3WithFixChain": "30%",
+    "priorOracleClusterRStdp": "100% (hand-snn-cluster-rstdp.json, 2026-05-27) — oracle inference (applySparseTopK by ground truth cluster)"
   },
-  "verdict": "✗ Hand SNN production accuracy 미도달 (20%) — 추가 분석 필요"
+  "verdict": "✗ Hand SNN production accuracy 미도달 (30%)"
 }

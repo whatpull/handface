@@ -7,19 +7,24 @@
 // 본 측정: Phase 3.1~3.5 UI 통합 완료 후 Phase 2A fix chain 적용된 n16_hand
 // substrate production accuracy.
 //
-// Critical 영역 — hand-spike-encoder.ts 영역 자체 주석 (lines 237-256):
-//   threshold 0.2 활성 inputs 54-54-54-52 (=~57% dense), pairwise Jaccard
-//   distinctiveness 0.0185 (=98% overlap). R-STDP/ART/EWC 영역 mechanism도 이
-//   overlap 위에서는 분리 불가능 → selectForcedDisjointTopK(K=5) 가 해법.
+// Mock 재설계 (hand-snn-cluster-rstdp.test.ts 영역 anatomically realistic appendFinger):
+//   - 4 손가락 (MCP/PIP/DIP/TIP) cumulative bend rotation
+//   - curl ∈ {0=straight, 1=fully closed} per finger
+//   - open_palm: 5 fingers all curl=0
+//   - closed_fist: 5 fingers all curl=1
+//   - thumbs_up: thumb curl=0, others curl=1
+//   - peace_sign: thumb/ring/pinky curl=1, index/middle curl=0
 //
 // Phase 2A fix chain (Hand SNN 자동 적용):
 //   - commit 8da3cbe: 1st 30 trials, 2nd+ 90 trials
 //   - commit 4deb9bc: rawActiveInputs 별도 store
-//   - commit b90c103: subset 인식 (T ⊆ I → vigilance pass)
+//   - commit b90c103: subset 인식 (T ⊆ I)
 //   - commit 6e3b574: auto-purge (substrate switch)
 //
-// 4 자세 시나리오 (직전 hand-snn-end-to-end.test.ts helpers reuse):
-//   c0: open_palm  /  c1: closed_fist  /  c2: thumbs_up  /  c3: peace_sign
+// Inference: honest — noise 추가된 sample 영역 모든 features > 0.3 영역 injection.
+// 직전 hand-snn-cluster-rstdp.test.ts (4/4 = 100%) 영역 oracle inference 사용 —
+// applySparseTopK(fv, topKIndices[g]) 영역 g-indexed → ground truth leak.
+// 본 measurement 영역 honest inference (cluster 영역 모름 → 모든 features 주입).
 //
 // 본 file 'measurement' pattern → nightly cron 분류.
 
@@ -29,7 +34,6 @@ import { dirname, resolve } from 'node:path';
 import {
   LocalSNN, LocalStorageSink,
   SNNWorkerClient, SNNWorkerCore,
-  buildClusterRegistryFromN13,
   type WorkerLike, type WorkerRequest,
 } from '@/lib/snn-runtime';
 import {
@@ -39,9 +43,7 @@ import {
   HAND_SPARSE_TOP_K_DEFAULT,
   type HandLandmark,
 } from '@/lib/snn-runtime/hand-spike-encoder';
-import { N16Pools } from '@/lib/snn-runtime/builders/n16-hand';
 import { SeededGaussian, addFeatureNoise } from '@/lib/snn-runtime/hand-noise';
-import { wtaWinner } from '@/lib/snn-runtime/self-supervised';
 
 class MemoryStorage {
   private store = new Map<string, string>();
@@ -63,42 +65,66 @@ class InProcessTransport implements WorkerLike {
   terminate(): void { this.listeners = []; }
 }
 
-// 4 자세 mock landmarks (hand-snn-end-to-end.test.ts helpers reuse).
+// Anatomically realistic appendFinger (hand-snn-cluster-rstdp.test.ts 영역 영역).
+function appendFinger(
+  lm: HandLandmark[],
+  mcp: { x: number; y: number; z: number },
+  dir: { x: number; y: number; z: number },
+  length: number,
+  curl: number,
+): void {
+  const segments = 3;
+  let curX = mcp.x, curY = mcp.y, curZ = mcp.z;
+  lm.push({ x: curX, y: curY, z: curZ });
+  let curDirX = dir.x, curDirY = dir.y;
+  const curDirZ = dir.z;
+  for (let s = 1; s <= segments; s += 1) {
+    const bend = curl * (s / segments) * 1.4;
+    const cos = Math.cos(bend), sin = Math.sin(bend);
+    const nx = curDirX * cos - (-curDirY) * sin;
+    const ny = curDirX * sin + (-curDirY) * cos;
+    curDirX = nx; curDirY = ny;
+    const segLen = length / segments;
+    curX += curDirX * segLen;
+    curY += curDirY * segLen;
+    curZ += curDirZ * segLen + curl * 0.02;
+    lm.push({ x: curX, y: curY, z: curZ });
+  }
+}
 function makeOpenPalm(): HandLandmark[] {
   const lm: HandLandmark[] = [{ x: 0.5, y: 0.9, z: 0 }];
-  for (let i = 0; i < 4; i += 1) lm.push({ x: 0.3 + i * 0.05, y: 0.7 - i * 0.05, z: 0.05 });
-  for (let f = 0; f < 4; f += 1) {
-    const baseX = 0.4 + f * 0.1;
-    for (let i = 0; i < 4; i += 1) lm.push({ x: baseX, y: 0.7 - i * 0.1, z: 0 });
-  }
+  appendFinger(lm, { x: 0.35, y: 0.78, z: 0 }, { x: -0.3, y: -1, z: 0 }, 0.18, 0);
+  appendFinger(lm, { x: 0.42, y: 0.72, z: 0 }, { x: -0.05, y: -1, z: 0 }, 0.22, 0);
+  appendFinger(lm, { x: 0.50, y: 0.70, z: 0 }, { x: 0, y: -1, z: 0 }, 0.24, 0);
+  appendFinger(lm, { x: 0.58, y: 0.72, z: 0 }, { x: 0.05, y: -1, z: 0 }, 0.22, 0);
+  appendFinger(lm, { x: 0.65, y: 0.78, z: 0 }, { x: 0.10, y: -1, z: 0 }, 0.18, 0);
   return lm;
 }
 function makeClosedFist(): HandLandmark[] {
   const lm: HandLandmark[] = [{ x: 0.5, y: 0.9, z: 0 }];
-  for (let f = 0; f < 5; f += 1) {
-    const baseX = 0.4 + f * 0.05;
-    for (let i = 0; i < 4; i += 1) lm.push({ x: baseX, y: 0.7 + i * 0.02, z: 0.1 });
-  }
+  appendFinger(lm, { x: 0.35, y: 0.78, z: 0 }, { x: -0.2, y: -0.6, z: 0 }, 0.18, 1);
+  appendFinger(lm, { x: 0.42, y: 0.72, z: 0 }, { x: -0.05, y: -1, z: 0 }, 0.22, 1);
+  appendFinger(lm, { x: 0.50, y: 0.70, z: 0 }, { x: 0, y: -1, z: 0 }, 0.24, 1);
+  appendFinger(lm, { x: 0.58, y: 0.72, z: 0 }, { x: 0.05, y: -1, z: 0 }, 0.22, 1);
+  appendFinger(lm, { x: 0.65, y: 0.78, z: 0 }, { x: 0.10, y: -1, z: 0 }, 0.18, 1);
   return lm;
 }
 function makeThumbsUp(): HandLandmark[] {
   const lm: HandLandmark[] = [{ x: 0.5, y: 0.9, z: 0 }];
-  for (let i = 0; i < 4; i += 1) lm.push({ x: 0.4, y: 0.7 - i * 0.07, z: 0 });
-  for (let f = 0; f < 4; f += 1) {
-    const baseX = 0.5 + f * 0.05;
-    for (let i = 0; i < 4; i += 1) lm.push({ x: baseX, y: 0.75 + i * 0.02, z: 0.1 });
-  }
+  appendFinger(lm, { x: 0.35, y: 0.78, z: 0 }, { x: 0, y: -1, z: 0 }, 0.20, 0);
+  appendFinger(lm, { x: 0.42, y: 0.72, z: 0 }, { x: -0.05, y: -1, z: 0 }, 0.22, 1);
+  appendFinger(lm, { x: 0.50, y: 0.70, z: 0 }, { x: 0, y: -1, z: 0 }, 0.24, 1);
+  appendFinger(lm, { x: 0.58, y: 0.72, z: 0 }, { x: 0.05, y: -1, z: 0 }, 0.22, 1);
+  appendFinger(lm, { x: 0.65, y: 0.78, z: 0 }, { x: 0.10, y: -1, z: 0 }, 0.18, 1);
   return lm;
 }
 function makePeaceSign(): HandLandmark[] {
   const lm: HandLandmark[] = [{ x: 0.5, y: 0.9, z: 0 }];
-  for (let i = 0; i < 4; i += 1) lm.push({ x: 0.3, y: 0.75, z: 0.05 });
-  for (let i = 0; i < 4; i += 1) lm.push({ x: 0.42, y: 0.7 - i * 0.1, z: 0 });
-  for (let i = 0; i < 4; i += 1) lm.push({ x: 0.52, y: 0.7 - i * 0.1, z: 0 });
-  for (let f = 0; f < 2; f += 1) {
-    const baseX = 0.6 + f * 0.05;
-    for (let i = 0; i < 4; i += 1) lm.push({ x: baseX, y: 0.75 + i * 0.02, z: 0.1 });
-  }
+  appendFinger(lm, { x: 0.35, y: 0.78, z: 0 }, { x: -0.2, y: -0.6, z: 0 }, 0.18, 1);
+  appendFinger(lm, { x: 0.42, y: 0.72, z: 0 }, { x: -0.05, y: -1, z: 0 }, 0.22, 0);
+  appendFinger(lm, { x: 0.50, y: 0.70, z: 0 }, { x: 0, y: -1, z: 0 }, 0.24, 0);
+  appendFinger(lm, { x: 0.58, y: 0.72, z: 0 }, { x: 0.05, y: -1, z: 0 }, 0.22, 1);
+  appendFinger(lm, { x: 0.65, y: 0.78, z: 0 }, { x: 0.10, y: -1, z: 0 }, 0.18, 1);
   return lm;
 }
 
@@ -110,14 +136,13 @@ const GESTURES = [
 ];
 
 describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
-  it('★ n16_hand substrate + Phase 2A fix chain + sparse forced-disjoint top-K=5', async () => {
+  it('★ anatomical mock + production clusterTrainRStdp + honest inference', async () => {
     // 4 gestures → 95-dim feature vectors.
     const features = GESTURES.map((g) => encodeHandToFeatureVector(g.make()));
     expect(features[0]).toHaveLength(HAND_FEAT_DIM);
 
-    // Sparse forced-disjoint top-K (encoder.ts lines 237-256 documented solution).
-    // K=5 per gesture, pairwise Jaccard=0 guaranteed.
-    const disjoint = selectForcedDisjointTopK(features, HAND_SPARSE_TOP_K_DEFAULT);
+    // Sparse forced-disjoint top-K=5 (encoder.ts documented solution).
+    const topKIndices = selectForcedDisjointTopK(features, HAND_SPARSE_TOP_K_DEFAULT);
 
     const core = new SNNWorkerCore();
     const transport = new InProcessTransport(core);
@@ -126,60 +151,68 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
     const sink = new LocalStorageSink({ storage, prefix: 'phase-3-6-hand' });
     const lab = new LocalSNN({
       netId: 'phase-3-6-hand', client, sink, seed: 42,
-      clusterActiveInputs: disjoint, preset: 'n16_hand',
+      clusterActiveInputs: topKIndices, preset: 'n16_hand',
     });
     await lab.init();
 
     // Phase 2A fix chain (8da3cbe): 1st 30 trials, 2nd+ 90 trials.
+    // Production R-STDP API (clusterTrainRStdp) — sparse pattern with only
+    // claimed indices nonzero (during training, ground truth target known).
     let totalReinforces = 0;
     for (let ci = 0; ci < GESTURES.length; ci += 1) {
       const rounds = ci === 0 ? 30 : 90;
-      for (let r = 0; r < rounds; r += 1) {
-        await client.inject(
-          disjoint[ci].map((i) => ({ neuron: `in_feat_${i}`, weight: 30, time: 0, durationMs: 80, stepMs: 0.1 })),
-        );
-        await client.run({ durationMs: 100, dtMs: 0.1, stdpEnabled: true });
-        totalReinforces += 1;
-      }
+      const sparsePattern = new Array(HAND_FEAT_DIM).fill(0);
+      for (const idx of topKIndices[ci]) sparsePattern[idx] = features[ci][idx];
+      await client.clusterTrainRStdp({
+        patterns: Array(rounds).fill(sparsePattern),
+        targetCluster: ci,
+        intensity: 25,
+        stimulusDurationMs: 30,
+        observeMs: 50,
+        dtMs: 0.1,
+        rewardGain: 2.0,
+        punishGain: 0.5,
+        stdpMode: 'pair',
+      });
+      totalReinforces += rounds;
     }
     await lab.save();
 
-    // CFM-1 noise self-verify (Phase 2A 동일 path).
-    // Sparse path: noise 추가 후 top-K=5 재선택 (production inference 형태).
+    // Honest inference — at test time, cluster identity unknown, inject ALL
+    // features above threshold; clusterFiringRates with pattern arg normalizes
+    // by overlap with each cluster's claimed inputs (QA HIGH PRIMARY FINDING-1).
     const SAMPLES = 5; const SIGMA = 0.05; const baseSeed = 3000;
     const N = GESTURES.length;
     const matrix: number[][] = Array.from({ length: N }, () => Array.from({ length: N }, () => 0));
-    const reg = buildClusterRegistryFromN13(disjoint, 'n16_hand');
 
     for (let ci = 0; ci < N; ci += 1) {
       const fullFeat = features[ci];
       const gaussian = new SeededGaussian(baseSeed + ci * 1000);
       for (let s = 0; s < SAMPLES; s += 1) {
         const noisy = addFeatureNoise(fullFeat, SIGMA, gaussian);
-        // Inference: 모든 활성 features 주입 (threshold 0.3 — encoder default).
-        // 각 cluster output neuron 은 자신의 claimed 5 features 만 listen
-        // → WTA 영역 input 영역 가장 정합 cluster 영역.
-        const activeIdx: number[] = [];
-        const weights: number[] = [];
+        // Honest inference: inject ALL features > 0.3 (encoder default threshold).
+        const events: { neuron: string; weight: number; time: number; durationMs: number; stepMs: number }[] = [];
         for (let k = 0; k < noisy.length; k += 1) {
           if (noisy[k] > 0.3) {
-            activeIdx.push(k);
-            weights.push(Math.min(1, noisy[k]) * 30);
+            events.push({
+              neuron: `in_feat_${k}`,
+              weight: Math.min(1, noisy[k]) * 25,
+              time: 0, durationMs: 50, stepMs: 0.1,
+            });
           }
         }
-        await client.inject(
-          activeIdx.map((i, j) => ({ neuron: `in_feat_${i}`, weight: weights[j], time: 0, durationMs: 50, stepMs: 0.1 })),
-        );
-        await client.run({ durationMs: 80, dtMs: 0.1, stdpEnabled: false });
-        const rates: number[] = [];
-        for (const slot of reg.slots) {
-          const result = await client.firingRates({ names: slot.out, windowMs: 80 });
-          let sum = 0;
-          for (const r of result.rates) sum += r.hz;
-          rates.push(sum / N16Pools.OUT_PER_CLUSTER);
+        await client.inject(events);
+        await client.run({ durationMs: 60, dtMs: 0.1, stdpEnabled: false });
+        // clusterFiringRates with pattern → normalize by overlap (QA fix).
+        const cfr = await client.clusterFiringRates({
+          windowMs: 60,
+          pattern: Array.from(noisy),
+        });
+        let winner = -1, maxRate = 0;
+        for (let cj = 0; cj < cfr.rates.length; cj += 1) {
+          if (cfr.rates[cj] > maxRate) { maxRate = cfr.rates[cj]; winner = cj; }
         }
-        const predicted = wtaWinner(rates);
-        if (predicted >= 0 && predicted < N) matrix[ci][predicted] += 1;
+        if (winner >= 0 && winner < N) matrix[ci][winner] += 1;
       }
     }
 
@@ -205,7 +238,7 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
       claimedTotal: usage.totalClaimedFeatures,
       claimedPct: usage.inputDim > 0 ? usage.totalClaimedFeatures / usage.inputDim : 0,
       confusionMatrix: matrix,
-      topKActiveIndices: disjoint,
+      topKActiveIndices: topKIndices,
     };
 
     const path = resolve(__dirname, 'measurements', 'hand-snn-phase-3-production-measurement.json');
@@ -215,7 +248,10 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
       scenario: 'phase-3-hand-snn-production-measurement',
       substrate: 'n16_hand (95-dim)',
       gestures: GESTURES.map((g) => g.name),
+      mockDesign: 'anatomically realistic appendFinger (curl + cumulative bend rotation)',
       encoding: `sparse forced-disjoint top-K=${HAND_SPARSE_TOP_K_DEFAULT}`,
+      trainingApi: 'clusterTrainRStdp (production R-STDP)',
+      inferenceMode: 'honest — inject all features > 0.3, clusterFiringRates pattern-normalized',
       productionFix: [
         'commit 8da3cbe: 1st 30 trials, 2nd+ 90 trials',
         'commit 4deb9bc: rawActiveInputs 보존',
@@ -226,30 +262,29 @@ describe('Phase 3.6 Hand SNN production measurement (2026-06-03)', () => {
       comparison: {
         directHand1Shot: '25% (직전 HONEST_LIMITATIONS.md, ART/EWC 미통합)',
         phase3WithFixChain: (result.totalAccuracy * 100).toFixed(0) + '%',
+        priorOracleClusterRStdp:
+          '100% (hand-snn-cluster-rstdp.json, 2026-05-27) — oracle inference (applySparseTopK by ground truth cluster)',
       },
       verdict:
         result.totalAccuracy >= 0.9
-          ? `✓ Hand SNN Phase 2A fix chain + sparse top-K 적용 후 ${(result.totalAccuracy * 100).toFixed(0)}% — Guide §3.4 ≥90% 도달`
+          ? `✓ Hand SNN Phase 2A fix chain + sparse top-K + anatomical mock ${(result.totalAccuracy * 100).toFixed(0)}% — Guide §3.4 ≥90% 도달`
           : result.totalAccuracy >= 0.5
             ? `△ partial improvement (${(result.totalAccuracy * 100).toFixed(0)}%) — noise robustness 추가 fix 필요`
-            : `✗ Hand SNN production accuracy 미도달 (${(result.totalAccuracy * 100).toFixed(0)}%) — 추가 분석 필요`,
+            : `✗ Hand SNN production accuracy 미도달 (${(result.totalAccuracy * 100).toFixed(0)}%)`,
     }, null, 2), 'utf-8');
 
     console.log('');
-    console.log('==== Phase 3.6 Hand SNN production measurement ====');
-    console.log(`  substrate: n16_hand (95-dim)`);
-    console.log(`  encoding: sparse forced-disjoint top-K=${HAND_SPARSE_TOP_K_DEFAULT}`);
-    console.log(`  gestures: ${GESTURES.map((g) => g.name).join(', ')}`);
+    console.log('==== Phase 3.6 Hand SNN production measurement (honest inference) ====');
+    console.log(`  mock: anatomically realistic (appendFinger curl)`);
+    console.log(`  training: clusterTrainRStdp (production R-STDP)`);
+    console.log(`  inference: honest (all features > 0.3, pattern-normalized cluster rates)`);
     console.log(`  per-cluster size: [${result.perClusterSize.join(',')}]`);
     console.log(`  per-cluster accuracy: [${result.perClusterAccuracy.map((a) => (a * 100).toFixed(0) + '%').join(', ')}]`);
     console.log(`  total: ${(result.totalAccuracy * 100).toFixed(0)}%`);
-    console.log(`  claimed: ${result.claimedTotal}/95 (${(result.claimedPct * 100).toFixed(0)}%)`);
     console.log(`  Jaccard max off-diag: ${result.jaccardMax.toFixed(3)}`);
     console.log(`  confusion matrix:`);
     for (let i = 0; i < N; i += 1) console.log(`    ${GESTURES[i].name.padEnd(14)} → [${matrix[i].join(', ')}]`);
     console.log(`  total reinforces: ${result.totalReinforces}`);
-    console.log('');
-    console.log(`Comparison: 직전 1-shot 25% → Phase 3 fix chain + sparse top-K ${(result.totalAccuracy * 100).toFixed(0)}%`);
     console.log('');
 
     expect(result.totalAccuracy).toBeGreaterThanOrEqual(0);

@@ -1304,6 +1304,21 @@ export class LiveSnn {
     // features 와 cosine sim 계산해서 winner 결정 시 그것을 우선.
     const cosineWinner = this._handCosineWinner.get(payload.trialToken);
     this._handCosineWinner.delete(payload.trialToken);
+    // Phase 3.9 v21 (2026-06-03): SNN R-STDP diagnostic — cosine winner vs
+    // worker SNN winner agreement 측정 + cluster firing rates logging.
+    // hand substrate 일 때만 실행.
+    if (this.substrateKind === 'orientation-hand' && cosineWinner !== undefined) {
+      const workerWinner = payload.cfr.winner;
+      const rates = payload.cfr.rates ?? [];
+      const ratesStr = rates
+        .map((r, i) => `c${i}:${r.toFixed(1)}Hz`)
+        .slice(0, 5)
+        .join(' ');
+      const agree = workerWinner === cosineWinner.clusterId;
+      console.log(
+        `[hand-snn-diag] token=${payload.trialToken} cosine=c${cosineWinner.clusterId}(${cosineWinner.sim.toFixed(3)}) worker=c${workerWinner} agree=${agree} rates=[${ratesStr}]`,
+      );
+    }
     // Phase 3.9 v8 (2026-06-03): cosine match 시 cluster training feature 를
     // EMA update — 같은 자세 반복 시 cluster centroid 가 사용자 실제 자세
     // 분포로 수렴 → jitter robustness 향상.

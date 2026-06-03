@@ -1527,23 +1527,51 @@ export class LiveSnn {
         const usage = await root.client.clusterPoolUsage();
         if (this._handClusterFeatures.size > 0 && usage.perCluster.length === 0) {
           // Desync — worker fresh, LiveSnn 학습 데이터 있음.
-          // Worker 에 stored activeInputs 로 cluster 재구성.
+          // Worker 에 stored activeInputs (v26+) 또는 feature top-K fallback (v27)
+          // 으로 cluster 재구성. v26 이전 학습 데이터는 activeInputs 가 없으므로
+          // feature 95-dim 에서 top-K disjoint indices 를 생성해서 reinforce 가
+          // 정상 동작하도록 사용자 학습 데이터 완전 복원.
+          const FALLBACK_K = 5;
+          const claimed = new Set<number>();
           const sortedIds = [...this._handClusterFeatures.keys()].sort((a, b) => a - b);
           let syncedCount = 0;
+          let fallbackCount = 0;
           for (const clusterId of sortedIds) {
-            const activeInputs = this._handClusterActiveInputs.get(clusterId);
+            let activeInputs = this._handClusterActiveInputs.get(clusterId);
             if (!activeInputs || activeInputs.length === 0) {
-              console.warn(`[hand-sync] cluster ${clusterId} 의 activeInputs 없음 — skip`);
-              continue;
+              // v27: fallback — feature top-K disjoint indices.
+              const feat = this._handClusterFeatures.get(clusterId);
+              if (!feat || feat.length !== 95) {
+                console.warn(`[hand-sync] cluster ${clusterId} feature missing — skip`);
+                continue;
+              }
+              const pairs: Array<{ idx: number; val: number }> = [];
+              for (let i = 0; i < feat.length; i += 1) pairs.push({ idx: i, val: feat[i] });
+              pairs.sort((a, b) => b.val - a.val);
+              const fb: number[] = [];
+              for (const p of pairs) {
+                if (fb.length >= FALLBACK_K) break;
+                if (!claimed.has(p.idx)) fb.push(p.idx);
+              }
+              if (fb.length < FALLBACK_K) {
+                console.warn(`[hand-sync] cluster ${clusterId} fallback 부족 (${fb.length}/${FALLBACK_K}) — skip`);
+                continue;
+              }
+              activeInputs = fb;
+              fallbackCount += 1;
+              // 복원된 activeInputs 를 다음 세션에도 보존.
+              this._handClusterActiveInputs.set(clusterId, fb);
             }
             try {
               await root.client.expandCluster({ activeInputs, forceDisjoint: false });
+              for (const idx of activeInputs) claimed.add(idx);
               syncedCount += 1;
             } catch (e) {
               console.warn(`[hand-sync] cluster ${clusterId} expandCluster 실패:`, e);
             }
           }
-          console.log(`[hand-sync] worker 에 ${syncedCount}/${sortedIds.length} clusters 재구성 완료`);
+          if (fallbackCount > 0) saveHandClusterActive(this._handClusterActiveInputs);
+          console.log(`[hand-sync] worker 에 ${syncedCount}/${sortedIds.length} clusters 재구성 완료 (fallback=${fallbackCount})`);
         } else if (this._handClusterFeatures.size === 0 && usage.perCluster.length === 0) {
           console.log('[hand-sync] LiveSnn + worker 모두 fresh — sync 불필요');
         } else if (this._handClusterFeatures.size === 0 && usage.perCluster.length > 0) {

@@ -467,7 +467,21 @@ export class LiveSnn {
   // 폐기 영역 stop/start race 영역 0).
   // 같은 kind 영역 멱등 — early return.
   async setSubstrate(kind: SubstrateKind): Promise<void> {
-    if (this.substrateKind === kind) return;
+    if (this.substrateKind === kind) {
+      // Phase 3.9 v42 (2026-06-04) CRITICAL: hand substrate 영역 sync 영역 idempotent.
+      // production catch 15:18: page reload 후 NodeInput re-emit input-mode 영역
+      // setSubstrate('orientation-hand') 영역 substrateKind 이미 'orientation-hand'
+      // 영역 early return → sync skip → worker fresh 그대로 → cosine MATCH 후
+      // reinforceBackground "targetCluster 0 범위 밖 (slots 0)" 실패 영원히.
+      //
+      // v26 fix 영역 setSubstrate 첫 호출 영역 정합 — 두 번째 호출 (re-emit) 영역
+      // sync state 영역 idempotent 보장 안 했음. v42 영역 sync state 영역 false
+      // (또는 worker desync) 시 강제 re-sync 호출.
+      if (kind === 'orientation-hand' && !this._handSyncedWithWorker) {
+        void this._syncHandWithWorker();
+      }
+      return;
+    }
     while (this.tickInFlight) {
       await new Promise((r) => setTimeout(r, 5));
     }

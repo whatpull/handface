@@ -202,10 +202,6 @@ describe('v44 production reload race condition — v42/v43 정합 검증', () =>
   it('R6: 정합성 종합 — 100 trigger sustained 영역 reinforce 영역 실패 0 보장', async () => {
     setupLearnedData(3);
     const live = new LiveSnn();
-    const liveAny = live as unknown as {
-      _handSyncedWithWorker: boolean;
-      substrateKind: string;
-    };
 
     // Cold start path.
     await live.setSubstrate('orientation-hand');

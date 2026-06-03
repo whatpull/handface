@@ -179,10 +179,6 @@ describe('v42 CRITICAL — setSubstrate(hand) idempotent sync', () => {
     ]));
 
     const live = new LiveSnn();
-    const liveAny = live as unknown as {
-      _handSyncedWithWorker: boolean;
-      substrateKind: string;
-    };
 
     // 1st: grid → hand.
     await live.setSubstrate('orientation-hand');

@@ -3060,6 +3060,22 @@
 .snn-camera-clusters-count-ok { color: rgba(255, 255, 255, 0.55); }
 .snn-camera-clusters-count-near { color: #fbbf24; font-weight: 600; }
 .snn-camera-clusters-count-full { color: #fca5a5; font-weight: 700; }
+/* v46 — capacity dot bar (19 자세 영역 visual progress). */
+.snn-camera-clusters-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.snn-camera-clusters-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.10);
+}
+.snn-camera-clusters-dot-filled.snn-camera-clusters-dot-ok { background: #93c5fd; }
+.snn-camera-clusters-dot-filled.snn-camera-clusters-dot-near { background: #fbbf24; }
+.snn-camera-clusters-dot-filled.snn-camera-clusters-dot-full { background: #fca5a5; }
 .snn-camera-clusters-dragover {
   outline: 2px dashed #93c5fd;
   outline-offset: -4px;

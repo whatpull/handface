@@ -614,9 +614,20 @@ export default function CameraInput() {
               const max = 19;
               const ratioClass = clusterCount >= max ? 'full' : clusterCount >= max * 0.75 ? 'near' : 'ok';
               return (
-                <span className={`snn-camera-clusters-count snn-camera-clusters-count-${ratioClass}`}>
-                  {' '}({clusterCount}/{max})
-                </span>
+                <>
+                  <span className={`snn-camera-clusters-count snn-camera-clusters-count-${ratioClass}`}>
+                    {' '}({clusterCount}/{max})
+                  </span>
+                  {/* v46: dot bar — 19 자세 영역 직관 visual progress. */}
+                  <span className="snn-camera-clusters-dots" title={`${clusterCount}/${max} 자세 학습됨`}>
+                    {Array.from({ length: max }, (_, i) => (
+                      <span
+                        key={i}
+                        className={`snn-camera-clusters-dot${i < clusterCount ? ` snn-camera-clusters-dot-filled snn-camera-clusters-dot-${ratioClass}` : ''}`}
+                      />
+                    ))}
+                  </span>
+                </>
               );
             })()}
           </span>

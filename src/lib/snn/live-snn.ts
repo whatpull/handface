@@ -97,6 +97,33 @@ function clearTrialCount(kind: SubstrateKind): void {
   } catch { /* noop */ }
 }
 
+// Phase 3.9 v5 (2026-06-03): hand SNN running mean persist 도 동일 패턴.
+const HAND_MEAN_KEY = 'handface.live-snn.hand-feat-mean.v1';
+function loadHandMean(): { mean: number[]; count: number } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(HAND_MEAN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { mean: number[]; count: number };
+    if (Array.isArray(parsed.mean) && parsed.mean.length === 95 && typeof parsed.count === 'number') {
+      return parsed;
+    }
+  } catch { /* corrupt — silent reset */ }
+  return null;
+}
+function saveHandMean(mean: number[], count: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(HAND_MEAN_KEY, JSON.stringify({ mean, count }));
+  } catch { /* quota — silent */ }
+}
+function clearHandMean(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(HAND_MEAN_KEY);
+  } catch { /* noop */ }
+}
+
 // P215b (2026-05-19) — 학습 시 노이즈 augmentation 영역 노이즈 견고성 회복.
 // reinforce 30 frame 영역 후반 절반 영역 ±amount 범위 영역 작은 노이즈 영역 주입
 // → cluster receptive field 영역 자연 확장 (P215a Hamming gate 영역 너무 엄격한
@@ -242,6 +269,15 @@ export class LiveSnn {
   //   double-increment 회피 영역 본 Set 영역 catch — finally commit 시점 영역
   //   member check + skip + clear.
   private _forcedExactIncrementedClusters: Set<number> = new Set();
+  // Phase 3.9 v5 (2026-06-03): hand SNN incremental mean-subtracted top-K.
+  // encoder.ts:237 의 documented 결함 — plain top-K 가 magnitude-dominant
+  // features (palm size, wrist-tip distance) 를 모든 자세에서 동일 선택 →
+  // cluster 간 discrimination 0 → false-positive matching. fix: 누적된 모든
+  // 학습 자세의 평균 feature 를 빼고 |residual| 상위 K=5 선택. 이렇게 하면
+  // 각 cluster 의 template = "이 자세만 특별히 활성/비활성 되는 features".
+  // batch 가 아닌 incremental — 학습할 때마다 mean 업데이트.
+  private _handFeatRunningMean: number[] | null = null; // 95-dim
+  private _handFeatSampleCount: number = 0;
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation-5x5) / CAMERA input (gesture) 가 별도 회로 정합.
   // Phase 2A.1 (2026-05-31): default 'orientation' → 'orientation-5x5'.
@@ -293,6 +329,13 @@ export class LiveSnn {
     // UI / engine 모두 6×6 동기화.
     this.substrateKind = 'orientation-6x6';
     this.trialCount = loadTrialCount(this.substrateKind);
+    // Phase 3.9 v5: hand SNN running mean 복원 — page reload 후 discriminative
+    // top-K 가 처음 학습부터 의미 있게 동작.
+    const restoredMean = loadHandMean();
+    if (restoredMean) {
+      this._handFeatRunningMean = restoredMean.mean.slice();
+      this._handFeatSampleCount = restoredMean.count;
+    }
     // input-mode event listener — NodeInput tab change 시 emit.
     //   mode='camera' → substrate='orientation-hand'  (Phase 3.3, n16_hand 75-dim)
     //   mode='grid'   → substrate='orientation-6x6'   (Phase 2A.2, n15_extended 72-dim)
@@ -410,6 +453,10 @@ export class LiveSnn {
     // 사용자 catch 2026-05-11 (cluster-evict-hydrate-fix): 학습 reset 영역
     // localStorage trialCount 영역 wipe — fresh trial counter mandatory.
     clearTrialCount(this.substrateKind);
+    // Phase 3.9 v5: hand running mean 도 wipe (fresh discrimination state).
+    this._handFeatRunningMean = null;
+    this._handFeatSampleCount = 0;
+    clearHandMean();
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
@@ -1231,33 +1278,40 @@ export class LiveSnn {
         const feat32 = dispatchFeature(pattern);
         const isHandSubstrate = this.substrateKind === 'orientation-hand';
         if (isHandSubstrate) {
-          // Phase 3.9 v2 fix (2026-06-03, 사용자 catch 재시도):
-          // 직전 commit 6d05ea1 은 selectTopKActive(K=5) 만 적용 → encoder.ts:237-256
-          // "Plain top-K 결함" 직격 (palm-size / wrist-tip distance 같은 magnitude-dominant
-          // features 가 모든 자세에서 동일 top-K 차지 → cluster 0,1 가 동일 [84,85,86,87,88]).
-          // 본 v2 정정: existing claims 를 query 한 뒤 UNCLAIMED features 중 top-K=5 선택
-          // → 자동 disjoint 보장 (worker forceDisjoint fallback 불필요).
+          // Phase 3.9 v5 (2026-06-03): incremental mean-subtracted top-K +
+          // unclaimed filter. encoder.ts:237-256 의 documented 해법:
+          //   각 자세의 "이 자세만 특별히 활성/비활성 되는 features" = top-K by
+          //   |feat - runningMean|. batch 가 아닌 incremental — 학습 누적된
+          //   모든 trigger 의 평균을 빼고 top-K. 첫 cluster 는 mean 없으므로
+          //   plain top-K. 추가로 forceDisjoint 위해 claimed features 제외.
           void (async () => {
             try {
               const usage = await root.client.clusterPoolUsage();
               const claimed = new Set<number>();
               for (const c of usage.perCluster) for (const i of c.activeInputs) claimed.add(i);
-              const pairs: Array<{ idx: number; val: number }> = [];
-              for (let i = 0; i < feat32.length; i += 1) pairs.push({ idx: i, val: feat32[i] });
-              pairs.sort((a, b) => b.val - a.val);
+              const mean = this._handFeatRunningMean;
+              const useMeanSubtracted = mean !== null && this._handFeatSampleCount > 0;
+              const pairs: Array<{ idx: number; score: number }> = [];
+              for (let i = 0; i < feat32.length; i += 1) {
+                const score = useMeanSubtracted
+                  ? Math.abs(feat32[i] - mean![i])  // residual magnitude
+                  : feat32[i];                       // plain magnitude (first cluster)
+                pairs.push({ idx: i, score });
+              }
+              pairs.sort((a, b) => b.score - a.score);
               const activeInputs: number[] = [];
               for (const p of pairs) {
                 if (activeInputs.length >= HAND_SPARSE_TOP_K_DEFAULT) break;
                 if (!claimed.has(p.idx)) activeInputs.push(p.idx);
               }
               if (activeInputs.length === 0) {
-                // 모든 features 가 이미 claimed — 95-dim 전부 소진된 극단 case.
-                // Plain top-K fallback (기존 cluster 와 overlap 감수).
                 const fallback = selectTopKActive(feat32, HAND_SPARSE_TOP_K_DEFAULT);
                 if (fallback.length > 0) void this.runAutoLearnLoop(payload.trialToken, fallback);
                 return;
               }
               activeInputs.sort((a, b) => a - b);
+              // 학습 시작 직후 running mean update (Welford-style incremental).
+              this._updateHandFeatMean(feat32);
               void this.runAutoLearnLoop(payload.trialToken, activeInputs);
             } catch (e) {
               console.warn('[LiveSnn] hand-disjoint top-K query failed:', e);
@@ -1299,6 +1353,28 @@ export class LiveSnn {
    * batch 영역 frame count 정합 (단일 cluster 영역 weight 수렴 영역 충분).
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
+  /**
+   * Phase 3.9 v5 (2026-06-03): Welford-style incremental mean update for hand
+   * SNN running mean. 호출 시 sampleCount += 1, mean += (x - mean) / count.
+   * 학습 완료된 자세들의 평균만 누적 — vigilance pass (familiar) 시는 update
+   * 안 함 (familiar 자세의 평균 dominance 회피).
+   */
+  private _updateHandFeatMean(feat: number[]): void {
+    if (feat.length !== 95) return;
+    if (this._handFeatRunningMean === null) {
+      this._handFeatRunningMean = feat.slice();
+      this._handFeatSampleCount = 1;
+    } else {
+      this._handFeatSampleCount += 1;
+      const n = this._handFeatSampleCount;
+      const mean = this._handFeatRunningMean;
+      for (let i = 0; i < 95; i += 1) {
+        mean[i] += (feat[i] - mean[i]) / n;
+      }
+    }
+    saveHandMean(this._handFeatRunningMean, this._handFeatSampleCount);
+  }
+
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {
     // Fix 1 (2026-05-15): MAX_CLUSTERS hard limit — expandCluster 호출 전
     // 현재 exemplar cluster 수 확인. 상한 이상이면 spawn 차단 (toast 알림).

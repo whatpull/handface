@@ -741,8 +741,10 @@ export default function CameraInput() {
               })
               .map(([outKey, ex]) => {
                 const clusterId = parseClusterId(outKey);
+                // v56: 현재 winner cluster row 영역 highlight (사용자 catch).
+                const isWinner = winnerCluster !== null && winnerCluster === Number(clusterId);
                 return (
-                  <li key={outKey} className="snn-camera-cluster-row">
+                  <li key={outKey} className={`snn-camera-cluster-row${isWinner ? ' snn-camera-cluster-row-winner' : ''}`}>
                     <span className="snn-camera-cluster-id">cluster {clusterId}</span>
                     <span className="snn-camera-cluster-label">
                       {ex.label ?? <em>이름 없음</em>}

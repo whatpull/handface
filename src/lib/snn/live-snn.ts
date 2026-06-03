@@ -995,19 +995,34 @@ export class LiveSnn {
       //   일부 빠뜨림 또는 완전 다른 cells 영역 그림 → 신규 패턴 의도 신호.
       //   dialog message 영역 subset 정책 반영 영역 사용자 mental model 영역
       //   "왜 같은 패턴인데 dialog 가?" 영역 영역 명확 catch.
+      // Phase 3.9 (2026-06-03): substrate-aware dialog 정정.
+      //   - hand 영역 95-dim, "cells 영역 그렸다면" 문구 영역 grid 전용 부적합.
+      //   - feature count 영역 substrate 별 (orientation-6x6=72 / hand=95).
+      const isHand = this.substrateKind === 'orientation-hand';
+      const totalFeat = isHand ? 95 : 72;
+      const message = isHand
+        ? `이전 학습된 hand cluster 들과 비교했을 때 이 자세는:\n` +
+          `  • cluster 의 활성 feature 중 일부만 활성화\n` +
+          `  • 또는 완전 다른 feature set 으로 매칭\n\n` +
+          `(참고: 이전 cluster 의 활성 features 를 모두 포함하면서 추가 features 가 있다면 ` +
+          `같은 자세로 인식되어 이 dialog 가 표시되지 않습니다.)\n\n` +
+          `현재 cluster pool 의 features 가 가득 차 있습니다 (${r.claimedSize ?? '?'}/${totalFeat} features). ` +
+          `이대로 spawn 시 새 cluster 가 이전 cluster 와 features overlap 으로 ` +
+          `구분 정확도 저하 가능.\n\n` +
+          `선택:`
+        : `이전 학습된 cluster 들과 비교했을 때 이 패턴은:\n` +
+          `  • cluster cells 의 일부 빠뜨림\n` +
+          `  • 또는 완전 다른 cells 로 그림\n\n` +
+          `(참고: 이전 cluster cells 를 모두 포함 + 추가 cells 로 그렸다면 ` +
+          `같은 패턴으로 인식되어 이 dialog 가 표시되지 않습니다.)\n\n` +
+          `현재 cluster pool 이 이미 가득 차 있습니다 (${r.claimedSize ?? '?'}/${totalFeat} features). ` +
+          `이대로 spawn 시 새 cluster 가 이전 cluster weights 와 overlap 으로 ` +
+          `구분 정확도 저하 가능.\n\n` +
+          `선택:`;
       showDialog({
         kind: 'confirm',
         title: '신규 패턴 인식 — cluster pool 고갈',
-        message:
-          `이전 학습된 cluster 들과 비교했을 때 이 패턴은:\n` +
-          `  • cluster cells 영역 일부 빠뜨림\n` +
-          `  • 또는 완전 다른 cells 영역 그림\n\n` +
-          `(참고: 이전 cluster cells 영역 모두 포함 + 추가 cells 영역 그렸다면 ` +
-          `같은 패턴 영역 인식되어 이 dialog 영역 표시되지 않습니다.)\n\n` +
-          `현재 cluster pool 영역 이미 가득 차 있습니다 (${r.claimedSize ?? '?'}/72 features). ` +
-          `이대로 spawn 시 새 cluster 가 이전 cluster weights 영역 overlap 영역 ` +
-          `구분 정확도 영역 저하 가능.\n\n` +
-          `선택:`,
+        message,
         confirmLabel: '학습 reset 후 처음부터',
         cancelLabel: '이대로 계속 (overlap 감수 spawn)',
         onConfirm: () => {

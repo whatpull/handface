@@ -47,7 +47,9 @@ jobs:
           path: tests/integration/measurements/
           retention-days: 90
 
-      # GitHub Actions Summary 영역 측정 결과 표 영역 자동 게시.
+      # GitHub Actions Summary — 측정 결과 자동 게시 (compact metadata only).
+      # 2026-06-03 fix: 직전 전체 JSON inline 으로 1024k step-summary 한도 초과 → 3일 연속 실패.
+      # 본 정정: scenario / verdict / 핵심 result 만 추출. 전체 JSON 은 artifact 에 보존.
       - name: Publish R&D measurement summary
         if: always()
         run: |
@@ -56,13 +58,29 @@ jobs:
           echo "자동 측정 mandate (2026-05-25): 사용자 PC 없이 CI 에서 측정 수집." >> $GITHUB_STEP_SUMMARY
           echo "주기 (2026-05-31 분리): nightly cron KST 04:00 + workflow_dispatch." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          file_count=$(ls -1 tests/integration/measurements/*.json 2>/dev/null | wc -l)
+          echo "총 ${file_count} 개 측정 파일 — full JSON 은 artifact 'snn-rd-measurements-${{ github.run_id }}' 에 보존." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| scenario | verdict / 핵심 결과 |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           for f in tests/integration/measurements/*.json; do
             if [ -f "$f" ]; then
               name=$(basename "$f" .json)
-              echo "### \`$name\`" >> $GITHUB_STEP_SUMMARY
-              echo '```json' >> $GITHUB_STEP_SUMMARY
-              cat "$f" >> $GITHUB_STEP_SUMMARY
-              echo '' >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
+              # scenario / verdict / 핵심 result 추출 — jq 가 없을 수 있으니 grep 기반 fallback.
+              verdict=$(node -e "
+                try {
+                  const j = JSON.parse(require('fs').readFileSync('$f', 'utf8'));
+                  const parts = [];
+                  if (j.verdict) parts.push(String(j.verdict).replace(/\|/g, '\\\\|').slice(0, 200));
+                  if (j.result && typeof j.result === 'object') {
+                    if (typeof j.result.totalAccuracy === 'number') parts.push('acc=' + (j.result.totalAccuracy * 100).toFixed(0) + '%');
+                    if (typeof j.result.finalAccuracy === 'number') parts.push('acc=' + (j.result.finalAccuracy * 100).toFixed(0) + '%');
+                  }
+                  if (typeof j.finalAccuracy === 'number') parts.push('acc=' + (j.finalAccuracy * 100).toFixed(0) + '%');
+                  if (typeof j.totalAccuracy === 'number') parts.push('acc=' + (j.totalAccuracy * 100).toFixed(0) + '%');
+                  process.stdout.write(parts.join(' / ') || '(no verdict / result)');
+                } catch (e) { process.stdout.write('(parse error)'); }
+              ")
+              echo "| \`$name\` | $verdict |" >> $GITHUB_STEP_SUMMARY
             fi
           done

@@ -16,7 +16,7 @@
 //   ↓
 //   "이 자세 학습" button (Phase 3.4 부터 활성화)
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   attachWebcamToVideo,
   createHandLandmarker,
@@ -339,6 +339,45 @@ export default function CameraInput() {
     });
   }, []);
 
+  // Phase 3.9 v35 (2026-06-03): drag-drop import — UX 보완 (file picker 외).
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.json')) {
+      showToast({ kind: 'error', message: 'JSON 파일만 지원됩니다.' });
+      return;
+    }
+    showDialog({
+      kind: 'confirm',
+      title: '학습 데이터 복원',
+      message: `"${file.name}" 파일에서 학습 데이터를 복원합니다. 현재 학습 데이터는 덮어쓰기 됩니다.`,
+      confirmLabel: '복원',
+      cancelLabel: '취소',
+      onConfirm: () => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const text = String(reader.result);
+          const { importHandLearningFromJSON } = await import('@/lib/snn/hand-learning-export');
+          const result = importHandLearningFromJSON(text);
+          if (!result.ok) {
+            showToast({ kind: 'error', message: result.message });
+            return;
+          }
+          showToast({
+            kind: 'success',
+            message: `${result.message} — 새로고침 후 반영됩니다.`,
+          });
+          for (const w of result.warnings) console.warn('[hand-import]', w);
+        };
+        reader.onerror = () => showToast({ kind: 'error', message: '파일 읽기 실패' });
+        reader.readAsText(file);
+      },
+    });
+  }, []);
+
   // Phase 3.9 v33 (2026-06-03): per-cluster 삭제 — 19 자세 도달 시 일부만 지우기.
   const handleDeleteCluster = useCallback((clusterId: number, label: string | null): void => {
     const displayName = label ?? `cluster ${clusterId} (이름 없음)`;
@@ -468,9 +507,27 @@ export default function CameraInput() {
         })()}
       </div>
 
-      <div className="snn-camera-clusters">
+      <div
+        className={`snn-camera-clusters${isDragOver ? ' snn-camera-clusters-dragover' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleDrop}
+      >
         <div className="snn-camera-clusters-header">
-          <span className="snn-camera-clusters-title">학습된 제스처</span>
+          <span className="snn-camera-clusters-title">
+            학습된 제스처
+            {(() => {
+              const clusterCount = new Set(Object.keys(exemplars).map(parseClusterId)).size;
+              if (clusterCount === 0) return null;
+              const max = 19;
+              const ratioClass = clusterCount >= max ? 'full' : clusterCount >= max * 0.75 ? 'near' : 'ok';
+              return (
+                <span className={`snn-camera-clusters-count snn-camera-clusters-count-${ratioClass}`}>
+                  {' '}({clusterCount}/{max})
+                </span>
+              );
+            })()}
+          </span>
           <div className="snn-camera-clusters-actions">
             <button
               type="button"

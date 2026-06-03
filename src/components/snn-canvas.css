@@ -2979,3 +2979,28 @@
 .snn-camera-cluster-delete-btn:hover {
   background: rgba(248, 113, 113, 0.30);
 }
+
+/* v35 — cluster count badge (N/19) + drag-drop import. */
+.snn-camera-clusters-count {
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.snn-camera-clusters-count-ok { color: rgba(255, 255, 255, 0.55); }
+.snn-camera-clusters-count-near { color: #fbbf24; font-weight: 600; }
+.snn-camera-clusters-count-full { color: #fca5a5; font-weight: 700; }
+.snn-camera-clusters-dragover {
+  outline: 2px dashed #93c5fd;
+  outline-offset: -4px;
+  background: rgba(147, 197, 253, 0.05);
+  border-radius: 6px;
+}
+.snn-camera-clusters-dragover::after {
+  content: '여기에 JSON 파일 놓기 — 복원';
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: #93c5fd;
+  padding: 8px 0 0;
+  font-weight: 600;
+}

@@ -1,0 +1,43 @@
+{
+  "scenario": "phase-3-v36-sustained-stress",
+  "timestamp": "2026-06-03T23:50:00Z",
+  "version": "v34 log throttle + v27 fallback + v26 sync",
+  "configuration": {
+    "cycles": 250,
+    "posesPerCycle": 4,
+    "totalTriggers": 1000,
+    "jitterSigma": 0.003
+  },
+  "triggers": {
+    "total": 1000,
+    "spawns": 2,
+    "matches": 748,
+    "weakMatches": 250,
+    "finalClusters": 2
+  },
+  "per_pose_match": {
+    "open_palm": 249,
+    "closed_fist": 0,
+    "thumbs_up": 249,
+    "peace_sign": 250
+  },
+  "drift": {
+    "firstHalfMean": 0.9683390627721884,
+    "secondHalfMean": 0.968535173427916,
+    "delta": 0.00019611065572755493
+  },
+  "reinforce": {
+    "success": 1118,
+    "failure": 0
+  },
+  "log_throttle": {
+    "actualLines": 752,
+    "legacyLines": 2000,
+    "ratio": 2.7
+  },
+  "localStorage": {
+    "featureBytes": 3646,
+    "kb": 3.6
+  },
+  "verdict": "✓ 1000 trigger sustained 정상"
+}

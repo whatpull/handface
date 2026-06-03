@@ -211,6 +211,18 @@ const MIN_NOVEL_HAMMING_BITS = 1;
 // 직전 silent default catch (exhaustive switch 영역 _exhaustive: never) 영역
 // 정합 catch 영역 진입 영역 explicit set 영역 reject — hostile / typo'd type
 // 영역 catch 영역 silent 처리 0.
+// VIG-DIAG dev-mode flag (2026-06-03):
+//   production default: silent. dev tools console 영역
+//     `globalThis.__HANDFACE_VIG_DIAG = true` 영역 활성화.
+//   vigilance miss 시점만 진단 정보 출력 (정상 reinforce 영역 silent).
+function isVigDiagEnabled(): boolean {
+  try {
+    return (globalThis as unknown as { __HANDFACE_VIG_DIAG?: boolean }).__HANDFACE_VIG_DIAG === true;
+  } catch {
+    return false;
+  }
+}
+
 const ALLOWED_REQUEST_TYPES: ReadonlySet<string> = new Set([
   'build',
   'restoreSnapshot',
@@ -924,10 +936,13 @@ export class SNNWorkerCore {
         // binary equality — I == T (set 영역 정확 일치) → 1.0, 아니면 0.0.
         // 사용자 명시 "조금이라도 다르면 다른 패턴" + "완벽 일치" 정합.
         inputMatch = computeExactInputMatch(intersection, inputSize, templateSize);
-        // VIG-DIAG (2026-06-01, 06-03 cleanup) — vigilance miss 시점만 출력.
-        // 정상 case (exact match / subset 인식) 영역 silent — production 영역
-        // 영역 출력 noise 회피. miss 시점 영역 사용자 catch 영역 정보 영역.
-        if (inputMatch === 0) {
+        // VIG-DIAG (2026-06-01 → 06-03 dev-mode flag):
+        //   vigilance miss 시점만 출력 + dev-mode flag 적용.
+        //   production default: silent (`globalThis.__HANDFACE_VIG_DIAG` 영역
+        //   미설정 시 출력 안 함).
+        //   사용자가 dev tools console 영역 `globalThis.__HANDFACE_VIG_DIAG = true`
+        //   영역 활성화 시 vigilance miss 시점 영역 진단 정보 출력.
+        if (inputMatch === 0 && isVigDiagEnabled()) {
           const patternOnly: number[] = [];
           const templateOnly: number[] = [];
           const templateSet = new Set(templateInputs);

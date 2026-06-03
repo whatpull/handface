@@ -320,6 +320,50 @@ User-perceived behavior:
 
 ---
 
+## 12. Phase 2A 통합 closure (2026-06-03)
+
+Phase 2A.1 (5×5) → Phase 2A.2 (6×6) → subset 인식 vigilance fix 영역 통합 closure:
+
+### 12.1 Phase 2A.2 production 적용 + 사용자 검증
+
+직전 Phase 2A.1 closure (commit 8da3cbe, 90% accuracy) 후 사용자 production 영역
+5번째 패턴 학습 시도 시 forceDisjoint fallback 영역 dialog 반복 catch.
+
+3 commit fix chain 영역 사용자 self-verify 20/20 (100%) 달성:
+
+| commit | 기여 |
+|--------|------|
+| `4174898` | Phase 2A.2 substrate 6×6 production 적용 |
+| `4deb9bc` | rawActiveInputs 별도 store (forceDisjoint 전 candidate) |
+| `b90c103` | subset 인식 (T ⊆ I → vigilance pass) |
+| `01168ea` | dialog 메시지 정리 + production effect 측정 (5 시나리오) |
+
+### 12.2 Hypothesis 최종 판정 (Phase 2A.2 + subset 인식 적용 후)
+
+| H | Phase 2A.1 (5×5) | Phase 2A.2 (6×6) | + subset 인식 |
+|---|------------------|------------------|---------------|
+| H2 sub-pool exhaustion | ↓ 42% below Guide | ✓ 충분 capacity | ✓ |
+| H3 catastrophic forgetting | ✓ 90% | ✅ 100% measurement | ✅ **100% production** |
+| H4 sparse code overlap | ✓ 0.231 | ✅ Jaccard 0 | ✅ |
+| H5 vigilance 사용자 mental model | strict 한계 | strict 한계 | ✅ **subset 인식 정합** |
+
+### 12.3 production 검증 결과 (사용자 self-verify)
+
+- 4 패턴 학습 후 self-verify: **20/20 correct (100%)**
+- forceDisjoint fallback 발생 안 함
+- VIG-DIAG (commit 533f362 / dev-mode flag 06-03) 로그 영역 모든 cluster
+  `inputMatch=1.000` 확인
+
+### 12.4 Final closure mark
+
+Phase 2A 전체 cycle 완료. 사용자 production 영역 정상 학습 + 인식 가능 상태.
+다음 cycle 후보 (잔존 backlog):
+- 6×6 N=7/8 production scaling 측정
+- Hand SNN MediaPipe 통합 (별도 큰 cycle)
+
+---
+
 **Generated**: 2026-05-31
 **Author**: handface project R&D team
 **Closure**: 2026-05-31 (commit 8da3cbe — H3 mitigation 90% accuracy)
+**Final Closure**: 2026-06-03 (commit b90c103 + 01168ea — Phase 2A.2 + subset 인식, production self-verify 100%)

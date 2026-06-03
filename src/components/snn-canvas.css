@@ -2963,3 +2963,19 @@
 .snn-camera-cluster-edit-btn:hover {
   background: rgba(124, 58, 237, 0.35);
 }
+/* v33 — per-cluster 삭제 버튼 (19 자세 도달 시 일부만 지우기). */
+.snn-camera-cluster-delete-btn {
+  appearance: none;
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: background 150ms ease;
+}
+.snn-camera-cluster-delete-btn:hover {
+  background: rgba(248, 113, 113, 0.30);
+}

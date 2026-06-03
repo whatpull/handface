@@ -30,6 +30,7 @@ import { getLiveSnn } from '@/lib/snn/live-snn';
 import { purgeAllLearningData } from '@/lib/snn/root-local-snn';
 import {
   loadExemplars,
+  removeClusterExemplar,
   setExemplarLabel,
   subscribeExemplars,
   type OutExemplars,
@@ -338,6 +339,31 @@ export default function CameraInput() {
     });
   }, []);
 
+  // Phase 3.9 v33 (2026-06-03): per-cluster 삭제 — 19 자세 도달 시 일부만 지우기.
+  const handleDeleteCluster = useCallback((clusterId: number, label: string | null): void => {
+    const displayName = label ?? `cluster ${clusterId} (이름 없음)`;
+    showDialog({
+      kind: 'confirm',
+      title: '자세 삭제',
+      message: `"${displayName}" 자세를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+      onConfirm: () => {
+        const live = getLiveSnn();
+        const result = live.deleteHandCluster(clusterId);
+        removeClusterExemplar(clusterId, HAND_SUBSTRATE);
+        if (result.deleted) {
+          showToast({
+            kind: 'success',
+            message: `"${displayName}" 삭제 완료 (남은 자세: ${result.remaining})`,
+          });
+        } else {
+          showToast({ kind: 'info', message: '이미 삭제된 자세입니다.' });
+        }
+      },
+    });
+  }, []);
+
   return (
     <div className="snn-camera-input">
       <div className="snn-camera-preview">
@@ -497,6 +523,14 @@ export default function CameraInput() {
                       onClick={() => handleEditLabel(outKey, ex.label)}
                     >
                       이름 편집
+                    </button>
+                    <button
+                      type="button"
+                      className="snn-camera-cluster-delete-btn"
+                      onClick={() => handleDeleteCluster(Number(clusterId), ex.label ?? null)}
+                      title="이 자세만 삭제"
+                    >
+                      삭제
                     </button>
                   </li>
                 );

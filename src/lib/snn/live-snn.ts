@@ -570,6 +570,42 @@ export class LiveSnn {
     // (다음 trigger 영역 ensurePushHandler 영역 정합 path 영역 reuse).
   }
 
+  /**
+   * Phase 3.9 v33 (2026-06-03): 특정 hand cluster 만 삭제.
+   *
+   * 사용자 가치: 19 자세 도달 후 일부 자세만 지우고 새 자세 학습 가능.
+   * 직전 "전체 초기화" 외 옵션 없음 — 19 자세 한계 도달 시 모든 학습 손실 강제.
+   *
+   * 동작:
+   *   1. _handClusterFeatures + _handClusterActiveInputs 에서 cluster 제거
+   *   2. localStorage features + activeInputs persist
+   *   3. _handSyncedWithWorker = false → 다음 substrate switch 시 worker 재sync
+   *      (worker 가 자동으로 새 cluster pool 로 정렬됨)
+   *   4. exemplars 정합은 호출자 (CameraInput) 가 처리 (out-exemplars module)
+   *
+   * 정직 한계:
+   *   - worker IndexedDB 의 SNN weight 는 별도 정합 안 함 — 다음 reset/sync 시
+   *     자동 새로고침. 일부 stale weight 영역 잠시 잔존 가능 (사용자 catch 영향 0).
+   *   - 본 method 영역 hand substrate 한정 — grid 영역 별도 path.
+   */
+  deleteHandCluster(clusterId: number): { deleted: boolean; remaining: number } {
+    if (this.substrateKind !== 'orientation-hand') {
+      return { deleted: false, remaining: this._handClusterFeatures.size };
+    }
+    const hadFeature = this._handClusterFeatures.delete(clusterId);
+    this._handClusterActiveInputs.delete(clusterId);
+    if (hadFeature) {
+      saveHandClusterFeats(this._handClusterFeatures);
+      saveHandClusterActive(this._handClusterActiveInputs);
+      // 다음 sync 시 worker 재정합 — 다른 cluster id 도 worker 와 desync 가능
+      // (예: cluster 0/1/2 중 1 삭제 → worker 는 0/1/2 보유, LiveSnn 0/2 보유).
+      // 다음 substrate switch 시 _syncHandWithWorker 가 expandCluster 호출하여
+      // worker 새로 정합.
+      this._handSyncedWithWorker = false;
+    }
+    return { deleted: hadFeature, remaining: this._handClusterFeatures.size };
+  }
+
   // P218 training noise seed setter — research module 영역 reproducibility.
   // null 영역 호출 영역 backward compat (Math.random) 영역 복원. 정수 영역 호출
   // 영역 SeededRandom 영역 next 다음 autoLearnLoop 영역 noise sampling 결정.

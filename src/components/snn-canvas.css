@@ -2891,6 +2891,25 @@
 .snn-camera-clusters-purge-btn:hover {
   background: rgba(248, 113, 113, 0.25);
 }
+/* v32 — export/import buttons (backup / restore). */
+.snn-camera-clusters-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.snn-camera-clusters-action-btn {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  background: rgba(147, 197, 253, 0.10);
+  color: #93c5fd;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.snn-camera-clusters-action-btn:hover {
+  background: rgba(147, 197, 253, 0.20);
+}
 .snn-camera-clusters-empty {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.40);

@@ -35,6 +35,8 @@ import {
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import { showDialog } from '@/components/ui/Dialog';
+import { showToast } from '@/components/ui/Toast';
+import { downloadHandLearning, triggerImportDialog } from '@/lib/snn/hand-learning-export';
 import { usePipelineEvents } from './PipelineEventContext';
 
 const HAND_SUBSTRATE = 'orientation-hand' as const;
@@ -283,6 +285,43 @@ export default function CameraInput() {
     });
   }, []);
 
+  // Phase 3.9 v32 (2026-06-03): export / import 학습 데이터.
+  const handleExport = useCallback((): void => {
+    const result = downloadHandLearning();
+    if (result.clusterCount === 0) {
+      showToast({ kind: 'info', message: '학습 데이터가 비어있습니다 — 먼저 자세를 학습하세요.' });
+      return;
+    }
+    showToast({
+      kind: 'success',
+      message: `백업 완료: ${result.clusterCount} 자세 (${(result.bytes / 1024).toFixed(1)} KB)`,
+    });
+  }, []);
+
+  const handleImport = useCallback((): void => {
+    showDialog({
+      kind: 'confirm',
+      title: '학습 데이터 복원',
+      message: '백업 JSON 파일을 선택하세요. 현재 학습 데이터는 덮어쓰기 됩니다. 복원 후 페이지를 새로고침하면 자동 적용됩니다.',
+      confirmLabel: '파일 선택',
+      cancelLabel: '취소',
+      onConfirm: () => {
+        void triggerImportDialog().then((result) => {
+          if (!result.ok) {
+            showToast({ kind: 'error', message: result.message });
+            return;
+          }
+          const warnText = result.warnings.length > 0 ? ` (경고 ${result.warnings.length}건)` : '';
+          showToast({
+            kind: 'success',
+            message: `${result.message}${warnText} — 새로고침 후 반영됩니다.`,
+          });
+          for (const w of result.warnings) console.warn(`[hand-import]`, w);
+        });
+      },
+    });
+  }, []);
+
   const handleEditLabel = useCallback((outKey: string, currentLabel: string | null): void => {
     showDialog({
       kind: 'input',
@@ -406,16 +445,36 @@ export default function CameraInput() {
       <div className="snn-camera-clusters">
         <div className="snn-camera-clusters-header">
           <span className="snn-camera-clusters-title">학습된 제스처</span>
-          {Object.keys(exemplars).length > 0 && (
+          <div className="snn-camera-clusters-actions">
             <button
               type="button"
-              className="snn-camera-clusters-purge-btn"
-              onClick={handlePurge}
-              title="모든 hand cluster 학습 데이터 삭제"
+              className="snn-camera-clusters-action-btn"
+              onClick={handleImport}
+              title="JSON 백업 파일에서 학습 데이터 복원"
             >
-              전체 초기화
+              복원
             </button>
-          )}
+            {Object.keys(exemplars).length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="snn-camera-clusters-action-btn"
+                  onClick={handleExport}
+                  title="현재 학습된 자세를 JSON 파일로 백업"
+                >
+                  백업
+                </button>
+                <button
+                  type="button"
+                  className="snn-camera-clusters-purge-btn"
+                  onClick={handlePurge}
+                  title="모든 hand cluster 학습 데이터 삭제"
+                >
+                  전체 초기화
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {Object.keys(exemplars).length === 0 ? (
           <small className="snn-camera-clusters-empty">아직 학습된 제스처가 없습니다. 손 자세를 보여주고 &lsquo;이 자세 학습&rsquo; 버튼을 누르세요.</small>

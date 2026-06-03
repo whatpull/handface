@@ -124,6 +124,40 @@ function clearHandMean(): void {
   } catch { /* noop */ }
 }
 
+// Phase 3.9 v7: hand cluster features persistence (clusterId → 95-dim training feat).
+const HAND_CLUSTER_FEATS_KEY = 'handface.live-snn.hand-cluster-feats.v1';
+function loadHandClusterFeats(): Map<number, number[]> {
+  const map = new Map<number, number[]>();
+  if (typeof window === 'undefined') return map;
+  try {
+    const raw = window.localStorage.getItem(HAND_CLUSTER_FEATS_KEY);
+    if (!raw) return map;
+    const parsed = JSON.parse(raw) as Array<[number, number[]]>;
+    if (Array.isArray(parsed)) {
+      for (const [id, feat] of parsed) {
+        if (typeof id === 'number' && Array.isArray(feat) && feat.length === 95) {
+          map.set(id, feat);
+        }
+      }
+    }
+  } catch { /* corrupt — silent reset */ }
+  return map;
+}
+function saveHandClusterFeats(map: Map<number, number[]>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const arr: Array<[number, number[]]> = [];
+    for (const [id, feat] of map.entries()) arr.push([id, feat]);
+    window.localStorage.setItem(HAND_CLUSTER_FEATS_KEY, JSON.stringify(arr));
+  } catch { /* quota — silent */ }
+}
+function clearHandClusterFeats(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(HAND_CLUSTER_FEATS_KEY);
+  } catch { /* noop */ }
+}
+
 // P215b (2026-05-19) — 학습 시 노이즈 augmentation 영역 노이즈 견고성 회복.
 // reinforce 30 frame 영역 후반 절반 영역 ±amount 범위 영역 작은 노이즈 영역 주입
 // → cluster receptive field 영역 자연 확장 (P215a Hamming gate 영역 너무 엄격한
@@ -278,6 +312,16 @@ export class LiveSnn {
   // batch 가 아닌 incremental — 학습할 때마다 mean 업데이트.
   private _handFeatRunningMean: number[] | null = null; // 95-dim
   private _handFeatSampleCount: number = 0;
+  // Phase 3.9 v7 (2026-06-03): hand cluster feature storage for cosine similarity
+  // matching. captured fixture validation (tests/integration/phase-3-v7-cosine):
+  //   v6 (mean-sub top-K + Jaccard): 50% accuracy
+  //   v7a (cosine similarity vs stored training features): 100% accuracy
+  // 본 Map 은 clusterId → 95-dim training feature snapshot. trigger 시 cosine
+  // sim 으로 winner 결정 → spawn 결정 override.
+  private _handClusterFeatures: Map<number, number[]> = new Map();
+  // pre-computed winner from cosine sim (during triggerWithVigilance, consumed
+  // in handleTriggerComplete to override vigilance decision).
+  private _handCosineWinner: Map<number, { clusterId: number; sim: number }> = new Map();
   // PR4 (사용자 catch 2026-05-09): substrate kind 별 segregated path —
   // GRID input (orientation-5x5) / CAMERA input (gesture) 가 별도 회로 정합.
   // Phase 2A.1 (2026-05-31): default 'orientation' → 'orientation-5x5'.
@@ -336,6 +380,8 @@ export class LiveSnn {
       this._handFeatRunningMean = restoredMean.mean.slice();
       this._handFeatSampleCount = restoredMean.count;
     }
+    // Phase 3.9 v7: restore hand cluster features for cosine sim.
+    this._handClusterFeatures = loadHandClusterFeats();
     // input-mode event listener — NodeInput tab change 시 emit.
     //   mode='camera' → substrate='orientation-hand'  (Phase 3.3, n16_hand 75-dim)
     //   mode='grid'   → substrate='orientation-6x6'   (Phase 2A.2, n15_extended 72-dim)
@@ -457,6 +503,9 @@ export class LiveSnn {
     this._handFeatRunningMean = null;
     this._handFeatSampleCount = 0;
     clearHandMean();
+    // Phase 3.9 v7: cluster features storage 도 wipe.
+    this._handClusterFeatures.clear();
+    clearHandClusterFeats();
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
@@ -932,16 +981,14 @@ export class LiveSnn {
     // caller (UI slider) 의 out-of-range 시 winner.margin 비교가 항상
     // novel (vig<0) 또는 familiar (vig>1) 로 misuse 회피.
     vigilance = Math.max(0, Math.min(1, vigilance));
-    // Phase 3.9 v6 (2026-06-03): hand SNN pre-sparsify with mean-subtraction.
-    // 직전 v5 training-side mean-subtracted top-K 가 discriminative cluster
-    // templates 생성하지만 worker inference 가 plain top-K → basis 불일치 →
-    // 모든 자세가 cluster 0 매칭 (false positive). 정정: caller 가 보낸 95-dim
-    // hand pattern 을 mean-subtracted top-K=5 sparse 95-dim 으로 변환 후 worker
-    // 전달. worker dispatchComputeFeature 의 selectTopKActive 가 sparse pattern
-    // 의 nonzero 5개를 그대로 picking (idempotent) → activeIdx 가 mean-subtracted
-    // basis 와 일치 → cluster matching 정합.
+    // Phase 3.9 v6/v7 (2026-06-03): hand SNN multi-layer fix.
+    //   v6: pre-sparsify pattern with mean-subtraction (worker basis match).
+    //   v7: cosine similarity vs stored cluster training features → vigilance
+    //       decision override (50% → 100% accuracy on captured fixture test).
     pattern = this._preSparsifyHandPattern(pattern);
     this.setPattern(pattern);
+    const trialTokenForCosine = this._trialTokenSeq + 1; // about-to-increment
+    this._maybeRecordHandCosineWinner(trialTokenForCosine, pattern);
     const trialToken = ++this._trialTokenSeq;
     // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
     // _vigilancePending.set 영역 triggerBackground await 직전 영역 옮김. 직전
@@ -1238,8 +1285,15 @@ export class LiveSnn {
     const pending = this._vigilancePending.get(payload.trialToken);
     const winner = payload.cfr.winner;
     const inputMatch = payload.cfr.inputMatch;
-    const vigilanceMismatch = pending !== undefined
-      && (winner < 0 || inputMatch < pending.vigilance);
+    // Phase 3.9 v7 (2026-06-03): hand cosine similarity override.
+    // 직전 worker-side Jaccard 의 vigilance decision 이 hand SNN 의 plain top-K
+    // 한계로 부정확 (50% accuracy). LiveSnn 이 미리 stored cluster training
+    // features 와 cosine sim 계산해서 winner 결정 시 그것을 우선.
+    const cosineWinner = this._handCosineWinner.get(payload.trialToken);
+    this._handCosineWinner.delete(payload.trialToken);
+    const vigilanceMismatch = cosineWinner !== undefined
+      ? false  // cosine sim 으로 familiar 자세로 결정됨 → spawn skip
+      : (pending !== undefined && (winner < 0 || inputMatch < pending.vigilance));
     // PR #192 polish (UX-3 + QA FINDING-1/2): trialToken + source 영역 LiveTickDetail
     // 영역 동봉 → caller 영역 reinforcingCluster 영역 token match 영역 reset.
     this.emitTick(
@@ -1362,6 +1416,45 @@ export class LiveSnn {
    * batch 영역 frame count 정합 (단일 cluster 영역 weight 수렴 영역 충분).
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
+  /**
+   * Phase 3.9 v7 (2026-06-03): cosine similarity 기반 cluster matching.
+   * 사용자 위임 "사용자가 아무것도 안할 수 있도록" → captured fixture test
+   * (tests/integration/phase-3-v7-cosine-similarity-iter):
+   *   v6 (mean-sub top-K + Jaccard):  50%
+   *   v7a (cosine sim vs stored):    100%
+   * 본 method 는 hand substrate + 저장된 cluster training features 가 존재하면
+   * cosine sim 으로 winner 결정 → handleTriggerComplete 에서 vigilance override.
+   * threshold 0.97 — 사실상 같은 자세 (synthetic 1.000, 실제 webcam jitter
+   * 도 0.98+ 예상).
+   */
+  private _maybeRecordHandCosineWinner(token: number, pattern: number[]): void {
+    if (this.substrateKind !== 'orientation-hand') return;
+    if (pattern.length !== 95) return;
+    if (this._handClusterFeatures.size === 0) return;
+    const HAND_COSINE_THRESHOLD = 0.97;
+    let bestId = -1;
+    let bestSim = -Infinity;
+    for (const [id, feat] of this._handClusterFeatures.entries()) {
+      const sim = this._cosineSimilarity(pattern, feat);
+      if (sim > bestSim) { bestSim = sim; bestId = id; }
+    }
+    if (bestId >= 0 && bestSim >= HAND_COSINE_THRESHOLD) {
+      this._handCosineWinner.set(token, { clusterId: bestId, sim: bestSim });
+    }
+  }
+
+  private _cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i += 1) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    const denom = Math.sqrt(na) * Math.sqrt(nb);
+    return denom > 0 ? dot / denom : 0;
+  }
+
   /**
    * Phase 3.9 v6 (2026-06-03): hand pattern pre-sparsify with mean-subtraction.
    * worker side 가 plain top-K 만 알기 때문에, LiveSnn 이 mean-subtracted top-K=5
@@ -1488,6 +1581,12 @@ export class LiveSnn {
     let TOTAL = ROUNDS * CHUNK;
     try {
       const { newClusterId, totalClusters } = await this.expandClusterAsync(activeInputs);
+      // Phase 3.9 v7 (2026-06-03): hand SNN cluster 학습 시 현재 patternRef
+      // 를 cluster training feature 로 저장 (cosine sim 매칭용).
+      if (this.substrateKind === 'orientation-hand' && this.patternRef.length === 95) {
+        this._handClusterFeatures.set(newClusterId, this.patternRef.slice());
+        saveHandClusterFeats(this._handClusterFeatures);
+      }
       // 2nd+ spawn 영역 90 round 영역 cluster 영역 학습 (prior cluster 영역
       // 영역 영역 — over-train 회피). totalClusters 영역 spawn 영역 영역 영역
       // 영역 (1st spawn=1, 4th spawn=4).

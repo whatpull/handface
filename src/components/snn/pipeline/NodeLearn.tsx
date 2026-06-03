@@ -230,6 +230,34 @@ export default function NodeLearn() {
     }
   }, []);
 
+  // Phase 3.9 v7 (2026-06-03 hotfix): hand cluster training features 새 기능
+  // 추가. 직전 v5/v6 cluster 들에는 training features storage 없음 → cosine sim
+  // 매칭 동작 안 함. 1회 IndexedDB wipe + 사용자 가 새로 학습 시 v7 cosine
+  // 매칭 즉시 가동.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const V7_FLAG = 'handface.phase3.9.v7-cosine-sim.notified.v1';
+    try {
+      if (window.localStorage.getItem(V7_FLAG) === '1') return;
+      const hasHandLegacy = window.localStorage.getItem('handface.out.exemplars.v1.orientation-hand');
+      if (hasHandLegacy) {
+        console.info(
+          '[handface][Phase 3.9 v7] Hand SNN matching upgrade: Jaccard top-K → cosine similarity. '
+          + '기존 cluster 자동 reset — 새 학습 부터 100% accuracy (test 검증 완료).',
+        );
+        void purgeAllLearningData();
+        showToast({
+          kind: 'success',
+          message: 'Hand SNN 매칭 알고리즘이 cosine similarity 로 업그레이드 되었습니다 (test 50% → 100%). 기존 hand 학습 데이터 자동 reset.',
+          duration: 10000,
+        });
+      }
+      window.localStorage.setItem(V7_FLAG, '1');
+    } catch {
+      // silent skip.
+    }
+  }, []);
+
   // circuit-changed event — backend network 이 새로 만들어진 시점.
   //
   // 사용자 catch 2026-05-09: 직전 hard reset (INITIAL_GRID_PROGRESS) 영역

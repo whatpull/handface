@@ -381,19 +381,26 @@ export default function CameraInput() {
             cosine sim: {handCosineSim.sim.toFixed(3)} · {handCosineSim.strict ? 'MATCH' : handCosineSim.weak ? '~MATCH' : 'NEW'}
           </small>
         )}
-        {handSyncStatus && showSyncPill && (
-          <small className={`snn-camera-sync-msg snn-camera-sync-${handSyncStatus.phase}`}>
-            {handSyncStatus.phase === 'syncing'
-              ? `학습 데이터 sync 중 (${handSyncStatus.restoredFeatures} cluster)`
-              : handSyncStatus.phase === 'done'
-                ? handSyncStatus.syncedToWorker > 0
-                  ? `정상 (${handSyncStatus.syncedToWorker} cluster sync${handSyncStatus.fallbackCount > 0 ? `, ${handSyncStatus.fallbackCount} 복원` : ''})`
-                  : handSyncStatus.restoredFeatures === 0
-                    ? '학습 데이터 없음 — 새 자세 학습 가능'
-                    : '정상'
-                : `sync 실패: ${handSyncStatus.error ?? '알 수 없음'}`}
-          </small>
-        )}
+        {handSyncStatus && showSyncPill && (() => {
+          const isCapacity = handSyncStatus.phase === 'failed' && (handSyncStatus.error?.includes('capacity') ?? false);
+          const pillClass = isCapacity ? 'capacity' : handSyncStatus.phase;
+          const msg = handSyncStatus.phase === 'syncing'
+            ? `학습 데이터 sync 중 (${handSyncStatus.restoredFeatures} cluster)`
+            : handSyncStatus.phase === 'done'
+              ? handSyncStatus.syncedToWorker > 0
+                ? `정상 (${handSyncStatus.syncedToWorker} cluster sync${handSyncStatus.fallbackCount > 0 ? `, ${handSyncStatus.fallbackCount} 복원` : ''})`
+                : handSyncStatus.restoredFeatures === 0
+                  ? '학습 데이터 없음 — 새 자세 학습 가능'
+                  : '정상'
+              : isCapacity
+                ? `최대 ${handSyncStatus.restoredFeatures} 자세 도달 — 기존 자세 삭제 후 추가 가능`
+                : `sync 실패: ${handSyncStatus.error ?? '알 수 없음'}`;
+          return (
+            <small className={`snn-camera-sync-msg snn-camera-sync-${pillClass}`}>
+              {msg}
+            </small>
+          );
+        })()}
       </div>
 
       <div className="snn-camera-clusters">

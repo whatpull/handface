@@ -1780,7 +1780,13 @@ export class LiveSnn {
     // P218 N=3 영역 100%/100%/100% 영역 N=6 영역 100%/67%/100% 영역 — 4×4 N=8
     // 보다 더 큰 capacity 영역 가능 영역 추정. 12 cap 영역 진짜 5×5 ceiling 영역
     // 측정 (50-dim feature space 영역 8 cluster 영역 매우 sparse 영역 use).
-    const MAX_CLUSTERS = this.substrateKind === 'orientation-5x5' ? 12 : 8;
+    // Phase 3.9 v31 (2026-06-03): orientation-hand cap = 19 (v30 measurement
+    // 검증, 95-dim feature × 5 active inputs disjoint 한계). 사용자 학습 19
+    // 자세까지 안전. 직전 8 cap 영역 hand substrate 미정합 — typical user
+    // (8 자세) 충분히 cover 가능했으나 power user 영역 19 까지 확장.
+    const MAX_CLUSTERS =
+      this.substrateKind === 'orientation-hand' ? 19 :
+      this.substrateKind === 'orientation-5x5' ? 12 : 8;
     // P218 (2026-05-24) — training noise RNG. _trainingNoiseSeed null 영역 Math.random
     // (backward compat). 정수 영역 SeededRandom 영역 — reproducibility 보장.
     const trainNoiseRng = this._trainingNoiseSeed !== null
@@ -1795,7 +1801,22 @@ export class LiveSnn {
       }
       if (curCount >= MAX_CLUSTERS) {
         console.warn('[LiveSnn] runAutoLearnLoop: MAX_CLUSTERS reached, spawn blocked.');
-        showToast({ kind: 'error', message: `최대 ${MAX_CLUSTERS}개 패턴 도달 — 패턴을 삭제 후 재학습하세요.` });
+        const msg = this.substrateKind === 'orientation-hand'
+          ? `최대 ${MAX_CLUSTERS} 자세 도달 — 기존 자세를 삭제 후 새 자세를 학습하세요.`
+          : `최대 ${MAX_CLUSTERS}개 패턴 도달 — 패턴을 삭제 후 재학습하세요.`;
+        showToast({ kind: 'error', message: msg });
+        // Phase 3.9 v31: hand capacity event — UI sync pill 가 visibility 표시.
+        if (this.substrateKind === 'orientation-hand') {
+          emitBackendEvent<HandSyncStatusDetail>('hand-sync-status', {
+            phase: 'failed',
+            restoredFeatures: curCount,
+            restoredActiveInputs: this._handClusterActiveInputs.size,
+            syncedToWorker: curCount,
+            fallbackCount: 0,
+            workerInitial: curCount,
+            error: `capacity reached (${MAX_CLUSTERS} 자세)`,
+          });
+        }
         return;
       }
     }

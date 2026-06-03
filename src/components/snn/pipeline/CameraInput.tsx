@@ -1,20 +1,20 @@
 'use client';
 
-// CameraInput — Hand SNN 영역 webcam input + landmark detection 시각화
+// CameraInput — Hand SNN 용 webcam input + landmark detection 시각화
 // (Phase 3.2, 2026-06-03).
 //
 // 정직 한계:
-//   - SSR 영역 webcam / MediaPipe WASM 영역 미지원 → 'use client' mandatory.
-//   - 직전 Phase 3.1 영역 landmarker library setup 완료 — 본 컴포넌트 영역
-//     webcam preview + landmark visualization 영역 시각화.
-//   - 학습 trigger (orientation-hand substrate 영역 영역 영역) 영역 Phase 3.4
-//     영역 영역 — 본 cycle 영역 webcam + landmark 시각화 영역.
-//   - 사용자 webcam permission deny 영역 graceful fallback (안내 message).
+//   - SSR 에서 webcam / MediaPipe WASM 미지원 → 'use client' mandatory.
+//   - Phase 3.1 의 landmarker library setup 위에서 동작 — 본 컴포넌트는
+//     webcam preview + landmark visualization 만 담당.
+//   - 학습 trigger (orientation-hand substrate 와의 wire) 는 Phase 3.4
+//     에서 추가 — 본 cycle 은 webcam + landmark 시각화 까지.
+//   - 사용자 webcam permission deny 시 graceful fallback (안내 message).
 //
 // 사용자 view:
-//   webcam 영역 video preview + 21 landmarks (점 + 영역 영역 영역 연결)
+//   webcam video preview + 21 landmarks (점 + 손가락 연결 선)
 //   ↓
-//   "이 자세 학습" button (Phase 3.4 영역 활성화)
+//   "이 자세 학습" button (Phase 3.4 부터 활성화)
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -43,13 +43,13 @@ type CameraStatus =
   | { kind: 'ready' }
   | { kind: 'error'; message: string };
 
-// 21-keypoint 영역 finger 영역 영역 영역 line 영역 영역 영역 시각화.
+// 21-keypoint 사이의 손가락 연결을 line 으로 시각화.
 const FINGER_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   // Thumb: wrist → CMC → MCP → IP → TIP
   [0, 1], [1, 2], [2, 3], [3, 4],
   // Index: wrist → MCP → PIP → DIP → TIP
   [0, 5], [5, 6], [6, 7], [7, 8],
-  // Middle: MCP → PIP → DIP → TIP (wrist 영역 영역 — 영역 영역 영역 영역 영역)
+  // Middle: MCP → PIP → DIP → TIP (wrist 직결 없음 — index MCP 경유)
   [5, 9], [9, 10], [10, 11], [11, 12],
   // Ring: MCP → PIP → DIP → TIP
   [9, 13], [13, 14], [14, 15], [15, 16],
@@ -66,7 +66,7 @@ export default function CameraInput() {
 
   const [status, setStatus] = useState<CameraStatus>({ kind: 'idle' });
   const [handDetected, setHandDetected] = useState<boolean>(false);
-  // Phase 3.4: 학습 trigger 영역 마지막 landmarks 영역 ref 영역 보존 (button click 시 사용).
+  // Phase 3.4: 학습 trigger 가 마지막 landmarks 를 ref 로 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
   // Phase 3.5: 학습된 hand cluster exemplars + label.
@@ -74,7 +74,7 @@ export default function CameraInput() {
     typeof window === 'undefined' ? {} : loadExemplars(HAND_SUBSTRATE),
   );
 
-  // 영역 frame loop — RAF 영역 영역 frame 영역 landmark detection + canvas 시각화.
+  // 메인 frame loop — RAF 로 frame 마다 landmark detection + canvas 시각화.
   const startDetectionLoop = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -89,7 +89,7 @@ export default function CameraInput() {
       const ctx = c.getContext('2d');
       if (!ctx) return;
 
-      // canvas 영역 video 영역 영역 영역 영역 영역.
+      // canvas 크기를 video 해상도에 맞춤.
       if (c.width !== v.videoWidth || c.height !== v.videoHeight) {
         c.width = v.videoWidth || 640;
         c.height = v.videoHeight || 480;
@@ -101,7 +101,7 @@ export default function CameraInput() {
         lastFrameTsRef.current = ts;
         const result = detectLandmarks(v, landmarker, ts);
 
-        // canvas 영역 영역.
+        // canvas clear.
         ctx.clearRect(0, 0, c.width, c.height);
 
         if (result && result.landmarks.length > 0) {
@@ -157,7 +157,7 @@ export default function CameraInput() {
   }, [startDetectionLoop]);
 
   useEffect(() => {
-    // mount 시 영역 영역 영역 — 사용자 명시 click 영역 활성 (privacy 정합).
+    // mount 시 자동 초기화 없음 — 사용자 명시 click 으로 활성화 (privacy 정합).
     return () => {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
@@ -169,7 +169,7 @@ export default function CameraInput() {
     };
   }, []);
 
-  // Phase 3.5: exemplars 영역 subscribe — 학습 / label 변경 시 자동 갱신.
+  // Phase 3.5: exemplars subscribe — 학습 / label 변경 시 자동 갱신.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const unsubscribe = subscribeExemplars(HAND_SUBSTRATE, (next) => {
@@ -198,7 +198,7 @@ export default function CameraInput() {
     <div className="snn-camera-input">
       <div className="snn-camera-preview">
         <video ref={videoRef} muted playsInline className="snn-camera-video" />
-        <canvas ref={canvasRef} className="snn-camera-overlay" />
+        <canvas ref={canvasRef} className="snn-camera-overlay" />{/* landmark overlay */}
         {status.kind === 'idle' && (
           <div className="snn-camera-overlay-msg">
             <button
@@ -265,7 +265,7 @@ export default function CameraInput() {
                       className="snn-camera-cluster-edit-btn"
                       onClick={() => handleEditLabel(outKey, ex.label)}
                     >
-                      이름 영역
+                      이름 편집
                     </button>
                   </li>
                 );
@@ -277,7 +277,7 @@ export default function CameraInput() {
   );
 }
 
-// outKey 형식: out_{clusterId}_{neuronIndex}. clusterId 영역 추출.
+// outKey 형식: out_{clusterId}_{neuronIndex}. clusterId 만 추출.
 function parseClusterId(outKey: string): string {
   const match = /^out_(\d+)_/.exec(outKey);
   return match ? match[1] : '?';

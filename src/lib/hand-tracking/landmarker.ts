@@ -1,18 +1,18 @@
 // MediaPipe HandLandmarker wrapper (Phase 3.1, 2026-06-03).
 //
-// 영역 (정직 한계):
-//   - webcam 영역 사용자 permission 영역 (mobile / desktop). deny 시 graceful
-//     fallback — error 영역 caller 영역 throw.
-//   - HandLandmarker model 영역 첫 호출 시 약 5-10MB 다운로드 (CDN 영역 fetch).
-//     영역 호출 영역 cache.
-//   - SSR (Next.js server) 영역 영역 — 영역 dynamic import 영역 client side
-//     영역 영역 사용 mandatory.
-//   - jsdom (vitest test env) 영역 webcam / WASM 영역 안 됨 — test 영역
-//     mock 처리 (별도 path).
+// 정직 한계:
+//   - webcam 은 사용자 permission 필수 (mobile / desktop). deny 시 caller 로
+//     error throw — graceful fallback 은 caller 책임.
+//   - HandLandmarker model 은 첫 호출 시 약 5-10MB 다운로드 (CDN fetch),
+//     이후 호출은 module-level cache 사용.
+//   - SSR (Next.js server) 에서는 동작 불가 — caller 가 dynamic import +
+//     client-side mount 시점에 호출 mandatory.
+//   - jsdom (vitest test env) 에서는 webcam / WASM 미지원 — 테스트는 별도
+//     mock path 로 처리.
 //
 // 학술 정합:
 //   - MediaPipe Hands (Google Research 2020) — 21 landmark × 3 coords (x, y, z)
-//     영역 webcam frame 영역 hand pose detection.
+//     를 webcam frame 으로부터 hand pose 로 추출.
 //   - HandLandmarker model: `hand_landmarker.task` (float16 quantized, ~3MB).
 //
 // 사용 path:
@@ -20,14 +20,14 @@
 //   const result = await lm.detect(videoElement);
 //   if (result.landmarks.length > 0) {
 //     const landmarks21 = result.landmarks[0]; // first hand
-//     // → hand-spike-encoder 영역 75-dim feature 영역 변환
+//     // → hand-spike-encoder 로 95-dim feature 변환
 //   }
 //
-// Phase 3.2 영역 NodeInput Camera Mode tab + camera input UI 영역 hookup 영역.
+// Phase 3.2 에서 NodeInput Camera Mode tab + camera input UI 가 hookup.
 
 import type { HandLandmarker, HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
-// MediaPipe CDN — Google 공식 host. version 영역 stable channel.
+// MediaPipe CDN — Google 공식 host. stable channel.
 const MEDIAPIPE_WASM_BASE_URL =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 
@@ -48,7 +48,7 @@ export interface HandLandmark {
 }
 
 export interface HandDetectionResult {
-  landmarks: HandLandmark[][];   // per-hand 21 landmarks (영역 1-2 hands 가능)
+  landmarks: HandLandmark[][];   // per-hand 21 landmarks (1-2 hands 가능)
   handedness: Array<'Left' | 'Right'>;
   timestamp: number;
 }
@@ -57,12 +57,12 @@ let _cachedLandmarker: HandLandmarker | null = null;
 let _initPromise: Promise<HandLandmarker> | null = null;
 
 /**
- * HandLandmarker 영역 영역 instantiate (lazy + cached).
+ * HandLandmarker instance 를 lazy + cached 로 생성.
  *
- * 직전 호출 영역 동일 instance 영역 return. SSR 영역 미사용 — caller 영역
- * client-side mount 영역 영역 영역 호출.
+ * 두 번째 이후 호출은 동일 instance 반환. SSR 에서는 호출 불가 —
+ * caller 가 client-side mount 시점에 호출 mandatory.
  *
- * @throws 모델 다운로드 실패 / WASM init 실패 / browser 영역 영역 영역 환경.
+ * @throws 모델 다운로드 실패 / WASM init 실패 / browser API 미지원 환경.
  */
 export async function createHandLandmarker(): Promise<HandLandmarker> {
   if (_cachedLandmarker) return _cachedLandmarker;
@@ -70,10 +70,10 @@ export async function createHandLandmarker(): Promise<HandLandmarker> {
 
   _initPromise = (async () => {
     if (typeof window === 'undefined') {
-      throw new Error('createHandLandmarker: browser 영역 영역 호출 mandatory (SSR 영역 미지원).');
+      throw new Error('createHandLandmarker: browser 환경에서만 호출 mandatory (SSR 미지원).');
     }
 
-    // Dynamic import — Next.js bundle 영역 client-side chunk 분리.
+    // Dynamic import — Next.js bundle 의 client-side chunk 로 분리.
     const { FilesetResolver, HandLandmarker: HandLandmarkerCtor } = await import(
       '@mediapipe/tasks-vision'
     );
@@ -82,10 +82,10 @@ export async function createHandLandmarker(): Promise<HandLandmarker> {
     const landmarker = await HandLandmarkerCtor.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: HAND_LANDMARKER_MODEL_URL,
-        delegate: 'GPU', // GPU 영역 영역 영역 CPU fallback (MediaPipe 자동 처리)
+        delegate: 'GPU', // GPU 우선, 미지원 시 CPU fallback (MediaPipe 자동 처리)
       },
       runningMode: 'VIDEO',
-      numHands: 1, // Phase 3 영역 첫 영역 1 hand only — 영역 hand multi-tracking 영역 별도 cycle
+      numHands: 1, // Phase 3 첫 cycle 은 1 hand only — multi-hand tracking 은 별도 cycle
       minHandDetectionConfidence: 0.5,
       minHandPresenceConfidence: 0.5,
       minTrackingConfidence: 0.5,
@@ -99,11 +99,11 @@ export async function createHandLandmarker(): Promise<HandLandmarker> {
 }
 
 /**
- * webcam frame 영역 hand landmarks 영역 추출.
+ * webcam frame 에서 hand landmarks 를 추출.
  *
  * @param video HTMLVideoElement (webcam stream attached)
- * @param landmarker createHandLandmarker() 영역 영역 instance
- * @param timestampMs frame timestamp (영역 영역 영역 영역 monotonic increment)
+ * @param landmarker createHandLandmarker() 로 생성된 instance
+ * @param timestampMs frame timestamp (monotonic increment 권장)
  * @returns null if no hand detected, else { landmarks, handedness }
  */
 export function detectLandmarks(
@@ -111,7 +111,7 @@ export function detectLandmarks(
   landmarker: HandLandmarker,
   timestampMs: number,
 ): HandDetectionResult | null {
-  if (video.readyState < 2) return null; // video 영역 영역 영역 영역 — skip
+  if (video.readyState < 2) return null; // video metadata 미준비 — skip
 
   const result: HandLandmarkerResult = landmarker.detectForVideo(video, timestampMs);
 
@@ -130,15 +130,15 @@ export function detectLandmarks(
 }
 
 /**
- * webcam stream 영역 video element 영역 attach.
+ * webcam stream 을 video element 에 attach.
  *
- * 사용자 permission 영역 영역 — deny 시 throw.
+ * 사용자 permission 필수 — deny 시 throw.
  *
- * @throws Permission deny / 영역 device 영역
+ * @throws Permission deny / 사용 가능한 device 없음
  */
 export async function attachWebcamToVideo(video: HTMLVideoElement): Promise<MediaStream> {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-    throw new Error('attachWebcamToVideo: 이 browser 영역 webcam 영역 영역 영역 영역 영역.');
+    throw new Error('attachWebcamToVideo: 이 browser 는 webcam API 를 지원하지 않습니다.');
   }
 
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -156,9 +156,9 @@ export async function attachWebcamToVideo(video: HTMLVideoElement): Promise<Medi
 }
 
 /**
- * 영역 cached HandLandmarker 영역 dispose.
+ * cached HandLandmarker 를 dispose.
  *
- * 영역 substrate 영역 switch 영역 영역 cleanup path 영역 영역 영역.
+ * substrate switch 또는 unmount 시 cleanup path 로 호출.
  */
 export function disposeHandLandmarker(): void {
   if (_cachedLandmarker) {
@@ -169,7 +169,7 @@ export function disposeHandLandmarker(): void {
 }
 
 /**
- * 영역 stream 영역 사용 영역 영역 — webcam stream 영역 video element 영역 영역.
+ * webcam stream 의 track 들을 stop — video element 에서 release.
  */
 export function stopWebcamStream(stream: MediaStream | null): void {
   if (!stream) return;

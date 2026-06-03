@@ -6,10 +6,10 @@
 //   live-snn substrate switch ('orientation-6x6' ↔ 'orientation-hand').
 //
 // 정직 한계:
-//   - CAMERA tab 영역 webcam preview + landmark visualization 영역 (Phase 3.2).
-//   - 학습 trigger (hand landmarks → 75-dim feature 영역 triggerWithVigilance)
-//     영역 Phase 3.4 영역 영역.
-//   - 사용자 webcam permission deny 시 CameraInput 영역 안내 message 영역.
+//   - CAMERA tab 은 webcam preview + landmark visualization 까지만 (Phase 3.2).
+//   - 학습 trigger (hand landmarks → 95-dim feature → triggerWithVigilance)
+//     는 Phase 3.4 부터 추가.
+//   - 사용자 webcam permission deny 시 CameraInput 이 안내 message 표시.
 
 import { useEffect, useState } from 'react';
 import { emitBackendEvent, type InputModeDetail } from '@/lib/backend/events';
@@ -22,16 +22,16 @@ type InputTab = 'grid' | 'camera';
 export default function NodeInput() {
   const [activeTab, setActiveTab] = useState<InputTab>('grid');
 
-  // Phase 3.3 (2026-06-03) — tab change 시 input-mode event 영역 emit.
-  // live-snn 영역 listener 영역 substrate 영역 자동 switch.
+  // Phase 3.3 (2026-06-03) — tab change 시 input-mode event emit.
+  // live-snn 의 listener 가 substrate 를 자동 switch.
   useEffect(() => {
     emitBackendEvent<InputModeDetail>('input-mode', {
       mode: activeTab === 'camera' ? 'camera' : 'grid',
     });
   }, [activeTab]);
 
-  // aria-selected 영역 변수 추출 + boolean type — ESLint jsx-a11y/aria-proptypes
-  // 영역 inline ternary expression catch 회피.
+  // aria-selected 를 변수로 추출 + boolean type — ESLint jsx-a11y/aria-proptypes
+  // 가 inline ternary expression 을 catch 하는 것을 회피.
   const gridSelected: boolean = activeTab === 'grid';
   const cameraSelected: boolean = activeTab === 'camera';
 

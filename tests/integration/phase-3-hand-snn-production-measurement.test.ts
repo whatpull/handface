@@ -7,7 +7,7 @@
 // 본 측정: Phase 3.1~3.5 UI 통합 완료 후 Phase 2A fix chain 적용된 n16_hand
 // substrate production accuracy.
 //
-// Mock 재설계 (hand-snn-cluster-rstdp.test.ts 영역 anatomically realistic appendFinger):
+// Mock 재설계 (hand-snn-cluster-rstdp.test.ts 의 anatomically realistic appendFinger):
 //   - 4 손가락 (MCP/PIP/DIP/TIP) cumulative bend rotation
 //   - curl ∈ {0=straight, 1=fully closed} per finger
 //   - open_palm: 5 fingers all curl=0
@@ -21,10 +21,10 @@
 //   - commit b90c103: subset 인식 (T ⊆ I)
 //   - commit 6e3b574: auto-purge (substrate switch)
 //
-// Inference: honest — noise 추가된 sample 영역 모든 features > 0.3 영역 injection.
-// 직전 hand-snn-cluster-rstdp.test.ts (4/4 = 100%) 영역 oracle inference 사용 —
-// applySparseTopK(fv, topKIndices[g]) 영역 g-indexed → ground truth leak.
-// 본 measurement 영역 honest inference (cluster 영역 모름 → 모든 features 주입).
+// Inference: honest — noise 추가된 sample 의 모든 features > 0.3 을 injection.
+// 직전 hand-snn-cluster-rstdp.test.ts (4/4 = 100%) 는 oracle inference 를 사용 —
+// applySparseTopK(fv, topKIndices[g]) 가 g-indexed → ground truth leak.
+// 본 measurement 는 honest inference (cluster 모름 → 모든 features 주입).
 //
 // 본 file 'measurement' pattern → nightly cron 분류.
 
@@ -65,7 +65,7 @@ class InProcessTransport implements WorkerLike {
   terminate(): void { this.listeners = []; }
 }
 
-// Anatomically realistic appendFinger (hand-snn-cluster-rstdp.test.ts 영역 영역).
+// Anatomically realistic appendFinger (hand-snn-cluster-rstdp.test.ts 와 동일).
 function appendFinger(
   lm: HandLandmark[],
   mcp: { x: number; y: number; z: number },
@@ -135,16 +135,16 @@ const GESTURES = [
   { name: 'peace_sign', make: makePeaceSign },
 ];
 
-// Phase 3.7 fixture loader — 사용자 webcam 영역 record 영역 JSON fixture 영역 load.
-// 형식: { gestures: [{name, frames: [HandLandmark[]]}] }, 각 frame 영역 21 landmarks.
-// HANDFACE_HAND_FIXTURE env var 영역 path 지정. 미존재 시 synthetic mock 영역.
+// Phase 3.7 fixture loader — 사용자 webcam 으로 record 한 JSON fixture 를 load.
+// 형식: { gestures: [{name, frames: [HandLandmark[]]}] }, 각 frame 은 21 landmarks.
+// HANDFACE_HAND_FIXTURE env var 로 path 지정. 미존재 시 synthetic mock 사용.
 function loadFixtureOrSynthetic(): { name: string; landmarks: HandLandmark[] }[] {
   const fixturePath = process.env.HANDFACE_HAND_FIXTURE;
   if (fixturePath && existsSync(fixturePath)) {
     const raw = JSON.parse(readFileSync(fixturePath, 'utf-8')) as {
       gestures: { name: string; frames: HandLandmark[][] }[];
     };
-    // 각 gesture 영역 frames 영역 평균 landmark 영역 영역 (representative pose).
+    // 각 gesture 의 N frames 를 평균 landmark 로 축약 (representative pose).
     return raw.gestures.map((g) => {
       const avg: HandLandmark[] = Array.from({ length: 21 }, () => ({ x: 0, y: 0, z: 0 }));
       for (const frame of g.frames) {

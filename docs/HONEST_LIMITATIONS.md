@@ -26,7 +26,7 @@
 | 영역 | 한계 |
 |------|------|
 | 6×6 substrate "Bottom row" 패턴 (N=8 mock) | ⚠️ 직전 P213 mock 4 시드 학습 실패 (-1) — N=4~8 production 시나리오 영역 영향 없음 측정 확인 (Bottom row c4 = 100% at N=6/7/8). production reality 영역 issue 영역 |
-| Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 |
+| Hand SNN (MediaPipe Hand) | ⚠️ 1-shot 25% accuracy, multi-shot oscillating, ART/EWC 통합 미완성 — 단 backend builders (n16-hand 75-dim) 완성. UI 통합 영역 없음 (NodeInput GRID 전용). 단계별 roadmap: [HAND_SNN_INTEGRATION_ROADMAP.md](HAND_SNN_INTEGRATION_ROADMAP.md) |
 
 ### 1.2.1 Phase 2A.2 6×6 substrate evidence (2026-05-31 ~ 2026-06-01)
 

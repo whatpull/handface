@@ -97,31 +97,23 @@ function clearTrialCount(kind: SubstrateKind): void {
   } catch { /* noop */ }
 }
 
-// Phase 3.9 v5 (2026-06-03): hand SNN running mean persist 도 동일 패턴.
+// Phase 3.9 v5 (2026-06-03): hand SNN running mean key — clearHandMean used
+// on reset paths. load/save 는 v25 wipe 정합 후 dead path (page load 시 무조건
+// fresh start) — clear 만 retain.
 const HAND_MEAN_KEY = 'handface.live-snn.hand-feat-mean.v1';
-function loadHandMean(): { mean: number[]; count: number } | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(HAND_MEAN_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { mean: number[]; count: number };
-    if (Array.isArray(parsed.mean) && parsed.mean.length === 95 && typeof parsed.count === 'number') {
-      return parsed;
-    }
-  } catch { /* corrupt — silent reset */ }
-  return null;
-}
-function saveHandMean(mean: number[], count: number): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(HAND_MEAN_KEY, JSON.stringify({ mean, count }));
-  } catch { /* quota — silent */ }
-}
 function clearHandMean(): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(HAND_MEAN_KEY);
   } catch { /* noop */ }
+}
+
+// Phase 3.9 v25 (2026-06-03): cluster activeInputs key — clearHandClusterActive
+// used on reset paths. load/save 는 dead path.
+const HAND_CLUSTER_ACTIVE_KEY = 'handface.live-snn.hand-cluster-active.v1';
+function clearHandClusterActive(): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.removeItem(HAND_CLUSTER_ACTIVE_KEY); } catch { /* noop */ }
 }
 
 // Phase 3.9 v7: hand cluster features persistence (clusterId → 95-dim training feat).
@@ -325,6 +317,9 @@ export class LiveSnn {
   // 본 Map 은 clusterId → 95-dim training feature snapshot. trigger 시 cosine
   // sim 으로 winner 결정 → spawn 결정 override.
   private _handClusterFeatures: Map<number, number[]> = new Map();
+  // Phase 3.9 v25 (2026-06-03): cluster activeInputs 도 저장 → 복원 시 worker
+  // expandCluster 로 진짜 sync 가능. desync wipe 대신 사용자 학습 데이터 보존.
+  private _handClusterActiveInputs: Map<number, number[]> = new Map();
   // pre-computed winner from cosine sim (during triggerWithVigilance, consumed
   // in handleTriggerComplete to override vigilance decision).
   // strict: true 면 EMA update + R-STDP reinforce 적용, false (weak match) 면
@@ -381,15 +376,25 @@ export class LiveSnn {
     // UI / engine 모두 6×6 동기화.
     this.substrateKind = 'orientation-6x6';
     this.trialCount = loadTrialCount(this.substrateKind);
-    // Phase 3.9 v5: hand SNN running mean 복원 — page reload 후 discriminative
-    // top-K 가 처음 학습부터 의미 있게 동작.
-    const restoredMean = loadHandMean();
-    if (restoredMean) {
-      this._handFeatRunningMean = restoredMean.mean.slice();
-      this._handFeatSampleCount = restoredMean.count;
+    // Phase 3.9 v25 (2026-06-03): page load 시 무조건 hand cluster features +
+    // running mean 모두 wipe — worker fresh start 정합. 직전 v24 async desync
+    // check 가 race condition (cosine match 가 desync resolve 전 실행) 으로
+    // 사용자 production 에서 여전히 reinforceBackground 실패. sync wipe 가 가장
+    // 안전. 사용자 학습 데이터 보존은 IndexedDB 의 worker cluster pool 에서만
+    // 가능 (별도 mechanism).
+    const restoredFeats = loadHandClusterFeats();
+    if (restoredFeats.size > 0) {
+      console.warn(
+        `[hand-init] stored cluster features detected (${restoredFeats.size}) — wiping for fresh worker sync (page reload 시 desync 방지)`,
+      );
+      clearHandClusterFeats();
+      clearHandClusterActive();
+      clearHandMean();
+      this._handClusterFeatures = new Map();
+      this._handClusterActiveInputs = new Map();
+      this._handFeatRunningMean = null;
+      this._handFeatSampleCount = 0;
     }
-    // Phase 3.9 v7: restore hand cluster features for cosine sim.
-    this._handClusterFeatures = loadHandClusterFeats();
     // input-mode event listener — NodeInput tab change 시 emit.
     //   mode='camera' → substrate='orientation-hand'  (Phase 3.3, n16_hand 75-dim)
     //   mode='grid'   → substrate='orientation-6x6'   (Phase 2A.2, n15_extended 72-dim)
@@ -1644,7 +1649,8 @@ export class LiveSnn {
         mean[i] += (feat[i] - mean[i]) / n;
       }
     }
-    saveHandMean(this._handFeatRunningMean, this._handFeatSampleCount);
+    // Phase 3.9 v25: saveHandMean removed (page load 시 어차피 wipe — 무의미한
+    // localStorage write 회피).
   }
 
   private async runAutoLearnLoop(originalToken: number, activeInputs: number[]): Promise<void> {

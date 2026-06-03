@@ -16,7 +16,7 @@
 //   ↓
 //   "이 자세 학습" button (Phase 3.4 부터 활성화)
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   attachWebcamToVideo,
   createHandLandmarker,
@@ -34,6 +34,7 @@ import {
   type OutExemplars,
 } from '@/lib/snn/out-exemplars';
 import { showDialog } from '@/components/ui/Dialog';
+import { usePipelineEvents } from './PipelineEventContext';
 
 const HAND_SUBSTRATE = 'orientation-hand' as const;
 
@@ -73,6 +74,23 @@ export default function CameraInput() {
   const [exemplars, setExemplars] = useState<OutExemplars>(() =>
     typeof window === 'undefined' ? {} : loadExemplars(HAND_SUBSTRATE),
   );
+
+  // Phase 3.8 (2026-06-03): 실시간 인식 indicator — usePipelineEvents 영역
+  // winnerCluster + exemplars 의 label 을 결합해 "→ 인식: cluster N (label)" 표시.
+  const { winnerCluster, consecutiveWinnerCount } = usePipelineEvents();
+  // cluster 인덱스 → 그 cluster 의 첫 번째 exemplar label 추출
+  // (exemplars 는 outKey=out_N_M 단위 — 동일 cluster 의 모든 neuron 은 공통 label 가정).
+  const labelByCluster = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const [outKey, ex] of Object.entries(exemplars)) {
+      const m = /^out_(\d+)_/.exec(outKey);
+      if (!m) continue;
+      const ci = Number(m[1]);
+      if (ex.label && !map[ci]) map[ci] = ex.label;
+    }
+    return map;
+  }, [exemplars]);
+  const winnerLabel = winnerCluster !== null ? labelByCluster[winnerCluster] : null;
 
   // 메인 frame loop — RAF 로 frame 마다 landmark detection + canvas 시각화.
   const startDetectionLoop = useCallback(async () => {
@@ -241,6 +259,15 @@ export default function CameraInput() {
           이 자세 학습 / 인식
         </button>
         {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}
+        {winnerCluster !== null && (
+          <small className="snn-camera-winner-msg">
+            → 인식: cluster {winnerCluster}
+            {winnerLabel ? ` (${winnerLabel})` : ' (이름 없음)'}
+            {consecutiveWinnerCount > 1 && (
+              <span className="snn-camera-winner-stable"> · {consecutiveWinnerCount}회 연속</span>
+            )}
+          </small>
+        )}
       </div>
 
       <div className="snn-camera-clusters">

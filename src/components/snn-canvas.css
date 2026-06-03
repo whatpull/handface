@@ -2758,6 +2758,22 @@
   text-align: center;
 }
 
+/* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
+.snn-camera-winner-msg {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a78bfa;
+  text-align: center;
+  padding: 4px 8px;
+  background: rgba(167, 139, 250, 0.1);
+  border-radius: 4px;
+}
+.snn-camera-winner-stable {
+  color: #86efac;
+  font-weight: 500;
+  margin-left: 6px;
+}
+
 /* Phase 3.5 (2026-06-03) — CameraInput cluster label list. */
 .snn-camera-clusters {
   display: flex;

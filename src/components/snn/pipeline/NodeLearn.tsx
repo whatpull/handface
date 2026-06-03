@@ -820,6 +820,27 @@ export default function NodeLearn() {
   );
   const totalClusterSlots = 4;
 
+  // Phase 3.3 (2026-06-03): camera mode 일 때 hand SNN context placeholder.
+  // 직전 LEARN node 가 orientation-6x6 stale state 표시 ("학습 #N · no winner ·
+  // WTA 대기") — hand SNN 활성 시 misleading. NodeInput tab 이 GRID 면 본래
+  // 의도된 orientation status, CAMERA 면 hand SNN 안내 message.
+  if (inputMode === 'camera') {
+    return (
+      <NodeShell title="LEARN" subtitle="Hand SNN (orientation-hand)" tone="learn">
+        <div className="snn-pipeline-learn-camera-msg">
+          <strong>Hand SNN 활성</strong>
+          <small>
+            CAMERA tab 에서 손 자세를 보여주고 INPUT 영역의 &lsquo;이 자세 학습 / 인식&rsquo;
+            버튼을 눌러 학습 / 인식을 진행하세요.
+          </small>
+          <small className="snn-pipeline-learn-camera-hint">
+            현재 winner cluster + 학습된 제스처 목록은 INPUT 영역에 표시됩니다.
+          </small>
+        </div>
+      </NodeShell>
+    );
+  }
+
   return (
     <NodeShell
       title="LEARN"

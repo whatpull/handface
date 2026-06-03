@@ -2758,6 +2758,30 @@
   text-align: center;
 }
 
+/* Phase 3.3/3.9 (2026-06-03) — LEARN node 의 camera-mode placeholder. */
+.snn-pipeline-learn-camera-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.snn-pipeline-learn-camera-msg strong {
+  font-size: 13px;
+  color: #a78bfa;
+  font-weight: 600;
+}
+.snn-pipeline-learn-camera-msg small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+}
+.snn-pipeline-learn-camera-hint {
+  margin-top: 4px;
+  color: rgba(167, 139, 250, 0.7) !important;
+}
+
 /* Phase 3.8 (2026-06-03) — CameraInput 실시간 인식 indicator. */
 .snn-camera-winner-msg {
   font-size: 12px;

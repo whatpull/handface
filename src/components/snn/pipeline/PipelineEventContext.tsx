@@ -36,15 +36,18 @@ import {
   type NeuronFiringDetail,
   type AutoLearnProgressDetail,
   type GridInferDetail,
+  type InputModeDetail,
 } from '@/lib/backend/events';
 import { deriveWinner, type WinnerResult } from '@/lib/snn/winner-derivation';
 import { WINNER_MARGIN } from './shared';
 
 export interface PipelineEventState {
   /**
-   * input mode — 항상 'grid' (orientation substrate). 카메라 입력 제거.
+   * input mode — 'grid' (orientation-6x6 substrate) 또는 'camera' (orientation-hand
+   * substrate). NodeInput 의 tab change 가 input-mode event 로 emit, 본 context
+   * 가 subscribe 하여 자손에게 broadcast (Phase 3.3, 2026-06-03).
    */
-  inputMode: 'grid';
+  inputMode: 'grid' | 'camera';
   /** Last neuron-firing payload (raw) — null 영역 미수신. */
   lastDetail: NeuronFiringDetail | null;
   /** 영역 frame 영역 timestamp (Date.now). null 영역 미수신. */
@@ -140,8 +143,11 @@ const PipelineEventContext = createContext<PipelineEventState>({
 });
 
 export function PipelineEventProvider({ children }: { children: ReactNode }) {
-  // inputMode 항상 'grid' — 카메라 입력 제거.
-  const inputMode = 'grid' as const;
+  // Phase 3.3 (2026-06-03): input-mode event 영역 inputMode state subscribe.
+  // 직전 'grid' hardcode — NodeInput GRID/CAMERA tab 변경 시 NodeLearn 등 자손이
+  // 현재 substrate 를 알 수 없어 stale orientation 표시 → "학습 #N · no winner"
+  // 같은 부정확한 hand SNN context UI catch.
+  const [inputMode, setInputMode] = useState<'grid' | 'camera'>('grid');
   const [detail, setDetail] = useState<NeuronFiringDetail | null>(null);
   const [ts, setTs] = useState<number | null>(null);
   // PR #203 polish (UX HIGH 2026-05-10): auto-learn progress Map state —
@@ -209,11 +215,18 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
         setTs(null);
       }
     });
+    // Phase 3.3 (2026-06-03): input-mode event 구독 — NodeInput tab change 시
+    // emit. 자손 (NodeLearn, NodeOut 등) 이 현재 substrate 를 catch 하여
+    // hand SNN context UI 정합.
+    const offInputMode = onBackendEvent<InputModeDetail>('input-mode', (d) => {
+      setInputMode(d.mode === 'camera' ? 'camera' : 'grid');
+    });
     return () => {
       off();
       offCleared();
       offAutoLearn();
       offGridInfer();
+      offInputMode();
       mountedRef.current = false;
     };
   }, []);
@@ -272,7 +285,7 @@ export function PipelineEventProvider({ children }: { children: ReactNode }) {
     autoLearnProgress,
     learningClusters,
     isAutoLearning: learningClusters.size > 0,
-  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters]);
+  }), [detail, ts, winner, consecutiveWinnerCount, autoLearnProgress, learningClusters, inputMode]);
 
   return (
     <PipelineEventContext.Provider value={value}>

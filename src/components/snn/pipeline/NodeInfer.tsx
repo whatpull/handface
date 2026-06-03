@@ -34,7 +34,7 @@ export default function NodeInfer() {
   // PR-K (사용자 catch 2026-05-09 catch 2): cluster label 영역 사용자 명명
   // 우선 + fallback '패턴 N' (resolveClusterLabel 정합). substrate-aware
   // exemplar subscribe — NodeOut RenameButton 영역 명명 영역 NodeInfer 즉시 sync.
-  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact } = usePipelineEvents();
+  const { winner, lastFiringTimestamp, consecutiveWinnerCount, isAutoLearning, winnerForcedExact, inputMode } = usePipelineEvents();
   // Phase 2A.1 (2026-05-31): substrate 'orientation' (n13, 4×4, 32 feat) →
   // 'orientation-6x6' (n14_extended, 5×5, 50 feat). NodeLearn / NodeOut 정합.
   const substrate = 'orientation-6x6' as const satisfies SubstrateKind;
@@ -181,6 +181,20 @@ export default function NodeInfer() {
     clusterLabelCount: clusterLabels.length,
     winnerCluster: winner.cluster,
   });
+
+  if (inputMode === 'camera') {
+    return (
+      <NodeShell title="INFER" subtitle="Hand SNN — INPUT 영역의 인식 indicator 참조" tone="infer">
+        <div className="snn-pipeline-learn-camera-msg">
+          <strong>Hand SNN 추론</strong>
+          <small>
+            현재 winner cluster + 안정도는 INPUT (CAMERA tab) 의 &lsquo;→ 인식: cluster N&rsquo;
+            라인에 실시간으로 표시됩니다.
+          </small>
+        </div>
+      </NodeShell>
+    );
+  }
 
   return (
     <NodeShell

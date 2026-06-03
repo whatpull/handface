@@ -20,12 +20,6 @@ function loadFixture(pose: Pose): HandLandmark[][] {
   return raw.landmarks;
 }
 
-function loadRealFixture(): HandLandmark[] {
-  const path = resolve(__dirname, 'fixtures', 'hand-real-mediapipe-sample.json');
-  const raw = JSON.parse(readFileSync(path, 'utf-8')) as { landmarks: HandLandmark[][] };
-  return raw.landmarks[0];
-}
-
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i += 1) {

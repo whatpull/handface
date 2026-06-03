@@ -602,6 +602,23 @@ export class LiveSnn {
   }
 
   /**
+   * Phase 3.9 v54 (2026-06-04): public 강제 sync trigger — 사용자 영역
+   * 학습 데이터 영역 stuck state 영역 catch 시점 영역 manual recovery.
+   *
+   * UI button click 영역 호출 — sync state 영역 false 영역 reset 후 sync
+   * 영역 re-trigger. 다층 defense 영역 fallback path:
+   *   v42 (proactive): setSubstrate idempotent
+   *   v43/v51 (reactive): reinforce 실패 self-heal
+   *   v54 (manual): 사용자 catch path
+   */
+  forceHandSync(): void {
+    if (this.substrateKind !== 'orientation-hand') return;
+    console.log('[hand-force-sync] 사용자 강제 sync trigger');
+    this._handSyncedWithWorker = false;
+    void this._syncHandWithWorker();
+  }
+
+  /**
    * Phase 3.9 v33 (2026-06-03): 특정 hand cluster 만 삭제.
    *
    * 사용자 가치: 19 자세 도달 후 일부 자세만 지우고 새 자세 학습 가능.

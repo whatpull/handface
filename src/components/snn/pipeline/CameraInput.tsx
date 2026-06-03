@@ -684,6 +684,19 @@ export default function CameraInput() {
               복원
             </button>
             {Object.keys(exemplars).length > 0 && (
+              <button
+                type="button"
+                className="snn-camera-clusters-action-btn"
+                onClick={() => {
+                  getLiveSnn().forceHandSync();
+                  showToast({ kind: 'info', message: '학습 데이터 동기화 중...' });
+                }}
+                title="학습 데이터 영역 worker 영역 강제 sync — stuck state catch 시"
+              >
+                동기화
+              </button>
+            )}
+            {Object.keys(exemplars).length > 0 && (
               <>
                 <button
                   type="button"

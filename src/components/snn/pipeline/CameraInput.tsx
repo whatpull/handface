@@ -70,6 +70,11 @@ export default function CameraInput() {
   const [handDetected, setHandDetected] = useState<boolean>(false);
   // Phase 3.4: 학습 trigger 가 마지막 landmarks 를 ref 로 보존 (button click 시 사용).
   const latestLandmarksRef = useRef<HandLandmark[] | null>(null);
+  // Phase 3.9 v16 (2026-06-03): stability detection — 흔들리는 손에서 spawn 회피.
+  // 직전 5 frame 의 wrist 위치 (latest 5 entries ring buffer). variance 작으면
+  // stable 로 판단 → auto-mode 가 stable 시에만 trigger.
+  const recentWristRef = useRef<Array<{ x: number; y: number; t: number }>>([]);
+  const [isStable, setIsStable] = useState<boolean>(false);
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
   // Phase 3.5: 학습된 hand cluster exemplars + label.
   const [exemplars, setExemplars] = useState<OutExemplars>(() =>
@@ -130,9 +135,34 @@ export default function CameraInput() {
           const hand: HandLandmark[] = result.landmarks[0];
           latestLandmarksRef.current = hand;
           drawLandmarks(ctx, hand, c.width, c.height);
+
+          // Phase 3.9 v16: stability check — 직전 5 frame 의 wrist 위치 variance.
+          const wrist = hand[0];
+          const buf = recentWristRef.current;
+          buf.push({ x: wrist.x, y: wrist.y, t: ts });
+          // Keep only last 5 entries within 600ms window.
+          while (buf.length > 5 || (buf.length > 0 && ts - buf[0].t > 600)) {
+            buf.shift();
+          }
+          if (buf.length >= 3) {
+            let meanX = 0, meanY = 0;
+            for (const p of buf) { meanX += p.x; meanY += p.y; }
+            meanX /= buf.length; meanY /= buf.length;
+            let variance = 0;
+            for (const p of buf) {
+              variance += (p.x - meanX) ** 2 + (p.y - meanY) ** 2;
+            }
+            variance /= buf.length;
+            // Threshold: 0.0004 (정규화 좌표 기준 약 2% 이내 변동 = stable).
+            setIsStable(variance < 0.0004);
+          } else {
+            setIsStable(false);
+          }
         } else {
           setHandDetected(false);
           latestLandmarksRef.current = null;
+          recentWristRef.current = [];
+          setIsStable(false);
         }
       }
 
@@ -179,12 +209,13 @@ export default function CameraInput() {
     const AUTO_INTERVAL_MS = 2500;
     const interval = setInterval(() => {
       if (isAutoLearning) return; // 학습 진행 중 — 다음 cycle 까지 대기
+      if (!isStable) return; // Phase 3.9 v16: 흔들리는 손에서 trigger skip
       if (latestLandmarksRef.current && latestLandmarksRef.current.length === 21) {
         triggerLearn();
       }
     }, AUTO_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [autoMode, status, triggerLearn, isAutoLearning]);
+  }, [autoMode, status, triggerLearn, isAutoLearning, isStable]);
 
   const initialize = useCallback(async () => {
     const video = videoRef.current;
@@ -311,11 +342,13 @@ export default function CameraInput() {
         )}
         {autoMode && (
           <small className="snn-camera-auto-status">
-            {status.kind === 'ready' && handDetected
-              ? '◉ 자동 감지 중 — 손 자세 보이면 자동 학습 / 인식'
-              : status.kind === 'ready'
-                ? '⚠ Hand 미감지 — 화면 안에 손을 보여주세요'
-                : '카메라 준비 중...'}
+            {status.kind === 'ready' && handDetected && isStable
+              ? '◉ 자세 안정 — 자동 학습 / 인식 진행 중'
+              : status.kind === 'ready' && handDetected
+                ? '⚠ 손 흔들림 감지 — 자세 안정 시 자동 trigger'
+                : status.kind === 'ready'
+                  ? '⚠ Hand 미감지 — 화면 안에 손을 보여주세요'
+                  : '카메라 준비 중...'}
           </small>
         )}
         {triggerStatus && <small className="snn-camera-trigger-msg">{triggerStatus}</small>}

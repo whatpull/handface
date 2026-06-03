@@ -97,9 +97,7 @@ function clearTrialCount(kind: SubstrateKind): void {
   } catch { /* noop */ }
 }
 
-// Phase 3.9 v5 (2026-06-03): hand SNN running mean key — clearHandMean used
-// on reset paths. load/save 는 v25 wipe 정합 후 dead path (page load 시 무조건
-// fresh start) — clear 만 retain.
+// Phase 3.9 v5 (2026-06-03): hand SNN running mean key.
 const HAND_MEAN_KEY = 'handface.live-snn.hand-feat-mean.v1';
 function clearHandMean(): void {
   if (typeof window === 'undefined') return;
@@ -108,9 +106,33 @@ function clearHandMean(): void {
   } catch { /* noop */ }
 }
 
-// Phase 3.9 v25 (2026-06-03): cluster activeInputs key — clearHandClusterActive
-// used on reset paths. load/save 는 dead path.
+// Phase 3.9 v26 (2026-06-03): cluster activeInputs persistence — worker sync 용.
+// substrate switch 시 worker 가 cluster 없으면 stored activeInputs 로 expandCluster
+// 호출하여 진짜 sync — 사용자 학습 데이터 보존.
 const HAND_CLUSTER_ACTIVE_KEY = 'handface.live-snn.hand-cluster-active.v1';
+function loadHandClusterActive(): Map<number, number[]> {
+  const map = new Map<number, number[]>();
+  if (typeof window === 'undefined') return map;
+  try {
+    const raw = window.localStorage.getItem(HAND_CLUSTER_ACTIVE_KEY);
+    if (!raw) return map;
+    const parsed = JSON.parse(raw) as Array<[number, number[]]>;
+    if (Array.isArray(parsed)) {
+      for (const [id, active] of parsed) {
+        if (typeof id === 'number' && Array.isArray(active)) map.set(id, active);
+      }
+    }
+  } catch { /* corrupt */ }
+  return map;
+}
+function saveHandClusterActive(map: Map<number, number[]>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const arr: Array<[number, number[]]> = [];
+    for (const [id, active] of map.entries()) arr.push([id, active]);
+    window.localStorage.setItem(HAND_CLUSTER_ACTIVE_KEY, JSON.stringify(arr));
+  } catch { /* quota */ }
+}
 function clearHandClusterActive(): void {
   if (typeof window === 'undefined') return;
   try { window.localStorage.removeItem(HAND_CLUSTER_ACTIVE_KEY); } catch { /* noop */ }
@@ -317,9 +339,13 @@ export class LiveSnn {
   // 본 Map 은 clusterId → 95-dim training feature snapshot. trigger 시 cosine
   // sim 으로 winner 결정 → spawn 결정 override.
   private _handClusterFeatures: Map<number, number[]> = new Map();
-  // Phase 3.9 v25 (2026-06-03): cluster activeInputs 도 저장 → 복원 시 worker
-  // expandCluster 로 진짜 sync 가능. desync wipe 대신 사용자 학습 데이터 보존.
+  // Phase 3.9 v25-v26 (2026-06-03): cluster activeInputs 도 저장 → 복원 시 worker
+  // expandCluster 로 진짜 sync 가능. 사용자 학습 데이터 보존.
   private _handClusterActiveInputs: Map<number, number[]> = new Map();
+  // Phase 3.9 v26 (2026-06-03): worker sync 상태 — false 면 cosine path skip.
+  // substrate switch 또는 첫 sync 완료 후 true. desync race condition 차단.
+  private _handSyncedWithWorker: boolean = false;
+  private _handSyncInFlight: Promise<void> | null = null;
   // pre-computed winner from cosine sim (during triggerWithVigilance, consumed
   // in handleTriggerComplete to override vigilance decision).
   // strict: true 면 EMA update + R-STDP reinforce 적용, false (weak match) 면
@@ -376,24 +402,14 @@ export class LiveSnn {
     // UI / engine 모두 6×6 동기화.
     this.substrateKind = 'orientation-6x6';
     this.trialCount = loadTrialCount(this.substrateKind);
-    // Phase 3.9 v25 (2026-06-03): page load 시 무조건 hand cluster features +
-    // running mean 모두 wipe — worker fresh start 정합. 직전 v24 async desync
-    // check 가 race condition (cosine match 가 desync resolve 전 실행) 으로
-    // 사용자 production 에서 여전히 reinforceBackground 실패. sync wipe 가 가장
-    // 안전. 사용자 학습 데이터 보존은 IndexedDB 의 worker cluster pool 에서만
-    // 가능 (별도 mechanism).
-    const restoredFeats = loadHandClusterFeats();
-    if (restoredFeats.size > 0) {
-      console.warn(
-        `[hand-init] stored cluster features detected (${restoredFeats.size}) — wiping for fresh worker sync (page reload 시 desync 방지)`,
+    // Phase 3.9 v26 (2026-06-03): cluster features + activeInputs 둘 다 복원
+    // — substrate switch (hand mode 진입) 시 worker sync 진행.
+    this._handClusterFeatures = loadHandClusterFeats();
+    this._handClusterActiveInputs = loadHandClusterActive();
+    if (this._handClusterFeatures.size > 0) {
+      console.log(
+        `[hand-init] restored ${this._handClusterFeatures.size} cluster features + ${this._handClusterActiveInputs.size} activeInputs (worker sync 는 substrate switch 시 진행)`,
       );
-      clearHandClusterFeats();
-      clearHandClusterActive();
-      clearHandMean();
-      this._handClusterFeatures = new Map();
-      this._handClusterActiveInputs = new Map();
-      this._handFeatRunningMean = null;
-      this._handFeatSampleCount = 0;
     }
     // input-mode event listener — NodeInput tab change 시 emit.
     //   mode='camera' → substrate='orientation-hand'  (Phase 3.3, n16_hand 75-dim)
@@ -457,6 +473,13 @@ export class LiveSnn {
     this._unsubscribePush = [];
     this._pushBoundForKind = null;
     this.substrateKind = kind;
+    // Phase 3.9 v26 (2026-06-03): hand 모드 진입 시 worker sync 실행 — stored
+    // cluster features 와 worker pool 동기화. 첫 trigger 전에 완료 보장 위해
+    // await (substrate switch 가 이미 async — 사용자 UX 영향 작음).
+    if (kind === 'orientation-hand') {
+      this._handSyncedWithWorker = false; // 새 sync 시작
+      void this._syncHandWithWorker();
+    }
     // 사용자 catch 2026-05-09 (Fix 2 — HIGH): substrate switch 영역 trial /
     // lastWinner / patternRef 영역 reset — 직전 GRID winner 영역 CAMERA tick
     // 영역 carry-over (UI 영역 winner badge 영역 stale orientation cluster
@@ -519,6 +542,10 @@ export class LiveSnn {
     // Phase 3.9 v7: cluster features storage 도 wipe.
     this._handClusterFeatures.clear();
     clearHandClusterFeats();
+    // Phase 3.9 v26: activeInputs 도 wipe + sync flag reset.
+    this._handClusterActiveInputs.clear();
+    clearHandClusterActive();
+    this._handSyncedWithWorker = false;
     this.lastWinnerCluster = -1;
     this.patternRef = new Array(rawDimForKind(this.substrateKind)).fill(0);
     // Throttle window restore — fresh weights 영역 first save 영역 즉시 path.
@@ -1002,14 +1029,14 @@ export class LiveSnn {
     // Phase 3.9 v7+v11 (2026-06-03): hand SNN vigilance via cosine sim 우선.
     this.setPattern(pattern);
     const trialTokenForCosine = this._trialTokenSeq + 1; // about-to-increment
-    // Phase 3.9 v24 (2026-06-03 사용자 catch): LiveSnn _handClusterFeatures 와
-    // worker SNN cluster pool 의 desync 감지. localStorage 복원 후 worker fresh
-    // 시 cosine MATCH 발생 하지만 reinforceBackground 실패. desync 감지 시
-    // _handClusterFeatures wipe + fresh start.
-    if (this.substrateKind === 'orientation-hand' && this._handClusterFeatures.size > 0) {
-      void this._checkAndResolveHandDesync();
+    // Phase 3.9 v26 (2026-06-03): hand sync 안 끝난 상태에서 cosine skip —
+    // worker desync 인 상태에서 winner 반환하면 reinforceBackground 실패.
+    // sync 첫 호출 시 setSubstrate 에서 trigger 됨. 안전을 위해 여기서도 보장.
+    if (this.substrateKind === 'orientation-hand' && !this._handSyncedWithWorker) {
+      void this._syncHandWithWorker();
+    } else {
+      this._maybeRecordHandCosineWinner(trialTokenForCosine, pattern);
     }
-    this._maybeRecordHandCosineWinner(trialTokenForCosine, pattern);
     const trialToken = ++this._trialTokenSeq;
     // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
     // _vigilancePending.set 영역 triggerBackground await 직전 영역 옮김. 직전
@@ -1486,32 +1513,52 @@ export class LiveSnn {
    * threshold 0.97 — 사실상 같은 자세 (synthetic 1.000, 실제 webcam jitter
    * 도 0.98+ 예상).
    */
-  // Phase 3.9 v24 (2026-06-03): desync 감지 — LiveSnn 가 cluster features 갖고
-  // 있는데 worker 가 0 clusters → reinforceBackground 실패. 이전 세션 잔존
-  // localStorage 와 fresh worker 의 race. desync 감지 시 wipe + fresh start.
-  private _desyncCheckInFlight = false;
-  private async _checkAndResolveHandDesync(): Promise<void> {
-    if (this._desyncCheckInFlight) return;
-    this._desyncCheckInFlight = true;
-    try {
-      const root = await getRootLocalSnnFor(this.substrateKind);
-      const usage = await root.client.clusterPoolUsage();
-      // localStorage features 만 있고 worker 는 fresh → desync.
-      if (this._handClusterFeatures.size > 0 && usage.perCluster.length === 0) {
-        console.warn(
-          `[hand-desync] LiveSnn cluster features (${this._handClusterFeatures.size}) vs worker clusters (0) — wipe + fresh start`,
-        );
-        this._handClusterFeatures.clear();
-        clearHandClusterFeats();
-        this._handFeatRunningMean = null;
-        this._handFeatSampleCount = 0;
-        clearHandMean();
-      }
-    } catch (e) {
-      console.warn('[hand-desync] check failed:', e);
-    } finally {
-      this._desyncCheckInFlight = false;
+  // Phase 3.9 v26 (2026-06-03): worker sync — substrate switch 시 worker pool
+  // 확인 + stored activeInputs 로 expandCluster 호출하여 진짜 동기화.
+  // 사용자 학습 데이터 보존 + cosine path 안전 활성화.
+  private async _syncHandWithWorker(): Promise<void> {
+    if (this._handSyncInFlight !== null) {
+      await this._handSyncInFlight;
+      return;
     }
+    this._handSyncInFlight = (async () => {
+      try {
+        const root = await getRootLocalSnnFor('orientation-hand');
+        const usage = await root.client.clusterPoolUsage();
+        if (this._handClusterFeatures.size > 0 && usage.perCluster.length === 0) {
+          // Desync — worker fresh, LiveSnn 학습 데이터 있음.
+          // Worker 에 stored activeInputs 로 cluster 재구성.
+          const sortedIds = [...this._handClusterFeatures.keys()].sort((a, b) => a - b);
+          let syncedCount = 0;
+          for (const clusterId of sortedIds) {
+            const activeInputs = this._handClusterActiveInputs.get(clusterId);
+            if (!activeInputs || activeInputs.length === 0) {
+              console.warn(`[hand-sync] cluster ${clusterId} 의 activeInputs 없음 — skip`);
+              continue;
+            }
+            try {
+              await root.client.expandCluster({ activeInputs, forceDisjoint: false });
+              syncedCount += 1;
+            } catch (e) {
+              console.warn(`[hand-sync] cluster ${clusterId} expandCluster 실패:`, e);
+            }
+          }
+          console.log(`[hand-sync] worker 에 ${syncedCount}/${sortedIds.length} clusters 재구성 완료`);
+        } else if (this._handClusterFeatures.size === 0 && usage.perCluster.length === 0) {
+          console.log('[hand-sync] LiveSnn + worker 모두 fresh — sync 불필요');
+        } else if (this._handClusterFeatures.size === 0 && usage.perCluster.length > 0) {
+          // Worker 에 cluster 있지만 LiveSnn 학습 데이터 없음 — 사용자 reset 후 worker 잔존?
+          console.warn(`[hand-sync] LiveSnn 0 clusters vs worker ${usage.perCluster.length} clusters — 미정 상태, fresh 진행`);
+        }
+        this._handSyncedWithWorker = true;
+      } catch (e) {
+        console.warn('[hand-sync] sync failed:', e);
+        this._handSyncedWithWorker = true; // 실패해도 cosine path 진행 가능하도록
+      } finally {
+        this._handSyncInFlight = null;
+      }
+    })();
+    await this._handSyncInFlight;
   }
 
   private _maybeRecordHandCosineWinner(token: number, pattern: number[]): void {
@@ -1732,6 +1779,10 @@ export class LiveSnn {
       if (this.substrateKind === 'orientation-hand' && this.patternRef.length === 95) {
         this._handClusterFeatures.set(newClusterId, this.patternRef.slice());
         saveHandClusterFeats(this._handClusterFeatures);
+        // Phase 3.9 v26 (2026-06-03): activeInputs 도 저장 — 다음 page reload
+        // 시 worker sync 에 사용.
+        this._handClusterActiveInputs.set(newClusterId, activeInputs.slice());
+        saveHandClusterActive(this._handClusterActiveInputs);
         // Phase 3.9 v19 (2026-06-03): auto-label on spawn — 사용자가 cluster 를
         // "이름 없음" 으로 보지 않고 "자세 N" 자동 부여. 사용자가 나중에 명시적
         // 으로 rename 가능.

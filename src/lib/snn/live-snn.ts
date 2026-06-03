@@ -259,6 +259,12 @@ const SAVE_THROTTLE_MS = 500;
 function rawDimForKind(kind: SubstrateKind): number {
   if (kind === 'orientation-6x6') return 36;
   if (kind === 'orientation-5x5') return 25;
+  // Phase 3.9 v14 (2026-06-03 사용자 catch): 'orientation-hand' 가 default
+  // 16-dim fallback 으로 떨어져 setPattern 이 95-dim pattern 을 16-dim 으로
+  // truncate → patternRef.length === 95 체크 항상 FALSE → _handClusterFeatures.
+  // set 호출 절대 안 됨 → cosine sim 매칭 동작 안 함 → 매 trigger 마다 spawn.
+  // hand SNN 의 raw input 은 95-dim (encodeHandToFeatureVector 결과).
+  if (kind === 'orientation-hand') return 95;
   return 16;
 }
 
@@ -556,16 +562,21 @@ export class LiveSnn {
 
   setPattern(pattern: number[]): void {
     // P218 (2026-05-21) ROOT CAUSE fix: substrate-aware raw dim.
-    // 직전 hardcoded 16-dim cut — 5×5 (25-dim) substrate 영역 indices 16-24
-    // 영역 정합 cut → Pattern 1 (Bottom row, indices 20-24) 영역 모두 0 영역 →
-    // cluster 1 영역 first reinforce 영역 in_feat fire 0 영역 → V1_L4 cascade
-    // 죽음. 13 iter 동적 mechanism 검증 영역 root cause 영역 input dim cut
-    // bug 영역 확인. rawDimForKind(kind) 영역 정합 영역 (orientation=16,
-    // orientation-5x5=25).
+    // 직전 hardcoded 16-dim cut — 5×5 (25-dim) substrate 의 indices 16-24
+    // 까지 cut → Pattern 1 (Bottom row, indices 20-24) 모두 0 → cluster 1 의
+    // first reinforce 에서 in_feat fire 0 → V1_L4 cascade 죽음.
+    // rawDimForKind(kind) 사용 (orientation=16, orientation-5x5=25,
+    // orientation-6x6=36, orientation-hand=95).
     const rawDim = rawDimForKind(this.substrateKind);
     const next = new Array<number>(rawDim).fill(0);
+    // Phase 3.9 v14 (2026-06-03): hand substrate 는 raw coords / derived features
+    // 모두 negative 값 가능 (예: z depth, x-relative diff). [0,1] clamp 가 invalid
+    // → 그대로 copy. 외 substrate (grid binary patterns) 는 기존 clamp 유지.
+    const isHand = this.substrateKind === 'orientation-hand';
     for (let i = 0; i < Math.min(pattern.length, rawDim); i += 1) {
-      next[i] = Math.max(0, Math.min(1, pattern[i] || 0));
+      next[i] = isHand
+        ? (pattern[i] || 0)
+        : Math.max(0, Math.min(1, pattern[i] || 0));
     }
     this.patternRef = next;
   }

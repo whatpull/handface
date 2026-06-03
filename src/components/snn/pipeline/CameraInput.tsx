@@ -76,9 +76,11 @@ export default function CameraInput() {
     typeof window === 'undefined' ? {} : loadExemplars(HAND_SUBSTRATE),
   );
 
-  // Phase 3.8 (2026-06-03): 실시간 인식 indicator — usePipelineEvents 영역
+  // Phase 3.8 (2026-06-03): 실시간 인식 indicator — usePipelineEvents 의
   // winnerCluster + exemplars 의 label 을 결합해 "→ 인식: cluster N (label)" 표시.
-  const { winnerCluster, consecutiveWinnerCount } = usePipelineEvents();
+  // Phase 3.9 v14 (2026-06-03): isAutoLearning 도 같이 destructure — auto-mode
+  // 가 학습 진행 중 trigger skip.
+  const { winnerCluster, consecutiveWinnerCount, isAutoLearning } = usePipelineEvents();
   // cluster 인덱스 → 그 cluster 의 첫 번째 exemplar label 추출
   // (exemplars 는 outKey=out_N_M 단위 — 동일 cluster 의 모든 neuron 은 공통 label 가정).
   const labelByCluster = useMemo(() => {
@@ -163,21 +165,26 @@ export default function CameraInput() {
 
   // Phase 3.9 v13 (2026-06-03): 자동 trigger 모드.
   // 사용자 요청 "이제 학습/인식 버튼 없이 그냥 새로운 자세면 인식하면 안되나요?"
-  // → 매 1초마다 자동 trigger. v7 cosine override:
+  // → 매 N초마다 자동 trigger. v7 cosine override:
   //   - 같은 자세 (cos > threshold) → MATCH, no spawn, winner 인식
   //   - 새 자세 (cos < threshold) → SPAWN, 자동 학습
+  // Phase 3.9 v14 (2026-06-03 사용자 catch): 직전 1초 interval → SNN 학습 진행
+  // 중에 다음 trigger 발사 → spawn race → cluster pool 빠르게 exhausted. 정정:
+  //   1. interval 1초 → 2.5초 (학습 진행 여유)
+  //   2. isAutoLearning 체크 — 학습 진행 중이면 trigger skip
   const [autoMode, setAutoMode] = useState<boolean>(true);
   useEffect(() => {
     if (!autoMode) return;
     if (status.kind !== 'ready') return;
-    const AUTO_INTERVAL_MS = 1000;
+    const AUTO_INTERVAL_MS = 2500;
     const interval = setInterval(() => {
+      if (isAutoLearning) return; // 학습 진행 중 — 다음 cycle 까지 대기
       if (latestLandmarksRef.current && latestLandmarksRef.current.length === 21) {
         triggerLearn();
       }
     }, AUTO_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [autoMode, status, triggerLearn]);
+  }, [autoMode, status, triggerLearn, isAutoLearning]);
 
   const initialize = useCallback(async () => {
     const video = videoRef.current;

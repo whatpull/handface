@@ -929,9 +929,18 @@ export class LiveSnn {
    */
   triggerWithVigilance(pattern: number[], vigilance: number = 0.15): { trialToken: number } {
     // PR #203 polish (LOW SEC 2026-05-10): vigilance defensive clamp [0,1] —
-    // caller (UI slider) 영역 out-of-range 영역 winner.margin 비교 영역 항상
-    // novel (vig<0) 또는 항상 familiar (vig>1) 영역 misuse 회피.
+    // caller (UI slider) 의 out-of-range 시 winner.margin 비교가 항상
+    // novel (vig<0) 또는 familiar (vig>1) 로 misuse 회피.
     vigilance = Math.max(0, Math.min(1, vigilance));
+    // Phase 3.9 v6 (2026-06-03): hand SNN pre-sparsify with mean-subtraction.
+    // 직전 v5 training-side mean-subtracted top-K 가 discriminative cluster
+    // templates 생성하지만 worker inference 가 plain top-K → basis 불일치 →
+    // 모든 자세가 cluster 0 매칭 (false positive). 정정: caller 가 보낸 95-dim
+    // hand pattern 을 mean-subtracted top-K=5 sparse 95-dim 으로 변환 후 worker
+    // 전달. worker dispatchComputeFeature 의 selectTopKActive 가 sparse pattern
+    // 의 nonzero 5개를 그대로 picking (idempotent) → activeIdx 가 mean-subtracted
+    // basis 와 일치 → cluster matching 정합.
+    pattern = this._preSparsifyHandPattern(pattern);
     this.setPattern(pattern);
     const trialToken = ++this._trialTokenSeq;
     // Fix #21 (사용자 catch 2026-05-10 — 학습 #1 no winner spawn 실패 root cause):
@@ -1353,6 +1362,36 @@ export class LiveSnn {
    * batch 영역 frame count 정합 (단일 cluster 영역 weight 수렴 영역 충분).
    * worker 영역 sequential serial 영역 자연 정합 — main thread block 0.
    */
+  /**
+   * Phase 3.9 v6 (2026-06-03): hand pattern pre-sparsify with mean-subtraction.
+   * worker side 가 plain top-K 만 알기 때문에, LiveSnn 이 mean-subtracted top-K=5
+   * 를 미리 선택해서 sparse pattern (그 5 indices 만 nonzero) 으로 변환 후 전달.
+   * worker dispatchComputeFeature 의 selectTopKActive 는 sparse pattern 의
+   * 5 nonzero indices 를 그대로 선택 → activeIdx 가 mean-subtracted basis 와 일치.
+   *
+   * hand substrate 가 아니거나 mean 이 없으면 원본 pattern 반환 (no-op).
+   * 첫 trigger (mean=null) 는 plain top-K 로 처리 → cluster 0 template = plain.
+   * 두 번째 trigger 이상 (mean 존재) → mean-subtracted basis 일관 적용.
+   */
+  private _preSparsifyHandPattern(pattern: number[]): number[] {
+    if (this.substrateKind !== 'orientation-hand') return pattern;
+    if (pattern.length !== 95) return pattern;
+    if (this._handFeatRunningMean === null || this._handFeatSampleCount === 0) {
+      return pattern; // 첫 trigger — worker plain top-K 그대로 사용.
+    }
+    const mean = this._handFeatRunningMean;
+    const pairs: Array<{ idx: number; score: number }> = [];
+    for (let i = 0; i < 95; i += 1) {
+      pairs.push({ idx: i, score: Math.abs(pattern[i] - mean[i]) });
+    }
+    pairs.sort((a, b) => b.score - a.score);
+    const topK = pairs.slice(0, 5).map((p) => p.idx);
+    // Sparse 95-dim: top-K=5 indices keep original values, rest zero.
+    const sparse = new Array<number>(95).fill(0);
+    for (const idx of topK) sparse[idx] = pattern[idx];
+    return sparse;
+  }
+
   /**
    * Phase 3.9 v5 (2026-06-03): Welford-style incremental mean update for hand
    * SNN running mean. 호출 시 sampleCount += 1, mean += (x - mean) / count.

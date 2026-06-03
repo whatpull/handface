@@ -123,6 +123,76 @@ describe('Phase 3.9 v5 mean-subtracted top-K — real MediaPipe captured landmar
     console.log('');
   });
 
+  it('★ v6 inference: pre-sparsified pattern + mean-subtracted top-K basis match', () => {
+    const fixtures: Record<Pose, HandLandmark[][]> = {} as Record<Pose, HandLandmark[][]>;
+    for (const pose of POSES) fixtures[pose] = loadFixture(pose);
+
+    // Train 4 clusters with v5 algorithm.
+    let mean: number[] | null = null;
+    let count = 0;
+    const claimed = new Set<number>();
+    const clusters: number[][] = [];
+    for (let i = 0; i < POSES.length; i += 1) {
+      const feat = encodeHandToFeatureVector(fixtures[POSES[i]][0]);
+      const cluster = v5Spawn(feat, claimed, mean, HAND_SPARSE_TOP_K_DEFAULT);
+      clusters.push(cluster);
+      for (const idx of cluster) claimed.add(idx);
+      mean = updateMean(mean, count, feat);
+      count += 1;
+    }
+
+    // v6 inference path: pre-sparsify using mean-subtracted top-K.
+    function v6InputTopK(feat: number[], runMean: number[] | null): number[] {
+      if (runMean === null) {
+        // Plain top-K (first trigger case).
+        return feat
+          .map((v, idx) => ({ idx, val: v }))
+          .sort((a, b) => b.val - a.val)
+          .slice(0, HAND_SPARSE_TOP_K_DEFAULT)
+          .map((p) => p.idx)
+          .sort((a, b) => a - b);
+      }
+      // Mean-subtracted top-K.
+      return feat
+        .map((v, idx) => ({ idx, score: Math.abs(v - runMean[idx]) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, HAND_SPARSE_TOP_K_DEFAULT)
+        .map((p) => p.idx)
+        .sort((a, b) => a - b);
+    }
+
+    console.log('');
+    console.log('=== v6 inference (pre-sparsify with mean-subtraction) ===');
+    console.log('');
+    let correct = 0, total = 0;
+    for (let i = 0; i < POSES.length; i += 1) {
+      const pose = POSES[i];
+      for (let s = 1; s < fixtures[pose].length; s += 1) {
+        const feat = encodeHandToFeatureVector(fixtures[pose][s]);
+        const inputTopK = v6InputTopK(feat, mean);
+        const jaccards: Array<{ cluster: number; jac: number }> = [];
+        for (let c = 0; c < clusters.length; c += 1) {
+          const ts = new Set(clusters[c]);
+          let inter = 0;
+          for (const idx of inputTopK) if (ts.has(idx)) inter += 1;
+          const union = inputTopK.length + clusters[c].length - inter;
+          const jac = union > 0 ? inter / union : 0;
+          jaccards.push({ cluster: c, jac });
+        }
+        jaccards.sort((a, b) => b.jac - a.jac);
+        const winner = jaccards[0];
+        const correctMatch = winner.cluster === i;
+        if (correctMatch) correct += 1;
+        total += 1;
+        console.log(`  ${pose} sample ${s}: input top-K(mean-sub)=[${inputTopK.join(',')}]`);
+        console.log(`    best match: cluster ${winner.cluster} (Jaccard=${winner.jac.toFixed(3)}) ${correctMatch ? '✓' : '✗ (expected '+i+')'}`);
+      }
+    }
+    console.log('');
+    console.log(`  accuracy: ${correct}/${total} = ${total > 0 ? ((correct/total) * 100).toFixed(0) : 0}%`);
+    console.log('');
+  });
+
   it('★ Inference: 같은 자세 다시 → 어느 cluster 와 Jaccard 가장 큰가?', () => {
     const fixtures: Record<Pose, HandLandmark[][]> = {} as Record<Pose, HandLandmark[][]>;
     for (const pose of POSES) fixtures[pose] = loadFixture(pose);

@@ -1312,6 +1312,15 @@ export class LiveSnn {
         });
       } catch (e) {
         console.warn('[LiveSnn] reinforceAsync dispatch failed:', e);
+        // Phase 3.9 v43 (2026-06-04): self-heal sync — reinforce 영역 'targetCluster
+        // N 범위 밖' 영역 desync 영역 catch 영역 즉시 sync force trigger. 다음
+        // trigger 영역 정상 동작 보장 — production 영역 silent stuck state 차단.
+        const msg = e instanceof Error ? e.message : String(e);
+        if (this.substrateKind === 'orientation-hand' && msg.includes('범위 밖')) {
+          console.warn('[hand-self-heal] reinforce 실패 영역 sync re-trigger — 다음 trigger 영역 정상');
+          this._handSyncedWithWorker = false;
+          void this._syncHandWithWorker();
+        }
       }
     })();
     return { trialToken };

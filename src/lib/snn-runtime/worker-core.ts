@@ -273,9 +273,10 @@ function validateTriggerBackgroundPayload(p: TriggerBackgroundPayload): void {
   if (!Array.isArray(p.pattern) || (
     p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
     p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14 &&
-    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15
+    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15 &&
+    p.pattern.length !== RAW_DIM_N16 && p.pattern.length !== HAND_FEAT_DIM
   )) {
-    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, or ${N_INPUT_N15} array)`);
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, ${N_INPUT_N15}, ${RAW_DIM_N16}, or ${HAND_FEAT_DIM} array)`);
   }
   if (typeof p.repeats !== 'number' || p.repeats < 1 || p.repeats > 10) {
     throw new Error('invalid repeats (expected 1..10)');
@@ -298,9 +299,10 @@ function validateReinforceBackgroundPayload(p: ReinforceBackgroundPayload): void
   if (!Array.isArray(p.pattern) || (
     p.pattern.length !== 16 && p.pattern.length !== N_INPUT &&
     p.pattern.length !== RAW_DIM_N14 && p.pattern.length !== N_INPUT_N14 &&
-    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15
+    p.pattern.length !== RAW_DIM_N15 && p.pattern.length !== N_INPUT_N15 &&
+    p.pattern.length !== RAW_DIM_N16 && p.pattern.length !== HAND_FEAT_DIM
   )) {
-    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, or ${N_INPUT_N15} array)`);
+    throw new Error(`invalid pattern (expected length 16, ${N_INPUT}, ${RAW_DIM_N14}, ${N_INPUT_N14}, ${RAW_DIM_N15}, ${N_INPUT_N15}, ${RAW_DIM_N16}, or ${HAND_FEAT_DIM} array)`);
   }
   // Fix #20 (2026-05-10): dynamic cluster cap — 직전 0..31 fixed (4 cluster ×
   // 8 OUT) 영역 폐기. expandCluster 영역 dynamic 영역 cap 영역 0..63 영역 확장.

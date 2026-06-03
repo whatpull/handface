@@ -1,0 +1,21 @@
+{
+  "scenario": "phase-3-v28-end-to-end-production",
+  "timestamp": "2026-06-03T13:49:00Z",
+  "version": "v27 fallback activeInputs (legacy data sync)",
+  "production_log_reproduced": {
+    "restored_features": 3,
+    "restored_activeInputs": 0,
+    "worker_initial": 0
+  },
+  "sync_result": {
+    "worker_clusters_after_sync": 3,
+    "fallback_activeInputs": 3
+  },
+  "triggers": {
+    "total": 5,
+    "cosine_match": 5,
+    "reinforce_success": 5,
+    "reinforce_failure": 0
+  },
+  "verdict": "✓ v27 fix 검증 — production reinforce 실패 차단 확정"
+}

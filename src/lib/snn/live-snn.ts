@@ -1476,7 +1476,7 @@ export class LiveSnn {
     // EMA update — 같은 자세 반복 시 cluster centroid 가 사용자 실제 자세
     // 분포로 수렴 → jitter robustness 향상.
     // Phase 3.9 v18 (2026-06-03): strict match 만 EMA + R-STDP 적용.
-    // weak match (cos 0.78-0.93) 는 classify only — borderline 자세에서
+    // weak match (cos 0.95-0.97, v58 영역 강화) 는 classify only — borderline 자세에서
     // cluster centroid drift 방지.
     if (cosineWinner !== undefined && cosineWinner.strict && this.patternRef.length === 95) {
       const existing = this._handClusterFeatures.get(cosineWinner.clusterId);
@@ -1747,8 +1747,33 @@ export class LiveSnn {
     //   weak (0.78-0.93): borderline pose → classify but skip EMA / reinforce
     //                     (사용자 자세 미세 변동, 새 spawn 회피)
     //   below 0.78: 진짜 다른 자세 → SPAWN
-    const HAND_COSINE_STRICT_THRESHOLD = 0.93;
-    const HAND_COSINE_WEAK_THRESHOLD = 0.78;
+    //
+    // Phase 3.9 v58 (2026-06-05) CRITICAL — 사용자 catch:
+    //   "손 자세 영역 달라도 영역 cluster 0 winner — 영역 자세 인식 안 됨"
+    //
+    // root cause 검증 (fixture cross-pose sim matrix):
+    //                  open  fist  thumb peace
+    //   open_palm     1.000 0.929 0.941 0.987
+    //   closed_fist   0.929 1.000 0.990 0.927
+    //   thumbs_up     0.941 0.990 1.000 0.939
+    //   peace_sign    0.987 0.927 0.939 1.000
+    //
+    //   영역 자세 cross-pose sim 영역 0.927-0.990 영역 — encoder 영역
+    //   wrist-relative + palm-size normalize 영역 영역 자세 영역 sim 영역
+    //   영역 0.9+ 영역 catch. 영역 weak 0.78 / strict 0.93 영역 모두 영역 부족 →
+    //   영역 자세 영역 영역 같은 cluster 영역 winner → SPAWN 영역 영역 발생 안 함.
+    //
+    // v58 fix: weak 0.78 → 0.95, strict 0.93 → 0.97 영역 영역 강화:
+    //   - sim < 0.95 → SPAWN (영역 자세 catch 영역 새 cluster 학습)
+    //   - 0.95 <= sim < 0.97 → weak match (자세 미세 변동, classify only)
+    //   - sim >= 0.97 → strict match (EMA + R-STDP reinforce)
+    //
+    //   정직 한계: open vs peace (sim 0.987) / closed vs thumbs (0.990) 영역
+    //   strict 0.97 영역 영역 영역 같은 cluster catch. 영역 catch 영역 encoder
+    //   영역 영역 강한 discrimination feature (finger curl 영역) 영역 추가 필요 —
+    //   v59 영역 catch.
+    const HAND_COSINE_STRICT_THRESHOLD = 0.97;
+    const HAND_COSINE_WEAK_THRESHOLD = 0.95;
     const HAND_COSINE_THRESHOLD = HAND_COSINE_WEAK_THRESHOLD; // spawn-or-match boundary
     const normInput = this._normalizePatternV11(pattern);
     let bestId = -1;

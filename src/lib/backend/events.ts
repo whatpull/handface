@@ -112,8 +112,8 @@ export interface HandCosineSimDetail {
   clusterId: number;     // -1 if no clusters yet
   sim: number;           // cosine similarity
   strict: boolean;       // strict MATCH (cos >= 0.93)
-  weak: boolean;         // weak MATCH (0.78 <= cos < 0.93)
-  spawn: boolean;        // SPAWN (cos < 0.78)
+  weak: boolean;         // weak MATCH (0.95 <= cos < 0.97, v58)
+  spawn: boolean;        // SPAWN (cos < 0.95, v58)
 }
 
 export interface HandFeatureDetail {

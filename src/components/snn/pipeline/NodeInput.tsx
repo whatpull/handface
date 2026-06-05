@@ -1,71 +1,32 @@
 'use client';
 
-// NodeInput — INPUT 노드. GRID + CAMERA tab (Phase 3.2, 2026-06-03).
-// Phase 3.3 (2026-06-03) — input-mode event emit 추가:
-//   tab change 시 emitBackendEvent('input-mode', {mode}) →
-//   live-snn substrate switch ('orientation-6x6' ↔ 'orientation-hand').
+// NodeInput — INPUT 노드. Grid (6×6) only (Phase 3.9 final, 2026-06-05).
 //
-// 정직 한계:
-//   - CAMERA tab 은 webcam preview + landmark visualization 까지만 (Phase 3.2).
-//   - 학습 trigger (hand landmarks → 95-dim feature → triggerWithVigilance)
-//     는 Phase 3.4 부터 추가.
-//   - 사용자 webcam permission deny 시 CameraInput 이 안내 message 표시.
+// Phase 3.9 final 결정 (2026-06-05): Hand SNN (Camera mode) 폐기.
+//   docs/HAND_SNN_PHASE_3_9_FINAL.md 참조.
+//   - MediaPipe HandLandmarker (CNN 학습된 모델) 의 출력 (21 landmarks) 을
+//     SNN 으로 재학습 = 정보 손실 + 비효율.
+//   - MediaPipe GestureRecognizer (pre-trained) 가 7 gestures 이미 분류 가능.
+//   - SNN spike rate-coding 은 static pose 분류에 본질 weak.
+//   - Encoder cross-pose sim margin 0.066 — cosine threshold 분리 불가능.
+// Grid SNN (orientation-6x6) demo 유지 — SNN 학습 visualization 가치.
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { emitBackendEvent, type InputModeDetail } from '@/lib/backend/events';
-import CameraInput from './CameraInput';
 import GridInput from './GridInput';
 import NodeShell from './NodeShell';
 
-type InputTab = 'grid' | 'camera';
-
 export default function NodeInput() {
-  const [activeTab, setActiveTab] = useState<InputTab>('grid');
-
-  // Phase 3.3 (2026-06-03) — tab change 시 input-mode event emit.
-  // live-snn 의 listener 가 substrate 를 자동 switch.
+  // input-mode event = 'grid' 만 emit (live-snn substrate='orientation-6x6').
   useEffect(() => {
-    emitBackendEvent<InputModeDetail>('input-mode', {
-      mode: activeTab === 'camera' ? 'camera' : 'grid',
-    });
-  }, [activeTab]);
-
-  // aria-selected 를 변수로 추출 + boolean type — ESLint jsx-a11y/aria-proptypes
-  // 가 inline ternary expression 을 catch 하는 것을 회피.
-  const gridSelected: boolean = activeTab === 'grid';
-  const cameraSelected: boolean = activeTab === 'camera';
+    emitBackendEvent<InputModeDetail>('input-mode', { mode: 'grid' });
+  }, []);
 
   return (
-    <NodeShell
-      title="INPUT"
-      subtitle={activeTab === 'grid' ? '6×6 orientation' : 'Camera (Hand SNN)'}
-      tone="input"
-    >
+    <NodeShell title="INPUT" subtitle="6×6 orientation" tone="input">
       <div className="snn-pipeline-input">
-        <div className="snn-input-tabs" role="tablist" aria-label="입력 모드 선택">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={gridSelected}
-            className={`snn-input-tab ${gridSelected ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('grid')}
-          >
-            GRID (6×6)
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={cameraSelected}
-            className={`snn-input-tab ${cameraSelected ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('camera')}
-          >
-            CAMERA (Hand)
-          </button>
-        </div>
-
         <div className="snn-input-content">
-          {activeTab === 'grid' && <GridInput />}
-          {activeTab === 'camera' && <CameraInput />}
+          <GridInput />
         </div>
       </div>
     </NodeShell>

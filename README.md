@@ -15,14 +15,27 @@
 
 본 저장소는 **Bio-SNN 연구용 building blocks** 입니다. **production AI 시스템이 아닙니다.**
 
-### 사실관계 (2026-05-26 기준)
+### 🛑 Phase 3.9 final — Hand SNN 폐기 결정 (2026-06-05)
+
+**Hand gesture 인식 path 폐기.** 정직 catch:
+
+1. MediaPipe HandLandmarker 가 이미 CNN 학습된 모델 — 그 출력 (21 landmarks) 을 SNN 으로 재학습 = 정보 손실 + 비효율
+2. MediaPipe GestureRecognizer (pre-trained CNN) 가 7 known gestures 이미 분류 가능 — SNN 재학습 가치 0
+3. SNN spike rate-coding 은 static spatial pose 분류에 본질 weak (temporal pattern 강점)
+4. Encoder cross-pose sim margin 0.066 — cosine threshold 만으로 자세 분리 불가능
+
+자세한 결정 process: [docs/HAND_SNN_PHASE_3_9_FINAL.md](docs/HAND_SNN_PHASE_3_9_FINAL.md)
+
+**현재 처리:** Grid SNN (orientation-6x6) demo 유지, Hand mode UI 폐기, SNN lib (`src/lib/snn-runtime/` + `src/lib/snn/`) 보존 — 새 프로젝트 (Hippocampus-like Episodic Memory + LLM) 에서 재사용.
+
+### 사실관계 (2026-06-05 기준)
 
 | 항목 | 실제 상태 |
 |------|-----------|
 | 4×4 패턴 인식 (N=3) | ✅ 100% 작동 (검증된 production) |
 | 5×5 패턴 인식 (N=8) | ✅ 100% recall, ~88% noise (Mega ensemble) |
 | 6×6 patterns Bottom row | ⚠️ 학습 실패 (4 시드 모두) — ensemble 로 흡수 |
-| Hand SNN (MediaPipe Hand) | ⚠️ **early prototype** — 1-shot 25% accuracy, 학습 안정화 미해결 |
+| Hand SNN (MediaPipe Hand) | 🛑 **폐기 (deprecated, 2026-06-05)** — 학술 catch path 아님 |
 | 26개 "Phase" cognitive modules | ⚠️ **pure functions + 단위 테스트만** — 실제 SNN 통합 안 됨 (21/26) |
 
 ### Cognitive module 명명 주의

@@ -31,7 +31,9 @@
 **Phase 3.9 final cleanup (2026-06-06):**
 - `CameraInput.tsx` / `src/lib/hand-tracking/` / `src/lib/snn/hand-learning-export.ts` / `src/lib/snn-runtime/hand-snn-trainer.ts` 완전 제거
 - Hand 관련 측정 test 41개 → `tests/_archive_phase_3_9_hand/` 로 이동 (CI exclude)
-- `src/lib/snn-runtime/{hand-noise, hand-spike-encoder}.ts` 와 `builders/n16-hand.ts` 는 grid SNN path 가 재사용 중이므로 보존
+- `src/lib/snn-runtime/hand-noise.ts` 는 Grid SNN self-verification 영역 재사용 — 유지
+- `hand-spike-encoder.ts` + `builders/n16-hand.ts` 는 caller 측 분기가 dead path 이나 library 자체 보존 (학술 정합)
+- 자세한 dead code 분석: [`docs/PHASE_3_9_DEAD_CODE_ANALYSIS.md`](docs/PHASE_3_9_DEAD_CODE_ANALYSIS.md)
 - 새 프로젝트: **hippoface** — https://hippoface.vercel.app
 
 ### 사실관계 (2026-06-05 기준)

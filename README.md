@@ -28,6 +28,12 @@
 
 **현재 처리:** Grid SNN (orientation-6x6) demo 유지, Hand mode UI 폐기, SNN lib (`src/lib/snn-runtime/` + `src/lib/snn/`) 보존 — 새 프로젝트 (Hippocampus-like Episodic Memory + LLM) 에서 재사용.
 
+**Phase 3.9 final cleanup (2026-06-06):**
+- `CameraInput.tsx` / `src/lib/hand-tracking/` / `src/lib/snn/hand-learning-export.ts` / `src/lib/snn-runtime/hand-snn-trainer.ts` 완전 제거
+- Hand 관련 측정 test 41개 → `tests/_archive_phase_3_9_hand/` 로 이동 (CI exclude)
+- `src/lib/snn-runtime/{hand-noise, hand-spike-encoder}.ts` 와 `builders/n16-hand.ts` 는 grid SNN path 가 재사용 중이므로 보존
+- 새 프로젝트: **hippoface** — https://hippoface.vercel.app
+
 ### 사실관계 (2026-06-05 기준)
 
 | 항목 | 실제 상태 |

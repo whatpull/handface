@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T07:43:45.166Z",
+  "timestamp": "2026-06-05T15:34:43.879Z",
   "scenario": "hand-snn-williams-formal-symmetric-convention",
-  "elapsed_ms": 7,
+  "elapsed_ms": 4,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 λ=-1 L'Hopital limit form 영역 3 alternative conventions 영역 영역 영역 음수 statistic artifact 영역 해결 검증. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 493f850 영역 정직 한계 \"L'Hopital limit form + zero-skip convention 영역 generalized T(λ) baseline 영역 영역 영역 inconsistent. observed statistic 영역 음수 → reject side rule inflate artifact. Williams 1976 §3 formal form 별도 R&D mandatory\" 영역 followup.",
     "input_data": {
@@ -28,7 +28,7 @@
       "N_phase_c": 3,
       "K_clusters": 4,
       "prior_493f850_zero_skip_p_A": 0.8789,
-      "prior_493f850_zero_skip_p_B": 0.9883,
+      "prior_493f850_zero_skip_p_B": 0.9961,
       "prior_493f850_zero_skip_p_C": 0.9375,
       "phase_a_source": "open_palm untrained — counts=[1,0,4,0] (cluster 2 dominant)",
       "phase_b_source": "open_palm post-RSTDP — counts=[0,3,0,2] (cluster 1 + 3 active)",
@@ -146,7 +146,7 @@
     "total_enumerated_outcomes": 56,
     "expected_outcomes_combinatorial": 56,
     "sum_of_probabilities": 1.0000000000000013,
-    "prior_zero_skip_baseline_p": 0.9883,
+    "prior_zero_skip_baseline_p": 0.9961,
     "per_convention_results": [
       {
         "convention": "zero_skip_493f850",
@@ -191,7 +191,7 @@
         "sum_of_pmf_total": 1.0000000000000013
       }
     ],
-    "evidence": "Phase B (trained): counts=[0, 3, 0, 2] (N=5, K=4), E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), prior 493f850 zero-skip p=0.9883, conventions: zero_skip_493f850: T=-3.364 (negative) → p=0.9961; zero_include_strict_infinity: T=+∞ (positive_infinity) → p=0.7656; symmetric_laplace_delta_0.5: T=5.095 (positive) → p=0.1797, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
+    "evidence": "Phase B (trained): counts=[0, 3, 0, 2] (N=5, K=4), E=N/K=1.250, zero clusters=2/4 (Cochran 1954 E≥5 violated: true), prior 493f850 zero-skip p=0.9961, conventions: zero_skip_493f850: T=-3.364 (negative) → p=0.9961; zero_include_strict_infinity: T=+∞ (positive_infinity) → p=0.7656; symmetric_laplace_delta_0.5: T=5.095 (positive) → p=0.1797, enumerated=56 (expected C(8,3)=56), Σ pmf=1.000000."
   },
   "phase_c_analysis": {
     "phase_label": "Phase C (sequence)",
@@ -327,7 +327,7 @@
         ]
       },
       "phase_b": {
-        "prior_zero_skip_p": 0.9883,
+        "prior_zero_skip_p": 0.9961,
         "prior_observed_statistic": -3.36367,
         "prior_artifact_note": "reject side rule inflate",
         "conventions": [
@@ -336,21 +336,21 @@
             "observed": -3.3636809164990886,
             "sign": "negative",
             "p": 0.9960937500000011,
-            "delta_from_prior_p": 0.007793750000001154
+            "delta_from_prior_p": -0.000006249999998875211
           },
           {
             "convention": "zero_include_strict_infinity",
             "observed": null,
             "sign": "positive_infinity",
             "p": 0.7656250000000009,
-            "delta_from_prior_p": -0.22267499999999907
+            "delta_from_prior_p": -0.2304749999999991
           },
           {
             "convention": "symmetric_laplace_delta_0.5",
             "observed": 5.094963343722204,
             "sign": "positive",
             "p": 0.17968750000000047,
-            "delta_from_prior_p": -0.8086124999999995
+            "delta_from_prior_p": -0.8164124999999995
           }
         ]
       },
@@ -386,12 +386,14 @@
   },
   "hypothesis_details": {
     "definitions": {
-      "H_symmetric_convention_resolves": "Convention 3 (symmetric Laplace δ=0.5) 영역 모든 3 phase 영역 영역 영역 finite positive observed statistic 산출 → reject side rule (stat ≥ observed) 영역 정확 적용 → 493f850 zero-skip 음수 artifact 해결. inside-log additive smoothing 영역 numerator (E+δ) / (O+δ) 영역 영역 영역 영역 영역 — uniform 영역 영역 T_sym ≈ 0, deviation 영역 영역 T_sym 영역 +.",
+      "H_symmetric_convention_resolves": "**Partial resolution clarification (QA HIGH catch fix)**: Convention 3 (symmetric Laplace δ=0.5) 영역 모든 3 phase 영역 영역 영역 finite positive observed statistic 산출 → reject side rule (stat ≥ observed) 영역 정확 적용 → 493f850 zero-skip 음수 artifact 해결 (Conv 3 한정 partial resolution). Conv 1 (zero-skip) 영역 여전히 음수 artifact ∃, Conv 2 (strict +∞) 영역 여전히 +∞ artifact ∃. **Sufficient statistic equivalence (CRITICAL QA HIGH)**: Conv 3 (inside-log Laplace, (E+δ)/(O+δ) smoothing) 영역 493f850 Method 2 (Williams δ=0.5 outside-log additive count O→O+δ before raw χ²) 영역 ALL 3 phase 영역 byte-identical exact p (Phase A=0.0625, B=0.1797, C=0.6250) — **coincidence NOT, fundamental equivalence**: inside-log vs outside-log variant 영역 uniform null + reject side rule 영역 영역 영역 outcome ordering 영역 영역 영역 → sufficient statistic equivalent → 본 R&D 영역 493f850 Method 2 영역 영역 영역 **informationally novel finding 0** (Williams δ convention 영역 inside-log/outside-log variant 영역 equivalent confirmation). Verdict 영역 strict 영역 \"H_symmetric_convention_resolves_for_conv3_only\" 영역 영역 영역.",
       "H_all_conventions_artifact": "모든 3 conventions 영역 영역 영역 영역 다른 artifact: Conv 1 (zero-skip) 모든 phase 음수 → reject inflate, Conv 2 (strict +∞) 모든 phase +∞ → raw rule, Conv 3 (symmetric Laplace) 영역 finite positive 영역 영역 영역 (sign 영역 영역). fundamental indeterminacy.",
       "H_partial_resolution": "일부 convention 영역 영역 영역 — mixed signal. 영역 convention 영역 영역 영역 영역 영역 영역 영역 영역 영역 — broader R&D (δ sweep + Williams 1976 §3 정확 form verify) 별도 mandatory."
     },
     "threshold_rationale": "symmetric_convention_resolves criterion — Convention 3 (symmetric Laplace δ=0.5) 영역 모든 3 phase 영역 영역 영역 (observed finite AND sign=positive) holds → artifact 해결. observed positive → reject side rule (stat ≥ observed) 영역 정확 적용 (음수 observed 영역 거의 모든 outcome reject side classify 영역 artifact 영역).",
-    "comparison_to_493f850_zero_skip": "493f850 zero-skip convention (Conv 1) 영역 baseline — observed statistic 영역 음수 (Phase A=-2.35 / B=-3.36 / C=-1.90) 영역 영역 영역 reject side rule 영역 음수 observed → outcome 영역 거의 모두 reject side classify (stat ≥ 음수) → p inflate (0.88-0.99). 본 R&D 영역 3 alternative conventions 영역 영역 영역 artifact 영역 해결 candidate verify."
+    "comparison_to_493f850_zero_skip": "493f850 zero-skip convention (Conv 1) 영역 baseline — observed statistic 영역 음수 (Phase A=-2.35 / B=-3.36 / C=-1.90) 영역 영역 영역 reject side rule 영역 음수 observed → outcome 영역 거의 모두 reject side classify (stat ≥ 음수) → p inflate (0.88-0.99). 본 R&D 영역 3 alternative conventions 영역 영역 영역 artifact 영역 해결 candidate verify.",
+    "naming_correction_note": "**QA HIGH catch fix**: \"Williams 1976 §3 formal symmetric convention\" naming 영역 misleading — 본 R&D 영역 Williams 1976 §3 영역 정확 form 영역 직접 verify 영역 영역 (\"§3 inspired\" only). \"formal\" 영역 published canonical form 영역 영역 영역 영역 영역 영역 — Convention 3 영역 본 R&D novel Laplace smoothing interpretation choice (Williams 1976 영역 영역 영역 §3 영역 G² contingency table modified form 영역 — λ=-1 Modified LR symmetric form 영역 별도 published reference 영역). scenario rename candidate: \"williams-inspired-symmetric-laplace-convention\" 영역 영역 영역 적정 — 본 R&D 영역 historical naming 보존 단 limitations + 본 note 영역 명시 강화.",
+    "marginal_significance_clarification_note": "**QA MEDIUM catch fix**: Conv 3 Phase A p=0.0625 영역 α=0.05 영역 비교 — 0.0625 > 0.05 → **fail to reject H0 at α=0.05** (statistically NOT significant). \"marginal\" 영역 영역 영역 proximity 영역 영역 영역 영역 — frequentist 영역 영역 \"marginal proximity 영역 단 statistically not significant\" (fail-to-reject) 영역 명시. α=0.10 영역 영역 영역 reject 영역 단 본 R&D 영역 α=0.05 standard convention 한정."
   },
   "academic_alignment": [
     "Williams 1976 — improved likelihood ratio for sparse contingency tables (§3 영역 inspired only, 정확 form 영역 직접 verify 영역 영역 — 본 R&D 영역 interpretation choice).",

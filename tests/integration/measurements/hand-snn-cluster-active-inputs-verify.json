@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-06-03T10:49:27.787Z",
+  "timestamp": "2026-06-03T22:29:07.277Z",
   "scenario": "hand-snn-cluster-active-inputs-verify",
-  "elapsed_ms": 6,
+  "elapsed_ms": 9,
   "focused_scope": {
     "gesture_count": 4,
     "gesture_names": [

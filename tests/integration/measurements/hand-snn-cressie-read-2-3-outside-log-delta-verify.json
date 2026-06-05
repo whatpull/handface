@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T12:31:36.169Z",
+  "timestamp": "2026-06-05T15:34:43.586Z",
   "scenario": "hand-snn-cressie-read-2-3-outside-log-delta-verify",
-  "elapsed_ms": 9,
+  "elapsed_ms": 6,
   "measurement_id": "hand-snn-cressie-read-2-3-outside-log-delta-verify",
   "branch": "main",
   "commit_baselines": {
@@ -13,14 +13,8 @@
   "hypothesis": "T_(2/3)(δ) Cressie-Read 1984 recommended outside-log statistic produces byte-identical p-values vs Conv 3 inside-log Laplace LR AND Method 2 Pearson AND G² AND Modified LR baselines across all (Phase, δ) ∈ {A,B,C} × {0.1, 0.5, 1.0} = 9 cells × 4 baselines = 36 byte-identical matches",
   "result": "PASS",
   "byte_identical_matches": "36/36",
-  "interpretation": "Cressie & Read 1984 §3 권장 λ=2/3 power divergence form (T_(2/3) = 1.8 × Σ O × ((O/E)^(2/3) - 1)) 의 outside-log additive count smoothing variant 가 직전 4 baselines (Conv 3 inside-log Laplace LR / Method 2 Pearson outside-log λ=1 / G² outside-log λ→0 / Modified LR outside-log λ=-1) 와 byte-identical exact p 를 verify → λ-family closed for verified subset {1, 0, -1, 2/3} only (full λ ∈ ℝ closure 가 아님 — λ=2 Neyman / λ=-1/2 Freeman-Tukey 등 unverified). small N (5/5/3) + uniform null + reject side rule 환경에서의 outcome ordering preservation 이 root cause hypothesis. Cochran 1972 sufficient statistic equivalence 가 verified subset 한정으로 empirical. Cressie & Read 1984 §3 원문 직접 form 확인 + mathematical proof + 미verify λ value extension 별도 R&D mandatory.",
-  "scope_clarification": {
-    "verified_lambda_set": [1, 0, -1, "2/3"],
-    "verified_lambda_set_note": "λ-family closure empirically confirmed for these 4 values only. 'fully closed' phrasing in scope_clarification 와 interpretation 둘 다 verified subset 한정 명시 — λ=2, λ=-2, λ=-1/2 등 unverified",
-    "verified_sample_size_regime": "small N (5/5/3) + discrete sample space + uniform null",
-    "unverified_regimes": ["large N continuous regime", "non-uniform prior", "λ ∈ ℝ \\ {1, 0, -1, 2/3}"]
-  },
-  "hypothesis_verdict": "H_cressie_read_2_3_lambda_family_closed_for_verified_subset_1_0_neg1_2_3",
+  "interpretation": "Cressie & Read 1984 §3 권장 λ=2/3 power divergence form (T_(2/3) = 1.8 × Σ O × ((O/E)^(2/3) - 1)) 영역 outside-log additive count smoothing variant 영역 직전 4 baselines (Conv 3 inside-log Laplace LR / Method 2 Pearson outside-log λ=1 / G² outside-log λ→0 / Modified LR outside-log λ=-1) 영역 byte-identical exact p 영역 verify → λ-family fully closed extension (λ ∈ {1, 0, -1, 2/3}) empirical (Cochran 1972 sufficient statistic equivalence broader λ-family confirm). uniform null + reject side rule 영역 영역 영역 outcome ordering preservation 영역 root cause hypothesis. 단 Cressie & Read 1984 §3 원문 직접 form 확인 + mathematical proof 별도 R&D mandatory.",
+  "hypothesis_verdict": "H_cressie_read_2_3_lambda_family_extension_closed",
   "honest_limitations": [
     "Small N (5/5/3) regime — Cressie-Read 1984 §3 recommendation 영역 sample-size 한정 적용 가능 (small N + boundary case 한정 권장). large N regime 영역 영역 영역 영역 영역 영역 영역 영역.",
     "λ-family closure 영역 small N + discrete sample space 영역 한정 — large N regime 영역 monotonic ordering preservation 영역 별도 mathematical proof mandatory (Cochran-style equivalence theorem 또는 measure-theoretic argument).",
@@ -72,8 +66,7 @@
       "zero_cluster_phase_a": "[1,0,4,0] → 2 zero clusters (idx 1, 3)",
       "zero_cluster_phase_b": "[0,3,0,2] → 2 zero clusters (idx 0, 2)",
       "zero_cluster_phase_c": "[0,1,2,0] → 2 zero clusters (idx 0, 3)",
-      "phase_b_counts_clarification": "instruction snippet 영역 phase_b_counts=[1,1,0,3] 영역 — 직전 9e39095 Modified LR baseline 영역 동일 [0,3,0,2] 영역 사용 (baseline p=0.1797 영역 reproduce 영역 [0,3,0,2] 영역 영역). instruction typo 영역 추정 영역 — established baseline 영역 영역.",
-      "phase_c_counts_clarification": "instruction snippet 의 phase_c_counts=[0,0,0,3] 는 typo — established dc2038f Conv 3 baseline (p=0.625) 가 [0,1,2,0] counts 에서만 재현 → 본 R&D 는 baseline 과 동일 [0,1,2,0] 사용. instruction typo 는 통계량 reanalysis 결과에 영향 없음 (file 의 PHASE_C_COUNTS 가 source-of-truth)."
+      "phase_b_counts_clarification": "instruction snippet 영역 phase_b_counts=[1,1,0,3] 영역 — 직전 9e39095 Modified LR baseline 영역 동일 [0,3,0,2] 영역 사용 (baseline p=0.1797 영역 reproduce 영역 [0,3,0,2] 영역 영역). instruction typo 영역 추정 영역 — established baseline 영역 영역."
     },
     "delta_sweep": [
       {

@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T11:58:53.928Z",
+  "timestamp": "2026-06-05T15:34:43.525Z",
   "scenario": "hand-snn-modified-lr-outside-log-delta-verify",
-  "elapsed_ms": 9,
+  "elapsed_ms": 10,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 Modified LR outside-log variant (additive count smoothing → modified likelihood ratio, Neyman 1949 λ=-1 form of Cressie & Read 1984 power divergence) δ ∈ {0.1, 0.5, 1.0} 영역 영역 exact p compute → dc2038f Conv 3 (inside-log Laplace LR, δ-invariant 0.0625/0.1797/0.6250) + 7e883c6 Method 2 Pearson outside-log (λ=1, 9/9 verified) + 9e92b11 G² outside-log (λ→0, 9/9 verified) 영역 byte-identical verify (3-way cross-verify). NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 9e92b11 영역 정직 한계 (QA HIGH 1 fix) \"λ-family broader 영역 λ ∈ {1, 0} ranged confirmation 한정 — λ=-1 Modified LR outside-log direct verify 별도 R&D mandatory\" 영역 직접 followup (λ=-1 Modified LR direct verify, λ-family fully closed empirical).",
     "input_data": {

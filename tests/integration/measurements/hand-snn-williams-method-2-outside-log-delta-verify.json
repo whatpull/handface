@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T09:22:13.917Z",
+  "timestamp": "2026-06-05T15:34:43.772Z",
   "scenario": "hand-snn-williams-method-2-outside-log-delta-verify",
-  "elapsed_ms": 6,
+  "elapsed_ms": 8,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 Method 2 outside-log (additive count smoothing → raw Pearson χ²) δ ∈ {0.1, 0.5, 1.0} 영역 영역 exact p compute → dc2038f Conv 3 (inside-log Laplace LR, δ-invariant 0.0625/0.1797/0.6250) 영역 byte-identical verify. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit dc2038f 영역 정직 한계 \"Method 2 outside-log δ ∈ {0.1, 1.0} direct verify 영역 X — 'expected — direct verify 별도 R&D mandatory'\" 영역 직접 followup.",
     "input_data": {
@@ -352,13 +352,16 @@
   },
   "hypothesis_details": {
     "definitions": {
-      "H_method_2_equivalence_broader_delta_confirmed": "영역 3 δ × 영역 3 phase (총 9 cells) 영역 영역 영역 영역 Method 2 outside-log (additive count → raw Pearson χ²) exact p 영역 dc2038f Conv 3 inside-log (Laplace LR) exact p 영역 byte-identical (|Δp| < 1e-9) → Cochran 1972 sufficient statistic equivalence broader δ ∈ {0.1, 0.5, 1.0} empirical confirm. 7c65a31 δ=0.5 한정 verified 영역 broader δ regime 영역 영역 영역 영역 — outside-log additive count + raw Pearson 영역 inside-log Laplace LR 영역 uniform null + reject side rule 영역 영역 영역 outcome ordering 동등 → exact p byte-identical.",
+      "H_method_2_equivalence_broader_delta_confirmed": "영역 3 δ × 영역 3 phase (총 9 cells) 영역 영역 영역 영역 Method 2 outside-log (additive count → raw Pearson χ²) exact p 영역 dc2038f Conv 3 inside-log (Laplace LR) exact p 영역 byte-identical (|Δp| < 1e-9) → Cochran 1972 sufficient statistic equivalence broader δ ∈ {0.1, 0.5, 1.0} empirical confirm. 7c65a31 δ=0.5 한정 verified 영역 broader δ regime 영역 영역 영역 영역 — outside-log additive count + raw Pearson 영역 inside-log Laplace LR 영역 uniform null + reject side rule 영역 영역 영역 outcome ordering 동등 → exact p byte-identical. **Scope caveat (QA HIGH 1 fix)**: 본 byte-identical 영역 **raw Pearson χ² (Cressie & Read 1984 λ=1) 한정** — Method 2 outside-log + raw Pearson 영역 Conv 3 inside-log Laplace LR (λ=-1 form) 영역 비교. G² (λ→0 Wilks 1938) / Modified LR (λ=-1 Neyman 1949) outside-log variant 영역 동일 byte-identical 영역 영역 영역 영역 — 별도 R&D mandatory. monotonic ordering preservation property (dc2038f 영역 명시) 영역 본 R&D 영역 root cause cross-reference.",
       "H_method_2_equivalence_broken": "영역 (phase, δ) cell 영역 byte-identical 영역 영역 (matchCount=0) — 7c65a31 δ=0.5 한정 verified 영역 broader δ regime 영역 영역 영역 영역 영역 영역 → inside-log vs outside-log variant 영역 fundamentally different outcome ordering. Cochran 1972 sufficient statistic principle 영역 본 variant pair 영역 영역 영역 영역 — 7c65a31 δ=0.5 coincidence 영역 영역.",
       "H_partial_equivalence": "mixed signal — 일부 (phase, δ) cell 영역 byte-identical, 영역 cell 영역 영역 영역. δ regime 영역 영역 영역 영역 영역 영역 — Cochran 1972 sufficient statistic principle 영역 partial 영역. broader δ continuous sweep + mathematical proof 별도 R&D mandatory."
     },
     "threshold_rationale": "byte_identical criterion — |p_method_2 - p_conv_3_inside_log| < 1e-9. IEEE 754 floating point rounding tolerance (multinomial PMF 영역 exact arithmetic — 1e-15 rounding 영역, 1e-9 영역 conservative). matchCount/totalCells ratio 영역 verdict 영역 결정.",
     "comparison_to_dc2038f_baseline": "dc2038f Conv 3 inside-log Laplace δ-invariant baseline — Phase A=0.0625 / B=0.1797 / C=0.6250 (모든 δ ∈ {0.1, 0.5, 1.0}). 본 R&D 영역 Method 2 outside-log 영역 영역 영역 영역 영역 영역 영역 byte-identical 영역 verify → Cochran 1972 sufficient statistic equivalence broader δ confirm.",
-    "comparison_to_7c65a31_baseline": "7c65a31 (williams-formal-symmetric-convention) 영역 Conv 3 δ=0.5 한정 — Method 2 (493f850 outside-log) 영역 동일 exact p (Phase A=0.0625, B=0.1797, C=0.6250) verified. 단 7c65a31 영역 δ=0.5 단일 한정. 본 R&D 영역 δ ∈ {0.1, 1.0} 영역 영역 영역 verify → broader δ regime equivalence empirical confirm."
+    "comparison_to_7c65a31_baseline": "7c65a31 (williams-formal-symmetric-convention) 영역 Conv 3 δ=0.5 한정 — Method 2 (493f850 outside-log) 영역 동일 exact p (Phase A=0.0625, B=0.1797, C=0.6250) verified. 단 7c65a31 영역 δ=0.5 단일 한정. 본 R&D 영역 δ ∈ {0.1, 1.0} 영역 영역 영역 verify → broader δ regime equivalence empirical confirm.",
+    "method_2_canonical_form_caveat": "**QA HIGH 2 fix**: 본 R&D Method 2 영역 \"smoothing to ALL cells\" generalize variant (영역 outcome cell 영역 영역 δ 영역 additive smoothing) — 493f850 영역 \"zero-cell only variant\" (O_i=0 cell 영역만 O_i=δ adjustment) 영역 분리. Williams 1976 §3 canonical \"Method 2\" form 영역 영역 영역 (사용자 영역 published PDF direct verify mandatory) — 본 R&D 영역 interpretation choice. 영역 R&D 영역 \"Method 2 outside-log\" 영역 본 commit 영역 정의 (smoothing ALL cells) 영역 한정 — broader Williams 1976 §3 form 영역 별도 R&D mandatory.",
+    "empirical_vs_formal_proof_caveat": "**QA MEDIUM 1 fix**: Cochran 1972 sufficient statistic principle 영역 broader theoretical context — 본 R&D 영역 9/9 byte-identical 영역 **empirical confirmation 한정** (mathematical proof 0). monotonic ordering preservation property (T_M2(δ) outcome ranking = T_C3(δ) outcome ranking on uniform null) 영역 본 R&D 영역 root cause hypothesis — formal proof (Cochran-style equivalence theorem 또는 measure-theoretic argument) 별도 R&D mandatory.",
+    "sigma_pmf_tolerance_note": "**QA MEDIUM 2 fix**: Σ pmf verification 영역 tolerance — Phase A/B/C × 3 δ × 2 methods = 18 cells verified, Σ = 1.0000000000000013 (A/B) / 0.9999999999999999 (C) — IEEE 754 floating-point rounding (1e-15 level) tolerance 영역 영역 영역 (logFactorial 영역 multinomial PMF computation 영역 직접 영역)."
   },
   "academic_alignment": [
     "Williams 1976 — improved likelihood ratio for sparse contingency tables (Method 2 outside-log additive count variant inspired).",

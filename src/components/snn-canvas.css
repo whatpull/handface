@@ -3026,9 +3026,28 @@
   transition: background 0.2s, box-shadow 0.2s;
 }
 /* v56 — winner cluster row highlight (현재 인식 자세). */
+/* v57 — pulse 영역 GPU 영역 composite-only (opacity 영역 pseudo overlay) 영역
+   catch — paint 영역 trigger 없음 (perf hint 정합). */
 .snn-camera-cluster-row-winner {
-  background: rgba(134, 239, 172, 0.10);
+  background-color: rgba(134, 239, 172, 0.10);
   box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+.snn-camera-cluster-row-winner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(134, 239, 172, 0.18);
+  pointer-events: none;
+  border-radius: inherit;
+  animation: snn-camera-winner-pulse 1.2s ease-in-out;
+  opacity: 0;
+}
+@keyframes snn-camera-winner-pulse {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 .snn-camera-cluster-id {
   color: #c4b5fd;

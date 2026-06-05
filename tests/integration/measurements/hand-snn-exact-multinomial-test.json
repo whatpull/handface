@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T05:29:43.681Z",
+  "timestamp": "2026-06-05T15:34:43.994Z",
   "scenario": "hand-snn-exact-multinomial-test",
-  "elapsed_ms": 7,
+  "elapsed_ms": 3,
   "focused_scope": {
     "analysis_type": "Existing tie-break (commit 15f9381) + multinomial bootstrap CI (commit 9e139ec) Phase A/B/C open_palm winner data 영역 pure statistical reanalysis via EXACT multinomial enumeration. NO SNN run, NO MediaPipe Hand encoder call. Cochran 1954 E≥5 rule violation (E=N/K=1.25 < 5) 영역 chi-squared approximation 한계 → exact p-value enumeration 영역 직접 해결. Read & Cressie 1988 power divergence statistic family (χ², G², λ=2/3) 영역 exact distribution.",
     "input_data": {
@@ -174,9 +174,9 @@
   },
   "hypothesis_details": {
     "definitions": {
-      "H_exact_significant": "모든 3 statistic (χ² / G² / Cressie-Read λ=2/3) 영역 exact p-value < 0.05 — uniform null rejection consistent across statistic choice (robust significance).",
-      "H_exact_marginal": "영역 statistic 영역 exact p < 0.05 단 영역 영역 영역 영역 (mixed signal) — statistic choice 영역 영역 영역 영역 영역 — 영역 영역 R&D 영역 영역.",
-      "H_exact_not_significant": "모든 3 statistic 영역 exact p ≥ 0.05 — uniform null failure to reject (insufficient statistical evidence even after Cochran violation resolution)."
+      "H_exact_significant": "모든 3 statistic (χ² / G² / Cressie-Read λ=2/3) 영역 exact p-value < 0.05 — uniform null rejection consistent across statistic choice. **Caveat (small N regime)**: N+K-1 choose K-1 enumeration 영역 영역 영역 영역 영역 discrete sample space 영역 영역 영역 statistic family 영역 outcome ranking 영역 identical induce — small N 영역 (N≤10) 영역 verdict 영역 trivially 3/3 consistent — \"robust significance\" claim 영역 distinguishing power 영역 N≥20 영역 emerge. broader N 영역 영역 statistic divergence 영역 발생 영역 영역 (Read & Cressie 1988 Table 1 영역).",
+      "H_exact_marginal": "영역 statistic 영역 exact p < 0.05 단 영역 영역 영역 영역 (mixed signal) — statistic choice 영역 영역 영역 영역 영역 — 영역 영역 R&D 영역 영역. **Dead branch caveat (small N regime)**: N+K-1 choose K-1 enumeration + discrete uniform null 영역 영역 영역 3 statistic 영역 ranking 영역 동일 induce — small N 영역 (본 R&D: N=5/3) 영역 marginal verdict 영역 trigger 영역 영역 영역 영역 영역 (영역 trivially H_exact_significant 또는 H_exact_not_significant 영역 영역). broader N regime / non-discrete null 영역 영역 marginal verdict 영역 활용 가능.",
+      "H_exact_not_significant": "모든 3 statistic 영역 exact p ≥ 0.05 — uniform null failure to reject (insufficient statistical evidence even after Cochran violation resolution). **Note (small N regime)**: small N + discrete null 영역 영역 3 statistic 영역 exact p identical — 영역 verdict 영역 robust 영역 영역 영역 single statistic 영역 결과 영역 영역 (statistic family 영역 disagreement 영역 영역 영역)."
     },
     "threshold_rationale": "Multi-statistic consistency criterion — Cressie-Read 1984 power divergence family 영역 영역 영역 statistic (λ=1, λ→0, λ=2/3) 영역 simultaneous p<0.05 영역 보수적 significance criterion. statistic 영역 영역 영역 영역 영역 영역 영역 영역 robust 영역 stance.",
     "frequentist_note": "Exact multinomial test — N+K-1 choose K-1 outcome 영역 enumerate, multinomial PMF under uniform null 영역 영역 statistic ≥ observed 영역 영역 sum. Cochran 1954 E≥5 rule 영역 영역 영역 영역 — large-sample approximation 영역 영역 영역. Read & Cressie 1988 power divergence family 영역 single λ=2/3 한정 — broader λ sweep 별도 R&D. Pearson 1900 / Wilks 1938 / Fisher 1922 정합."

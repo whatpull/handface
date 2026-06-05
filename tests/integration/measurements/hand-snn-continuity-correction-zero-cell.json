@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-06-03T10:49:29.150Z",
+  "timestamp": "2026-06-05T15:34:43.831Z",
   "scenario": "hand-snn-continuity-correction-zero-cell",
-  "elapsed_ms": 45,
+  "elapsed_ms": 5,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 λ=-1 zero-cell singularity 영역 3 correction methods 영역 영역 영역 finite p 영역 산출. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 6cfecf7 영역 정직 한계 \"λ=-1 raw +∞ handling — continuity correction (Read & Cressie 1988 §2.3) 또는 Cressie-Read 1984 limit form via L'Hopital 별도 R&D\" 영역 followup. method-invariance vs method-specific 영역 empirical verify.",
     "input_data": {

@@ -10,34 +10,34 @@
   },
   "triggers": {
     "total": 1000,
-    "spawns": 2,
-    "matches": 748,
-    "weakMatches": 250,
-    "finalClusters": 2
+    "spawns": 3,
+    "matches": 756,
+    "weakMatches": 241,
+    "finalClusters": 3
   },
   "per_pose_match": {
     "open_palm": 249,
-    "closed_fist": 0,
+    "closed_fist": 249,
     "thumbs_up": 249,
-    "peace_sign": 250
+    "peace_sign": 9
   },
   "drift": {
-    "firstHalfMean": 0.9683390627721884,
-    "secondHalfMean": 0.968535173427916,
-    "delta": 0.00019611065572755493
+    "firstHalfMean": 0.9916216050842004,
+    "secondHalfMean": 0.9916649581202809,
+    "delta": 0.00004335303608049568
   },
   "reinforce": {
-    "success": 1118,
+    "success": 1207,
     "failure": 0
   },
   "log_throttle": {
-    "actualLines": 752,
+    "actualLines": 993,
     "legacyLines": 2000,
-    "ratio": 2.7
+    "ratio": 2
   },
   "localStorage": {
-    "featureBytes": 3646,
-    "kb": 3.6
+    "featureBytes": 5476,
+    "kb": 5.3
   },
   "verdict": "✓ 1000 trigger sustained 정상"
 }

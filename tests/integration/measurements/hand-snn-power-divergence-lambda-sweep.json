@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T06:22:44.848Z",
+  "timestamp": "2026-06-05T15:34:43.937Z",
   "scenario": "hand-snn-power-divergence-lambda-sweep",
-  "elapsed_ms": 7,
+  "elapsed_ms": 5,
   "focused_scope": {
     "analysis_type": "Existing tie-break (commit 15f9381) + multinomial bootstrap CI (commit 9e139ec) + exact multinomial (commit a1d6d4d) Phase A/B/C open_palm winner data 영역 pure statistical reanalysis via power divergence T(λ) family broader λ sweep. NO SNN run, NO MediaPipe Hand encoder call. Read & Cressie 1988 Table 1 영역 5 λ value (λ ∈ {-1, -1/2, 0, 2/3, 1}) 영역 exact p empirically compute → small N regime (N=5/3, K=4) 영역 λ-invariant degeneracy vs broader N regime 영역 λ-specific divergence emergence 영역 empirical separate.",
     "input_data": {
@@ -60,7 +60,7 @@
       "method": "Stars-and-bars enumeration of multinomial compositions (o_0, ..., o_{K-1}) s.t. Σ o_i = N. Total outcomes = C(N+K-1, K-1) — N=5/K=4 → 56, N=3/K=4 → 20.",
       "framework_reuse": "Same exact enumeration framework as commit a1d6d4d (hand-snn-exact-multinomial-test). Multinomial PMF + outcome enumeration reused without modification — λ statistic computation 영역 영역 확장.",
       "exact_p_value_definition": "exact p(λ) = Σ P[outcome] over all outcomes with T(λ)[outcome] ≥ T(λ)[observed]. No large-sample approximation — Cochran 1954 E≥5 violation 영역 직접 회피.",
-      "infinity_handling": "λ = -1 (Modified LR), O_i = 0 영역 영역 영역 E·log(E/0) = +∞ → statistic = +∞. Observed (finite) ≤ +∞ 영역 영역 영역 영역 영역 영역 reject side 영역 — exact p computation 영역 영역 영역 영역 outcome 영역 영역 영역 (statistic = +∞ ≥ observed (finite)) → include 영역. Phase A counts=[1,3,1,0] (cluster 3 zero) → Phase A observed T(-1) = +∞ → 영역 outcome 영역 reject side (영역 영역 영역 영역 reject)… 영역 영역 영역 영역 영역 verify 영역 영역."
+      "infinity_handling": "λ = -1 (Modified LR, Neyman 1949), O_i = 0 영역 영역 영역 E·log(E/O_i) = E·log(E/0) = +∞ → observed T(-1) = +∞ when ∃ zero-count cluster. include rule: counted outcome 영역 T(λ)[outcome] ≥ T(λ)[observed] — observed = +∞ 영역 +∞ ≥ +∞ holds 영역 영역 영역 outcome 영역 ∃ ≥1 zero-cluster outcome 영역 영역 영역 영역 — exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. Phase A actual winners=[2,0,2,2,2] → counts=[1,0,4,0] (cluster 1 + cluster 3 영역 영역 zero). Phase B winners=[1,3,1,1,3] → counts=[0,3,0,2] (cluster 0 + cluster 2 영역 영역 zero). Phase C winners=[1,2,2] → counts=[0,1,2,0] (cluster 0 + cluster 3 영역 영역 zero). **3 phases 영역 영역 ≥1 zero-cluster ∃** → λ=-1 observed=+∞ → 본 +∞ 영역 broader-N λ-divergence power emergence (Read & Cressie 1988 §5) 영역 영역 영역 small-N structural zero-cell singularity 영역. Formal handling 영역 Read & Cressie 1988 §2.3 continuity correction 또는 Cressie-Read 1984 limit form (lim_{λ→-1} T(λ) via L'Hopital) 영역 영역 영역 — 본 R&D 영역 raw +∞ 영역 영역 영역 영역 영역 reject side classification, continuity correction 별도 R&D mandatory."
     },
     "power_divergence_family_table_1": "Read & Cressie 1988 Table 1: T(λ) = (2 / (λ(λ+1))) Σ O ((O/E)^λ - 1). Special cases: λ=-1 Neyman 1949 Modified LR (limit: 2 Σ E log(E/O)); λ=-1/2 Freeman-Tukey 1950 (closed: 4 Σ (√O - √E)²); λ→0 Wilks 1938 G² (limit: 2 Σ O log(O/E)); λ=2/3 Cressie-Read 1984 small-sample recommended; λ=1 Pearson 1900 χ² (closed: Σ (O-E)²/E)."
   },
@@ -310,7 +310,7 @@
   "hypothesis_details": {
     "definitions": {
       "H_lambda_invariant": "영역 λ ∈ {-1, -1/2, 0, 2/3, 1} 영역 영역 영역 영역 exact p — discrete null + small N 영역 영역 ranking identical induce (직전 a1d6d4d 영역 small N regime degeneracy 영역 broader λ sweep 영역 confirm). Read & Cressie 1988 §5 영역 power divergence statistic 영역 영역 λ value 영역 추천 영역 small N (N≤10) 영역 영역 영역 distinguishing power 영역 영역 영역 영역 영역 — N≥20 영역 영역 λ-specific divergence emerge expected.",
-      "H_lambda_specific": "영역 λ 영역 exact p 영역 영역 영역 영역 차이 발생 — broader N regime 영역 emerge expected (현재 N=5/3 영역 unlikely). 발생 영역 영역 영역 N=5 + uniform null 영역 영역 영역 ranking 영역 영역 영역 영역 영역 영역 영역 영역 — 영역 R&D 영역 별도 R&D.",
+      "H_lambda_specific": "영역 λ 영역 exact p 영역 영역 영역 영역 차이 발생. **Disambiguation mandatory — divergence source 영역 separate**: (a) broader-N power divergence emergence (Read & Cressie 1988 §5) — N≥20 영역 영역 영역 영역 영역 statistic-specific ranking distinction; (b) small-N zero-cell structural singularity — λ=-1 (Modified LR Neyman 1949) 영역 O_i=0 영역 영역 E·log(E/0)=+∞ → observed=+∞ → exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. 본 R&D (N=5/3) 영역 (b) source 영역 — λ=-1 만 영역 4 finite λ ∈ {-1/2, 0, 2/3, 1} 영역 영역 영역 영역 exact p 영역 영역 영역. (a) source 영역 broader N regime sweep 영역 별도 R&D.",
       "H_partial_lambda_specific": "λ 영역 영역 영역 영역 영역 영역 영역 동일 — mixed signal. 영역 영역 영역 영역 영역 discrete uniform null 영역 영역 영역 영역 영역 — 영역 영역 영역 영역 R&D 영역 별도 R&D."
     },
     "threshold_rationale": "λ-invariance criterion — 5 λ value 영역 exact p 영역 모두 동일 (numerical EPS=1e-9) → discrete uniform null 영역 영역 영역 statistic ranking identical induce. Read & Cressie 1988 §5 영역 power divergence distinguishing power 영역 N≥20 영역 emerge 영역 영역 — 본 R&D 영역 N=5/3 영역 H_lambda_invariant 영역 영역 expected.",
@@ -329,7 +329,8 @@
   "limitations": [
     "Existing data reanalysis 한정 — NO SNN run, NO MediaPipe Hand encoder call.",
     "5 λ values 한정 (λ ∈ {-1, -1/2, 0, 2/3, 1}) — full continuous λ ∈ ℝ sweep (예: λ ∈ [-2, 2] step=0.1 = 41 values) 별도 R&D.",
-    "λ = -1 (Modified LR) 영역 Oi = 0 일 때 Ei · log(Ei/0) = +∞ → 영역 outcome 영역 statistic 영역 special handling (영역 영역 영역 outcome 영역 영역 영역 reject side 영역 +∞ 영역 영역 영역 영역 영역). observed statistic 영역 +∞ 영역 영역 영역 영역 영역 영역 영역 영역 영역 영역 — Phase A counts=[1,3,1,0] cluster 3 zero 영역 영역 영역 observed T(-1) = +∞ → exact p computation 영역 영역 영역 영역 outcome 영역 (statistic = +∞ ≥ observed = +∞) → include 영역 영역.",
+    "λ = -1 (Modified LR Neyman 1949) 영역 O_i = 0 일 때 E·log(E/0) = +∞ → observed = +∞ when ∃ zero-count cluster. Phase A actual counts=[1,0,4,0] (cluster 1+3 zero, NOT [1,3,1,0] — 직전 audit catch correction) / Phase B counts=[0,3,0,2] / Phase C counts=[0,1,2,0] — 영역 phase 영역 ∃ zero-cluster → λ=-1 observed=+∞ → exact p ≈ P[outcome 영역 ≥1 zero] under uniform null. Formal handling 영역 Read & Cressie 1988 §2.3 continuity correction 또는 Cressie-Read 1984 limit form (lim_{λ→-1} T(λ) via L'Hopital) 영역 별도 R&D — 본 R&D 영역 raw +∞ 영역 영역 영역 영역 영역 reject side classification.",
+    "**λ-divergence source disambiguation (직전 audit HIGH catch correction)**: H_lambda_specific verdict 영역 (a) broader-N power divergence emergence (Read & Cressie 1988 §5) vs (b) small-N zero-cell structural singularity (λ=-1 only) 영역 separate. 본 R&D (N=5/3) 영역 (b) — 4 finite λ ∈ {-1/2, 0, 2/3, 1} exact p identical (small N degeneracy a1d6d4d caveat broader λ confirm) + λ=-1 zero-cell singularity 한정 divergence. (a) source 영역 broader N regime sweep mandatory R&D.",
     "Exact enumeration 영역 N+K-1 choose K-1 outcome 한정 — N=5/K=4 영역 56, N=3/K=4 영역 20. N≥10 영역 enumeration intractable (예: N=10/K=4 → C(13,3) = 286, N=20/K=4 → C(23,3) = 1,771, N=50/K=4 → C(53,3) = 23,426) → sampling 영역 Monte Carlo exact (Mehta & Patel 1983 network algorithm) mandatory.",
     "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 significance pattern 보장 X.",
     "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",

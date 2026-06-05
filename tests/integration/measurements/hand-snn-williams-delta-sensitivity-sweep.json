@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-30T08:35:28.147Z",
+  "timestamp": "2026-06-05T15:34:43.960Z",
   "scenario": "hand-snn-williams-delta-sensitivity-sweep",
-  "elapsed_ms": 10,
+  "elapsed_ms": 4,
   "focused_scope": {
     "analysis_type": "Existing Phase A/B/C open_palm winner data 영역 pure statistical reanalysis 영역 영역 영역 Conv 3 (symmetric Laplace, inside-log) T_sym(δ) = 2 Σ (E+δ) log((E+δ)/(O+δ)) δ ∈ {0.1, 0.5, 1.0} sensitivity sweep. NO SNN run, NO MediaPipe Hand encoder call. 직전 commit 7c65a31 영역 정직 한계 \"Laplace smoothing δ=0.5 ad-hoc — δ sensitivity sweep 별도 R&D mandatory\" 영역 직접 followup.",
     "input_data": {
@@ -353,7 +353,7 @@
   },
   "hypothesis_details": {
     "definitions": {
-      "H_delta_invariant": "영역 3 phase 영역 영역 영역 영역 δ ∈ {0.1, 0.5, 1.0} sweep 영역 reject decision (α=0.05) 동일 AND max p_range < 0.05 → δ choice 영역 verdict 영역 영역 영역 영역 — rare 영역 영역 small N + discrete sample space 영역 영역 영역 영역 영역 영역 영역.",
+      "H_delta_invariant": "영역 3 phase 영역 영역 영역 영역 δ ∈ {0.1, 0.5, 1.0} sweep 영역 reject decision (α=0.05) 동일 AND max p_range < 0.05 → δ choice 영역 verdict 영역 영역 영역 영역 — rare 영역 영역 small N + discrete sample space 영역 영역 영역 영역 영역 영역 영역. **Mechanism (QA MEDIUM catch fix)**: T(δ) 영역 δ-dependent 단 (T(0.1)=11.608 / T(0.5)=6.003 / T(1.0)=4.235 Phase A) outcome ordering 영역 δ ∈ {0.1, 0.5, 1.0} 영역 영역 영역 보존 → exact p byte-identical — **monotonic transformation property** (sufficient condition for δ-invariance). **Verdict scope (QA MEDIUM catch fix)**: verdict ⊂ δ ∈ {0.1, 0.5, 1.0} 한정 — extrapolation 영역 X. δ → 0+ (singular limit at O=0) 또는 δ → ∞ (uniform smoothing) regime 영역 영역 영역 ordering preservation 영역 깨질 영역 영역 — broader continuous δ range (예: δ ∈ [0.01, 5.0]) 별도 R&D mandatory.",
       "H_delta_sensitive": "영역 δ choice 영역 reject decision 영역 영역 영역 영역 phase ∃ — additional indeterminacy on top of method choice. δ choice 영역 ad-hoc 영역 영역 영역 영역 정직 한계 영역 — α=0.05 reject 영역 δ choice 영역 영역 영역 영역.",
       "H_partial_delta_sensitivity": "mixed signal — reject decisions unanimous per phase 단 max p_range ≥ 0.05 (p 값 영역 영역 영역 영역). reject decision 영역 동일 단 effect size 영역 δ choice 영역 영역 영역."
     },
@@ -377,7 +377,9 @@
     "3 δ values 한정 — full continuous δ sweep (예: δ ∈ [0.01, 5.0] step=0.05) 별도 R&D. δ=0.1 / 0.5 / 1.0 영역 representative 영역 단 continuous behavior 영역 영역 영역.",
     "δ=0.5 reproduces 7c65a31 baseline (sanity check) — δ=0.1 / 1.0 영역 본 R&D novel.",
     "Conv 3 inside-log Laplace 영역 한정 — 영역 convention (Conv 1 zero-skip / Conv 2 strict +∞) 영역 δ sweep 별도 R&D (단 Conv 1 영역 δ-parameter 없음, Conv 2 영역 +∞ → δ 영역 영역 영역 — sufficient statistic equivalent 영역 493f850 Method 2 영역 동일 outcome 영역 expected).",
-    "Williams δ Method 2 영역 outside-log additive count variant 영역 7c65a31 영역 영역 영역 영역 영역 영역 sufficient statistic equivalent 영역 — 본 R&D 영역 Conv 3 inside-log 한정 결과 영역 outside-log Williams δ Method 2 영역 동일 outcome 영역 expected (Cochran 1972 sufficient statistic principle).",
+    "Williams δ Method 2 영역 outside-log additive count variant 영역 7c65a31 영역 영역 영역 영역 영역 영역 sufficient statistic equivalent 영역 — 본 R&D 영역 Conv 3 inside-log 한정 결과 영역 outside-log Williams δ Method 2 영역 동일 outcome 영역 expected (Cochran 1972 sufficient statistic principle). **QA LOW catch fix**: \"expected\" 영역 추정 영역 — direct verify (outside-log Method 2 δ ∈ {0.1, 1.0} 영역 reproduce) 별도 R&D mandatory (7c65a31 영역 δ=0.5 한정 verified).",
+    "**Monotonic ordering preservation hypothesis** (QA MEDIUM catch fix): δ-invariance 영역 root cause 영역 outcome ordering 영역 δ ∈ {0.1, 0.5, 1.0} 영역 영역 영역 보존 (T(δ=0.1) > T(δ=0.5) > T(δ=1.0) 영역 영역 단 outcome subset 영역 영역 영역 영역). δ → 0+ (singular at O=0) 또는 δ → ∞ (uniform smoothing) regime 영역 영역 영역 ordering preservation 영역 깨질 영역 영역 — mathematical proof 별도 R&D mandatory.",
+    "**δ label inconsistency note** (QA LOW catch fix): JSON serialization 영역 δ=1.0 영역 trailing zero strip → measurement.json 영역 `\"delta\": 1` (integer) 영역 표기, evidence string 영역 `δ=1` 영역 표기. cosmetic — frontend display 영역 robust label (예: `delta_1.0`) 영역 영역 적정 권고 (UI wire 시점).",
     "Exact enumeration N≤5 한정 (N≥10 Monte Carlo mandatory — Mehta & Patel 1983 network algorithm).",
     "Mock anatomical 한정 — actual MediaPipe Hand 영역 동일 zero-cell pattern 보장 X.",
     "Frequentist: failure to reject ≠ accept H0 — exact p ≥ 0.05 영역 architectural bias 영역 \"absence of evidence\" 영역 영역 (evidence of absence 영역 영역 영역).",

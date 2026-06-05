@@ -48,9 +48,11 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
     // R&D 25개 sweep 은 nightly cron 만 — production verify 영역 제외.
+    // Phase 3.9 final 의 hand SNN archive — 폐기된 path 의 측정 기록 보존.
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/_archive_*/**',
       ...RD_TEST_PATTERNS,
     ],
     css: false,
